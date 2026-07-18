@@ -163,9 +163,10 @@ class EnvironmentManager {
         try {
             // 1. 먼저 .env 파일에서 로드 (기존에 저장된 API 키)
             let envFileConfig = {};
+            const envFileLoadingDisabled = /^(?:1|true)$/i.test(String(process.env['LEWORD_DISABLE_ENV_FILE_LOADING'] || '').trim());
             // 프로젝트 루트의 .env 파일도 확인
             const projectRootEnv = path.join(process.cwd(), '.env');
-            if (fs.existsSync(projectRootEnv)) {
+            if (!envFileLoadingDisabled && fs.existsSync(projectRootEnv)) {
                 try {
                     const raw = fs.readFileSync(projectRootEnv, 'utf-8');
                     const parsed = this.parseDotEnv(raw);
@@ -178,7 +179,7 @@ class EnvironmentManager {
             }
             // 사용자 데이터 디렉토리의 .env 파일 확인
             const envPath = this.getEnvPath();
-            if (fs.existsSync(envPath)) {
+            if (!envFileLoadingDisabled && fs.existsSync(envPath)) {
                 try {
                     const raw = fs.readFileSync(envPath, 'utf-8');
                     const parsed = this.parseDotEnv(raw);

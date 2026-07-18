@@ -11,8 +11,12 @@ import { findUltimateNicheKeywords } from '../../utils/ultimate-niche-finder';
 import { checkUnlimitedLicense } from './shared';
 import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-api';
 import { rankKeywordExpansionStrings } from '../../utils/keyword-expansion-ranker';
-import { deterministicRange } from '../../utils/deterministic-random';
 import { rankGoldenDiscoveryResults } from '../../utils/golden-discovery-floor';
+import {
+  CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+  measureDocumentCount,
+  type DcMeasurement,
+} from '../../utils/measure-dc';
 
 
 export function setupKeywordAnalysisHandlers(): void {
@@ -1619,6 +1623,11 @@ export function setupKeywordAnalysisHandlers(): void {
           searchVolume?: number | null;
           documentCount?: number;
           goldenRatio?: number | null;
+          documentCountSource?: string;
+          documentCountConfidence?: string;
+          documentCountQueryMode?: 'broad';
+          documentCountMeasuredAt?: string;
+          isDocumentCountEstimated?: boolean;
           type: 'original' | 'expansion' | 'related' | 'suggested';
         }> = [];
 
@@ -1632,21 +1641,21 @@ export function setupKeywordAnalysisHandlers(): void {
         }
 
         // 🔥 문서수 조회 전역 쓰로틀/백오프 상태 (모든 워커 공유)
-        let docCountPauseUntil = 0;
         let docCountLastRequestAt = 0;
 
         // 🔥 문서수 조회 함수 (재시도 로직 포함 + 상세 로깅)
-        const fetchDocumentCount = async (keyword: string, maxRetries = 3): Promise<number> => {
+        const fetchDocumentCount = async (
+          keyword: string,
+          maxRetries = 3,
+          forceFresh = false,
+        ): Promise<DcMeasurement | null> => {
           const verboseDocLog = allKeywords.length <= 80;
           for (let retry = 0; retry < maxRetries; retry++) {
             try {
               // 🔥 글로벌 쓰로틀/백오프 (동시 워커 폭주 방지)
               // - min interval: 요청 간 최소 간격
-              // - pauseUntil: 429 발생 시 전체 워커 잠깐 정지
+              // 실제 API rate-limit/재시도는 measure-dc SSoT가 직렬 관리한다.
               const minIntervalMs = allKeywords.length >= 400 ? 220 : 180;
-              while (Date.now() < docCountPauseUntil) {
-                await new Promise(resolve => setTimeout(resolve, 80));
-              }
 
               const now = Date.now();
               const waitForInterval = (docCountLastRequestAt + minIntervalMs) - now;
@@ -1655,60 +1664,26 @@ export function setupKeywordAnalysisHandlers(): void {
               }
               docCountLastRequestAt = Date.now();
 
-              const encodedKeyword = encodeURIComponent(keyword);
-              const docCountUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodedKeyword}&display=1`;
-
-              if (verboseDocLog) console.log(`[DOC-COUNT] 📡 API 호출 (${retry + 1}/${maxRetries}): "${keyword}"`);
-
-              const docCountRes = await fetch(docCountUrl, {
-                headers: {
-                  'X-Naver-Client-Id': naverClientId,
-                  'X-Naver-Client-Secret': naverClientSecret
-                }
+              if (verboseDocLog) console.log(`[DOC-COUNT] 📡 SSoT 조회 (${retry + 1}/${maxRetries}): "${keyword}"`);
+              const measurement = await measureDocumentCount(keyword, {
+                queryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+                // A user's directly analyzed seed should match an immediate
+                // external broad-query check. Expansion rows still reuse the
+                // shared 15-minute cache to protect quota.
+                skipCache: forceFresh,
               });
-
-              if (verboseDocLog) console.log(`[DOC-COUNT] 응답 상태: ${docCountRes.status} ${docCountRes.statusText}`);
-
-              if (docCountRes.ok) {
-                try {
-                  const docData = (await docCountRes.json()) as { total?: number; lastBuildDate?: string; display?: number; start?: number };
-                  if (verboseDocLog) console.log(`[DOC-COUNT] 파싱된 데이터: total=${docData.total}, display=${docData.display}, start=${docData.start}`);
-
-                  const count = docData.total;
-
-                  // total이 undefined가 아니고 숫자인 경우에만 반환
-                  if (typeof count === 'number') {
-                    if (verboseDocLog) console.log(`[DOC-COUNT] ✅ "${keyword}" 문서수: ${count.toLocaleString()}`);
-                    return count;
-                  } else {
-                    console.warn(`[DOC-COUNT] ⚠️ total이 숫자가 아님: ${typeof count}, 값: ${count}`);
-                  }
-                } catch (parseError) {
-                  console.error(`[DOC-COUNT] ❌ JSON 파싱 실패:`, parseError);
+              if (
+                !measurement.isEstimated
+                && measurement.dc >= 0
+                && (measurement.source === 'naver-api' || measurement.source === 'cache')
+              ) {
+                if (verboseDocLog) {
+                  console.log(`[DOC-COUNT] ✅ "${keyword}" 문서수: ${measurement.dc.toLocaleString()} (${measurement.source}/${measurement.queryMode})`);
                 }
-              } else {
-                console.warn(`[DOC-COUNT] ⚠️ API 응답 실패: ${docCountRes.status} ${docCountRes.statusText}`);
-                try {
-                  const errorText = await docCountRes.text();
-                  if (verboseDocLog) console.warn(`[DOC-COUNT] 에러 내용: ${errorText}`);
-                } catch {
-                  // ignore
-                }
-
-                // 429 Too Many Requests인 경우 더 오래 대기
-                if (docCountRes.status === 429) {
-                  const retryAfterRaw = docCountRes.headers?.get?.('retry-after');
-                  const retryAfterSec = retryAfterRaw ? parseInt(String(retryAfterRaw), 10) : NaN;
-                  const base = Number.isFinite(retryAfterSec) ? (retryAfterSec * 1000) : (1500 * (retry + 1));
-                  const jitter = deterministicRange(`doccount-429:${keyword}:${retry}`, 0, 350);
-                  const backoffMs = Math.min(10000, base + jitter);
-
-                  // 전체 워커 일시 정지
-                  docCountPauseUntil = Math.max(docCountPauseUntil, Date.now() + backoffMs);
-                  if (verboseDocLog) console.log(`[DOC-COUNT] ⏳ Rate Limit! ${backoffMs}ms 대기...`);
-                  await new Promise(resolve => setTimeout(resolve, backoffMs));
-                }
+                return measurement;
               }
+              console.warn(`[DOC-COUNT] ⚠️ "${keyword}" OpenAPI total 미확보 (${measurement.source}) — 공식 문서수로 표시하지 않음`);
+              return null;
             } catch (error: any) {
               console.error(`[DOC-COUNT] ⚠️ "${keyword}" 문서수 조회 실패 (시도 ${retry + 1}/${maxRetries}):`, error?.message || error);
             }
@@ -1723,7 +1698,7 @@ export function setupKeywordAnalysisHandlers(): void {
           // v2.43.3: 사유 누적 — 마지막 응답 코드 추적 (UI 진단용)
           (globalThis as any).__leword_doccount_lastStatus = (globalThis as any).__leword_doccount_lastStatus || { code: 'unknown', count: 0 };
           console.error(`[DOC-COUNT] ❌ "${keyword}" 문서수 조회 최종 실패`);
-          return -1;
+          return null;
         };
 
         if (!shouldComputeMetrics) {
@@ -1751,30 +1726,12 @@ export function setupKeywordAnalysisHandlers(): void {
               const kw = allKeywords[i];
 
               // 문서수 조회 (재시도 로직 포함)
-              let documentCount = await fetchDocumentCount(kw.keyword);
-
-              // v2.42.37: Bilateral Sanity Check — API undercount 시 scrape 재검증 (rich-feed-builder/getNaverKeywordSearchVolumeSeparate 와 동일 정책)
-              //   "노사발전재단" 같은 API 70 vs 실제 16,681 케이스 → 재검색 결과 일치 보장
-              const _svForCheck = typeof kw.searchVolume === 'number' ? kw.searchVolume : 0;
-              if (documentCount > 0 && _svForCheck >= 500 && documentCount < 3000 && _svForCheck / documentCount > 50) {
-                try {
-                  const axiosMod = await import('axios');
-                  const _url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(kw.keyword)}`;
-                  const _resp = await axiosMod.default.get(_url, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36 Chrome/120.0.0.0' },
-                    timeout: 2000,
-                  });
-                  const _html = String(_resp.data || '');
-                  const _m = _html.match(/([0-9,]+)\s*건/);
-                  if (_m && _m[1]) {
-                    const _scraped = parseInt(_m[1].replace(/,/g, ''), 10);
-                    if (Number.isFinite(_scraped) && _scraped > documentCount * 5) {
-                      console.warn(`[DOC-COUNT] 🔧 API undercount "${kw.keyword}": API=${documentCount} → scrape=${_scraped} 채택`);
-                      documentCount = _scraped;
-                    }
-                  }
-                } catch { /* scrape 실패 시 API 값 유지 */ }
-              }
+              const documentMeasurement = await fetchDocumentCount(
+                kw.keyword,
+                3,
+                kw.type === 'original',
+              );
+              const documentCount = documentMeasurement?.dc ?? -1;
 
               // 황금비율 계산 (검색량 / 문서수)
               const searchVol = typeof kw.searchVolume === 'number' ? kw.searchVolume : null;
@@ -1794,7 +1751,12 @@ export function setupKeywordAnalysisHandlers(): void {
               out[i] = {
                 ...kw,
                 documentCount: finalDocCount,
-                goldenRatio
+                goldenRatio,
+                documentCountSource: documentMeasurement?.source,
+                documentCountConfidence: documentMeasurement?.confidence,
+                documentCountQueryMode: documentMeasurement ? 'broad' : undefined,
+                documentCountMeasuredAt: documentMeasurement?.measuredAt,
+                isDocumentCountEstimated: documentMeasurement?.isEstimated,
               };
 
               doneCount += 1;
@@ -2230,26 +2192,14 @@ export function setupKeywordAnalysisHandlers(): void {
               // 문서수 조회
               let documentCount: number | null = null;
               try {
-                const blogApiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-                const headers = {
-                  'X-Naver-Client-Id': naverClientId,
-                  'X-Naver-Client-Secret': naverClientSecret
-                };
-                const docParams = new URLSearchParams({
-                  query: combinedKeyword,
-                  display: '1'
+                const measuredDc = await measureDocumentCount(combinedKeyword, {
+                  queryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+                  searchVolume: totalVol || 0,
                 });
-                const docResponse = await fetch(`${blogApiUrl}?${docParams}`, {
-                  method: 'GET',
-                  headers: headers
-                });
-                if (docResponse.ok) {
-                  const docData = await docResponse.json();
-                  const rawTotal = (docData as any)?.total;
-                  documentCount = typeof rawTotal === 'number'
-                    ? rawTotal
-                    : (typeof rawTotal === 'string' ? parseInt(rawTotal, 10) : null);
-                }
+                documentCount = !measuredDc.isEstimated
+                  && (measuredDc.source === 'naver-api' || measuredDc.source === 'cache')
+                  ? measuredDc.dc
+                  : null;
               } catch (docErr) {
                 console.warn(`[SUFFIX-SEARCH] "${combinedKeyword}" 문서수 조회 실패:`, docErr);
               }

@@ -101,7 +101,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     intent: 'Commercial',
     evidence: [
       `curated-policy:${spec.policyKey}`,
-      'naver-openapi-exact-phrase',
+      'naver-openapi-broad',
     ],
     isMeasured: true,
     searchVolumeSource: 'searchad',
@@ -109,7 +109,8 @@ fs.writeFileSync(boardFile, JSON.stringify({
     isSearchVolumeEstimated: false,
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
-    documentCountQueryMode: 'exact-phrase',
+    documentCountQueryMode: 'broad',
+    documentCountMeasuredAt: measuredAt,
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-15T00:00:00.000Z',
     updatedAt: '2026-07-15T00:00:00.000Z',

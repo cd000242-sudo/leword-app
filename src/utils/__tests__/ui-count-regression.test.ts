@@ -471,7 +471,7 @@ assert('mindmap metrics require complete Naver SearchAd credentials and preserve
 assert('keyword lookup returns measured search volume and document count fields',
   /const\s+shouldComputeMetrics\s*=\s*hasNaverApiKeys\s*&&\s*!isUnlimited/.test(keywordAnalysis)
     && /getNaverKeywordSearchVolumeSeparate[\s\S]{0,180}includeDocumentCount:\s*false/.test(keywordAnalysis)
-    && /const\s+fetchDocumentCount\s*=\s*async\s*\(keyword:\s*string/.test(keywordAnalysis)
+    && /const\s+fetchDocumentCount\s*=\s*async\s*\(\s*keyword:\s*string[\s\S]{0,120}?\):\s*Promise/.test(keywordAnalysis)
     && /documentCount:\s*typeof\s+k\.documentCount\s*===\s*'number'\s*\?\s*k\.documentCount\s*:\s*null/.test(keywordAnalysis),
   'general keyword lookup can return rows without measured search-volume/document-count fields');
 

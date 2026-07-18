@@ -1,6 +1,10 @@
 import { splitKeywordSemantically } from './semantic-splitter';
 import { generateQueryPatterns } from './pattern-generator';
-import { classifyKeywordIntent, getNaverKeywordSearchVolumeSeparate } from './naver-datalab-api';
+import {
+    classifyKeywordIntent,
+    getNaverKeywordSearchVolumeSeparate,
+    hasFreshCanonicalNaverDocumentCount,
+} from './naver-datalab-api';
 import { getNaverAutocompleteKeywords } from './naver-autocomplete';
 import { estimateCPC, calculatePurchaseIntent, calculateCompetitionLevel, CATEGORY_CPC_DATABASE } from './profit-golden-keyword-engine';
 import { classifyKeyword, isKeywordMatchingCategory } from './categories';
@@ -33,6 +37,11 @@ export interface MDPResult {
     mobileSearchVolume?: number | null;
     searchVolumeBindingVersion?: 'keyword-keyed-v2';
     searchVolumeMeasuredAt?: string;
+    documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache' | 'unknown' | 'none';
+    documentCountConfidence?: 'high' | 'medium' | 'low';
+    documentCountQueryMode?: 'broad' | 'exact-phrase';
+    documentCountMeasuredAt?: string;
+    isDocumentCountEstimated?: boolean;
     // Phase 2: SERP Signals
     hasSmartBlock?: boolean;
     hasViewSection?: boolean;
@@ -376,8 +385,12 @@ export class MDPEngine {
                         const totalVolume = (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0);
                         if (totalVolume < minVolume) continue;
 
-                        const docCount = sig.documentCount || 0;
-                        const goldenRatio = docCount === 0 ? 10 : totalVolume / docCount;
+                        // Never turn an OpenAPI failure into an artificial high ratio.
+                        // Missing, exact, estimated, or stale counts are not golden
+                        // measurements and must not enter MDP scoring.
+                        if (!hasFreshCanonicalNaverDocumentCount(sig)) continue;
+                        const docCount = sig.documentCount as number;
+                        const goldenRatio = totalVolume / Math.max(1, docCount);
 
                         const intentInfo = classifyKeywordIntent(sig.keyword);
 
@@ -530,6 +543,11 @@ export class MDPEngine {
                             mobileSearchVolume: sig.mobileSearchVolume,
                             searchVolumeBindingVersion: sig.searchVolumeBindingVersion,
                             searchVolumeMeasuredAt: sig.searchVolumeMeasuredAt,
+                            documentCountSource: sig.documentCountSource,
+                            documentCountConfidence: sig.documentCountConfidence,
+                            documentCountQueryMode: sig.documentCountQueryMode,
+                            documentCountMeasuredAt: sig.documentCountMeasuredAt,
+                            isDocumentCountEstimated: sig.isDocumentCountEstimated,
                             // Phase 2 Data
                             hasSmartBlock: serpSignal.hasSmartBlock,
                             hasViewSection: serpSignal.hasViewSection,

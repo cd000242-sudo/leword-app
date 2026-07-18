@@ -12,9 +12,14 @@ import * as path from 'path';
 
 const NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS = 5 * 60 * 1000;
 const NAVER_BLOG_OPENAPI_RATE_LIMIT_BACKOFF_MS = 2_500;
+const NAVER_BLOG_OPENAPI_MIN_REQUEST_INTERVAL_MS = 250;
+export const NAVER_BLOG_OPENAPI_DEFAULT_TIMEOUT_MS = 8_000;
+export const NAVER_BLOG_OPENAPI_MAX_TIMEOUT_MS = 15_000;
+const NAVER_BLOG_DOCUMENT_COUNT_CACHE_WRITE_DEBOUNCE_MS = 500;
 const NAVER_BLOG_OPENAPI_STATE_SCHEMA = 1;
 const NAVER_BLOG_DOCUMENT_COUNT_CACHE_SCHEMA = 1;
-const NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+export const NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS = 15 * 60 * 1000;
+const NAVER_BLOG_DOCUMENT_COUNT_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 let legacyNaverBlogOpenApiQuotaBlockedUntil = 0;
 let naverBlogOpenApiRotationCursor = 0;
 let quotaStateLoaded = false;
@@ -23,6 +28,11 @@ let naverBlogOpenApiNextAllowedAtMs = 0;
 const naverBlogOpenApiQuotaBlockedUntilByKey = new Map<string, number>();
 let documentCountCacheLoaded = false;
 let documentCountCacheDirty = false;
+let documentCountCacheWriteTimer: NodeJS.Timeout | null = null;
+let documentCountCacheBeforeExitHooked = false;
+let naverBlogOpenApiRequestQueue: Promise<void> = Promise.resolve();
+let naverBlogOpenApiLastRequestAtMs = 0;
+const naverBlogDocumentCountInFlight = new Map<string, Promise<number | null>>();
 const naverBlogDocumentCountCache = new Map<string, {
   total: number;
   measuredAtMs: number;
@@ -317,8 +327,49 @@ function markNaverBlogOpenApiRateLimited(nowMs = Date.now()): void {
   );
 }
 
+async function runInNaverBlogOpenApiRequestSlot<T>(operation: () => Promise<T>): Promise<T> {
+  const previous = naverBlogOpenApiRequestQueue;
+  let release!: () => void;
+  naverBlogOpenApiRequestQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous.catch(() => undefined);
+  try {
+    const nowMs = Date.now();
+    const slotAtMs = Math.max(
+      naverBlogOpenApiNextAllowedAtMs,
+      naverBlogOpenApiLastRequestAtMs + NAVER_BLOG_OPENAPI_MIN_REQUEST_INTERVAL_MS,
+    );
+    if (slotAtMs > nowMs) await sleep(slotAtMs - nowMs);
+    await waitForNaverBlogOpenApiRateLimit();
+    naverBlogOpenApiLastRequestAtMs = Date.now();
+    return await operation();
+  } finally {
+    release();
+  }
+}
+
+/**
+ * Normalize a user-entered keyword for the product-wide broad Blog OpenAPI
+ * count. Quotation marks are Naver exact-phrase operators, so carrying them
+ * into a request while labelling the result `broad` corrupts provenance.
+ */
+export function normalizeNaverBlogBroadQuery(keyword: unknown): string {
+  return String(keyword || '')
+    .replace(/["“”„‟«»＂]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function documentCountCacheKey(keyword: string): string {
   return String(keyword || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function isReusableDocumentCountTimestamp(measuredAtMs: number, nowMs: number): boolean {
+  if (!Number.isFinite(measuredAtMs)) return false;
+  const ageMs = nowMs - measuredAtMs;
+  return ageMs >= -NAVER_BLOG_DOCUMENT_COUNT_MAX_FUTURE_SKEW_MS
+    && ageMs <= NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS;
 }
 
 function documentCountCacheFile(): string {
@@ -346,7 +397,7 @@ function loadNaverBlogDocumentCountCache(): void {
       const total = Number(entry?.total);
       const measuredAtMs = Number(entry?.measuredAtMs || Date.parse(entry?.measuredAt || ''));
       if (!key || !Number.isFinite(total) || total < 0 || !Number.isFinite(measuredAtMs)) continue;
-      if (nowMs - measuredAtMs > NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS) continue;
+      if (!isReusableDocumentCountTimestamp(measuredAtMs, nowMs)) continue;
       naverBlogDocumentCountCache.set(key, { total, measuredAtMs });
     }
   } catch {
@@ -362,7 +413,7 @@ function saveNaverBlogDocumentCountCache(): void {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const nowMs = Date.now();
     const entries = [...naverBlogDocumentCountCache.entries()]
-      .filter(([, entry]) => nowMs - entry.measuredAtMs <= NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS)
+      .filter(([, entry]) => isReusableDocumentCountTimestamp(entry.measuredAtMs, nowMs))
       .map(([keyword, entry]) => ({
         keyword,
         total: entry.total,
@@ -380,18 +431,44 @@ function saveNaverBlogDocumentCountCache(): void {
   }
 }
 
-function getCachedNaverBlogDocumentCount(keyword: string, nowMs = Date.now()): number | null {
+function scheduleNaverBlogDocumentCountCacheSave(): void {
+  if (documentCountCacheWriteTimer) return;
+  documentCountCacheWriteTimer = setTimeout(() => {
+    documentCountCacheWriteTimer = null;
+    saveNaverBlogDocumentCountCache();
+  }, NAVER_BLOG_DOCUMENT_COUNT_CACHE_WRITE_DEBOUNCE_MS);
+  documentCountCacheWriteTimer.unref?.();
+  if (!documentCountCacheBeforeExitHooked) {
+    documentCountCacheBeforeExitHooked = true;
+    process.once('beforeExit', () => {
+      if (documentCountCacheWriteTimer) {
+        clearTimeout(documentCountCacheWriteTimer);
+        documentCountCacheWriteTimer = null;
+      }
+      saveNaverBlogDocumentCountCache();
+    });
+  }
+}
+
+function getCachedNaverBlogDocumentCountMeasurement(
+  keyword: string,
+  nowMs = Date.now(),
+): { total: number; measuredAtMs: number } | null {
   loadNaverBlogDocumentCountCache();
   const key = documentCountCacheKey(keyword);
   const cached = key ? naverBlogDocumentCountCache.get(key) : undefined;
   if (!cached) return null;
-  if (nowMs - cached.measuredAtMs > NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS) {
+  if (!isReusableDocumentCountTimestamp(cached.measuredAtMs, nowMs)) {
     naverBlogDocumentCountCache.delete(key);
     documentCountCacheDirty = true;
-    saveNaverBlogDocumentCountCache();
+    scheduleNaverBlogDocumentCountCacheSave();
     return null;
   }
-  return cached.total;
+  return { total: cached.total, measuredAtMs: cached.measuredAtMs };
+}
+
+function getCachedNaverBlogDocumentCount(keyword: string, nowMs = Date.now()): number | null {
+  return getCachedNaverBlogDocumentCountMeasurement(keyword, nowMs)?.total ?? null;
 }
 
 /**
@@ -406,13 +483,30 @@ export function peekCachedNaverBlogDocumentCount(
   return getCachedNaverBlogDocumentCount(keyword, nowMs);
 }
 
+/**
+ * Read-only provenance for the canonical Blog OpenAPI total. This lets every
+ * product carry the original measurement timestamp instead of refreshing a
+ * stale number merely by copying it into a new result row.
+ */
+export function peekCachedNaverBlogDocumentCountMeasurement(
+  keyword: string,
+  nowMs = Date.now(),
+): { total: number; measuredAtMs: number; measuredAt: string } | null {
+  const cached = getCachedNaverBlogDocumentCountMeasurement(keyword, nowMs);
+  if (!cached) return null;
+  return {
+    ...cached,
+    measuredAt: new Date(cached.measuredAtMs).toISOString(),
+  };
+}
+
 function setCachedNaverBlogDocumentCount(keyword: string, total: number, nowMs = Date.now()): void {
   const key = documentCountCacheKey(keyword);
   if (!key || !Number.isFinite(total) || total < 0) return;
   loadNaverBlogDocumentCountCache();
   naverBlogDocumentCountCache.set(key, { total, measuredAtMs: nowMs });
   documentCountCacheDirty = true;
-  saveNaverBlogDocumentCountCache();
+  scheduleNaverBlogDocumentCountCacheSave();
 }
 
 /**
@@ -421,29 +515,74 @@ function setCachedNaverBlogDocumentCount(keyword: string, total: number, nowMs =
  * @param keyword 검색할 키워드
  * @returns 블로그 문서 수
  */
-export async function getNaverBlogDocumentCount(keyword: string): Promise<number | null> {
+export async function getNaverBlogDocumentCount(
+  keyword: string,
+  options: NaverBlogDocumentCountOptions = {},
+): Promise<number | null> {
+  const key = documentCountCacheKey(keyword);
+  if (!key) return null;
+  const canShare = !options.signal;
+  const configScope = options.config?.clientId || 'environment';
+  const inFlightKey = `${options.forceFresh === true ? 'fresh' : 'cached'}:${configScope}:${key}`;
+  if (canShare) {
+    const existing = naverBlogDocumentCountInFlight.get(inFlightKey);
+    if (existing) return existing;
+  }
+  const task = fetchNaverBlogDocumentCount(keyword, options);
+  if (canShare) naverBlogDocumentCountInFlight.set(inFlightKey, task);
   try {
-    const cached = getCachedNaverBlogDocumentCount(keyword);
+    return await task;
+  } finally {
+    if (canShare && naverBlogDocumentCountInFlight.get(inFlightKey) === task) {
+      naverBlogDocumentCountInFlight.delete(inFlightKey);
+    }
+  }
+}
+
+export interface NaverBlogDocumentCountOptions {
+  forceFresh?: boolean;
+  config?: { clientId?: string; clientSecret?: string };
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
+
+async function fetchNaverBlogDocumentCount(
+  keyword: string,
+  options: NaverBlogDocumentCountOptions,
+): Promise<number | null> {
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (options.signal?.aborted) controller.abort();
+  options.signal?.addEventListener('abort', onAbort, { once: true });
+  const requestedTimeoutMs = Number(options.timeoutMs);
+  const timeoutMs = Number.isFinite(requestedTimeoutMs) && requestedTimeoutMs > 0
+    ? Math.min(requestedTimeoutMs, NAVER_BLOG_OPENAPI_MAX_TIMEOUT_MS)
+    : NAVER_BLOG_OPENAPI_DEFAULT_TIMEOUT_MS;
+  try {
+    const cached = options.forceFresh ? null : getCachedNaverBlogDocumentCount(keyword);
     if (cached !== null) {
       console.log(`[NAVER-BLOG-API] cache hit: "${keyword}" = ${cached.toLocaleString()}`);
       return cached;
     }
 
-    const envManager = EnvironmentManager.getInstance();
-    const config = envManager.getConfig();
+    const fallbackConfig = options.config
+      ? {
+        clientId: options.config.clientId || process.env['NAVER_CLIENT_ID'] || '',
+        clientSecret: options.config.clientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+      }
+      : (() => {
+        const config = EnvironmentManager.getInstance().getConfig();
+        return {
+          clientId: config.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
+          clientSecret: config.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+        };
+      })();
     
-    const credential = selectNaverBlogOpenApiCredential({
-      clientId: config.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
-      clientSecret: config.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
-    });
-    
-    console.log(`[NAVER-BLOG-API] document count lookup: "${keyword}" (${credential?.label || 'no-key'})`);
-    
-    if (!credential) {
-      if (isNaverBlogOpenApiQuotaBlocked({
-        clientId: config.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
-        clientSecret: config.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
-      })) {
+    const hasConfiguredCredential = getNaverBlogOpenApiCredentials(fallbackConfig).length > 0;
+    const quotaBlocked = isNaverBlogOpenApiQuotaBlocked(fallbackConfig);
+    console.log(`[NAVER-BLOG-API] document count lookup: "${keyword}" (${hasConfiguredCredential ? 'queued' : 'no-key'})`);
+    if (!hasConfiguredCredential || quotaBlocked) {
+      if (quotaBlocked) {
         console.warn(`[NAVER-BLOG-API] OpenAPI key pool quota cooldown active, skip document lookup: "${keyword}"`);
       } else {
         console.error(`[NAVER-BLOG-API] ❌ API 키가 설정되지 않았습니다!`);
@@ -456,43 +595,55 @@ export async function getNaverBlogDocumentCount(keyword: string): Promise<number
     
     console.log(`[NAVER-BLOG-API] API 호출: ${apiUrl}`);
     
-    await waitForNaverBlogOpenApiRateLimit();
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'X-Naver-Client-Id': credential.clientId,
-        'X-Naver-Client-Secret': credential.clientSecret
+    return await runInNaverBlogOpenApiRequestSlot(async () => {
+      if (controller.signal.aborted) throw new Error('document count lookup aborted');
+      // Start the network deadline only after this request owns the serialized
+      // slot. Large batches may wait in the queue, but that wait must not spend
+      // the actual fetch timeout before the request has even started.
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+      // Re-select inside the serialized slot. A preceding request may have
+      // placed the previously selected credential into quota cooldown.
+      const activeCredential = selectNaverBlogOpenApiCredential(fallbackConfig);
+      if (!activeCredential) return null;
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'X-Naver-Client-Id': activeCredential.clientId,
+          'X-Naver-Client-Secret': activeCredential.clientSecret
+        },
+        signal: controller.signal,
+      });
+      console.log(`[NAVER-BLOG-API] 응답 상태: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[NAVER-BLOG-API] ❌ API 호출 실패 (${response.status})`);
+        console.error(`[NAVER-BLOG-API] 오류 내용: ${errorText}`);
+        if (response.status === 429 && isNaverBlogOpenApiRateLimitedText(errorText)) {
+          markNaverBlogOpenApiRateLimited();
+        } else if (response.status === 429 || isNaverBlogOpenApiQuotaExceededText(errorText)) {
+          markNaverBlogOpenApiQuotaBlocked(activeCredential);
+        }
+        return null;
       }
-    });
-    
-    console.log(`[NAVER-BLOG-API] 응답 상태: ${response.status} ${response.statusText}`);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[NAVER-BLOG-API] ❌ API 호출 실패 (${response.status})`);
-      console.error(`[NAVER-BLOG-API] 오류 내용: ${errorText}`);
-      if (response.status === 429 && isNaverBlogOpenApiRateLimitedText(errorText)) {
-        markNaverBlogOpenApiRateLimited();
-      } else if (response.status === 429 || isNaverBlogOpenApiQuotaExceededText(errorText)) {
-        markNaverBlogOpenApiQuotaBlocked(credential);
+      const data = await response.json() as { total?: number; lastBuildDate?: string; items?: any[] };
+      if (data.total === undefined || !Number.isFinite(data.total) || data.total < 0) {
+        console.warn(`[NAVER-BLOG-API] ⚠️ total 필드 없음:`, data);
+        return null;
       }
-      return null;
-    }
-    
-    const data = await response.json() as { total?: number; lastBuildDate?: string; items?: any[] };
-    
-    if (data.total !== undefined && data.total >= 0) {
       console.log(`[NAVER-BLOG-API] ✅ API 문서수: "${keyword}" = ${data.total.toLocaleString()}개`);
       setCachedNaverBlogDocumentCount(keyword, data.total);
       return data.total;
-    } else {
-      console.warn(`[NAVER-BLOG-API] ⚠️ total 필드 없음:`, data);
-      return null;
-    }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    });
     
   } catch (error) {
     console.error('[NAVER-BLOG-API] ❌ 문서 수 조회 오류:', error);
     return null;
+  } finally {
+    options.signal?.removeEventListener('abort', onAbort);
   }
 }
 

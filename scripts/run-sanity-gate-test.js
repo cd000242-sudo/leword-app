@@ -9,10 +9,13 @@
  */
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'sanity-gate.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'sanity-environment-isolation.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'shopping-opportunity.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'policy-briefing.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'updater-autostart-regression.test.ts'),
@@ -92,6 +95,13 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-release-secret-scan.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-pc-engine-executor.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-pc-engine-searchad-provenance.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'document-count-policy.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'document-count-runtime-policy.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'document-count-query-key-policy.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'keyword-competition-document-count-policy.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'naver-blog-document-cache.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'persistent-document-count-provenance.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'publish-decision-document-count-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-pc-feature-catalog.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'pro-web-site-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-source-signals.test.ts'),
@@ -115,6 +125,11 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-searchad-pool-health.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-category-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-supply-report.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-document-provenance-policy.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-document-provenance-wiring.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-source-signals-provenance.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-document-maintenance.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-radar.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-binding-revalidation.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-binding-budget.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-stale-binding-revalidation.test.ts'),
@@ -126,10 +141,108 @@ const testFiles = [
 
 for (const testFile of testFiles) {
     console.log(`[${path.basename(testFile)}] running...`);
+    // Sanity tests must never inherit the operator's desktop credentials,
+    // persistent keyword cache, or OpenAPI quota state. Individual tests that
+    // need credentials inject deterministic fixtures explicitly.
+    const isolatedRoot = path.join(
+        os.tmpdir(),
+        'leword-sanity-isolated',
+        `${process.pid}-${path.basename(testFile, '.test.ts')}`,
+    );
+    fs.rmSync(isolatedRoot, { recursive: true, force: true });
+    fs.mkdirSync(isolatedRoot, { recursive: true });
+    const isolatedEnv = {
+        ...process.env,
+        APPDATA: isolatedRoot,
+        LOCALAPPDATA: isolatedRoot,
+        LEWORD_SERVER_USER_DATA: isolatedRoot,
+        LEWORD_MOBILE_DATA_DIR: isolatedRoot,
+        LEWORD_MOBILE_CACHE_DIR: isolatedRoot,
+        LEWORD_NAVER_DOCUMENT_COUNT_CACHE_FILE: path.join(isolatedRoot, 'naver-document-count-cache.json'),
+        LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE: path.join(isolatedRoot, 'naver-openapi-quota-state.json'),
+        LEWORD_SEARCHAD_QUOTA_STATE_FILE: path.join(isolatedRoot, 'searchad-quota-state.json'),
+        LEWORD_SEARCHAD_VOLUME_CACHE_FILE: path.join(isolatedRoot, 'searchad-volume-cache.json'),
+        LEWORD_WORDPRESS_PUBLISHING_FILE: path.join(isolatedRoot, 'wordpress-publishing.json'),
+        LEWORD_MOBILE_WORDPRESS_FILE: path.join(isolatedRoot, 'mobile-wordpress.json'),
+        LEWORD_DISABLE_ENV_FILE_LOADING: '1',
+        NAVER_CLIENT_ID: '',
+        NAVER_CLIENT_SECRET: '',
+        naverClientId: '',
+        naverClientSecret: '',
+        NAVER_SEARCH_CLIENT_ID: '',
+        NAVER_SEARCH_CLIENT_SECRET: '',
+        NAVER_OPENAPI_KEY_POOL: '',
+        NAVER_CLIENT_KEY_POOL: '',
+        NAVER_CLIENT_ID_POOL: '',
+        NAVER_CLIENT_SECRET_POOL: '',
+        LEWORD_SEARCHAD_ACCOUNTS_FILE: '',
+        LEWORD_SEARCHAD_ACCOUNTS_B64: '',
+        LEWORD_SEARCHAD_SOFT_CEILING: '1',
+        LEWORD_SEARCHAD_DAILY_LIMIT: '1',
+        NAVER_SEARCH_AD_ACCESS_LICENSE: '',
+        NAVER_SEARCH_AD_SECRET_KEY: '',
+        NAVER_SEARCH_AD_CUSTOMER_ID: '',
+        NAVER_SEARCHAD_ACCESS_LICENSE: '',
+        NAVER_SEARCHAD_SECRET_KEY: '',
+        NAVER_SEARCHAD_CUSTOMER_ID: '',
+        naverSearchAdAccessLicense: '',
+        naverSearchAdSecretKey: '',
+        naverSearchAdCustomerId: '',
+        naver_search_ad_access_license: '',
+        naver_search_ad_secret_key: '',
+        naver_search_ad_customer_id: '',
+        LEWORD_LIVE_GOLDEN_INGEST_URL: '',
+        LEWORD_LIVE_GOLDEN_INGEST_TOKEN: '',
+        LEWORD_MOBILE_API_TOKEN: '',
+        LEWORD_MOBILE_ENTITLEMENT_URL: '',
+        LEWORD_MOBILE_PANEL_LOGIN_URL: '',
+        LEWORD_MOBILE_PUSH_PROVIDER: '',
+        LEWORD_MOBILE_PUSH_ENDPOINT: '',
+        LEWORD_MOBILE_PUSH_TOKEN: '',
+        LEWORD_MOBILE_SMOKE_API_URL: '',
+        LEWORD_MOBILE_SMOKE_TOKEN: '',
+        LEWORD_MOBILE_PERF_API_URL: '',
+        LEWORD_MOBILE_PERF_TOKEN: '',
+        EXPO_PUBLIC_LEWORD_API_URL: '',
+        LEWORD_PUBLIC_API_URL: '',
+        LICENSE_SERVER_URL: '',
+        LICENSE_REDEEM_URL: '',
+        OPENAI_API_KEY: '',
+        DALLE_API_KEY: '',
+        ANTHROPIC_API_KEY: '',
+        CLAUDE_API_KEY: '',
+        GEMINI_API_KEY: '',
+        GEMINI_KEY: '',
+        MANUS_API_KEY: '',
+        PEXELS_API_KEY: '',
+        DISABLE_AI: '',
+        LEWORD_AGENT_EXTERNAL_INFERENCE: '',
+        GOOGLE_API_KEY: '',
+        GOOGLE_CSE_KEY: '',
+        GOOGLE_CSE_API_KEY: '',
+        GOOGLE_CSE_ID: '',
+        GOOGLE_CSE_CX: '',
+        YOUTUBE_API_KEY: '',
+        youtubeApiKey: '',
+        youtube_api_key: '',
+        THREADS_ACCESS_TOKEN: '',
+        COUPANG_ACCESS_KEY: '',
+        COUPANG_SECRET_KEY: '',
+        COUPANG_SUB_ID: '',
+        RAKUTEN_APP_ID: '',
+        TOSS_PAYMENTS_CLIENT_KEY: '',
+        TOSS_PAYMENTS_SECRET_KEY: '',
+        TOSS_CLIENT_KEY: '',
+        TOSS_SECRET_KEY: '',
+        LEWORD_TOSS_CLIENT_KEY: '',
+        LEWORD_TOSS_SECRET_KEY: '',
+    };
     const result = spawnSync('npx', ['ts-node', '--transpile-only', testFile], {
         stdio: 'inherit',
         shell: true,
+        env: isolatedEnv,
     });
+    fs.rmSync(isolatedRoot, { recursive: true, force: true });
 
     if (result.status !== 0) {
         console.error(`[${path.basename(testFile)}] ❌ FAILED — release 차단`);

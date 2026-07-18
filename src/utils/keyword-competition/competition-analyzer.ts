@@ -24,6 +24,10 @@ import { generateWritingGuide } from './writing-guide-generator';
 import { matchKeywordInTitle } from './keyword-matcher';
 import { EnvironmentManager } from '../environment-manager';
 import { getNaverSearchAdKeywordVolume } from '../naver-searchad-api';
+import {
+  getNaverBlogDocumentCount,
+  normalizeNaverBlogBroadQuery,
+} from '../naver-blog-api';
 import { SerpLayout } from './types';
 
 interface NaverApiCredentials {
@@ -421,21 +425,20 @@ async function getPublishVolume(keyword: string, credentials?: NaverApiCredentia
   }
 
   try {
-    const axios = require('axios');
-    const response = await axios.get(
-      `https://openapi.naver.com/v1/search/blog.json`,
-      {
-        params: { query: keyword, display: 1 },
-        headers: {
-          'X-Naver-Client-Id': credentials.clientId,
-          'X-Naver-Client-Secret': credentials.clientSecret
-        },
-        timeout: 10000
-      }
-    );
-
-    // 실제 API 응답값만 사용 (더미 데이터 완전 차단!)
-    const total = response.data?.total || 0;
+    const broadQuery = normalizeNaverBlogBroadQuery(keyword);
+    if (!broadQuery) return 0;
+    const total = await getNaverBlogDocumentCount(broadQuery, {
+      config: {
+        clientId: credentials.clientId,
+        clientSecret: credentials.clientSecret,
+      },
+      // This is the user's one directly analyzed keyword (and, when shown,
+      // its explicit spacing variant), so compare against a current OpenAPI
+      // total rather than a previous 15-minute result.
+      forceFresh: true,
+      timeoutMs: 8_000,
+    });
+    if (total === null) return 0;
     console.log(`[PUBLISH-VOLUME] ✅ 실제 API 결과: ${total}`);
     return total;
   } catch (error: any) {

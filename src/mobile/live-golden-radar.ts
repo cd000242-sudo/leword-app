@@ -49,7 +49,12 @@ import { SurgeEmergenceTracker } from './surge-emergence-tracker';
 import type { MDPResult } from '../utils/mdp-engine';
 import { classifyKeyword } from '../utils/categories';
 import { getDiscoveryCategorySeeds } from '../utils/category-discovery-map';
-import { measureDocumentCount, type DcMeasurement } from '../utils/measure-dc';
+import {
+  CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+  measureDocumentCount,
+  type DcMeasurement,
+  type MeasureOpts,
+} from '../utils/measure-dc';
 import {
   getNaverBlogOpenApiQuotaBlockedUntil,
   isNaverBlogOpenApiQuotaBlocked,
@@ -58,6 +63,7 @@ import {
 import { evaluatePublishDecision } from './publish-decision';
 import {
   applyKeywordAiJudge,
+  hasFreshCanonicalDocumentCountMeasurement,
   hasTrustedDocumentCountMeasurement,
   hasTrustedSearchVolumeMeasurement,
   hasUltimateHighValueNeedIntent,
@@ -264,8 +270,14 @@ const LIVE_CURATED_EXACT_EXHAUSTED_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_MAX_CANDIDATES = 96;
 const LIVE_CACHE_PROMOTION_BUDGET_PER_RUN = 24;
 const LIVE_CACHE_EXACT_DOCUMENT_RECOVERY_BUDGET_PER_RUN = LIVE_CACHE_PROMOTION_BUDGET_PER_RUN;
+const LIVE_CANONICAL_DOCUMENT_REFRESH_BUDGET_PER_RUN = 12;
+// Document counts expire after 15 minutes. Refresh five oldest canonical rows
+// per minute so a 60-row board completes one rotation in 12 minutes without
+// changing any provider quota ceiling or SearchAd cadence.
+const LIVE_CANONICAL_DOCUMENT_MAINTENANCE_INTERVAL_MS = 60 * 1000;
+const LIVE_CANONICAL_DOCUMENT_MAINTENANCE_BUDGET = 5;
 // This cache is discovery-only. Publication still requires a force-fresh
-// SearchAd split and trusted exact-phrase Naver OpenAPI evidence below.
+// SearchAd split and trusted canonical broad Naver OpenAPI evidence below.
 const LIVE_CACHE_EXACT_DISCOVERY_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const LIVE_CACHE_PROMOTION_BATCH_SIZE = 6;
 const LIVE_CACHE_PROMOTION_BATCH_TIMEOUT_MS = 16_000;
@@ -1007,6 +1019,10 @@ function measurementMetadataFromRow(row: any): Partial<MobileKeywordMetric> {
   if (documentCountSource) meta.documentCountSource = documentCountSource;
   if (documentCountConfidence) meta.documentCountConfidence = documentCountConfidence;
   if (documentCountQueryMode) meta.documentCountQueryMode = documentCountQueryMode;
+  const documentCountMeasuredAt = normalizeKeyword(row?.documentCountMeasuredAt || row?.dcMeasuredAt);
+  if (Number.isFinite(Date.parse(documentCountMeasuredAt))) {
+    meta.documentCountMeasuredAt = documentCountMeasuredAt;
+  }
   if (row?.isDocumentCountEstimated === true || row?.dcEstimated === true) meta.isDocumentCountEstimated = true;
   if (row?.isDocumentCountEstimated === false || row?.dcEstimated === false) meta.isDocumentCountEstimated = false;
   return meta;
@@ -1016,6 +1032,8 @@ function measurementMetadataFromDocumentCount(measurement: DcMeasurement): Parti
   return {
     documentCountSource: measurement.source,
     documentCountConfidence: measurement.confidence,
+    documentCountQueryMode: measurement.queryMode || CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+    documentCountMeasuredAt: measurement.measuredAt,
     isDocumentCountEstimated: measurement.isEstimated,
   };
 }
@@ -6789,6 +6807,14 @@ function rowToBackfillResult(
     difficultyScore: docs > 0 ? Math.min(10, Math.max(1, Math.ceil(docs / Math.max(1, volume)))) : 10,
     externalSources: [
       'mobile-live-seed-backfill',
+      ...((row as any).documentCountQueryMode === CANONICAL_DOCUMENT_COUNT_QUERY_MODE
+        && measurementMetadataFromRow(row).documentCountSource === 'naver-api'
+        ? ['naver-openapi-broad']
+        : []),
+      ...((row as any).documentCountQueryMode === CANONICAL_DOCUMENT_COUNT_QUERY_MODE
+        && measurementMetadataFromRow(row).documentCountSource === 'scrape'
+        ? ['naver-search-broad-scrape']
+        : []),
       ...((row as any).documentCountQueryMode === 'exact-phrase'
         ? (measurementMetadataFromRow(row).documentCountSource === 'naver-api'
           ? ['naver-openapi-exact-phrase']
@@ -6886,6 +6912,7 @@ function mapDirectResult(result: MDPResult, categoryId: string): MobileKeywordMe
     documentCountSource?: MobileDocumentCountSource;
     documentCountConfidence?: MobileMeasurementConfidence;
     documentCountQueryMode?: 'broad' | 'exact-phrase';
+    documentCountMeasuredAt?: string;
     isDocumentCountEstimated?: boolean;
   };
   const declaredPolicyKey = (result.externalSources || [])
@@ -6961,7 +6988,7 @@ function liveValueGateFields(
 
 function isLiveGoldenQualityConsistent(item: MobileLiveGoldenBoardItem, now: Date): boolean {
   if (!isHumanNaturalGoldenMetric(item)) return false;
-  if (evaluatePublishDecision(item).verdict !== 'publish') return false;
+  if (evaluatePublishDecision(item, now).verdict !== 'publish') return false;
   if (resolvedLiveBoardScore(item) <= 0) return false;
   const valueGrade = liveValueGateFields(item, now).valueGrade;
   if (valueGrade && ['S+', 'S', 'A'].includes(valueGrade)) return true;
@@ -7179,6 +7206,9 @@ export class MobileLiveGoldenRadar {
   private readonly clearTimeoutFn: (handle: unknown) => void;
   private readonly now: () => Date;
   private timer: unknown = null;
+  private documentRefreshTimer: unknown = null;
+  private documentRefreshRunning = false;
+  private documentRefreshPromise: Promise<void> | null = null;
   private startTimer: unknown = null;
   private quotaRetryTimer: unknown = null;
   private quotaRetryAtMs: number | null = null;
@@ -7197,6 +7227,7 @@ export class MobileLiveGoldenRadar {
   private publishedCount = 0;
   private boardUpdatedAt?: string;
   private readonly board = new Map<string, MobileLiveGoldenBoardItem>();
+  private readonly canonicalDocumentRefreshPendingIds = new Set<string>();
   private readonly persistentExactDocumentInventory = new Map<string, MobileKeywordMetric>();
   private readonly legacyPersistedExactDocumentInventory = new Map<string, MobileKeywordMetric>();
   private readonly exactDocumentRecoveryCompletedIds = new Set<string>();
@@ -7372,6 +7403,10 @@ export class MobileLiveGoldenRadar {
         ? this.runUntilTarget(this.startupCatchUpCycles)
         : this.runOnce());
     }, this.intervalMs);
+    this.documentRefreshTimer = this.setIntervalFn(() => {
+      void this.runDocumentCountMaintenance();
+    }, LIVE_CANONICAL_DOCUMENT_MAINTENANCE_INTERVAL_MS);
+    void this.runDocumentCountMaintenance();
     if (this.runOnStart) {
       this.startTimer = this.setTimeoutFn(() => {
         this.startTimer = null;
@@ -7386,6 +7421,10 @@ export class MobileLiveGoldenRadar {
     if (this.timer !== null) {
       this.clearIntervalFn(this.timer);
       this.timer = null;
+    }
+    if (this.documentRefreshTimer !== null) {
+      this.clearIntervalFn(this.documentRefreshTimer);
+      this.documentRefreshTimer = null;
     }
     if (this.startTimer !== null) {
       this.clearTimeoutFn(this.startTimer);
@@ -7462,6 +7501,9 @@ export class MobileLiveGoldenRadar {
   }
 
   async runOnce(): Promise<MobileLiveGoldenRadarSnapshot> {
+    if (this.documentRefreshPromise) {
+      await this.documentRefreshPromise.catch(() => undefined);
+    }
     if (this.running) return this.snapshot();
     if (this.searchAdSleepUntilMs && this.now().getTime() < this.searchAdSleepUntilMs) {
       return this.snapshot();
@@ -7574,6 +7616,9 @@ export class MobileLiveGoldenRadar {
       } else {
         this.clearQuotaRetryTimer();
       }
+      await this.refreshCanonicalBoardDocumentCounts(
+        LIVE_CANONICAL_DOCUMENT_REFRESH_BUDGET_PER_RUN,
+      );
       referenceProbeCount = this.refreshMeasuredReferenceSssProbeQueue();
 
       const catchUpModeBeforeCache = currentBoardCount < this.boardTarget;
@@ -8732,6 +8777,9 @@ export class MobileLiveGoldenRadar {
     targetLimit: number,
     options: { exactPhraseCandidateIds?: ReadonlySet<string> } = {},
   ): Promise<LiveSearchVolumeRow[]> {
+    // 일반 "문서수"는 키워드마스터/외부 도구와 같은 broad OpenAPI total로 통일한다.
+    // exact-phrase는 별도 보조 지표가 필요할 때만 사용하며 이 필드에 섞지 않는다.
+    void options;
     const now = this.now();
     const ranked = rows
       .filter((row) => {
@@ -8759,11 +8807,10 @@ export class MobileLiveGoldenRadar {
         const row = ranked[index];
         const keyword = normalizeKeyword(row.keyword);
         const volume = rowSearchVolume(row);
-        const exactPhrase = options.exactPhraseCandidateIds?.has(keywordCompactId(keyword)) === true;
         const existingDocumentCount = finiteNumber(row.documentCount);
         const existingDocumentMetadata = measurementMetadataFromRow(row);
-        const canReuseExistingDocumentCount = !exactPhrase || (
-          (row as any).documentCountQueryMode === 'exact-phrase'
+        const canReuseExistingDocumentCount = (
+          (row as any).documentCountQueryMode === CANONICAL_DOCUMENT_COUNT_QUERY_MODE
           && existingDocumentMetadata.documentCountSource === 'naver-api'
           && existingDocumentMetadata.documentCountConfidence === 'high'
           && existingDocumentMetadata.isDocumentCountEstimated === false
@@ -8776,24 +8823,25 @@ export class MobileLiveGoldenRadar {
           measured.push({ index, row: { ...row, documentCount: existingDocumentCount } });
           continue;
         }
-        const dc = await withTimeout(
-          this.measureLiveDocumentCount(keyword, {
-            searchVolume: volume,
-            scrapeTimeoutMs: 1600,
-            scrapeOnly: this.documentQuotaBlockedForRun,
-            queryMode: exactPhrase ? 'exact-phrase' : 'broad',
-          }).catch(() => null),
-          5000,
-          null,
-        );
+        const dc = await this.measureLiveDocumentCountWithDeadline(keyword, {
+          searchVolume: volume,
+          scrapeTimeoutMs: 1600,
+          scrapeOnly: this.documentQuotaBlockedForRun,
+          skipCache: !this.documentQuotaBlockedForRun,
+          queryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+        }, 5000);
         if (!dc || dc.isEstimated || dc.dc <= 0) continue;
         measured.push({
           index,
           row: {
             ...row,
             documentCount: dc.dc,
+            evidence: [...new Set([
+              ...((Array.isArray((row as any).evidence) ? (row as any).evidence : []) as string[])
+                .filter((entry) => !EXACT_DOCUMENT_EVIDENCE_MARKERS.has(normalizeKeyword(entry))),
+              dc.source === 'naver-api' ? 'naver-openapi-broad' : 'naver-search-broad-scrape',
+            ])],
             ...measurementMetadataFromDocumentCount(dc),
-            ...(exactPhrase ? { documentCountQueryMode: 'exact-phrase' } : {}),
           } as LiveSearchVolumeRow,
         });
       }
@@ -8802,6 +8850,224 @@ export class MobileLiveGoldenRadar {
     return measured
       .sort((a, b) => a.index - b.index)
       .map((item) => item.row);
+  }
+
+  private async measureLiveDocumentCountWithDeadline(
+    keyword: string,
+    options: MeasureOpts,
+    timeoutMs: number,
+  ): Promise<DcMeasurement | null> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), Math.max(1, timeoutMs));
+    try {
+      return await this.measureLiveDocumentCount(keyword, {
+        ...options,
+        signal: controller.signal,
+        timeoutMs,
+      });
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private async runDocumentCountMaintenance(): Promise<void> {
+    if (
+      !this.enabled
+      || this.refreshBoardFileOnSnapshot
+      || this.running
+      || this.documentRefreshRunning
+      || this.documentQuotaBlockedForRun
+      || this.board.size === 0
+    ) return;
+    const env = this.getEnvConfig();
+    const clientId = normalizeKeyword(env.naverClientId || process.env['NAVER_CLIENT_ID']);
+    const clientSecret = normalizeKeyword(env.naverClientSecret || process.env['NAVER_CLIENT_SECRET']);
+    if (!clientId || !clientSecret) return;
+    const config = { clientId, clientSecret };
+    if (isNaverBlogOpenApiQuotaBlocked(config, this.now().getTime())) return;
+    this.documentRefreshRunning = true;
+    const task = (async () => {
+      await this.refreshCanonicalBoardDocumentCounts(
+        LIVE_CANONICAL_DOCUMENT_MAINTENANCE_BUDGET,
+        { includeFreshCanonical: true },
+      );
+    })();
+    this.documentRefreshPromise = task;
+    try {
+      await task;
+    } catch (error) {
+      console.warn('[LIVE-GOLDEN] canonical document maintenance failed', error);
+    } finally {
+      this.documentRefreshRunning = false;
+      if (this.documentRefreshPromise === task) this.documentRefreshPromise = null;
+    }
+  }
+
+  private async refreshCanonicalBoardDocumentCounts(
+    requestedLimit: number,
+    options: { includeFreshCanonical?: boolean } = {},
+  ): Promise<{ attemptedCount: number; updatedCount: number }> {
+    const empty = { attemptedCount: 0, updatedCount: 0 };
+    const limit = Math.min(
+      LIVE_CANONICAL_DOCUMENT_REFRESH_BUDGET_PER_RUN,
+      Math.max(0, Math.floor(requestedLimit)),
+    );
+    if (limit === 0 || this.documentQuotaBlockedForRun) return empty;
+
+    const now = this.now();
+    const nowMs = now.getTime();
+    const corePolicyKeys = new Set(LIVE_GOLDEN_CORE_CATEGORY_POLICIES.map((policy) => policy.key));
+    const isPhase1cSupplyMaintenancePriority = (item: MobileLiveGoldenBoardItem): boolean => {
+      // A row reaches maintenance precisely because its document timestamp may
+      // be stale. Evaluate publishability with a hypothetical fresh timestamp;
+      // all other stored metrics and provenance must still pass unchanged.
+      const withFreshDocumentProof = {
+        ...item,
+        documentCountMeasuredAt: now.toISOString(),
+      };
+      return ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS
+        && corePolicyKeys.has(liveGoldenPolicyKeyForDiscoveryId(item.category))
+        && hasCompleteLiveGoldenMetrics(item)
+        && isTrustedLiveGoldenSupplyRow(item)
+        && hasFreshCurrentSearchAdKeywordBinding(item, now)
+        && !needsSearchAdKeywordBindingRevalidation(item, now)
+        && (
+          isLiveRadarUsableMetric(item, now)
+          || isMeasuredProExactKeywordMetric(item, now)
+          || isMeasuredProDisplayBackfillMetric(item, now)
+          || isMeasuredExactDisplayFallbackMetric(item, now)
+        )
+        && (
+          hasWinnableDisplayRatio(item)
+          || isMeasuredProDisplayBackfillMetric(item, now)
+          || isMeasuredExactDisplayFallbackMetric(item, now)
+        )
+        && (
+          isBlogActionableBoardMetric(item)
+          || isMeasuredProDisplayBackfillMetric(item, now)
+          || isMeasuredExactDisplayFallbackMetric(item, now)
+        )
+        && isLiveGoldenQualityConsistent(withFreshDocumentProof, now);
+    };
+    const candidates = [...this.board.values()]
+      .filter((item) => normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE)
+      .filter((item) => (finiteNumber(item.totalSearchVolume) || 0) > 0)
+      // Re-evaluate freshness on every run. A row that was fresh when the
+      // process loaded can age out without ever re-entering the pending set.
+      .filter((item) => options.includeFreshCanonical
+        ? isTrustedLiveGoldenSupplyRow(item)
+        : !hasFreshCanonicalDocumentCountMeasurement(item, now))
+      .sort((a, b) => {
+        if (options.includeFreshCanonical) {
+          const priorityDelta = Number(isPhase1cSupplyMaintenancePriority(b))
+            - Number(isPhase1cSupplyMaintenancePriority(a));
+          if (priorityDelta !== 0) return priorityDelta;
+        }
+        if (!options.includeFreshCanonical) {
+          const aCanonical = a.documentCountQueryMode === CANONICAL_DOCUMENT_COUNT_QUERY_MODE ? 1 : 0;
+          const bCanonical = b.documentCountQueryMode === CANONICAL_DOCUMENT_COUNT_QUERY_MODE ? 1 : 0;
+          if (aCanonical !== bCanonical) return aCanonical - bCanonical;
+        }
+        const aMeasuredAt = Date.parse(a.documentCountMeasuredAt || '');
+        const bMeasuredAt = Date.parse(b.documentCountMeasuredAt || '');
+        return (Number.isFinite(aMeasuredAt) ? aMeasuredAt : 0)
+          - (Number.isFinite(bMeasuredAt) ? bMeasuredAt : 0);
+      })
+      .slice(0, limit);
+    if (candidates.length === 0) return empty;
+
+    let cursor = 0;
+    let attemptedCount = 0;
+    const refreshed: MobileLiveGoldenBoardItem[] = [];
+    const removedIds = new Set<string>();
+    // The shared Blog OpenAPI client is serialized. Maintenance also runs
+    // serially so each row receives its own full network deadline instead of
+    // expiring while waiting behind another lookup in the client queue.
+    const refreshConcurrency = options.includeFreshCanonical
+      ? 1
+      : LIVE_BACKFILL_DOCUMENT_CONCURRENCY;
+    const workers = Array.from({ length: Math.min(refreshConcurrency, candidates.length) }, async () => {
+      while (cursor < candidates.length) {
+        const item = candidates[cursor];
+        cursor += 1;
+        attemptedCount += 1;
+        const volume = finiteNumber(item.totalSearchVolume) || 0;
+        const measurement = await this.measureLiveDocumentCountWithDeadline(item.keyword, {
+          searchVolume: volume,
+          scrapeTimeoutMs: 1600,
+          scrapeOnly: false,
+          skipCache: true,
+          queryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+        }, 5000);
+        if (
+          !measurement
+          || measurement.dc < 0
+          || measurement.source !== 'naver-api'
+          || measurement.confidence !== 'high'
+          || measurement.isEstimated
+        ) continue;
+
+        if (measurement.dc === 0) {
+          removedIds.add(item.id);
+          continue;
+        }
+
+        const documentCount = measurement.dc;
+        const goldenRatio = Number((volume / documentCount).toFixed(2));
+        const actionable = isActionableGoldenKeyword(item.keyword)
+          || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(item.keyword)
+          || isStrongMeasuredNeedKeyword(item.keyword)
+          || hasWriterReadySearchAdProbeIntent(item.keyword)
+          || hasWriterReadySpecificity(item.keyword);
+        const score = Math.max(
+          liveMetricScore(volume, documentCount, goldenRatio, actionable),
+          liveUltimateOpportunityScore(item.keyword, volume, documentCount, goldenRatio),
+        );
+        const grade = liveGradeFromMetrics(score, volume, documentCount, goldenRatio, item.keyword);
+        refreshed.push(applyKeywordAiJudge({
+          ...item,
+          grade,
+          score,
+          documentCount,
+          goldenRatio,
+          evidence: [...new Set([
+            ...(Array.isArray(item.evidence) ? item.evidence : [])
+              .filter((entry) => !EXACT_DOCUMENT_EVIDENCE_MARKERS.has(normalizeKeyword(entry))),
+            'naver-openapi-broad',
+            'canonical-broad-document-refresh',
+          ])].slice(0, 10),
+          ...measurementMetadataFromDocumentCount(measurement),
+          isMeasured: true,
+          publicDocumentCountLabel: formatRange(documentCount, 'document'),
+        }, { now }));
+      }
+    });
+    await Promise.all(workers);
+    if (refreshed.length === 0 && removedIds.size === 0) {
+      return { attemptedCount, updatedCount: 0 };
+    }
+
+    for (const item of refreshed) {
+      this.board.set(item.id, item);
+      this.canonicalDocumentRefreshPendingIds.delete(item.id);
+    }
+    for (const id of removedIds) {
+      this.board.delete(id);
+      this.canonicalDocumentRefreshPendingIds.delete(id);
+    }
+    this.boardUpdatedAt = now.toISOString();
+    this.pruneBoard();
+    this.saveBoardToFile();
+    this.cachedSnapshot = null;
+    this.cachedSnapshotAtMs = 0;
+    console.info('[LIVE-GOLDEN] canonical broad document counts refreshed', {
+      attemptedCount,
+      updatedCount: refreshed.length + removedIds.size,
+      removedZeroCount: removedIds.size,
+    });
+    return { attemptedCount, updatedCount: refreshed.length + removedIds.size };
   }
 
   private async discoverAutocompleteBackfillCandidates(
@@ -9488,22 +9754,24 @@ export class MobileLiveGoldenRadar {
       const pc = finiteNumber(row.pcSearchVolume) || 0;
       const mobile = finiteNumber(row.mobileSearchVolume) || 0;
       const volume = pc + mobile;
-      let enrichedRow = row;
+      let enrichedRow = (finiteNumber(row.documentCount) || 0) > 0
+        ? {
+          ...row,
+          documentCountQueryMode: normalizeDocumentCountQueryMode((row as any).documentCountQueryMode)
+            || CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+        } as LiveSearchVolumeRow
+        : row;
       if (
         (row.documentCount === null || row.documentCount === undefined || row.documentCount <= 0)
         && volume >= 100
         && documentCountSupplements < LIVE_BACKFILL_DOCUMENT_SUPPLEMENT_MAX
       ) {
         documentCountSupplements += 1;
-        const measuredDc = await withTimeout(
-          this.measureLiveDocumentCount(row.keyword, {
-            searchVolume: volume,
-            scrapeTimeoutMs: 1500,
-            scrapeOnly: this.documentQuotaBlockedForRun,
-          }).catch(() => null),
-          3500,
-          null,
-        );
+        const measuredDc = await this.measureLiveDocumentCountWithDeadline(row.keyword, {
+          searchVolume: volume,
+          scrapeTimeoutMs: 1500,
+          scrapeOnly: this.documentQuotaBlockedForRun,
+        }, 3500);
         if (measuredDc && !measuredDc.isEstimated && measuredDc.dc > 0) {
           enrichedRow = { ...row, documentCount: measuredDc.dc, ...measurementMetadataFromDocumentCount(measuredDc) };
         }
@@ -9628,22 +9896,24 @@ export class MobileLiveGoldenRadar {
       const pc = finiteNumber(row.pcSearchVolume) || 0;
       const mobile = finiteNumber(row.mobileSearchVolume) || 0;
       const volume = pc + mobile;
-      let enrichedRow = row;
+      let enrichedRow = (finiteNumber(row.documentCount) || 0) > 0
+        ? {
+          ...row,
+          documentCountQueryMode: normalizeDocumentCountQueryMode((row as any).documentCountQueryMode)
+            || CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+        } as LiveSearchVolumeRow
+        : row;
       if (
         (row.documentCount === null || row.documentCount === undefined || row.documentCount <= 0)
         && volume >= 100
         && documentCountSupplements < LIVE_ISSUE_DOCUMENT_SUPPLEMENT_MAX
       ) {
         documentCountSupplements += 1;
-        const measuredDc = await withTimeout(
-          this.measureLiveDocumentCount(row.keyword, {
-            searchVolume: volume,
-            scrapeTimeoutMs: 1500,
-            scrapeOnly: this.documentQuotaBlockedForRun,
-          }).catch(() => null),
-          3500,
-          null,
-        );
+        const measuredDc = await this.measureLiveDocumentCountWithDeadline(row.keyword, {
+          searchVolume: volume,
+          scrapeTimeoutMs: 1500,
+          scrapeOnly: this.documentQuotaBlockedForRun,
+        }, 3500);
         if (measuredDc && !measuredDc.isEstimated && measuredDc.dc > 0) {
           enrichedRow = { ...row, documentCount: measuredDc.dc, ...measurementMetadataFromDocumentCount(measuredDc) };
         }
@@ -10240,6 +10510,9 @@ export class MobileLiveGoldenRadar {
       const documentCountQueryMode = useExistingDocumentMeasurement
         ? existing?.documentCountQueryMode
         : keyword.documentCountQueryMode;
+      const documentCountMeasuredAt = useExistingDocumentMeasurement
+        ? existing?.documentCountMeasuredAt
+        : keyword.documentCountMeasuredAt;
       const isDocumentCountEstimated = useExistingDocumentMeasurement
         ? existing?.isDocumentCountEstimated
         : keyword.isDocumentCountEstimated;
@@ -10293,6 +10566,7 @@ export class MobileLiveGoldenRadar {
         documentCountSource,
         documentCountConfidence,
         documentCountQueryMode,
+        documentCountMeasuredAt,
         isDocumentCountEstimated,
         isMeasured: preserveExistingExactProvenance ? existing?.isMeasured ?? keyword.isMeasured : keyword.isMeasured,
         splitProbeZeroAt,
@@ -10771,8 +11045,8 @@ export class MobileLiveGoldenRadar {
       })
       .map((row) => ({
         ...row,
-        // Never allow a provider-side or persistent broad count to skip the
-        // exact-phrase document pass.
+        // Never allow a provider-side or persistent count to skip the
+        // canonical broad document pass.
         documentCount: null,
         documentCountSource: undefined,
         documentCountConfidence: undefined,
@@ -10783,22 +11057,18 @@ export class MobileLiveGoldenRadar {
       return { attemptedCount, promotedCount: 0 };
     }
 
-    const exactPhraseCandidateIds = new Set(trustedFreshRows
-      .map((row) => keywordCompactId(row.keyword))
-      .filter(Boolean));
-    const exactRows = await this.attachDocumentCountsToVolumeRows(
+    const canonicalRows = await this.attachDocumentCountsToVolumeRows(
       trustedFreshRows,
       'all',
       trustedFreshRows.length,
-      { exactPhraseCandidateIds },
     );
 
     const publishable: MobileKeywordMetric[] = [];
-    for (const row of exactRows) {
+    for (const row of canonicalRows) {
       const id = keywordCompactId(row.keyword);
       const selectedCandidate = selectedById.get(id);
       if (!selectedCandidate) continue;
-      if ((row as any).documentCountQueryMode !== 'exact-phrase') continue;
+      if ((row as any).documentCountQueryMode !== CANONICAL_DOCUMENT_COUNT_QUERY_MODE) continue;
       const documentMetadata = measurementMetadataFromRow(row);
       if (
         documentMetadata.documentCountSource !== 'naver-api'
@@ -10812,7 +11082,7 @@ export class MobileLiveGoldenRadar {
         categoryMatched: true,
         externalSources: uniqueKeywords([
           ...(result.externalSources || []),
-          'persistent-cache-exact-document-recovery',
+          'persistent-cache-broad-document-recovery',
           `curated-policy:${selectedCandidate.policyKey}`,
         ], 8),
       }, selectedCandidate.item.category || 'all'), { now });
@@ -10845,12 +11115,12 @@ export class MobileLiveGoldenRadar {
     // existing item. Keep catch-up moving through the unattempted tail, while
     // reporting only true net-new Verified rows as promotedCount.
     this.cachePromotionProgressCount += publishable.length;
-    console.info('[LIVE-GOLDEN] persistent exact-document recovery completed', {
+    console.info('[LIVE-GOLDEN] persistent canonical-document recovery completed', {
       inventory: recoveryInventory.size,
       selected: selected.length,
       attemptedCount,
       freshRows: trustedFreshRows.length,
-      exactRows: exactRows.length,
+      canonicalRows: canonicalRows.length,
       publishableCount: publishable.length,
       promotedCount,
       promoted: promoted.slice(0, 12).map((item) => item.keyword),
@@ -11182,7 +11452,9 @@ export class MobileLiveGoldenRadar {
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => !hasRecentCacheZeroSplitProbe(item, nowMs))
       .filter(hasCompleteLiveGoldenMetrics)
-      // Phase 1C core supply requires an exact-phrase Naver document count.
+      .filter((item) => hasFreshCanonicalDocumentCountMeasurement(item, now))
+      // Core supply requires an explicitly scoped trusted Naver document count.
+      // Legacy exact-phrase rows remain readable only during broad-count migration.
       // Traffic-surge is a separate product lane with its own strict gate below,
       // so do not make that lane inherit the core supply's document scope.
       .filter((item) => (
@@ -11519,6 +11791,7 @@ export class MobileLiveGoldenRadar {
     if (!this.boardFile) return;
     try {
       this.legacyPersistedExactDocumentInventory.clear();
+      this.canonicalDocumentRefreshPendingIds.clear();
       // board 파일이 아직 없어도 ingest inbox 는 병합해야 한다(워커 첫 저장 전 데스크톱 push 케이스).
       const raw = fs.existsSync(this.boardFile) ? fs.readFileSync(this.boardFile, 'utf8').trim() : '';
       const hasIngestRows = this.ingestFile ? fs.existsSync(this.ingestFile) : false;
@@ -11541,6 +11814,12 @@ export class MobileLiveGoldenRadar {
         const item = this.boardItemFromPersistedRow(row, stamp, now);
         if (!item) continue;
         this.board.set(item.id, item);
+        if (
+          normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE
+          && !hasFreshCanonicalDocumentCountMeasurement(item, now)
+        ) {
+          this.canonicalDocumentRefreshPendingIds.add(item.id);
+        }
         const inventoryId = keywordCompactId(item.keyword);
         if (inventoryId && isLegacyPersistedExactDocumentRecoveryCandidate(row, item, now)) {
           this.legacyPersistedExactDocumentInventory.set(inventoryId, item);
@@ -11720,7 +11999,7 @@ export class MobileLiveGoldenRadar {
       }, stamp, now);
       if (!item) continue;
       if (!hasFreshCurrentSearchAdKeywordBinding(item, now)) continue;
-      if (!hasTrustedSearchVolumeMeasurement(item) || !hasTrustedDocumentCountMeasurement(item)) continue;
+      if (!hasTrustedSearchVolumeMeasurement(item) || !hasFreshCanonicalDocumentCountMeasurement(item, now)) continue;
       accepted.push(item);
     }
     if (accepted.length === 0) {
@@ -11873,9 +12152,6 @@ export class MobileLiveGoldenRadar {
         searchVolumeConfidence: 'high',
         isSearchVolumeEstimated: false,
         ...measurementMetadataFromRow(row),
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
         id: keywordId(keyword),
         rank: 0,
         discoveredAt: stamp,
@@ -11889,6 +12165,7 @@ export class MobileLiveGoldenRadar {
         // 관측 사실: 우리 스냅샷 기준 자동완성에 최근(48h) 처음 등장한 제안어
         ...(this.surgeEmergence.isRecentNewEntry(keyword) ? { surgeNewEntry: true } : {}),
       };
+      if (!hasFreshCanonicalDocumentCountMeasurement(candidate, now)) continue;
       if (!isTrafficSurgeBoardMetric(candidate, now)) continue;
       const existing = this.board.get(candidate.id);
       this.board.set(candidate.id, existing ? { ...candidate, discoveredAt: existing.discoveredAt } : candidate);

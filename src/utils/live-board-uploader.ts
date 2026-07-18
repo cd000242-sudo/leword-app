@@ -12,6 +12,7 @@
  */
 
 import axios from 'axios';
+import { CANONICAL_DOCUMENT_COUNT_QUERY_MODE } from './measure-dc';
 import { searchAdKeywordBindingMetadata } from './searchad-result-alignment';
 
 const UPLOAD_TIMEOUT_MS = 15_000;
@@ -78,6 +79,10 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
     const mobile = toFinite(row['mobileSearchVolume']);
     const searchVolume = toFinite(row['searchVolume']) ?? (pc !== null && mobile !== null ? pc + mobile : null);
     const documentCount = toFinite(row['documentCount']);
+    const documentCountSource = String(row['documentCountSource'] || '').trim();
+    const documentCountConfidence = String(row['documentCountConfidence'] || '').trim();
+    const documentCountQueryMode = String(row['documentCountQueryMode'] || '').trim();
+    const documentCountMeasuredAt = String(row['documentCountMeasuredAt'] || '').trim();
     const bindingMetadata = searchAdKeywordBindingMetadata(row);
     if (
         !keyword
@@ -90,6 +95,11 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
         || documentCount === null
         || documentCount <= 0
         || !bindingMetadata
+        || documentCountSource !== 'naver-api'
+        || documentCountConfidence !== 'high'
+        || documentCountQueryMode !== CANONICAL_DOCUMENT_COUNT_QUERY_MODE
+        || !Number.isFinite(Date.parse(documentCountMeasuredAt))
+        || row['isDocumentCountEstimated'] !== false
     ) {
         return null;
     }
@@ -111,9 +121,11 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
         searchVolumeConfidence: 'high',
         ...bindingMetadata,
         isSearchVolumeEstimated: false,
-        documentCountSource: 'naver-api',
-        documentCountConfidence: 'high',
-        isDocumentCountEstimated: false,
+        documentCountSource,
+        documentCountConfidence,
+        documentCountQueryMode,
+        documentCountMeasuredAt,
+        isDocumentCountEstimated: row['isDocumentCountEstimated'],
         isMeasured: true,
         ...(row['serpMeasured'] === true && typeof row['winnable'] === 'boolean'
             ? { serpMeasured: true, winnable: row['winnable'] }

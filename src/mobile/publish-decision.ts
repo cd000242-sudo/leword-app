@@ -2,6 +2,7 @@ import {
   type MobileKeywordMetric,
   type MobilePublishDecision,
 } from './contracts';
+import { hasFreshCanonicalDocumentCountMeasurement } from './keyword-ai-judge';
 
 function normalizeKeyword(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -88,15 +89,42 @@ function buildClusterKeywords(keyword: string): string[] {
     .slice(0, 5);
 }
 
-export function evaluatePublishDecision(metric: MobileKeywordMetric): MobilePublishDecision {
+export function evaluatePublishDecision(
+  metric: MobileKeywordMetric,
+  now: Date = new Date(),
+): MobilePublishDecision {
   const keyword = normalizeKeyword(metric.keyword);
   const category = normalizeKeyword(metric.category);
   const volume = finiteNumber(metric.totalSearchVolume);
   const documentCount = finiteNumber(metric.documentCount);
-  const ratio = finiteNumber(metric.goldenRatio);
-  const hasSplit = finiteNumber(metric.pcSearchVolume) !== null
-    && finiteNumber(metric.mobileSearchVolume) !== null
-    && ((finiteNumber(metric.pcSearchVolume) || 0) + (finiteNumber(metric.mobileSearchVolume) || 0)) > 0;
+  const pcSearchVolume = finiteNumber(metric.pcSearchVolume);
+  const mobileSearchVolume = finiteNumber(metric.mobileSearchVolume);
+  const hasSplit = pcSearchVolume !== null
+    && pcSearchVolume >= 0
+    && mobileSearchVolume !== null
+    && mobileSearchVolume >= 0
+    && pcSearchVolume + mobileSearchVolume > 0
+    && pcSearchVolume + mobileSearchVolume === volume;
+  const hasCanonicalSearchVolume = hasSplit
+    && metric.searchVolumeSource === 'searchad'
+    && metric.searchVolumeConfidence === 'high'
+    && metric.searchVolumeBindingVersion === 'keyword-keyed-v2'
+    && typeof metric.searchVolumeMeasuredAt === 'string'
+    && Number.isFinite(Date.parse(metric.searchVolumeMeasuredAt))
+    && metric.isSearchVolumeEstimated === false;
+  const hasCanonicalDocumentCount = documentCount !== null
+    && documentCount > 0
+    && metric.documentCountSource === 'naver-api'
+    && metric.documentCountConfidence === 'high'
+    && metric.documentCountQueryMode === 'broad'
+    && metric.isDocumentCountEstimated === false
+    && hasFreshCanonicalDocumentCountMeasurement(metric, now);
+  const hasCanonicalMeasurement = metric.isMeasured === true
+    && hasCanonicalSearchVolume
+    && hasCanonicalDocumentCount;
+  const ratio = hasCanonicalMeasurement && volume !== null && documentCount !== null
+    ? volume / documentCount
+    : null;
   const hasNeed = STRONG_NEED_RE.test(keyword);
   const hasCommerce = COMMERCE_RE.test(keyword);
   const evergreen = EVERGREEN_RE.test(keyword);
@@ -108,19 +136,19 @@ export function evaluatePublishDecision(metric: MobileKeywordMetric): MobilePubl
   const reasons: string[] = [];
   const cautions: string[] = [];
 
-  score += volumeScore(volume);
-  score += documentScore(documentCount);
+  score += volumeScore(hasCanonicalSearchVolume ? volume : null);
+  score += documentScore(hasCanonicalDocumentCount ? documentCount : null);
   score += ratioScore(ratio);
   score += categoryBoost(category);
 
-  if (metric.isMeasured && volume !== null && documentCount !== null) {
+  if (hasCanonicalMeasurement) {
     score += 8;
     reasons.push('실측 검색량과 문서수가 있습니다.');
   } else {
     score -= 18;
     cautions.push('실측값이 부족합니다.');
   }
-  if (hasSplit) {
+  if (hasCanonicalSearchVolume) {
     score += 6;
     reasons.push('PC/모바일 분리 수요가 확인됐습니다.');
   } else {
@@ -160,8 +188,10 @@ export function evaluatePublishDecision(metric: MobileKeywordMetric): MobilePubl
 
   score = Math.max(0, Math.min(100, Math.round(score)));
   let verdict: MobilePublishDecision['verdict'] = 'conditional';
-  if (unsafe || shortLived || score < 45) verdict = 'exclude';
-  else if (score >= 72 && hasNeed && metric.isMeasured) verdict = 'publish';
+  if (unsafe || shortLived) verdict = 'exclude';
+  else if (!hasCanonicalMeasurement) verdict = 'conditional';
+  else if (score < 45) verdict = 'exclude';
+  else if (score >= 72 && hasNeed) verdict = 'publish';
 
   const label = verdict === 'publish'
     ? '발행 추천'

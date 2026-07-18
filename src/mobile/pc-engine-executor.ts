@@ -62,6 +62,11 @@ import {
   getNaverSearchAdKeywordVolume,
   type KeywordSearchVolume,
 } from '../utils/naver-searchad-api';
+import {
+  getNaverBlogDocumentCount,
+  normalizeNaverBlogBroadQuery,
+  peekCachedNaverBlogDocumentCountMeasurement,
+} from '../utils/naver-blog-api';
 import { searchAdKeywordBindingMetadata } from '../utils/searchad-result-alignment';
 import {
   calculateMindmapMetricGrade,
@@ -83,6 +88,7 @@ import {
 } from './publish-decision';
 import {
   attachKeywordAiJudges,
+  hasFreshCanonicalDocumentCountMeasurement,
   hasTrustedDocumentCountMeasurement,
   hasTrustedSearchVolumeMeasurement,
   isUltimateGoldenKeywordCandidate,
@@ -234,6 +240,30 @@ function copyAgentAwareParams(payload: Partial<MobileAgentAwareParams>): MobileA
 
 function compactKeyword(value: string): string {
   return normalizeKeyword(value).toLowerCase().replace(/\s+/g, '');
+}
+
+/**
+ * Identity of the exact unquoted broad Blog OpenAPI query.
+ *
+ * SearchAd intentionally treats spaced/unspaced aliases as one keyword, but
+ * Naver Blog totals do not have that contract.  Never use compactKeyword for
+ * document-count maps.
+ */
+export function documentCountBroadQueryKey(value: unknown): string {
+  return normalizeNaverBlogBroadQuery(value).normalize('NFKC').toLowerCase();
+}
+
+export function selectForceFreshDocumentCountQueryKey(
+  metrics: Array<Pick<MobileKeywordMetric, 'keyword' | 'intent' | 'source'>>,
+): string | null {
+  for (const metric of metrics) {
+    if (metric.intent !== 'requested-keyword' && metric.source !== 'pc-keyword-analysis-exact') {
+      continue;
+    }
+    const queryKey = documentCountBroadQueryKey(metric.keyword);
+    if (queryKey) return queryKey;
+  }
+  return null;
 }
 
 function finiteNumber(value: unknown): number | null {
@@ -4068,109 +4098,45 @@ function addEvidence(evidence: string[], value: string): string[] {
   return evidence.includes(value) ? evidence : [...evidence, value];
 }
 
-let naverOpenApiQuotaBlockedUntil = 0;
-let lastNaverOpenApiRequestAt = 0;
-
-function isNaverOpenApiQuotaBlocked(): boolean {
-  return Date.now() < naverOpenApiQuotaBlockedUntil;
-}
-
-function markNaverOpenApiQuotaBlocked(): void {
-  naverOpenApiQuotaBlockedUntil = Date.now() + 60 * 60 * 1000;
-}
-
-function isNaverOpenApiQuotaExceeded(response: Response, data: any): boolean {
-  const message = `${data?.errorCode || ''} ${data?.errorMessage || ''}`.toLowerCase();
-  return response.status === 429
-    || message.includes('quota')
-    || message.includes('limit exceeded')
-    || message.includes('쿼리 한도');
-}
-
-async function waitForNaverOpenApiSlot(): Promise<void> {
-  const minIntervalMs = 250;
-  const now = Date.now();
-  lastNaverOpenApiRequestAt = Math.max(now, lastNaverOpenApiRequestAt + minIntervalMs);
-  const waitMs = lastNaverOpenApiRequestAt - now;
-  if (waitMs > 0) {
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
-  }
-}
-
-async function fetchNaverOpenApiSearchTotal(
-  keyword: string,
-  endpoint: 'blog' | 'cafearticle',
-  env: Partial<EnvConfig>,
-  signal: AbortSignal,
-): Promise<number | null> {
-  if (isNaverOpenApiQuotaBlocked()) return null;
-  const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
-  const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
-  if (!clientId || !clientSecret) return null;
-
-  const controller = new AbortController();
-  const onAbort = () => controller.abort();
-  signal.addEventListener('abort', onAbort, { once: true });
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-  try {
-    const url = `https://openapi.naver.com/v1/search/${endpoint}.json?query=${encodeURIComponent(keyword)}&display=1&sort=sim`;
-    await waitForNaverOpenApiSlot();
-    const response = await fetch(url, {
-      headers: {
-        'X-Naver-Client-Id': clientId,
-        'X-Naver-Client-Secret': clientSecret,
-      },
-      signal: controller.signal,
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      if (isNaverOpenApiQuotaExceeded(response, data)) markNaverOpenApiQuotaBlocked();
-      return null;
-    }
-    const total = finiteNumber(data?.total);
-    return total !== null && total >= 0 ? total : null;
-  } catch (error) {
-    if (signal.aborted) throw new Error('cancelled');
-    return null;
-  } finally {
-    clearTimeout(timeoutId);
-    signal.removeEventListener('abort', onAbort);
-  }
-}
-
-export function combineNaverDocumentCounts(
-  blogTotal: number | null,
-  cafeTotal: number | null,
-): number | null {
-  if (blogTotal === null || cafeTotal === null) return null;
-  if (!Number.isFinite(blogTotal) || !Number.isFinite(cafeTotal) || blogTotal < 0 || cafeTotal < 0) return null;
-  return blogTotal + cafeTotal;
-}
-
 async function fetchNaverDocumentCount(
   keyword: string,
   env: Partial<EnvConfig>,
   signal: AbortSignal,
+  forceFresh = false,
 ): Promise<{
   documentCount: number;
   source: 'naver-api';
   confidence: 'high';
   isEstimated: false;
   queryMode: 'broad';
+  measuredAt: string;
 } | null> {
-  const [blogTotal, cafeTotal] = await Promise.all([
-    fetchNaverOpenApiSearchTotal(keyword, 'blog', env, signal),
-    fetchNaverOpenApiSearchTotal(keyword, 'cafearticle', env, signal),
-  ]);
-  const documentCount = combineNaverDocumentCounts(blogTotal, cafeTotal);
+  const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
+  const clientSecret = envValue(env, 'naverClientSecret', 'NAVER_CLIENT_SECRET');
+  if (!clientId || !clientSecret) return null;
+  const broadQuery = normalizeNaverBlogBroadQuery(keyword);
+  if (!broadQuery) return null;
+
+  // Product-wide SSoT: unquoted Naver Blog OpenAPI total only.
+  // Cafe totals are a different corpus and must never be added to the displayed
+  // blog document count or the golden ratio.
+  const documentCount = await getNaverBlogDocumentCount(broadQuery, {
+    config: { clientId, clientSecret },
+    signal,
+    timeoutMs: 8000,
+    forceFresh,
+  });
+  if (signal.aborted) throw new Error('cancelled');
   if (documentCount === null) return null;
+  const cachedMeasurement = peekCachedNaverBlogDocumentCountMeasurement(broadQuery);
+  if (!cachedMeasurement || cachedMeasurement.total !== documentCount) return null;
   return {
     documentCount,
     source: 'naver-api',
     confidence: 'high',
     isEstimated: false,
     queryMode: 'broad',
+    measuredAt: cachedMeasurement.measuredAt,
   };
 }
 
@@ -4178,20 +4144,25 @@ async function fetchNaverDocumentCountMap(
   keywords: string[],
   env: Partial<EnvConfig>,
   context: MobileJobExecutorContext,
+  forceFreshQueryKey: string | null = null,
 ): Promise<Map<string, Awaited<ReturnType<typeof fetchNaverDocumentCount>>>> {
   const out = new Map<string, Awaited<ReturnType<typeof fetchNaverDocumentCount>>>();
-  if (isNaverOpenApiQuotaBlocked()) return out;
   const pending = [...keywords];
   const workerCount = Math.min(2, Math.max(1, pending.length));
 
   const worker = async () => {
     while (pending.length > 0) {
       ensureNotAborted(context);
-      if (isNaverOpenApiQuotaBlocked()) break;
       const keyword = pending.shift();
       if (!keyword) continue;
-      const documentCount = await fetchNaverDocumentCount(keyword, env, context.signal);
-      out.set(compactKeyword(keyword), documentCount);
+      const queryKey = documentCountBroadQueryKey(keyword);
+      const documentCount = await fetchNaverDocumentCount(
+        keyword,
+        env,
+        context.signal,
+        Boolean(forceFreshQueryKey && queryKey === forceFreshQueryKey),
+      );
+      out.set(queryKey, documentCount);
     }
   };
 
@@ -4275,6 +4246,9 @@ export function mergeMeasuredMetric(
   const documentCountQueryMode = documentMeasurement
     ? documentMeasurement.queryMode
     : metric.documentCountQueryMode;
+  const documentCountMeasuredAt = documentMeasurement
+    ? documentMeasurement.measuredAt
+    : metric.documentCountMeasuredAt;
   const isDocumentCountEstimated = documentMeasurement
     ? documentMeasurement.isEstimated
     : metric.isDocumentCountEstimated === true;
@@ -4313,11 +4287,12 @@ export function mergeMeasuredMetric(
     documentCountSource,
     documentCountConfidence,
     documentCountQueryMode,
+    documentCountMeasuredAt,
     isDocumentCountEstimated,
   };
   const isMeasured = trustedCandidate.isMeasured
     && hasTrustedSearchVolumeMeasurement(trustedCandidate)
-    && hasTrustedDocumentCountMeasurement(trustedCandidate);
+    && hasFreshCanonicalDocumentCountMeasurement(trustedCandidate);
   if (!isMeasured) {
     evidence = addEvidence(evidence, 'metric-measurement-partial-or-unavailable');
   }
@@ -4336,7 +4311,9 @@ function shouldMeasureDocumentCount(
   if (metric.intent === 'requested-keyword' || metric.source === 'pc-keyword-analysis-exact') {
     return true;
   }
-  if (metric.documentCount !== null && metric.documentCount !== undefined) return false;
+  if (metric.documentCount !== null && metric.documentCount !== undefined) {
+    return !hasFreshCanonicalDocumentCountMeasurement(metric);
+  }
   const totalFromVolume = finiteNumber(volume?.totalSearchVolume);
   const pc = finiteNumber(volume?.pcSearchVolume);
   const mobile = finiteNumber(volume?.mobileSearchVolume);
@@ -4445,7 +4422,7 @@ function isFullyMeasuredKeyword(metric: MobileKeywordMetric): boolean {
     && metric.documentCount !== null
     && metric.documentCount > 0
     && hasTrustedSearchVolumeMeasurement(metric)
-    && hasTrustedDocumentCountMeasurement(metric);
+    && hasFreshCanonicalDocumentCountMeasurement(metric);
 }
 
 function strictFullyMeasuredMetrics(
@@ -4567,6 +4544,7 @@ function filterKeywordAnalysisMetrics(
 
 function createDefaultKeywordMetricsAdapter(
   getEnvConfig: () => Partial<EnvConfig>,
+  forceFreshRequestedSeed = false,
 ): MobileKeywordMetricsAdapter {
   return async (metrics, context) => {
     const env = getEnvConfig();
@@ -4605,16 +4583,24 @@ function createDefaultKeywordMetricsAdapter(
         })
       : [];
     const documentCountMap = documentKeywords.length > 0
-      ? await fetchNaverDocumentCountMap(documentKeywords, env, context)
+      ? await fetchNaverDocumentCountMap(
+        documentKeywords,
+        env,
+        context,
+        forceFreshRequestedSeed
+          ? selectForceFreshDocumentCountQueryKey(metrics)
+          : null,
+      )
       : new Map<string, Awaited<ReturnType<typeof fetchNaverDocumentCount>>>();
     ensureNotAborted(context);
 
     return metrics.map((metric) => {
       const key = compactKeyword(metric.keyword);
+      const documentKey = documentCountBroadQueryKey(metric.keyword);
       return mergeMeasuredMetric(
         metric,
         volumeMap.get(key),
-        documentCountMap.has(key) ? documentCountMap.get(key) : undefined,
+        documentCountMap.has(documentKey) ? documentCountMap.get(documentKey) : undefined,
       );
     });
   };
@@ -5965,7 +5951,10 @@ export function createMobilePcEngineExecutor(
     ensureNotAborted(context);
     const getJobEnvConfig = () => mergeJobApiCredentials(baseGetEnvConfig(), job.params);
     const jobMeasureKeywordMetrics = options.measureKeywordMetrics
-      || createDefaultKeywordMetricsAdapter(getJobEnvConfig);
+      || createDefaultKeywordMetricsAdapter(
+        getJobEnvConfig,
+        job.product === 'keyword-analysis',
+      );
 
     switch (job.product) {
       case 'keyword-analysis': {

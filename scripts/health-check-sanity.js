@@ -23,7 +23,7 @@ const path = require('path');
 // ts-node 없이 컴파일된 dist 사용 (release 후)
 let sanityGate;
 try {
-    sanityGate = require(path.join(__dirname, '..', 'dist', 'utils', 'sanity-gate'));
+    sanityGate = require(path.join(__dirname, '..', 'dist', 'src', 'utils', 'sanity-gate'));
 } catch (e) {
     console.error('❌ dist/utils/sanity-gate 로드 실패 — npm run build 먼저 실행하세요');
     console.error(e.message);

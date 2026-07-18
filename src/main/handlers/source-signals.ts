@@ -53,7 +53,7 @@ type MindmapContextKeywordInput = string | {
     source?: string;
 };
 
-function richRowsFromLiveGoldenSnapshot(snapshot: any): RichKeywordRow[] {
+export function richRowsFromLiveGoldenSnapshot(snapshot: any): RichKeywordRow[] {
     const board = Array.isArray(snapshot?.board) ? snapshot.board : [];
     return board.map((item: any, idx: number): RichKeywordRow => {
         const evidence = Array.isArray(item.evidence) ? item.evidence : [];
@@ -83,6 +83,15 @@ function richRowsFromLiveGoldenSnapshot(snapshot: any): RichKeywordRow[] {
             sourceCount: sources.length,
             purchaseIntent: 0,
             isBlueOcean: item.winnable === true,
+            searchVolumeSource: item.searchVolumeSource,
+            searchVolumeConfidence: item.searchVolumeConfidence,
+            searchVolumeMeasuredAt: item.searchVolumeMeasuredAt,
+            isSearchVolumeEstimated: item.isSearchVolumeEstimated,
+            documentCountSource: item.documentCountSource,
+            documentCountConfidence: item.documentCountConfidence,
+            documentCountQueryMode: item.documentCountQueryMode,
+            documentCountMeasuredAt: item.documentCountMeasuredAt,
+            isDocumentCountEstimated: item.isDocumentCountEstimated,
             dcEstimated: item.isDocumentCountEstimated === true,
             svEstimated: item.isSearchVolumeEstimated === true,
         };

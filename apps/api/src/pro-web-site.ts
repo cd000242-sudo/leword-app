@@ -3862,24 +3862,39 @@ export function renderLewordProWeb(): string {
         return semanticMindmapCandidateAllowed(clean, candidate) && !isDuplicatedMindmapIntentChain(clean, candidate) && allowBrowserLocalCandidate(clean, candidate, 'mindmap-expansion');
       });
     }
+    function normalizeBrowserBlogBroadQuery(keyword) {
+      return normalizeText(keyword).replace(/["“”„‟«»＂]/g, ' ').replace(/\\s+/g, ' ').trim();
+    }
+    function browserBlogBroadQueryKey(keyword) {
+      return normalizeBrowserBlogBroadQuery(keyword).normalize('NFKC').toLowerCase();
+    }
     async function fetchBrowserNaverBlogDocumentCount(keyword) {
       const state = browserLocalApiSettingsState();
       if (!state.openApiReady) throw new Error('네이버 API Client ID/Secret이 필요합니다.');
-      const url = 'https://openapi.naver.com/v1/search/blog.json?query=' + encodeURIComponent(keyword) + '&display=1&sort=sim';
-      const res = await fetch(url, {
-        cache: 'no-store',
-        headers: {
-          'X-Naver-Client-Id': state.settings.naverClientId,
-          'X-Naver-Client-Secret': state.settings.naverClientSecret,
-        },
-      });
-      const payload = await res.json().catch(function() { return {}; });
-      if (!res.ok) {
-        const message = payload && (payload.message || payload.errorMessage || payload.error) ? String(payload.message || payload.errorMessage || payload.error) : 'HTTP ' + res.status;
-        throw new Error('네이버 블로그 OpenAPI 직접 호출 실패: ' + message);
+      const broadKeyword = normalizeBrowserBlogBroadQuery(keyword);
+      if (!broadKeyword) throw new Error('empty broad document-count query');
+      const url = 'https://openapi.naver.com/v1/search/blog.json?query=' + encodeURIComponent(broadKeyword) + '&display=1&sort=sim';
+      const controller = new AbortController();
+      const timeout = setTimeout(function() { controller.abort(); }, 8000);
+      try {
+        const res = await fetch(url, {
+          cache: 'no-store',
+          signal: controller.signal,
+          headers: {
+            'X-Naver-Client-Id': state.settings.naverClientId,
+            'X-Naver-Client-Secret': state.settings.naverClientSecret,
+          },
+        });
+        const payload = await res.json().catch(function() { return {}; });
+        if (!res.ok) {
+          const message = payload && (payload.message || payload.errorMessage || payload.error) ? String(payload.message || payload.errorMessage || payload.error) : 'HTTP ' + res.status;
+          throw new Error('네이버 블로그 OpenAPI 직접 호출 실패: ' + message);
+        }
+        const total = Number(payload.total);
+        return Number.isFinite(total) ? { total: total, measuredAt: new Date().toISOString() } : null;
+      } finally {
+        clearTimeout(timeout);
       }
-      const total = Number(payload.total);
-      return Number.isFinite(total) ? total : null;
     }
     async function fetchBrowserDocumentCounts(keywords, limit) {
       const out = new Map();
@@ -3887,8 +3902,8 @@ export function renderLewordProWeb(): string {
       const rows = uniqueKeywords(keywords || [], limit || 24);
       for (const keyword of rows) {
         try {
-          const count = await fetchBrowserNaverBlogDocumentCount(keyword);
-          if (count !== null) out.set(normalizeSearchAdKey(keyword), count);
+          const measurement = await fetchBrowserNaverBlogDocumentCount(keyword);
+          if (measurement !== null) out.set(browserBlogBroadQueryKey(keyword), measurement);
           await new Promise(function(resolve) { setTimeout(resolve, 120); });
         } catch (err) {
           errors.push(err.message || String(err));
@@ -3943,14 +3958,19 @@ export function renderLewordProWeb(): string {
         nextAction: '네이버 검색 결과에서 최신 문서 품질과 공식 정보를 확인한 뒤 작성하세요.',
       };
     }
-    function browserLocalKeywordRow(keyword, searchAdItem, documentCount, index) {
+    function browserLocalKeywordRow(keyword, searchAdItem, documentMeasurement, index) {
       const measuredAt = new Date().toISOString();
       const pc = searchAdItem ? parseNaverMetricNumber(searchAdItem.monthlyPcQcCnt) : null;
       const mobile = searchAdItem ? parseNaverMetricNumber(searchAdItem.monthlyMobileQcCnt) : null;
       const hasCompleteSearchVolumeSplit = pc !== null && mobile !== null;
       const total = hasCompleteSearchVolumeSplit ? (pc + mobile) : null;
       const cpc = searchAdItem ? (parseNaverMetricNumber(searchAdItem.monthlyAveCpc) || parseNaverMetricNumber(searchAdItem.monthlyAvePcCpc) || parseNaverMetricNumber(searchAdItem.monthlyAveMobileCpc)) : null;
-      const docs = documentCount === undefined ? null : documentCount;
+      const docs = documentMeasurement && Number.isFinite(Number(documentMeasurement.total))
+        ? Number(documentMeasurement.total)
+        : null;
+      const documentMeasuredAt = documentMeasurement && documentMeasurement.measuredAt
+        ? String(documentMeasurement.measuredAt)
+        : undefined;
       const ratio = total !== null && docs !== null && Number(docs) > 0 ? total / Math.max(1, Number(docs)) : null;
       const row = {
         id: 'browser-local-api-' + index + '-' + normalizeSearchAdKey(keyword),
@@ -3974,6 +3994,8 @@ export function renderLewordProWeb(): string {
         documentCountSource: docs !== null ? 'naver-api' : undefined,
         documentCountConfidence: docs !== null ? 'high' : undefined,
         documentCountQueryMode: docs !== null ? 'broad' : undefined,
+        documentCountQueryKey: docs !== null ? browserBlogBroadQueryKey(keyword) : undefined,
+        documentCountMeasuredAt: docs !== null ? documentMeasuredAt : undefined,
         isDocumentCountEstimated: docs !== null ? false : undefined,
         evidence: [
           total !== null ? 'naver-searchad-browser' : '',
@@ -4067,14 +4089,14 @@ export function renderLewordProWeb(): string {
       const key = normalizeSearchAdKey(clean);
       const metricMap = browserSearchAdMetricMap(searchAdItems);
       const exactMetric = metricMap.get(key) || null;
-      let documentCount = null;
+      let documentMeasurement = null;
       try {
         updateProgress(68, '저장된 네이버 API 키로 블로그 문서수를 직접 조회합니다.');
-        documentCount = await fetchBrowserNaverBlogDocumentCount(clean);
+        documentMeasurement = await fetchBrowserNaverBlogDocumentCount(clean);
       } catch (err) {
         errors.push(err.message || String(err));
       }
-      const row = browserLocalKeywordRow(clean, exactMetric, documentCount, 0);
+      const row = browserLocalKeywordRow(clean, exactMetric, documentMeasurement, 0);
       if (!hasMeasuredGraphMetric(row)) {
         throw new Error(errors.length ? errors.join(' / ') : '사용자 API 키로 실측 검색량 또는 문서수를 확인하지 못했습니다.');
       }
@@ -4178,7 +4200,8 @@ export function renderLewordProWeb(): string {
       (docResult.errors || []).forEach(function(message) { if (errors.indexOf(message) < 0) errors.push(message); });
       const rows = candidates.map(function(candidate, index) {
         const key = normalizeSearchAdKey(candidate);
-        const row = browserLocalKeywordRow(candidate, metricMap.get(key) || null, docResult.counts.has(key) ? docResult.counts.get(key) : null, index);
+        const documentKey = browserBlogBroadQueryKey(candidate);
+        const row = browserLocalKeywordRow(candidate, metricMap.get(key) || null, docResult.counts.has(documentKey) ? docResult.counts.get(documentKey) : null, index);
         if (mode === 'mindmap-expansion' && row.totalSearchVolume === null && row.documentCount === null) {
           row.source = 'browser-semantic-mindmap';
           row.sources = ['browser-semantic-mindmap'];
@@ -5511,7 +5534,7 @@ export function renderLewordProWeb(): string {
       if (row && row.documentCountQueryMode === 'exact-phrase') return '문서수(정확구문·블로그)';
       const evidence = Array.isArray(row && row.evidence) ? row.evidence.join(' ') : '';
       if (row && row.documentCountQueryMode === 'broad' && (String(row.source || '').indexOf('pc-keyword-analysis') >= 0 || evidence.indexOf('pc-naver-openapi-document-count') >= 0)) {
-        return '문서수(확장·블로그+카페)';
+        return '문서수(확장·블로그)';
       }
       if (row && row.documentCountQueryMode === 'broad' && (row.source === 'browser-local-api' || evidence.indexOf('naver-openapi-browser') >= 0)) {
         return '문서수(확장·블로그)';
@@ -5521,10 +5544,12 @@ export function renderLewordProWeb(): string {
     }
     function measurementProvenanceHtml(row) {
       const measuredAt = fmtTime(row && row.searchVolumeMeasuredAt);
+      const documentMeasuredAt = fmtTime(row && row.documentCountMeasuredAt);
       const searchSource = row && row.searchVolumeSource === 'searchad'
         ? '네이버 SearchAd 월간 검색량'
         : '검색량 출처 미기록';
       const searchTime = measuredAt === '-' ? '측정시각 미기록' : measuredAt + ' 측정';
+      const documentTime = documentMeasuredAt === '-' ? '측정시각 미기록' : documentMeasuredAt + ' 측정';
       const documentSource = row && row.documentCountSource === 'naver-api'
         ? '네이버 OpenAPI'
         : '문서수 출처 미기록';
@@ -5534,7 +5559,7 @@ export function renderLewordProWeb(): string {
         : documentLabel;
       return '<div class="measurement-provenance">'
         + '<span>검색량: ' + escapeHtml(searchSource + ' · ' + searchTime) + '</span>'
-        + '<span>문서수: ' + escapeHtml(documentSource + ' · ' + documentMode + ' · 측정시각 미기록') + '</span>'
+        + '<span>문서수: ' + escapeHtml(documentSource + ' · ' + documentMode + ' · ' + documentTime) + '</span>'
         + '</div>';
     }
     function naturalRelatedKeywords(row, limit) {

@@ -101,6 +101,7 @@ import {
 import { InMemoryMobileResultCache } from '../../../src/mobile/result-cache';
 import {
   applyKeywordAiJudge,
+  hasFreshCanonicalDocumentCountMeasurement,
 } from '../../../src/mobile/keyword-ai-judge';
 import {
   createEnvironmentMobileEntitlementVerifier,
@@ -191,6 +192,7 @@ import {
   type MobileApiGuardrailOptions,
 } from '../../../src/mobile/api-guardrails';
 import { isMindmapExpansionKeywordCandidate } from '../../../src/utils/mindmap-expansion-quality';
+import { normalizeNaverBlogBroadQuery } from '../../../src/utils/naver-blog-api';
 
 const DEFAULT_LEWORD_LICENSE_SERVER_URL = 'https://script.google.com/macros/s/AKfycbxBOGkjVj4p-6XZ4SEFYKhW3FBmo5gt7Fv6djWhB1TljnDDmx_qlfZ4YdlJNohzIZ8NJw/exec';
 const DEFAULT_LEWORD_LICENSE_APP_ID = 'com.leword.keyword.master';
@@ -2321,6 +2323,10 @@ function compactServerKeyword(value: unknown): string {
   return String(value || '').toLowerCase().replace(/\s+/g, '').trim();
 }
 
+export function serverDocumentCountBroadQueryKey(value: unknown): string {
+  return normalizeNaverBlogBroadQuery(value).normalize('NFKC').toLowerCase();
+}
+
 function readKeywordAnalysisSeed(params: unknown): string {
   const raw = params && typeof params === 'object' && !Array.isArray(params)
     ? params as Record<string, unknown>
@@ -2401,10 +2407,11 @@ function isStrictMeasuredKeywordMetric(
   if (endpoint.product === 'mindmap-expansion') return isMindmapServerBoardCandidate(metric);
   if (endpoint.product === 'keyword-analysis' && isRequestedKeywordAnalysisMetric(metric)) {
     if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
-    return (metric.isMeasured === true
+    return hasFreshCanonicalDocumentCountMeasurement(metric)
+      && ((metric.isMeasured === true
       && isNonNegativeFiniteMetric(metric.pcSearchVolume)
       && isNonNegativeFiniteMetric(metric.mobileSearchVolume))
-      || hasSearchAdMeasuredSplit(metric);
+      || hasSearchAdMeasuredSplit(metric));
   }
   if (metric.isMeasured !== true) return false;
   if (SYNTHETIC_RESULT_MARKER_PATTERN.test(metricRuntimeMarkerText(metric))) return false;
@@ -2416,7 +2423,8 @@ function isStrictMeasuredKeywordMetric(
   if (endpoint.product === 'kin-hidden-honey' && !isKinMeasuredBoardCandidate(metric)) return false;
   if (endpoint.product === 'youtube-golden' && metric.source === 'server-measured-youtube-prewarm' && !isYoutubeMeasuredBoardCandidate(metric)) return false;
   if (endpoint.product === 'keyword-analysis') {
-    return isNonNegativeFiniteMetric(metric.pcSearchVolume)
+    return hasFreshCanonicalDocumentCountMeasurement(metric)
+      && isNonNegativeFiniteMetric(metric.pcSearchVolume)
       && isNonNegativeFiniteMetric(metric.mobileSearchVolume);
   }
   return true;
@@ -2500,6 +2508,7 @@ function metricFromLiveGoldenBoardItem(item: MobileKeywordMetric): MobileKeyword
     documentCountSource: item.documentCountSource,
     documentCountConfidence: item.documentCountConfidence,
     documentCountQueryMode: item.documentCountQueryMode,
+    documentCountMeasuredAt: item.documentCountMeasuredAt,
     isDocumentCountEstimated: item.isDocumentCountEstimated,
     measurementStatus: item.measurementStatus,
   };
@@ -3413,25 +3422,28 @@ function isCanonicalLiveGoldenSearchVolumeMetric(board: MobileKeywordMetric): bo
     && board.isSearchVolumeEstimated === false;
 }
 
-function isCanonicalLiveGoldenExactMetric(board: MobileKeywordMetric): boolean {
+function isCanonicalLiveGoldenDocumentMetric(board: MobileKeywordMetric): boolean {
   return isCanonicalLiveGoldenSearchVolumeMetric(board)
     && typeof board.documentCount === 'number'
     && Number.isFinite(board.documentCount)
     && board.documentCount > 0
     && board.documentCountSource === 'naver-api'
     && board.documentCountConfidence === 'high'
-    && board.documentCountQueryMode === 'exact-phrase'
-    && board.isDocumentCountEstimated === false;
+    && board.documentCountQueryMode === 'broad'
+    && board.isDocumentCountEstimated === false
+    && hasFreshCanonicalDocumentCountMeasurement(board);
 }
 
-function mergeExactMetricWithLiveBoard(
+function mergeCanonicalMetricWithLiveBoard(
   current: MobileKeywordMetric,
   board: MobileKeywordMetric,
 ): MobileKeywordMetric {
   const boardSplit = canonicalLiveGoldenSearchVolumeSplit(board);
   if (!boardSplit || !isCanonicalLiveGoldenSearchVolumeMetric(board)) return current;
-  const syncExactDocuments = isCanonicalLiveGoldenExactMetric(board);
-  const mergedDocumentCount = syncExactDocuments ? board.documentCount : current.documentCount;
+  const syncCanonicalDocuments = isCanonicalLiveGoldenDocumentMetric(board)
+    && serverDocumentCountBroadQueryKey(current.keyword)
+      === serverDocumentCountBroadQueryKey(board.keyword);
+  const mergedDocumentCount = syncCanonicalDocuments ? board.documentCount : current.documentCount;
   const mergedGoldenRatio = typeof mergedDocumentCount === 'number'
     && Number.isFinite(mergedDocumentCount)
     && mergedDocumentCount > 0
@@ -3446,12 +3458,12 @@ function mergeExactMetricWithLiveBoard(
     ? {
         ...current.agentInsight,
         searchVolumeReason: `황금키워드 보드와 동일한 SearchAd 월간 검색량 ${numberLabel(boardSplit.total)} (PC ${numberLabel(boardSplit.pc)} / 모바일 ${numberLabel(boardSplit.mobile)}), 문서수 ${numberLabel(mergedDocumentCount)}, 비율 ${numberLabel(mergedGoldenRatio)} 기준입니다.`,
-        sourceSummary: syncExactDocuments
-          ? 'LIVE 황금키워드 보드 · SearchAd 월간 검색량 · 네이버 exact-phrase 문서수'
+        sourceSummary: syncCanonicalDocuments
+          ? 'LIVE 황금키워드 보드 · SearchAd 월간 검색량 · 네이버 broad OpenAPI 문서수'
           : `LIVE 황금키워드 보드 SearchAd 월간 검색량 · 현재 분석 ${current.documentCountQueryMode || 'unknown'} 문서수`,
       }
     : undefined;
-  if (!syncExactDocuments) {
+  if (!syncCanonicalDocuments) {
     return {
       ...current,
       pcSearchVolume: boardSplit.pc,
@@ -3481,7 +3493,7 @@ function mergeExactMetricWithLiveBoard(
   };
 }
 
-function overlayLiveGoldenExactKeyword(
+function overlayLiveGoldenCanonicalKeyword(
   endpoint: MobileApiEndpointSpec,
   params: unknown,
   result: MobileKeywordResult,
@@ -3496,24 +3508,26 @@ function overlayLiveGoldenExactKeyword(
   const boardItem = liveGoldenRadar.findMeasuredBoardItem(seed);
   if (!boardItem) return result;
 
-  const exactMetric = metricFromLiveGoldenBoardItem(boardItem);
-  if (!isCanonicalLiveGoldenSearchVolumeMetric(exactMetric)) return result;
-  const canInsertExactBoardMetric = isCanonicalLiveGoldenExactMetric(exactMetric);
+  const canonicalMetric = metricFromLiveGoldenBoardItem(boardItem);
+  if (!isCanonicalLiveGoldenSearchVolumeMetric(canonicalMetric)) return result;
+  const canInsertCanonicalBoardMetric = isCanonicalLiveGoldenDocumentMetric(canonicalMetric)
+    && serverDocumentCountBroadQueryKey(seed)
+      === serverDocumentCountBroadQueryKey(canonicalMetric.keyword);
   const mergedKeywords: MobileKeywordMetric[] = [];
   let inserted = false;
   for (const keyword of result.keywords) {
     const isExact = compactServerKeyword(keyword.keyword) === seedKey;
     if (isExact) {
-      mergedKeywords.push(mergeExactMetricWithLiveBoard(keyword, exactMetric));
+      mergedKeywords.push(mergeCanonicalMetricWithLiveBoard(keyword, canonicalMetric));
       inserted = true;
       continue;
     }
     mergedKeywords.push(keyword);
   }
-  if (!inserted && canInsertExactBoardMetric) {
+  if (!inserted && canInsertCanonicalBoardMetric) {
     mergedKeywords.unshift({
-      ...exactMetric,
-      evidence: uniqueEvidence(exactMetric.evidence, 'analysis-board-metric-sync'),
+      ...canonicalMetric,
+      evidence: uniqueEvidence(canonicalMetric.evidence, 'analysis-board-metric-sync'),
     });
   }
 
@@ -3553,7 +3567,7 @@ async function createJob(
       const cachedBaseResult = supplementMeasuredPrewarmResult(
         endpoint,
         splitParams.executorParams,
-        overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, cachedResult, liveGoldenRadar),
+        overlayLiveGoldenCanonicalKeyword(endpoint, splitParams.executorParams, cachedResult, liveGoldenRadar),
         liveGoldenRadar,
         resultCache,
       ) || cachedResult;
@@ -3595,7 +3609,7 @@ async function createJob(
         const baseResult = supplementMeasuredPrewarmResult(
           endpoint,
           splitParams.executorParams,
-          overlayLiveGoldenExactKeyword(endpoint, splitParams.executorParams, result, liveGoldenRadar),
+          overlayLiveGoldenCanonicalKeyword(endpoint, splitParams.executorParams, result, liveGoldenRadar),
           liveGoldenRadar,
           resultCache,
         ) || result;

@@ -3,12 +3,17 @@ function assert(name: string, condition: boolean, detail?: string): void {
 }
 
 const searchAdModule = require('../naver-searchad-api');
+const naverBlogModule = require('../naver-blog-api');
 const { EnvironmentManager } = require('../environment-manager');
 const environmentManager = EnvironmentManager.getInstance() as any;
 const originalGetConfig = environmentManager.getConfig;
 const originalSearchAdMeasure = searchAdModule.getNaverSearchAdKeywordVolume;
+const originalDocumentMeasure = naverBlogModule.getNaverBlogDocumentCount;
+const originalDocumentCacheMeasurement = naverBlogModule.peekCachedNaverBlogDocumentCountMeasurement;
 const measuredAtMs = Date.parse('2026-07-15T00:55:00.000Z');
+const documentMeasuredAt = '2026-07-15T00:56:00.000Z';
 let receivedOptions: any = null;
+let receivedDocumentKeyword = '';
 
 environmentManager.getConfig = () => ({
   naverSearchAdAccessLicense: 'force-fresh-access-license',
@@ -31,10 +36,21 @@ searchAdModule.getNaverSearchAdKeywordVolume = async (
     searchVolumeBindingVersion: 'keyword-keyed-v2',
   }));
 };
+naverBlogModule.getNaverBlogDocumentCount = async (keyword: string) => {
+  receivedDocumentKeyword = keyword;
+  return 321;
+};
+naverBlogModule.peekCachedNaverBlogDocumentCountMeasurement = () => ({
+  total: 321,
+  measuredAtMs: Date.parse(documentMeasuredAt),
+  measuredAt: documentMeasuredAt,
+});
 
 function cleanup(): void {
   environmentManager.getConfig = originalGetConfig;
   searchAdModule.getNaverSearchAdKeywordVolume = originalSearchAdMeasure;
+  naverBlogModule.getNaverBlogDocumentCount = originalDocumentMeasure;
+  naverBlogModule.peekCachedNaverBlogDocumentCountMeasurement = originalDocumentCacheMeasurement;
 }
 
 async function run(): Promise<void> {
@@ -60,6 +76,35 @@ async function run(): Promise<void> {
       && rows[0]?.searchVolumeBindingVersion === 'keyword-keyed-v2'
       && rows[0]?.searchVolumeMeasuredAt === '2026-07-15T00:55:00.000Z',
     JSON.stringify(rows),
+  );
+
+  const rowsWithDocuments = await getNaverKeywordSearchVolumeSeparate(
+    { clientId: 'client', clientSecret: 'secret' },
+    ['원룸 청소 업체 가격'],
+    { includeDocumentCount: true, forceFresh: true },
+  );
+  assert(
+    'datalab preserves canonical broad Blog OpenAPI provenance and its original measurement time',
+    rowsWithDocuments.length === 1
+      && rowsWithDocuments[0]?.documentCount === 321
+      && rowsWithDocuments[0]?.documentCountSource === 'naver-api'
+      && rowsWithDocuments[0]?.documentCountConfidence === 'high'
+      && rowsWithDocuments[0]?.documentCountQueryMode === 'broad'
+      && rowsWithDocuments[0]?.documentCountMeasuredAt === documentMeasuredAt
+      && rowsWithDocuments[0]?.isDocumentCountEstimated === false,
+    JSON.stringify(rowsWithDocuments),
+  );
+
+  receivedDocumentKeyword = '';
+  await getNaverKeywordSearchVolumeSeparate(
+    { clientId: 'client', clientSecret: 'secret' },
+    ['"canonical broad keyword"'],
+    { includeDocumentCount: true, forceFresh: true },
+  );
+  assert(
+    'datalab removes exact-phrase quotes before declaring canonical broad scope',
+    receivedDocumentKeyword === 'canonical broad keyword',
+    receivedDocumentKeyword,
   );
 }
 

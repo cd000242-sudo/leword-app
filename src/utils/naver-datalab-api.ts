@@ -12,16 +12,71 @@ import {
   type SearchAdKeywordBindingVersion,
 } from './searchad-result-alignment';
 import {
+  getNaverBlogDocumentCount,
   isNaverBlogOpenApiQuotaBlocked,
-  isNaverBlogOpenApiQuotaExceededText,
-  isNaverBlogOpenApiRateLimitedText,
-  markNaverBlogOpenApiQuotaBlocked,
-  selectNaverBlogOpenApiCredential,
+  NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS,
+  normalizeNaverBlogBroadQuery,
+  peekCachedNaverBlogDocumentCountMeasurement,
 } from './naver-blog-api';
 
 export interface NaverDatalabConfig {
   clientId: string;
   clientSecret: string;
+}
+
+export interface NaverKeywordSearchVolumeSeparateResult {
+  keyword: string;
+  pcSearchVolume: number | null;
+  mobileSearchVolume: number | null;
+  documentCount: number | null;
+  competition: string | null;
+  monthlyAveCpc: number | null;
+  pcSearchVolumeLt10?: boolean;
+  mobileSearchVolumeLt10?: boolean;
+  svEstimated?: boolean;
+  searchVolumeBindingVersion?: SearchAdKeywordBindingVersion;
+  searchVolumeMeasuredAt?: string;
+  searchVolumeSource?: string;
+  searchVolumeConfidence?: 'high' | 'medium' | 'low';
+  isSearchVolumeEstimated?: boolean;
+  documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache' | 'unknown' | 'none';
+  documentCountConfidence?: 'high' | 'medium' | 'low';
+  documentCountQueryMode?: 'broad' | 'exact-phrase';
+  documentCountMeasuredAt?: string;
+  isDocumentCountEstimated?: boolean;
+}
+
+/** True only for a reusable product-wide broad Blog OpenAPI measurement. */
+export function hasFreshCanonicalNaverDocumentCount(
+  result: Pick<
+    NaverKeywordSearchVolumeSeparateResult,
+    | 'documentCount'
+    | 'documentCountSource'
+    | 'documentCountConfidence'
+    | 'documentCountQueryMode'
+    | 'documentCountMeasuredAt'
+    | 'isDocumentCountEstimated'
+  >,
+  nowMs = Date.now(),
+): boolean {
+  const measuredAtMs = Date.parse(String(result.documentCountMeasuredAt || ''));
+  return typeof result.documentCount === 'number'
+    && Number.isFinite(result.documentCount)
+    && result.documentCount >= 0
+    && result.documentCountSource === 'naver-api'
+    && result.documentCountConfidence === 'high'
+    && result.documentCountQueryMode === 'broad'
+    && result.isDocumentCountEstimated === false
+    && Number.isFinite(measuredAtMs)
+    && measuredAtMs <= nowMs + 5 * 60 * 1000
+    && nowMs - measuredAtMs <= NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS;
+}
+
+function canonicalBroadBlogDocumentQuery(keyword: string): string {
+  return String(keyword || '')
+    .replace(/["“”]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 // v2.43.28: 키워드 최근 추세 검증 (dead keyword 차단)
@@ -723,7 +778,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
   config: NaverDatalabConfig,
   keywords: string[],
   options: { includeDocumentCount?: boolean; forceFresh?: boolean } = {}
-): Promise<{ keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; pcSearchVolumeLt10?: boolean; mobileSearchVolumeLt10?: boolean; svEstimated?: boolean; searchVolumeBindingVersion?: SearchAdKeywordBindingVersion; searchVolumeMeasuredAt?: string }[]> {
+): Promise<NaverKeywordSearchVolumeSeparateResult[]> {
   if (!config.clientId || !config.clientSecret) {
     throw new Error('네이버 API 인증 정보가 필요합니다');
   }
@@ -732,7 +787,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
   const input = (keywords || []).map(k => String(k || '').trim()).filter(Boolean);
   if (input.length === 0) return [];
 
-  const results: { keyword: string; pcSearchVolume: number | null; mobileSearchVolume: number | null; documentCount: number | null; competition: string | null; monthlyAveCpc: number | null; pcSearchVolumeLt10?: boolean; mobileSearchVolumeLt10?: boolean; svEstimated?: boolean; searchVolumeBindingVersion?: SearchAdKeywordBindingVersion; searchVolumeMeasuredAt?: string }[] = input.map(k => ({
+  const results: NaverKeywordSearchVolumeSeparateResult[] = input.map(k => ({
     keyword: k,
     pcSearchVolume: null,
     mobileSearchVolume: null,
@@ -821,117 +876,21 @@ export async function getNaverKeywordSearchVolumeSeparate(
   }
 
   if (includeDocumentCount) {
-    // 🔥 v2.27.4: 영구 캐시 우선 + rate limit 엄수
-    //   v2.27.3 실측 Run2=0건 — concurrency 8 이 IP 차단 초래
-    //   신규: (1) 영구 캐시 HIT 키워드는 API 건너뛰기
-    //         (2) concurrency 8 → 3 (안전구간)
-    //         (3) 성공 시 setPersistent 로 저장 → 다음 run 에서 재사용
-    let persistentGet: ((k: string) => any) | null = null;
-    let persistentSet: ((k: string, e: any) => void) | null = null;
-    try {
-      const pc = await import('./persistent-keyword-cache');
-      persistentGet = pc.getPersistent;
-      persistentSet = pc.setPersistent;
-    } catch {}
-
-    // 캐시 HIT 키워드 dc 먼저 채움
-    if (persistentGet) {
-      for (let i = 0; i < input.length; i++) {
-        if (results[i].documentCount !== null) continue;
-        const cached = persistentGet(input[i]);
-        if (cached && typeof cached.documentCount === 'number' && cached.documentCount > 0) {
-          results[i].documentCount = cached.documentCount;
-        }
-      }
-    }
-
-    const apiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-    // 🔥 v2.32.1: 데이터 정확성 최우선 — rate-limit 회피 + 재시도 + 스크랩 sanity check
-    //   기존: concurrency 8 + 3s 타임아웃 → rate-limit 시 scrapeFallback 의 첫 "N건" 매치 (스마트블록 위젯) 가
-    //         진짜 문서수 대신 저장됨. 예: 아동수당 209,645 → 26 으로 오염 → SSR 승격 오작동.
-    //   신규: (1) concurrency 8 → 3 으로 축소 (rate-limit 자체 회피)
-    //         (2) API 재시도 1회 (400ms backoff)
-    //         (3) scrapeFallback 에 sanity check — sv/dc>100 && dc<1000 면 거부 (바디 단락 N건 오매칭 방어)
-    //         (4) scrapeFallback 값은 캐시 저장 금지 — API 성공 값만 재사용
+    // OpenAPI 검증 캐시는 15분만 재사용하고 문서 호출은 직렬화한다.
+    // forceFresh 요청은 캐시를 건너뛰며, 성공한 OpenAPI total만 다시 저장한다.
+    // 일반 "문서수"의 단일 정의는 따옴표 없는 Naver Blog OpenAPI total이다.
+    // HTML 숫자는 결과 위젯/댓글 수를 잘못 잡을 수 있으므로 공식 문서수에 사용하지 않는다.
     // The combined SearchAd/OpenAPI path previously sent three document calls
     // concurrently and mislabeled OpenAPI 012 speed limits as quota exhaustion.
-    // Serialize exact document lookup so later categories are not blacked out.
+    // Serialize canonical document lookup so later categories are not blacked out.
     const CONCURRENCY = 1;
-    // When the Open API quota is already blocked, workers only use the
-    // read-only scraper fallback below. A small parallelism bump keeps a
-    // 900-candidate desktop recovery from taking hours, while the normal API
-    // path remains strictly serialized to avoid rate limits.
-    const scrapeOnlyConcurrency = isNaverBlogOpenApiQuotaBlocked(config) ? 3 : CONCURRENCY;
-    const API_TIMEOUT_MS = 3500;
-    const SCRAPE_TIMEOUT_MS = 1800;
-
-    const scrapeFallback = async (keyword: string): Promise<number | null> => {
-      try {
-        const axiosMod = await import('axios');
-        const axios = axiosMod.default;
-        const url = `https://search.naver.com/search.naver?where=blog&query=${encodeURIComponent(keyword)}`;
-        const resp = await axios.get(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 AppleWebKit/537.36 Chrome/120.0.0.0' },
-          timeout: SCRAPE_TIMEOUT_MS,
-        });
-        const html = String(resp.data || '');
-        // v2.49.17: pattern 복원 + n>=10 게이트 (v2.49.16 의 n>=100 이 진짜 롱테일 차단 → 사용자 보고 SSS 50+→2건 폭락).
-        //   widget 의 전형: 댓글 26건, 광고 5건, 인플루언서 12건 — 모두 < 30.
-        //   진짜 저경쟁 황금: dc 30~3000 — 통과시켜야 SSS 후보 살아남음.
-        //   anchor 있는 안전 패턴만 사용 — pattern 3 `약\s*N건` 만 제거 (광고 영역 매칭 위험).
-        const strictPatterns = [
-          /블로그\s*검색결과\s*약\s*([0-9,]+)\s*건/,    // "블로그 검색결과" prefix — 가장 안전
-          /검색결과\s*약\s*([0-9,]+)\s*건/,              // "검색결과" prefix
-          /\d+-\d+\s*\/\s*([0-9,]+)\s*건/,              // 페이지네이션 "1-10 / N건"
-          /총\s*([0-9,]+)\s*건/,                          // "총 N건" 결과 헤더
-          /([0-9,]+)\s*건\s*중/,                          // "N건 중" suffix
-        ];
-        for (const p of strictPatterns) {
-          const m = html.match(p);
-          if (m && m[1]) {
-            const n = parseInt(m[1].replace(/,/g, ''), 10);
-            if (!Number.isFinite(n) || n <= 0) continue;
-            if (n < 10) continue;  // widget noise (댓글/광고 카운트) 만 차단. 진짜 SSS dc 통과.
-            return n;
-          }
-        }
-        return null;
-      } catch {
-        return null;
-      }
-    };
-
     const fetchApi = async (originalKeyword: string): Promise<number | null> => {
-      const credential = selectNaverBlogOpenApiCredential(config);
-      if (!credential) return null;
-      const params = new URLSearchParams({ query: originalKeyword, display: '1', sort: 'sim' });
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-      try {
-        const response = await fetch(`${apiUrl}?${params.toString()}`, {
-          headers: {
-            'X-Naver-Client-Id': credential.clientId,
-            'X-Naver-Client-Secret': credential.clientSecret,
-          },
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-        if (response.ok) {
-          const data = await response.json();
-          const totalRaw = (data as any)?.total;
-          return typeof totalRaw === 'number' ? totalRaw : (typeof totalRaw === 'string' ? parseInt(totalRaw, 10) : null);
-        }
-        const errorText = await response.text().catch(() => '');
-        if (response.status === 429 && isNaverBlogOpenApiRateLimitedText(errorText)) {
-          await new Promise(r => setTimeout(r, 2_500));
-        } else if (response.status === 429 || isNaverBlogOpenApiQuotaExceededText(errorText)) {
-          markNaverBlogOpenApiQuotaBlocked(credential);
-        }
-        return null;
-      } catch {
-        clearTimeout(timer);
-        return null;
-      }
+      const broadQuery = normalizeNaverBlogBroadQuery(originalKeyword);
+      if (!broadQuery) return null;
+      return getNaverBlogDocumentCount(broadQuery, {
+        forceFresh: options.forceFresh === true,
+        config,
+      });
     };
 
     const fetchApiWithRetry = async (originalKeyword: string): Promise<number | null> => {
@@ -944,67 +903,29 @@ export async function getNaverKeywordSearchVolumeSeparate(
 
     let cursor = 0;
     const workers: Promise<void>[] = [];
-    for (let w = 0; w < scrapeOnlyConcurrency; w++) {
+    for (let w = 0; w < CONCURRENCY; w++) {
       workers.push((async () => {
         while (true) {
           const idx = cursor++;
           if (idx >= input.length) return;
-          // 🔥 v2.27.4: 영구 캐시 HIT 이면 API 건너뛰기
+          // 이미 채워진 행은 다시 조회하지 않는다.
           if (results[idx].documentCount !== null) continue;
           const originalKeyword = input[idx];
-          // A blog Open API quota block must not turn every SearchAd-measured
-          // row into an unmeasured null.  The scraper fallback below is a
-          // read-only document-count measurement and is already the guarded
-          // fallback used after an individual API failure.  Continue through
-          // that path while the quota marker is active instead of returning
-          // from the worker before it has attempted the keyword.
           if (isNaverBlogOpenApiQuotaBlocked(config)) {
-            const scraped = await scrapeFallback(originalKeyword);
-            if (scraped !== null && scraped > 0) {
-              const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
-              const suspiciousRatio = sv > 0 && scraped < 1000 && (sv / scraped) > 100;
-              if (!suspiciousRatio) results[idx].documentCount = scraped;
-            }
+            // 정확한 OpenAPI total을 얻을 수 없으면 잘못된 숫자 대신 null을 유지한다.
             continue;
           }
-          let dc = await fetchApiWithRetry(originalKeyword);
-          const fromApi = dc !== null;
-          if (dc === null) {
-            // API 최종 실패 → 스크랩 폴백 + sanity check
-            const scraped = await scrapeFallback(originalKeyword);
-            if (scraped !== null && scraped > 0) {
-              const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
-              const suspiciousRatio = sv > 0 && scraped < 1000 && (sv / scraped) > 100;
-              if (!suspiciousRatio) dc = scraped;
-              else console.warn(`[DOC-COUNT] ⚠️ scrapeFallback 거부 "${originalKeyword}": sv=${sv}, scraped=${scraped} (ratio=${(sv/scraped).toFixed(1)})`);
-            }
-          } else {
-            // 🔥 v2.42.17: Bilateral Sanity Check — Naver Open API의 blog.json total은
-            //   웹 검색 결과보다 훨씬 적게 반환되는 알려진 한계 ("노사발전재단" API=70 vs 웹=16,681).
-            //   API 성공이지만 sv/dc 비율이 비현실적으로 높으면 (>50 + dc<3000) → scrape 재검증.
-            //   사용자 신고: 가짜 SSS 분류 → 정책 일관성 보장 위해 필수.
-            const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
-            const apiRatio = dc > 0 ? sv / dc : 0;
-            const suspiciousApiUndercount = sv >= 500 && dc > 0 && dc < 3000 && apiRatio > 50;
-            if (suspiciousApiUndercount) {
-              const scraped = await scrapeFallback(originalKeyword);
-              if (scraped !== null && scraped > dc * 5) {
-                console.warn(`[DOC-COUNT] 🔧 API undercount 감지 "${originalKeyword}": API=${dc} (ratio ${apiRatio.toFixed(1)}) → 웹 scrape=${scraped} 채택`);
-                dc = scraped;
-              }
-            }
-          }
-          results[idx].documentCount = dc;
-          // 🔥 v2.32.1: API 성공 값만 영구 캐시에 저장 (스크랩 값은 신뢰도 낮아 제외)
-          if (fromApi && persistentSet && dc !== null && dc > 0) {
-            const sv = (results[idx].pcSearchVolume || 0) + (results[idx].mobileSearchVolume || 0);
-            if (sv > 0) {
-              persistentSet(originalKeyword, {
-                searchVolume: sv,
-                documentCount: dc,
-                realCpc: results[idx].monthlyAveCpc,
-                compIdx: null,
-              });
+          const dc = await fetchApiWithRetry(originalKeyword);
+          if (dc !== null) {
+            const broadQuery = normalizeNaverBlogBroadQuery(originalKeyword);
+            const measurement = peekCachedNaverBlogDocumentCountMeasurement(broadQuery);
+            if (measurement && measurement.total === dc) {
+              results[idx].documentCount = dc;
+              results[idx].documentCountSource = 'naver-api';
+              results[idx].documentCountConfidence = 'high';
+              results[idx].documentCountQueryMode = 'broad';
+              results[idx].documentCountMeasuredAt = measurement.measuredAt;
+              results[idx].isDocumentCountEstimated = false;
             }
           }
           await new Promise(r => setTimeout(r, 350));
