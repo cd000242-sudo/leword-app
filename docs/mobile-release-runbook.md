@@ -79,7 +79,7 @@ Required repository variables/secrets:
 
 The workflow runs `npm run mobile:ci-secrets-gate` before expensive builds. It allows `verify-only` with no release secrets, but blocks Android/iOS/full-release targets when required production variables or platform submit secrets are missing. `npm run mobile:submit-config:materialize` converts base64 store secrets into temporary local credential files during the CI job; those files are never committed.
 
-The `api-image` job logs in to GHCR, pushes both `${GITHUB_SHA}` and `latest` tags, and uploads `.codex-build-cache/mobile-api-image.txt` as the `mobile-api-image-reference` artifact. Use the SHA tag from that artifact for production rollouts.
+The `api-image` job runs only from `main`, pushes `${GITHUB_SHA}` (never `latest`), reads the registry-reported OCI descriptor digest, verifies `image@sha256:...` and its `RepoDigests`, and uploads `.codex-build-cache/mobile-api-image-manifest.json` as `mobile-api-image-reference`. The strict JSON binds repository, exact commit, image repository, digest, workflow run, workflow, and job.
 
 The release evidence artifact also includes `.codex-build-cache/mobile-release-kit.json`, `.codex-build-cache/mobile-release-dry-run.json`, `.codex-build-cache/mobile-release-dispatch-plan.json`, `.codex-build-cache/mobile-release-status.json`, `.codex-build-cache/mobile-release-secret-scan.json`, `.codex-build-cache/mobile-public-release-gate.json`, `.codex-build-cache/mobile-public-release-gate-android.json`, `.codex-build-cache/mobile-launch-sla-report.json`, `.codex-build-cache/mobile-ui-release-gate.json`, `.codex-build-cache/mobile-github-setup-plan.json`, `.codex-build-cache/mobile-github-setup.ps1`, `.codex-build-cache/mobile-store-submission-package.json`, `.codex-build-cache/mobile-store-submission-google-play.txt`, `.codex-build-cache/mobile-store-submission-app-store.txt`, `docs/mobile-store-compliance.json`, `docs/mobile-store-listing.json`, `docs/mobile-store-assets.json`, and the generated app/store PNG assets so PC parity, mobile UI quality, store privacy labels, descriptions, reviewer notes, release notes, icons, screenshots, missing target inputs, local readiness, public-store readiness, Android-only public-store readiness, secret-scan status, and the exact dispatch command can be checked against the submitted build.
 
@@ -103,6 +103,9 @@ Required production worker state:
 - Push delivery is configured through `LEWORD_MOBILE_PUSH_PROVIDER=expo` or a production HTTPS gateway.
 - `LEWORD_MOBILE_MAX_BODY_BYTES` and `LEWORD_MOBILE_RATE_LIMIT_PER_MINUTE` are left at safe defaults or intentionally tuned after capacity testing.
 - `LEWORD_CHROME_PATH` resolves to a server-side Chromium path such as `/usr/bin/chromium` in the production container.
+- `LEWORD_WEB_SESSION_SECRET` is at least 32 UTF-8 bytes after trimming and differs from `LEWORD_MOBILE_API_TOKEN`; weak/shared values deliberately make `reviewAuthConfigured=false`.
+- Copy `apps/api/.env.live-golden-worker.production.example` to `.env.live-golden-worker.production`; do not put web-session, mobile bearer, commerce, mail, or payment secrets in it.
+- `/health.liveGolden.reviewStorage` has `configured=true`, `readable=true`, and `writable=true`.
 
 Build the API container from the repository root:
 
@@ -114,13 +117,13 @@ docker run --rm -p 34983:34983 --env-file apps/api/.env.production leword-mobile
 Or deploy the CI-published GHCR image with the production compose file:
 
 ```powershell
-$env:LEWORD_MOBILE_API_IMAGE='ghcr.io/<owner>/leword-mobile-api:<sha>'
+$env:LEWORD_MOBILE_API_IMAGE='ghcr.io/<owner>/leword-mobile-api@sha256:<64-hex-digest>'
 docker compose -f apps/api/docker-compose.production.yml up -d
 ```
 
-For hands-off production restarts, run `.github/workflows/api-production-restart.yml` after the `api-image` workflow succeeds. Required repository secrets are `LEWORD_PROD_SSH_HOST`, `LEWORD_PROD_SSH_USER`, and one of `LEWORD_PROD_SSH_KEY` or `LEWORD_PROD_SSH_PASSWORD`; optional secrets are `LEWORD_PROD_SSH_PORT`, `LEWORD_PROD_SSH_KNOWN_HOSTS`, `LEWORD_GHCR_USER`, and `LEWORD_GHCR_TOKEN`.
+For production restarts, dispatch `.github/workflows/api-production-restart.yml` after the `api-image` workflow succeeds. It accepts no image input, re-resolves current `origin/main`, and deploys only the exact successful image artifact for that commit. Required repository secrets are `LEWORD_PROD_SSH_HOST`, `LEWORD_PROD_SSH_USER`, `LEWORD_PROD_SSH_KNOWN_HOSTS`, `LEWORD_GHCR_USER`, `LEWORD_GHCR_TOKEN`, and one of `LEWORD_PROD_SSH_KEY` or `LEWORD_PROD_SSH_PASSWORD`; only `LEWORD_PROD_SSH_PORT` is optional.
 
-The API image installs system Chromium and exposes a `/health` container healthcheck so orchestration can replace broken workers before the mobile app points users at them. The production compose file loads `apps/api/.env.production`, maps port `34983`, and persists `LEWORD_MOBILE_CACHE_FILE` on the `leword-mobile-cache` volume.
+The API image installs system Chromium and runs API/worker processes as non-root. Compose loads `.env.production` only for the API and the minimal `.env.live-golden-worker.production` for the worker, maps port `34983`, keeps cache/commerce `/data` API-only, uses `leword-live-golden-data` as worker-RW/API-RO `/golden`, shares the human-reviewed briefing through API-RW/worker-RO `/briefing`, mounts `leword-searchad-accounts` read-only at `/searchad`, shares only the SearchAd/OpenAPI quota ledgers through API/worker-RW `/quota`, and stores review decisions/certificates on `leword-review-artifacts` (API read-write, worker read-only). A secret-free root one-shot initializer repairs ownership, copies legacy golden/briefing/SearchAd files without deleting their rollback sources, and merges quota counters/cooldowns without decreasing them. During the rollback window, the legacy SearchAd account copy remains in API-only `/data` for the old compose and must not be deleted; the worker never mounts that volume. The restart transaction pulls and verifies the immutable RepoDigest before journaling or replacing compose. Readiness requires structured review storage plus `liveGolden.reviewAuth.ready=true`, an independent signing secret, and either a configured local admin or the explicit `LEWORD_MOBILE_LIVE_GOLDEN_REVIEW_PANEL_LOGIN_URL` public-HTTPS provider; the general panel URL is not a review fallback. It also requires a healthy fresh worker and two distinct post-start heartbeat timestamps. Failure stops every managed writer, validates and atomically bridges only the version-compatible `/golden` board/probe/heartbeat and `/briefing` reviewed snapshot to legacy `/data`, exports maximum quota state, preserves all Phase 2 review evidence on `/review`, and restores the journaled compose/images. On the next forward init, only state tied to rollback digest markers may return from `/data`; markers are consumed after reconciliation so stale legacy mtime cannot overwrite later `/golden` or `/briefing` state.
 
 ## 3. Deployed API smoke
 
@@ -194,6 +197,16 @@ Before iOS submit, replace the `apps/mobile/eas.json` iOS placeholders or run `n
 - Confirm the in-app Privacy Policy footer opens the production HTTPS privacy URL.
 - Confirm push notifications are optional and only requested after the user chooses to enable them.
 - Confirm keyword jobs, API bearer tokens, Expo push tokens, and notification read state match the declared privacy manifest.
+
+## 7. Phase 2 블라인드 전수 검수
+
+1. 운영 `/health`에서 자동 공급 게이트, 검수 저장소, 검수 전용 인증 준비 상태를 먼저 확인합니다. 쿼터 카운터를 초기화하거나 ceiling을 올려 통과시키지 않습니다.
+2. 운영 `/admin`의 **환경설정 → Phase 2 블라인드 전수 검수**를 엽니다. 일반 Pro/관리자 로그인 토큰은 사용할 수 없으며, **검수 전용 재인증**에서 관리자 ID와 비밀번호를 다시 입력합니다.
+3. 화면에 표시되는 서버 동결 packet의 `keyword`, `category`, `intent`만 보고 전수 검수합니다. 검색량, 문서수, 등급, 순위 또는 LIVE 보드 값을 따로 합쳐 보지 않습니다.
+4. 모든 행에서 자연스러운 실제 검색어, 의도 일치, 숨은 수요/뻔한 헤드, malformed, 의미 중복, 플랫폼 잔재, 문장 잔재를 직접 선택합니다. 기본 선택과 일괄 통과는 없습니다. 화면의 **뻔한 헤드**는 서버에 별도 필드로 보내지 않고 `hiddenKnown=false`로만 전송됩니다.
+5. 제출 직전 다시 조회된 cohort ID와 board fingerprint가 동일한지, 완료 행수가 전체 행수와 같은지 확인합니다. 확인창의 cohort ID, 전체 행수, 실패 판정 행수를 읽고, 한 행이라도 실패하면 해당 코호트가 tombstone으로 불변 종료된다는 경고에 동의할 때만 제출합니다.
+6. 30분 이상 검수 중 401/403이 발생해도 입력한 DOM 판정은 지워지지 않습니다. 재인증 후 같은 cohort ID와 fingerprint가 확인되면 이어서 제출할 수 있습니다. binding이 달라지면 기존 판정은 폐기되며 새 코호트를 처음부터 전수 검수해야 합니다.
+7. 응답의 `phase2Entry.state`, 정밀도, malformed/중복/잔재 수, reason code와 인증서 발급 여부를 기록합니다. `state=eligible`이고 인증서가 발급된 경우에만 Phase 2 진입 가능으로 판정합니다. 그 외에는 표시된 실패 reason에 해당하는 안전 조치만 수행합니다.
 
 ## Current external blockers
 

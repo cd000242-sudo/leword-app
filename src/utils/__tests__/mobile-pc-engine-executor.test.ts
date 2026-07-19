@@ -1,5 +1,6 @@
 import { createMobilePcEngineExecutor } from '../../mobile/pc-engine-executor';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import type {
   MobileJobEnvelope,
@@ -13,6 +14,7 @@ import {
   isNaverBlogOpenApiQuotaExceededText,
   isNaverBlogOpenApiRateLimitedText,
   markNaverBlogOpenApiQuotaBlocked,
+  naverBlogDocumentCountQueryKey,
   selectNaverBlogOpenApiCredential,
 } from '../naver-blog-api';
 
@@ -63,6 +65,7 @@ function makeSssMetric(index: number, prefix = '모바일 검증 키워드'): Mo
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(`\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC794\uC561\uC870\uD68C ${index}`),
     documentCountMeasuredAt: new Date().toISOString(),
     isDocumentCountEstimated: false,
   };
@@ -112,6 +115,7 @@ async function measureFixtureMetrics(metrics: MobileKeywordMetric[]): Promise<Mo
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey(metric.keyword),
       documentCountMeasuredAt: new Date().toISOString(),
       isDocumentCountEstimated: false,
     };
@@ -295,8 +299,8 @@ async function runMindmapExpansionWithPolicySemanticBridge(): Promise<void> {
 }
 
 function runNaverOpenApiKeyPoolGuards(): void {
-  const stateFile = path.join(process.cwd(), 'tmp', 'naver-openapi-key-pool-test.json');
-  fs.rmSync(stateFile, { force: true });
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-openapi-key-pool-'));
+  const stateFile = path.join(stateRoot, 'naver-openapi-quota-state.json');
   const oldStateFile = process.env['LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE'];
   const oldIdPool = process.env['NAVER_CLIENT_ID_POOL'];
   const oldSecretPool = process.env['NAVER_CLIENT_SECRET_POOL'];
@@ -349,7 +353,7 @@ function runNaverOpenApiKeyPoolGuards(): void {
     else process.env['NAVER_CLIENT_ID'] = oldSingleId;
     if (oldSingleSecret === undefined) delete process.env['NAVER_CLIENT_SECRET'];
     else process.env['NAVER_CLIENT_SECRET'] = oldSingleSecret;
-    fs.rmSync(stateFile, { force: true });
+    fs.rmSync(stateRoot, { recursive: true, force: true });
   }
 }
 
@@ -790,6 +794,7 @@ async function runAgentAssistQualityGate(): Promise<void> {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(metric.keyword),
     documentCountMeasuredAt: new Date().toISOString(),
     isDocumentCountEstimated: false,
   }));
@@ -839,12 +844,13 @@ async function runAgentAssistQualityGate(): Promise<void> {
     (result.summary.agentFiltered || 0) >= 2
       && result.summary.agentQualityProfile === 'measured-need-ratio-intent-gate-v2'
       && result.summary.agentAssist?.provider === 'codex'
-      && result.keywords.every((item) => item.evidence.includes('agent-assist:codex')),
+      && result.summary.agentAssist?.mode === 'readiness-status-only'
+      && result.keywords.every((item) => item.evidence.includes('agent-assist:deterministic')),
     JSON.stringify(result.summary));
   assert('agent assist attaches inferred search reason and expansion contract',
     result.keywords.length > 0
       && result.keywords.every((item) => item.agentInsight
-        && item.agentInsight.generatedBy === 'agent-assist:codex'
+        && item.agentInsight.generatedBy === 'server-semantic-agent'
         && typeof item.agentInsight.searchVolumeReason === 'string'
         && item.agentInsight.searchVolumeReason.length > 10
         && typeof item.agentInsight.combinationIntent === 'string'
@@ -854,71 +860,186 @@ async function runAgentAssistQualityGate(): Promise<void> {
     JSON.stringify(result.keywords.map((item) => item.agentInsight)));
 }
 
+function makeExternalAgentInsightMetric(keyword = '송지호바다하늘길입장료'): MobileKeywordMetric {
+  return {
+    keyword,
+    grade: 'SSS',
+    score: 91,
+    pcSearchVolume: 450,
+    mobileSearchVolume: 2060,
+    totalSearchVolume: 2510,
+    documentCount: 157,
+    goldenRatio: 15.99,
+    cpc: 0,
+    category: 'travel_domestic',
+    source: 'fixture',
+    intent: 'measured-need',
+    evidence: ['naver-autocomplete'],
+    isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: new Date().toISOString(),
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
+    documentCountMeasuredAt: new Date().toISOString(),
+    isDocumentCountEstimated: false,
+  };
+}
+
+function externalAgentOpenAiResponse(
+  keyword = '송지호바다하늘길입장료',
+  extraItems: Array<Record<string, unknown>> = [],
+) {
+  return {
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    json: async () => ({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            items: [{
+              index: 0,
+              keyword,
+              subject: '송지호 바다하늘길',
+              searchVolumeReason: '강원 고성 송지호 바다하늘길을 여름 여행 코스로 확인하면서 입장료와 주차, 운영시간을 한 번에 보려는 방문 전 검색 수요입니다.',
+              combinationIntent: '입장료, 주차, 운영시간, 둘레길 코스를 표로 묶어 방문 전 체크리스트 글로 작성합니다.',
+              autocompleteKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간'],
+              relatedKeywords: ['송지호 해수욕장', '고성 송지호 둘레길'],
+              expandedKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간', '고성 송지호 바다하늘길 후기'],
+              label: '여행/방문 전 확인',
+              route: 'blog-seo',
+            }, ...extraItems],
+          }),
+        },
+      }],
+    }),
+    text: async () => '',
+  };
+}
+
 async function runExternalAgentInsightInference(): Promise<void> {
   const previousFetch = (globalThis as any).fetch;
+  let promptRows = 0;
+  let openAiCalls = 0;
   (globalThis as any).fetch = async (url: string, init: { body?: string }) => {
+    openAiCalls += 1;
     assert('external agent insight uses OpenAI endpoint when only OpenAI key exists',
       String(url).includes('api.openai.com/v1/chat/completions'));
     const body = JSON.parse(String(init.body || '{}'));
     assert('external agent prompt asks for JSON object response',
       body.response_format?.type === 'json_object');
-    return {
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      json: async () => ({
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              items: [{
-                index: 0,
-                keyword: '송지호바다하늘길입장료',
-                subject: '송지호 바다하늘길',
-                searchVolumeReason: '강원 고성 송지호 바다하늘길을 여름 여행 코스로 확인하면서 입장료와 주차, 운영시간을 한 번에 보려는 방문 전 검색 수요입니다.',
-                combinationIntent: '입장료, 주차, 운영시간, 둘레길 코스를 표로 묶어 방문 전 체크리스트 글로 작성합니다.',
-                autocompleteKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간'],
-                relatedKeywords: ['송지호 해수욕장', '고성 송지호 둘레길'],
-                expandedKeywords: ['송지호 바다하늘길 입장료', '송지호 바다하늘길 주차', '송지호 바다하늘길 운영시간', '고성 송지호 바다하늘길 후기'],
-                label: '여행/방문 전 확인',
-                route: 'blog-seo',
-              }],
-            }),
-          },
-        }],
+    assert('external agent OpenAI response is capped at 2048 tokens', body.max_tokens === 2048, JSON.stringify(body));
+    const userPrompt = JSON.parse(String(body.messages?.find((message: any) => message.role === 'user')?.content || '{}'));
+    promptRows = Array.isArray(userPrompt.rows) ? userPrompt.rows.length : 0;
+    return externalAgentOpenAiResponse('송지호바다하늘길입장료', [
+      { index: 1, subject: '허용된 두 번째 행 설명' },
+      { index: 9, keyword: '송지호 바다하늘길 근처 맛집', subject: '8행 밖 조작 시도' },
+      { index: 2, keyword: '송지호 바다하늘길 가족여행', subject: '키워드와 인덱스 불일치' },
+      { keyword: '응답에만 있는 환각 키워드', subject: '허용 목록 밖 조작 시도' },
+      { index: 0, subject: '중복 행 덮어쓰기 시도' },
+    ]);
+  };
+  try {
+    const keywords = [
+      '송지호바다하늘길입장료',
+      '송지호 바다하늘길 주차',
+      '송지호 바다하늘길 운영시간',
+      '송지호 바다하늘길 예약',
+      '송지호 바다하늘길 둘레길',
+      '송지호 바다하늘길 소요시간',
+      '송지호 바다하늘길 반려견',
+      '송지호 바다하늘길 유모차',
+      '송지호 바다하늘길 일몰시간',
+      '송지호 바다하늘길 근처 맛집',
+      '송지호 바다하늘길 가족여행',
+      '송지호 바다하늘길 후기',
+    ];
+    const executor = createMobilePcEngineExecutor({
+      getEnvConfig: () => ({ openaiApiKey: 'sk-test-external-agent' }),
+      runHomeBoard: async () => ({
+        keywords: keywords.map((keyword) => makeExternalAgentInsightMetric(keyword)),
+        summary: {
+          total: keywords.length,
+          sss: keywords.length,
+          measured: keywords.length,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
       }),
-      text: async () => '',
+    });
+    const result = await executor(makeJob('home-board-hunter', {
+      categoryId: 'travel_domestic',
+      targetCount: keywords.length,
+      requireSplusFloor: true,
+      agentAssist: {
+        enabled: true,
+        provider: 'codex',
+        featureId: 'home-board-hunter',
+        includeAiInference: true,
+        forceExternalInference: true,
+        externalAi: true,
+        externalAiKeyOwner: 'user-local',
+        externalAiProvider: 'openai',
+        externalAiProviders: ['openai'],
+        maxAgentRows: 30,
+      },
+    }), {
+      signal: new AbortController().signal,
+      progress: () => {},
+    });
+    const insight = result.keywords[0]?.agentInsight;
+    const externalSummary = result.summary as typeof result.summary & {
+      agentInsightExternalProvider?: string;
+      agentInsightExternalCount?: number;
     };
+    assert('external agent may add intent prose but cannot replace server-composed metric explanations',
+      insight?.generatedBy === 'external-agent:openai'
+        && !insight.searchVolumeReason?.includes('강원 고성 송지호 바다하늘길')
+        && insight.autocompleteKeywords?.includes('송지호 바다하늘길 주차')
+        && insight.warning?.includes('AI 생성 연관어는 미실측')
+        && externalSummary.agentInsightExternalProvider === 'openai'
+        && externalSummary.agentInsightExternalCount === 2
+        && result.summary.agentInsightExternalCallCount === 1
+        && result.summary.agentInsightExternalAttemptedProviders?.join(',') === 'openai'
+        && result.summary.agentInsightExternalKeyOwner === 'user-local',
+      JSON.stringify({ insight, summary: result.summary }));
+    assert('external agent batches at most eight result rows in one call',
+      promptRows === 8 && openAiCalls === 1,
+      JSON.stringify({ promptRows, openAiCalls }));
+    assert('external agent output cannot modify rows outside the eight-row prompt scope',
+      result.keywords[1]?.agentInsight?.subject === '허용된 두 번째 행 설명'
+        && result.keywords[8]?.agentInsight?.generatedBy !== 'external-agent:openai'
+        && result.keywords[9]?.agentInsight?.generatedBy !== 'external-agent:openai'
+        && result.keywords[10]?.agentInsight?.generatedBy !== 'external-agent:openai',
+      JSON.stringify(result.keywords.map((item, index) => ({
+        index,
+        keyword: item.keyword,
+        generatedBy: item.agentInsight?.generatedBy,
+        subject: item.agentInsight?.subject,
+      }))));
+  } finally {
+    (globalThis as any).fetch = previousFetch;
+  }
+}
+
+async function runExternalAgentInsightRequiresExplicitOwnedOptIn(): Promise<void> {
+  const previousFetch = (globalThis as any).fetch;
+  let calls = 0;
+  (globalThis as any).fetch = async () => {
+    calls += 1;
+    throw new Error('external AI must remain disabled without an explicit key owner and provider allow-list');
   };
   try {
     const executor = createMobilePcEngineExecutor({
       getEnvConfig: () => ({ openaiApiKey: 'sk-test-external-agent' }),
       runProTraffic: async () => ({
-        keywords: [{
-          keyword: '송지호바다하늘길입장료',
-          grade: 'SSS',
-          score: 91,
-          pcSearchVolume: 450,
-          mobileSearchVolume: 2060,
-          totalSearchVolume: 2510,
-          documentCount: 157,
-          goldenRatio: 15.99,
-          cpc: 0,
-          category: 'travel_domestic',
-          source: 'fixture',
-          intent: 'measured-need',
-          evidence: ['naver-autocomplete'],
-          isMeasured: true,
-          searchVolumeSource: 'searchad',
-          searchVolumeConfidence: 'high',
-          searchVolumeBindingVersion: 'keyword-keyed-v2',
-          searchVolumeMeasuredAt: new Date().toISOString(),
-          isSearchVolumeEstimated: false,
-          documentCountSource: 'naver-api',
-          documentCountConfidence: 'high',
-          documentCountQueryMode: 'broad',
-          documentCountMeasuredAt: new Date().toISOString(),
-          isDocumentCountEstimated: false,
-        }],
+        keywords: [makeExternalAgentInsightMetric()],
         summary: {
           total: 1,
           sss: 1,
@@ -932,34 +1053,158 @@ async function runExternalAgentInsightInference(): Promise<void> {
     const result = await executor(makeJob('pro-traffic-hunter', {
       categoryId: 'travel_domestic',
       targetCount: 1,
-      includeSeasonal: true,
-      includeEvergreen: true,
-      includeFreshIssue: true,
       agentAssist: {
         enabled: true,
-        provider: 'codex',
-        featureId: 'pro-traffic-hunter',
+        provider: 'api',
         includeAiInference: true,
         forceExternalInference: true,
         externalAi: true,
-        maxAgentRows: 1,
       },
     }), {
       signal: new AbortController().signal,
       progress: () => {},
     });
-    const insight = result.keywords[0]?.agentInsight;
-    const externalSummary = result.summary as typeof result.summary & {
-      agentInsightExternalProvider?: string;
-      agentInsightExternalCount?: number;
+    assert('external inference requires explicit key ownership and a provider allow-list',
+      calls === 0
+        && result.summary.agentInsightExternalCallCount === undefined
+        && result.summary.agentInsightExternalProvider === undefined
+        && result.keywords[0]?.agentInsight?.generatedBy === 'server-semantic-agent'
+        && !result.keywords[0]?.evidence.includes('external-agent:'),
+      JSON.stringify({ calls, summary: result.summary, keyword: result.keywords[0] }));
+  } finally {
+    (globalThis as any).fetch = previousFetch;
+  }
+}
+
+async function runExternalAgentInsightDoesNotCrossProviderFallback(): Promise<void> {
+  const previousFetch = (globalThis as any).fetch;
+  const calls: string[] = [];
+  (globalThis as any).fetch = async (url: string, init: { body?: string }) => {
+    const target = String(url);
+    const body = JSON.parse(String(init.body || '{}'));
+    if (target.includes('api.anthropic.com/v1/messages')) {
+      calls.push('anthropic');
+      assert('Anthropic output is capped at 2048 tokens', body.max_tokens === 2048, JSON.stringify(body));
+      return {
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        json: async () => ({}),
+        text: async () => 'quota exceeded',
+      };
+    }
+    calls.push('openai');
+    throw new Error(`unexpected cross-provider fallback: ${body.model || 'unknown model'}`);
+  };
+  try {
+    const executor = createMobilePcEngineExecutor({
+      getEnvConfig: () => ({
+        anthropicApiKey: 'sk-ant-test-external-agent',
+        openaiApiKey: 'sk-test-external-agent',
+      }),
+      runProTraffic: async () => ({
+        keywords: [makeExternalAgentInsightMetric()],
+        summary: {
+          total: 1,
+          sss: 1,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const result = await executor(makeJob('pro-traffic-hunter', {
+      categoryId: 'travel_domestic',
+      targetCount: 1,
+      agentAssist: {
+        enabled: true,
+        provider: 'api',
+        featureId: 'pro-traffic-hunter',
+        includeAiInference: true,
+        forceExternalInference: true,
+        externalAi: true,
+        externalAiKeyOwner: 'user-local',
+        externalAiProvider: 'anthropic',
+        externalAiProviders: ['anthropic', 'openai'],
+        maxAgentRows: 30,
+      },
+    }), {
+      signal: new AbortController().signal,
+      progress: () => {},
+    });
+    assert('Anthropic failure never spends the second OpenAI provider automatically',
+      calls.join(',') === 'anthropic',
+      calls.join(','));
+    assert('failed single-provider summary reports the one attempted provider and call',
+      result.summary.agentInsightExternalProvider === 'anthropic'
+        && result.summary.agentInsightExternalCount === 0
+        && String(result.summary.agentInsightExternalError || '').includes('anthropic failed')
+        && !String(result.summary.agentInsightExternalError || '').includes('openai')
+        && result.summary.agentInsightExternalCallCount === 1
+        && result.summary.agentInsightExternalAttemptedProviders?.join(',') === 'anthropic'
+        && !result.keywords[0]?.evidence.includes('external-agent:openai')
+        && result.keywords[0]?.agentInsight?.generatedBy !== 'external-agent:openai',
+      JSON.stringify(result));
+  } finally {
+    (globalThis as any).fetch = previousFetch;
+  }
+}
+
+async function runExternalAgentInsightFailureSummary(): Promise<void> {
+  const previousFetch = (globalThis as any).fetch;
+  let calls = 0;
+  (globalThis as any).fetch = async () => {
+    calls += 1;
+    return {
+      ok: false,
+      status: 500,
+      statusText: 'Server Error',
+      json: async () => ({}),
+      text: async () => 'temporary provider failure',
     };
-    assert('external agent insight overrides rule fallback fields',
-      insight?.generatedBy === 'external-agent:openai'
-        && insight.searchVolumeReason?.includes('강원 고성 송지호 바다하늘길')
-        && insight.autocompleteKeywords?.includes('송지호 바다하늘길 주차')
-        && externalSummary.agentInsightExternalProvider === 'openai'
-        && externalSummary.agentInsightExternalCount === 1,
-      JSON.stringify({ insight, summary: result.summary }));
+  };
+  try {
+    const executor = createMobilePcEngineExecutor({
+      getEnvConfig: () => ({ openaiApiKey: 'sk-test-external-agent' }),
+      runProTraffic: async () => ({
+        keywords: [makeExternalAgentInsightMetric()],
+        summary: {
+          total: 1,
+          sss: 1,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const result = await executor(makeJob('pro-traffic-hunter', {
+      categoryId: 'travel_domestic',
+      targetCount: 1,
+      agentAssist: {
+        enabled: true,
+        provider: 'api',
+        includeAiInference: true,
+        forceExternalInference: true,
+        externalAi: true,
+        externalAiKeyOwner: 'user-local',
+        externalAiProvider: 'openai',
+        externalAiProviders: ['openai'],
+      },
+    }), {
+      signal: new AbortController().signal,
+      progress: () => {},
+    });
+    assert('external provider failure is not retried and keeps provider/count/error diagnostics',
+      calls === 1
+        && result.summary.agentInsightExternalProvider === 'openai'
+        && result.summary.agentInsightExternalCount === 0
+        && result.summary.agentInsightExternalCallCount === 1
+        && result.summary.agentInsightExternalAttemptedProviders?.join(',') === 'openai'
+        && String(result.summary.agentInsightExternalError || '').includes('openai failed: 500 Server Error')
+        && !result.keywords[0]?.evidence.includes('external-agent:openai'),
+      JSON.stringify({ calls, summary: result.summary, evidence: result.keywords[0]?.evidence }));
   } finally {
     (globalThis as any).fetch = previousFetch;
   }
@@ -1354,12 +1599,12 @@ function runFallbackRegressionGuards(): void {
       && naverBlogApiSource.includes('naver-openapi-quota-state.json')
       && naverBlogApiSource.includes('naver-document-count-cache.json'),
     'quota and measured document-count cache must not fall back to container tmp before /data');
-  assert('Naver OpenAPI stale quota cooldown is retried instead of blocking until midnight',
-    naverBlogApiSource.includes('savedAtMs')
-      && naverBlogApiSource.includes('NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS')
-      && naverBlogApiSource.includes('nowMs - savedAtMs > NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS')
+  assert('Naver OpenAPI daily quota state survives restarts until the next KST midnight',
+    naverBlogApiSource.includes('kst.getUTCDate() + 1')
+      && naverBlogApiSource.includes('NAVER_BLOG_OPENAPI_QUOTA_MAX_FUTURE_SKEW_MS')
+      && !naverBlogApiSource.includes('nowMs - savedAtMs >')
       && naverBlogApiSource.includes('saveNaverBlogOpenApiQuotaState()'),
-    'stale persisted quota cooldown should be cleared so recovered OpenAPI keys can measure documents again');
+    'errorCode 010 must remain blocked across process restarts until its explicit KST reset');
   assert('Naver OpenAPI speed limit is not treated as daily quota exhaustion',
     isNaverBlogOpenApiRateLimitedText('{"errorMessage":"Rate limit exceeded. (속도 제한을 초과했습니다.)","errorCode":"012"}')
       && !isNaverBlogOpenApiQuotaExceededText('{"errorMessage":"Rate limit exceeded. (속도 제한을 초과했습니다.)","errorCode":"012"}')
@@ -1392,7 +1637,10 @@ function runFallbackRegressionGuards(): void {
   await runInjectedGoldenQualityBackfill();
   await runInjectedProTraffic();
   await runAgentAssistQualityGate();
+  await runExternalAgentInsightRequiresExplicitOwnedOptIn();
   await runExternalAgentInsightInference();
+  await runExternalAgentInsightDoesNotCrossProviderFallback();
+  await runExternalAgentInsightFailureSummary();
   await runHomeBoardDefaultAdapter();
   await runInjectedKinHiddenHoney();
   await runInjectedShoppingConnect();

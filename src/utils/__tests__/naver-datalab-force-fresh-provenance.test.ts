@@ -32,6 +32,7 @@ searchAdModule.getNaverSearchAdKeywordVolume = async (
     mobileSearchVolume: 5_400,
     totalSearchVolume: 6_400,
     monthlyAveCpc: 260,
+    svEstimated: false,
     measuredAtMs,
     searchVolumeBindingVersion: 'keyword-keyed-v2',
   }));
@@ -74,7 +75,10 @@ async function run(): Promise<void> {
       && rows[0]?.pcSearchVolume === 1_000
       && rows[0]?.mobileSearchVolume === 5_400
       && rows[0]?.searchVolumeBindingVersion === 'keyword-keyed-v2'
-      && rows[0]?.searchVolumeMeasuredAt === '2026-07-15T00:55:00.000Z',
+      && rows[0]?.searchVolumeMeasuredAt === '2026-07-15T00:55:00.000Z'
+      && rows[0]?.searchVolumeSource === 'searchad'
+      && rows[0]?.searchVolumeConfidence === 'high'
+      && rows[0]?.isSearchVolumeEstimated === false,
     JSON.stringify(rows),
   );
 
@@ -90,21 +94,25 @@ async function run(): Promise<void> {
       && rowsWithDocuments[0]?.documentCountSource === 'naver-api'
       && rowsWithDocuments[0]?.documentCountConfidence === 'high'
       && rowsWithDocuments[0]?.documentCountQueryMode === 'broad'
+      && rowsWithDocuments[0]?.documentCountQueryKey
+        === naverBlogModule.naverBlogDocumentCountQueryKey('\uC6D0\uB8F8 \uCCAD\uC18C \uC5C5\uCCB4 \uAC00\uACA9')
       && rowsWithDocuments[0]?.documentCountMeasuredAt === documentMeasuredAt
       && rowsWithDocuments[0]?.isDocumentCountEstimated === false,
     JSON.stringify(rowsWithDocuments),
   );
 
   receivedDocumentKeyword = '';
-  await getNaverKeywordSearchVolumeSeparate(
+  const quotedRows = await getNaverKeywordSearchVolumeSeparate(
     { clientId: 'client', clientSecret: 'secret' },
     ['"canonical broad keyword"'],
     { includeDocumentCount: true, forceFresh: true },
   );
   assert(
     'datalab removes exact-phrase quotes before declaring canonical broad scope',
-    receivedDocumentKeyword === 'canonical broad keyword',
-    receivedDocumentKeyword,
+    receivedDocumentKeyword === 'canonical broad keyword'
+      && quotedRows[0]?.documentCountQueryKey
+        === naverBlogModule.naverBlogDocumentCountQueryKey('canonical broad keyword'),
+    JSON.stringify({ receivedDocumentKeyword, quotedRows }),
   );
 }
 

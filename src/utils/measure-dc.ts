@@ -12,17 +12,18 @@
  *   1) API 성공값 전용 15분 캐시 → Naver blog.json total 재사용
  *   2) Naver blog.json API → return source='naver-api'
  *   3) API 실패 시에만 search.naver.com scrape → 비신뢰 보조값
- *   4) sv*0.5 fallback → return source='fallback', isEstimated=true
+ *   4) 양쪽 모두 실패하면 null — 숫자를 추정해 만들지 않음
  *
  * 정책:
  *   - 일반 문서수는 따옴표 없는 broad OpenAPI total
  *   - OpenAPI와 HTML 숫자가 다르면 OpenAPI를 항상 신뢰
  *   - scrape 값은 persistent cache 미저장 (API 검증 없이 영구화 금지)
- *   - 추정값 fallback은 caller가 dcEstimated=true로 표시해 SSS를 차단
+ *   - 측정 실패는 null이며 caller가 미측정으로 표시
  */
 import axios from 'axios';
 import {
     getNaverBlogDocumentCount,
+    naverBlogDocumentCountQueryKey,
     normalizeNaverBlogBroadQuery,
     peekCachedNaverBlogDocumentCountMeasurement,
 } from './naver-blog-api';
@@ -43,7 +44,7 @@ export type DocumentCountQueryMode = 'broad' | 'exact-phrase';
 export const CANONICAL_DOCUMENT_COUNT_QUERY_MODE: DocumentCountQueryMode = 'broad';
 
 export interface DcMeasurement {
-    /** 측정된 dc 값. fallback 시 sv*0.5. */
+    /** 실제 API 또는 명시적 HTML 보조 경로에서 읽은 dc 값. */
     dc: number;
     /** 측정 경로. */
     source: DcSource;
@@ -53,6 +54,8 @@ export interface DcMeasurement {
     isEstimated: boolean;
     /** 실제 API/스크랩에 사용한 질의 의미. */
     queryMode?: DocumentCountQueryMode;
+    /** Normalized exact broad-query identity used for this observation. */
+    queryKey?: string;
     /** Time at which the underlying source was actually measured. */
     measuredAt?: string;
     /** 진단용 — API/scrape 양쪽 값, cross-check 사유. */
@@ -65,7 +68,7 @@ export interface DcMeasurement {
 }
 
 export interface MeasureOpts {
-    /** sv 값 — fallback (sv*0.5) 계산 + scrape sanity check 용. 0 이면 fallback dc=1. */
+    /** sv 값 — persistent cache 결합 및 scrape sanity check 용. */
     searchVolume?: number;
     /** persistent cache 조회 차단 (verify path 에서 강제 재측정). 기본 false. */
     skipCache?: boolean;
@@ -220,7 +223,17 @@ export function selectDocumentCountMeasurement(
 ): DcMeasurement | null {
     const sourceMeasuredAt = String(measuredAt || '').trim();
     const hasSourceMeasurementTime = Number.isFinite(Date.parse(sourceMeasuredAt));
-    if (apiDc !== null && Number.isFinite(apiDc) && apiDc >= 0 && hasSourceMeasurementTime) {
+    // getNaverBlogDocumentCount intentionally normalizes every request to the
+    // canonical broad query. Its total can therefore never prove an
+    // exact-phrase measurement, even when the caller originally supplied
+    // quotation marks.
+    if (
+        queryMode === CANONICAL_DOCUMENT_COUNT_QUERY_MODE
+        && apiDc !== null
+        && Number.isFinite(apiDc)
+        && apiDc >= 0
+        && hasSourceMeasurementTime
+    ) {
         return {
             dc: apiDc,
             source: 'naver-api',
@@ -263,7 +276,7 @@ export function selectDocumentCountMeasurement(
 export async function measureDocumentCount(
     keyword: string,
     opts: MeasureOpts = {}
-): Promise<DcMeasurement> {
+): Promise<DcMeasurement | null> {
     const invokedAt = new Date().toISOString();
     const sv = opts.searchVolume ?? 0;
     const scrapeTimeoutMs = opts.scrapeTimeoutMs ?? 2000;
@@ -272,6 +285,7 @@ export async function measureDocumentCount(
         : CANONICAL_DOCUMENT_COUNT_QUERY_MODE;
     const exactPhrase = queryMode === 'exact-phrase';
     const queryKeyword = documentCountQueryForMode(keyword, queryMode);
+    const queryKey = naverBlogDocumentCountQueryKey(keyword);
     const throwIfAborted = (): void => {
         if (opts.signal?.aborted) throw new Error('document count lookup aborted');
     };
@@ -295,6 +309,7 @@ export async function measureDocumentCount(
                     confidence: 'high',
                     isEstimated: false,
                     queryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
+                    queryKey,
                     measuredAt: cachedEntry.documentCountMeasuredAt,
                     debug: { apiDc: cachedDc, queryMode },
                 };
@@ -309,29 +324,23 @@ export async function measureDocumentCount(
                 confidence: 'medium',
                 isEstimated: true,
                 queryMode,
+                queryKey,
                 measuredAt: invokedAt,
                 debug: { scrapeDc: scraped, queryMode },
             };
         }
-        // scrape 실패 — fallback 하지 않고 명시적 fallback 반환 (caller 가 skip 결정)
-        const fallback = sv > 0 ? Math.max(1, Math.round(sv * 0.5)) : 1;
-        return {
-            dc: fallback,
-            source: 'fallback',
-            confidence: 'low',
-            isEstimated: true,
-            queryMode,
-            measuredAt: invokedAt,
-            debug: { scrapeDc: null, queryMode },
-        };
+        // HTML에서도 확인하지 못했으면 숫자를 만들지 않는다.
+        return null;
     }
 
     // [1] API (전용 15분 캐시는 naver-blog-api가 관리하며 API 성공값만 담는다.)
-    const apiDc = await getNaverBlogDocumentCount(queryKeyword, {
-        forceFresh: opts.skipCache === true,
-        signal: opts.signal,
-        timeoutMs: opts.timeoutMs,
-    }).catch(() => null);
+    const apiDc = exactPhrase
+        ? null
+        : await getNaverBlogDocumentCount(queryKeyword, {
+            forceFresh: opts.skipCache === true,
+            signal: opts.signal,
+            timeoutMs: opts.timeoutMs,
+        }).catch(() => null);
     throwIfAborted();
     const apiMeasurement = apiDc !== null
         ? peekCachedNaverBlogDocumentCountMeasurement(queryKeyword)
@@ -354,21 +363,12 @@ export async function measureDocumentCount(
         if (measured.source === 'naver-api' && !exactPhrase) {
             persistApiResult(keyword, measured.dc, sv, measured.measuredAt ?? invokedAt);
         }
-        return measured;
+        return { ...measured, queryKey };
     }
 
-    // [3] fallback — sv*0.5 추정. caller 가 dcEstimated=true 강제 마킹.
-    const fallback = sv > 0 ? Math.max(1, Math.round(sv * 0.5)) : 1;
-    console.warn(`[measure-dc] fallback "${keyword}": api/scrape 모두 실패, sv*0.5=${fallback} 추정`);
-    return {
-        dc: fallback,
-        source: 'fallback',
-        confidence: 'low',
-        isEstimated: true,
-        queryMode,
-        measuredAt: invokedAt,
-        debug: { apiDc, scrapeDc, queryMode },
-    };
+    // [3] API/HTML 모두 실패 — 미측정. 검색량으로 문서수를 역산하지 않는다.
+    console.warn(`[measure-dc] unavailable "${keyword}": api/scrape 모두 실패`);
+    return null;
 }
 
 function persistApiResult(keyword: string, dc: number, sv: number, measuredAt: string): void {

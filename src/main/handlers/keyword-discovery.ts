@@ -36,6 +36,7 @@ import type { VacancyResult } from '../../utils/pro-hunter-v12/vacancy-detector'
 import { enrichKeywordsWithContentBrief, isContentBriefReliable } from '../../utils/pro-hunter-v12/content-brief-enricher';
 import type { SerpAnalysis } from '../../utils/pro-hunter-v12/serp-content-analyzer';
 import { uploadGoldenBoardCandidates } from '../../utils/live-board-uploader';
+import { getNaverBlogDocumentCount, normalizeNaverBlogBroadQuery } from '../../utils/naver-blog-api';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -3222,18 +3223,13 @@ export function setupKeywordDiscoveryHandlers(): void {
               try {
                 // 1. 네이버 블로그 API로 문서수 조회
                 if (naverClientId && naverClientSecret) {
-                  const blogResponse = await axios.get('https://openapi.naver.com/v1/search/blog.json', {
-                    params: { query: keyword, display: 1 },
-                    headers: {
-                      'X-Naver-Client-Id': naverClientId,
-                      'X-Naver-Client-Secret': naverClientSecret
+                  documentCount = await getNaverBlogDocumentCount(normalizeNaverBlogBroadQuery(keyword), {
+                    config: {
+                      clientId: naverClientId,
+                      clientSecret: naverClientSecret,
                     },
-                    timeout: 5000
+                    timeoutMs: 5_000,
                   });
-                  const rawTotal = (blogResponse as any)?.data?.total;
-                  documentCount = typeof rawTotal === 'number'
-                    ? rawTotal
-                    : (typeof rawTotal === 'string' ? parseInt(rawTotal, 10) : null);
                   console.log(`[LITE-API] "${keyword}" 문서수: ${typeof documentCount === 'number' ? documentCount.toLocaleString() : 'null'}`);
                 }
               } catch (e: any) {
@@ -3577,21 +3573,19 @@ export function setupKeywordDiscoveryHandlers(): void {
           const resultsWithRealData = await Promise.all(
             naverKeywords.slice(0, 15).map(async (item: any, idx: number) => {
               const keyword = item.keyword || item;
-              let documentCount = 0;
+              let documentCount: number | null = null;
               let searchVolume = 0;
 
               try {
                 // 1. 네이버 블로그 API로 문서수 조회
                 if (naverClientId && naverClientSecret) {
-                  const blogResponse = await axios.get('https://openapi.naver.com/v1/search/blog.json', {
-                    params: { query: keyword, display: 1 },
-                    headers: {
-                      'X-Naver-Client-Id': naverClientId,
-                      'X-Naver-Client-Secret': naverClientSecret
+                  documentCount = await getNaverBlogDocumentCount(normalizeNaverBlogBroadQuery(keyword), {
+                    config: {
+                      clientId: naverClientId,
+                      clientSecret: naverClientSecret,
                     },
-                    timeout: 5000
+                    timeoutMs: 5_000,
                   });
-                  documentCount = blogResponse.data?.total || 0;
                 }
               } catch (e: any) {
                 console.warn(`[LITE-API] "${keyword}" 문서수 조회 실패:`, e.message);
@@ -3640,7 +3634,9 @@ export function setupKeywordDiscoveryHandlers(): void {
               }
 
               // 황금비율 계산
-              const goldenRatio = documentCount > 0 ? searchVolume / documentCount : 0;
+              const goldenRatio = typeof documentCount === 'number' && documentCount > 0
+                ? searchVolume / documentCount
+                : 0;
               const estimatedTraffic = Math.round(searchVolume * 0.02);
 
               // 점수 계산 (실제 데이터 기반)
@@ -3649,7 +3645,7 @@ export function setupKeywordDiscoveryHandlers(): void {
               else if (goldenRatio >= 10) score += 20;
               else if (goldenRatio >= 5) score += 10;
               if (searchVolume >= 100000) score += 10;
-              if (documentCount < 50000) score += 10;
+              if (typeof documentCount === 'number' && documentCount < 50000) score += 10;
               score = Math.min(score, 100);
 
               return {
@@ -3658,7 +3654,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                 urgency: idx < 3 ? '🔥 지금 바로' : idx < 7 ? '⏰ 오늘 중' : '📅 24시간 내',
                 reason: '실시간 급상승 키워드',
                 trendingReason: `실시간 검색어 ${idx + 1}위 - 지금 가장 뜨거운 키워드`,
-                whyNow: documentCount > 0
+                whyNow: typeof documentCount === 'number' && documentCount > 0
                   ? `경쟁 문서 ${documentCount.toLocaleString()}개, 황금비율 ${goldenRatio.toFixed(1)} - 조기 진입 시 트래픽 폭발 가능`
                   : '실시간 급상승 중으로 조기 진입 시 트래픽 폭발 가능',
                 suggestedDeadline: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),

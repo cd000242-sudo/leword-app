@@ -277,30 +277,70 @@ jobs:
     name: Build and publish production API image
     runs-on: ubuntu-24.04
     needs: verify
-    if: ${{ github.event.inputs.target == 'api-image' || github.event.inputs.target == 'full-release' }}
+    if: ${{ github.ref == 'refs/heads/main' && (github.event.inputs.target == 'api-image' || github.event.inputs.target == 'full-release') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u "${{ github.actor }}" --password-stdin
-
       - name: Build and push API Docker image
         shell: bash
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -Eeuo pipefail
           IMAGE_NAME="${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}/${API_IMAGE_REPOSITORY}"
+          DOCKER_CONFIG="${RUNNER_TEMP}/docker-config-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export DOCKER_CONFIG
+          descriptor_output="${RUNNER_TEMP}/mobile-api-image-descriptor-${GITHUB_RUN_ID}.txt"
+          verified_descriptor_output="${RUNNER_TEMP}/mobile-api-image-descriptor-verified-${GITHUB_RUN_ID}.txt"
+          cleanup() {
+            rm -rf "$DOCKER_CONFIG"
+            rm -f "$descriptor_output" "$verified_descriptor_output"
+          }
+          trap cleanup EXIT
+          trap 'exit 129' HUP
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+          install -m 700 -d "$DOCKER_CONFIG"
           mkdir -p .codex-build-cache
-          docker build -f apps/api/Dockerfile -t "${IMAGE_NAME}:${GITHUB_SHA}" -t "${IMAGE_NAME}:latest" .
+          printf '%s' "$GHCR_TOKEN" | docker login ${{ env.REGISTRY }} -u "${GITHUB_ACTOR}" --password-stdin
+          docker build -f apps/api/Dockerfile -t "${IMAGE_NAME}:${GITHUB_SHA}" .
           docker push "${IMAGE_NAME}:${GITHUB_SHA}"
-          docker push "${IMAGE_NAME}:latest"
-          echo "${IMAGE_NAME}:${GITHUB_SHA}" > .codex-build-cache/mobile-api-image.txt
+          docker buildx imagetools inspect "${IMAGE_NAME}:${GITHUB_SHA}" > "$descriptor_output"
+          mapfile -t descriptor_digests < <(
+            sed -nE 's/^Digest:[[:space:]]+(sha256:[0-9a-f]{64})[[:space:]]*$/\1/p' "$descriptor_output"
+          )
+          test "${#descriptor_digests[@]}" -eq 1
+          test "$(grep -c '^Digest:' "$descriptor_output")" -eq 1
+          MANIFEST_DIGEST="${descriptor_digests[0]}"
+          [[ "$MANIFEST_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker buildx imagetools inspect "${IMAGE_NAME}@${MANIFEST_DIGEST}" > "$verified_descriptor_output"
+          mapfile -t verified_descriptor_digests < <(
+            sed -nE 's/^Digest:[[:space:]]+(sha256:[0-9a-f]{64})[[:space:]]*$/\1/p' "$verified_descriptor_output"
+          )
+          test "${#verified_descriptor_digests[@]}" -eq 1
+          test "$(grep -c '^Digest:' "$verified_descriptor_output")" -eq 1
+          test "${verified_descriptor_digests[0]}" = "$MANIFEST_DIGEST"
+          docker pull "${IMAGE_NAME}@${MANIFEST_DIGEST}" >/dev/null
+          docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' \
+            "${IMAGE_NAME}@${MANIFEST_DIGEST}" | grep -Fx "${IMAGE_NAME}@${MANIFEST_DIGEST}"
+          node scripts/mobile-api-image-manifest.js write \
+            --output .codex-build-cache/mobile-api-image-manifest.json \
+            --repository "$GITHUB_REPOSITORY" \
+            --commit-sha "$GITHUB_SHA" \
+            --image-repository "$IMAGE_NAME" \
+            --manifest-digest "$MANIFEST_DIGEST" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-name "$GITHUB_WORKFLOW" \
+            --job-name "Build and publish production API image"
 
-      - name: Upload API image reference
+      - name: Upload immutable API image manifest
         uses: actions/upload-artifact@v4
         with:
           name: mobile-api-image-reference
           if-no-files-found: error
-          path: .codex-build-cache/mobile-api-image.txt
+          retention-days: 30
+          path: .codex-build-cache/mobile-api-image-manifest.json
 
   api-smoke:
     name: Smoke deployed mobile API

@@ -1,5 +1,6 @@
 import { MobileLiveGoldenRadar } from '../../mobile/live-golden-radar';
 import type { DcMeasurement, MeasureOpts } from '../measure-dc';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail = ''): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
@@ -12,12 +13,13 @@ const staleIneligibleMeasuredAt = new Date(fixedNow.getTime() - 30 * 60 * 1000).
 const updatedAt = new Date(fixedNow.getTime() - 60 * 60 * 1000).toISOString();
 
 function boardRow(id: string, category: string, documentCountMeasuredAt: string): any {
+  const keyword = category === 'policy'
+    ? '근로장려금 신청 자격 확인 방법'
+    : '드라마 출연진 공식 정보';
   return {
     id,
     rank: 1,
-    keyword: category === 'policy'
-      ? '근로장려금 신청 자격 확인 방법'
-      : '드라마 출연진 공식 정보',
+    keyword,
     grade: 'SSS',
     score: 98,
     pcSearchVolume: 500,
@@ -30,6 +32,10 @@ function boardRow(id: string, category: string, documentCountMeasuredAt: string)
     source: 'mobile-live-golden-radar',
     intent: 'direct-golden-searchad-suggestions',
     evidence: [
+      // Maintenance fixtures model already trusted hidden-known board rows.
+      // Discovery-file rows without this server-owned proof are covered by the
+      // exact-document recovery fail-closed regression.
+      'validated-modifier',
       'searchad-pc-mobile-split-enriched',
       'direct-searchad-exact-measured',
       'naver-openapi-broad',
@@ -43,6 +49,7 @@ function boardRow(id: string, category: string, documentCountMeasuredAt: string)
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
     documentCountMeasuredAt,
     isDocumentCountEstimated: false,
     discoveredAt: updatedAt,
@@ -55,13 +62,14 @@ function boardRow(id: string, category: string, documentCountMeasuredAt: string)
   };
 }
 
-function canonicalMeasurement(dc = 100): DcMeasurement {
+function canonicalMeasurement(keyword: string, dc = 100): DcMeasurement {
   return {
     dc,
     source: 'naver-api',
     confidence: 'high',
     isEstimated: false,
     queryMode: 'broad',
+    queryKey: naverBlogDocumentCountQueryKey(keyword),
     measuredAt: freshMeasuredAt,
   };
 }
@@ -88,7 +96,7 @@ async function waitUntil(predicate: () => boolean, timeoutMs = 500): Promise<voi
       maxActiveMeasurements = Math.max(maxActiveMeasurements, activeMeasurements);
       await new Promise((resolve) => setTimeout(resolve, 2));
       activeMeasurements -= 1;
-      return canonicalMeasurement();
+      return canonicalMeasurement(keyword);
     },
   });
   const internal = radar as any;
@@ -171,13 +179,13 @@ async function waitUntil(predicate: () => boolean, timeoutMs = 500): Promise<voi
     },
     setIntervalFn: () => ({ fake: true }),
     clearIntervalFn: () => undefined,
-    measureLiveDocumentCount: (async (_keyword: string, options: MeasureOpts = {}) => {
+    measureLiveDocumentCount: (async (keyword: string, options: MeasureOpts = {}) => {
       overlapActive += 1;
       overlapMaxActive = Math.max(overlapMaxActive, overlapActive);
       return await new Promise<DcMeasurement>((resolve, reject) => {
         const finish = () => {
           overlapActive -= 1;
-          resolve(canonicalMeasurement());
+          resolve(canonicalMeasurement(keyword));
         };
         releaseMaintenance = finish;
         options.signal?.addEventListener('abort', () => {

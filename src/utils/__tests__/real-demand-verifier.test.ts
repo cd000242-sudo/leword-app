@@ -9,6 +9,7 @@
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { RealDemandVerifier } from '../../mobile/real-demand-verifier';
 
@@ -35,9 +36,15 @@ async function run(): Promise<void> {
     return found;
   };
 
-  const cacheFile = path.join(process.cwd(), 'tmp', 'real-demand-verifier-test.json');
-  fs.rmSync(cacheFile, { force: true });
-  const verifier = new RealDemandVerifier({ probe, cacheFile, requestDelayMs: 0 });
+  const fixedNow = new Date('2026-07-18T12:00:00.000Z');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-real-demand-'));
+  const cacheFile = path.join(tmpDir, 'real-demand-verifier-test.json');
+  const verifier = new RealDemandVerifier({
+    probe,
+    cacheFile,
+    requestDelayMs: 0,
+    now: () => new Date(fixedNow),
+  });
 
   probeMap.set('근로장려금 신청 방법', { ok: true, suggestions: ['근로장려금 신청방법', '근로장려금 신청 방법 2026'] });
   probeMap.set('청년월세지원 대상', { ok: true, suggestions: ['청년월세지원 대상 조건', '청년월세지원'] });
@@ -68,8 +75,40 @@ async function run(): Promise<void> {
       && cachedRound.get('근로장려금신청방법') === 'real'
       && cachedRound.get('단백질보충제순위준비물') === 'fake');
 
-  const reloaded = new RealDemandVerifier({ probe, cacheFile, requestDelayMs: 0 });
+  const reloaded = new RealDemandVerifier({
+    probe,
+    cacheFile,
+    requestDelayMs: 0,
+    now: () => new Date(fixedNow),
+  });
   ok('verdicts survive a cache file round-trip', reloaded.verdictFor('유령키워드지급일')?.result === 'fake');
+
+  const futureCacheFile = path.join(tmpDir, 'future-real-demand-verdict.json');
+  fs.writeFileSync(futureCacheFile, JSON.stringify({
+    version: 1,
+    verdicts: {
+      '미래 위조 키워드': {
+        result: 'real',
+        via: 'extension',
+        checkedAt: '2036-07-18T12:00:00.000Z',
+      },
+      '허용 시계 오차 키워드': {
+        result: 'real',
+        via: 'echo',
+        checkedAt: '2026-07-18T12:04:00.000Z',
+      },
+    },
+  }), 'utf8');
+  const futureVerifier = new RealDemandVerifier({
+    probe,
+    cacheFile: futureCacheFile,
+    requestDelayMs: 0,
+    now: () => new Date(fixedNow),
+  });
+  ok('far-future cached verdicts never become current hidden-known proof',
+    futureVerifier.verdictFor('미래 위조 키워드') === null);
+  ok('small provider clock skew remains usable',
+    futureVerifier.verdictFor('허용 시계 오차 키워드')?.result === 'real');
 
   const budgetRound = await verifier.verify(['예산초과 신규 키워드'], 0);
   ok('budget exhaustion yields unknown', budgetRound.get('예산초과신규키워드') === 'unknown');
@@ -82,7 +121,7 @@ async function run(): Promise<void> {
     outageKeywords.every((kw) => outageVerdicts.get(kw.toLowerCase().replace(/\s+/g, '')) === 'unknown')
       && outageVerifier.verdictFor(outageKeywords[0]) === null);
 
-  fs.rmSync(cacheFile, { force: true });
+  fs.rmSync(tmpDir, { recursive: true, force: true });
   console.log(`[real-demand-verifier.test] passed: ${passed} / failed: 0`);
 }
 

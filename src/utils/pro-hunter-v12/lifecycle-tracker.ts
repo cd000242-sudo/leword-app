@@ -6,6 +6,7 @@ import { listTrackedKeywords, recordKeywordCheck } from './tracking-store';
 import { EnvironmentManager } from '../environment-manager';
 import { notifyKeywordSaturation, notifyKeywordDecay } from './notifier';
 import { calibrateVolume } from './volume-calibrator';
+import { getNaverBlogDocumentCount } from '../naver-blog-api';
 
 const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12시간
 let timer: NodeJS.Timeout | null = null;
@@ -16,16 +17,13 @@ async function fetchDocCount(keyword: string): Promise<number | null> {
   if (!env.naverClientId || !env.naverClientSecret) return null;
 
   try {
-    const axios = (await import('axios')).default;
-    const r = await axios.get('https://openapi.naver.com/v1/search/blog.json', {
-      params: { query: keyword, display: 1 },
-      headers: {
-        'X-Naver-Client-Id': env.naverClientId,
-        'X-Naver-Client-Secret': env.naverClientSecret,
+    return await getNaverBlogDocumentCount(keyword, {
+      config: {
+        clientId: env.naverClientId,
+        clientSecret: env.naverClientSecret,
       },
-      timeout: 8000,
+      timeoutMs: 8000,
     });
-    return r.data?.total ?? null;
   } catch {
     return null;
   }
@@ -37,7 +35,10 @@ async function fetchSearchVolume(keyword: string): Promise<number | null> {
     return null;
   }
   try {
-    const { getNaverSearchAdKeywordSuggestions } = await import('../naver-searchad-api');
+    const {
+      exactSearchAdTotal,
+      getNaverSearchAdKeywordSuggestions,
+    } = await import('../naver-searchad-api');
     const r = await getNaverSearchAdKeywordSuggestions(
       {
         accessLicense: env.naverSearchAdAccessLicense,
@@ -48,10 +49,8 @@ async function fetchSearchVolume(keyword: string): Promise<number | null> {
       1
     );
     if (Array.isArray(r) && r.length > 0) {
-      const item = r[0] as any;
-      const pc = Number(item.monthlyPcQcCnt) || 0;
-      const mo = Number(item.monthlyMobileQcCnt) || 0;
-      const raw = pc + mo;
+      const raw = exactSearchAdTotal(r[0]);
+      if (raw === null) return null;
       // Tier 1: 보정된 검색량 반환
       return calibrateVolume(raw, keyword);
     }

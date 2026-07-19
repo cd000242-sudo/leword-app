@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { getNaverKeywordSearchVolumeSeparate } from '../../utils/naver-datalab-api';
 import { getNaverSearchAdKeywordSuggestions } from '../../utils/naver-searchad-api';
+import { getNaverBlogDocumentCount, normalizeNaverBlogBroadQuery } from '../../utils/naver-blog-api';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import * as licenseManager from '../../utils/licenseManager';
 import { huntProTrafficKeywords, getProTrafficCategories } from '../../utils/pro-traffic-keyword-hunter';
@@ -423,26 +424,13 @@ export function setupPremiumHuntingHandlers(): void {
           // 2. 문서수 조회
           let documentCount: number | null = null;
           try {
-            const blogApiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-            const docParams = new URLSearchParams({
-              query: keyword,
-              display: '1'
+            documentCount = await getNaverBlogDocumentCount(normalizeNaverBlogBroadQuery(keyword), {
+              config: {
+                clientId: naverClientId,
+                clientSecret: naverClientSecret,
+              },
+              timeoutMs: 8_000,
             });
-            const docResponse = await fetch(`${blogApiUrl}?${docParams}`, {
-              method: 'GET',
-              headers: {
-                'X-Naver-Client-Id': naverClientId,
-                'X-Naver-Client-Secret': naverClientSecret
-              }
-            });
-
-            if (docResponse.ok) {
-              const docData = await docResponse.json();
-              const rawTotal = (docData as any)?.total;
-              documentCount = typeof rawTotal === 'number'
-                ? rawTotal
-                : (typeof rawTotal === 'string' ? parseInt(rawTotal, 10) : null);
-            }
           } catch (docErr: any) {
             console.warn(`[INFINITE-SEARCH] "${keyword}" 문서수 조회 실패:`, docErr.message);
           }
@@ -1929,25 +1917,14 @@ export function setupPremiumHuntingHandlers(): void {
                 searchVolume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
               }
 
-              // 문서수 조회
-              const blogApiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-              const headers = {
-                'X-Naver-Client-Id': naverClientId,
-                'X-Naver-Client-Secret': naverClientSecret
-              };
-              // 정확매칭("키워드") 으로 실제 경쟁 문서수 측정 (부분매칭 total 은 수만건 과대계상 → 황금비율 왜곡)
-              const docParams = new URLSearchParams({ query: `"${kw}"`, display: '1' });
-              const docResponse = await fetch(`${blogApiUrl}?${docParams}`, {
-                method: 'GET',
-                headers
+              // 분석기/황금키워드가 동일한 unquoted broad 문서수 SSoT를 사용한다.
+              documentCount = await getNaverBlogDocumentCount(normalizeNaverBlogBroadQuery(kw), {
+                config: {
+                  clientId: naverClientId,
+                  clientSecret: naverClientSecret,
+                },
+                timeoutMs: 8_000,
               });
-              if (docResponse.ok) {
-                const docData = await docResponse.json();
-                const rawTotal = (docData as any)?.total;
-                documentCount = typeof rawTotal === 'number'
-                  ? rawTotal
-                  : (typeof rawTotal === 'string' ? parseInt(rawTotal, 10) : null);
-              }
 
               await new Promise(resolve => setTimeout(resolve, 100)); // Rate limit
             } catch (err) {

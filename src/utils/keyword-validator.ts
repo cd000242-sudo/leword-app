@@ -4,16 +4,24 @@
  */
 
 import { getNaverKeywordSearchVolumeSeparate } from './naver-datalab-api';
-import { searchNaverWithApi } from '../naver-crawler';
 import { EnvironmentManager } from './environment-manager';
+import { getNaverBlogDocumentCount } from './naver-blog-api';
 
 export interface ValidatedKeyword {
   keyword: string;
   searchVolume: number; // 실제 검색량
-  documentCount: number; // 실제 문서수
+  /** 실제 broad Blog OpenAPI 문서수. null은 조회 실패/미측정, 0은 실제 0건. */
+  documentCount: number | null;
   validated: boolean; // 검증 완료 여부
   validationScore?: number; // 검증 점수 (0-100)
   reason?: string; // 검증 실패 이유
+  reasonCode?:
+    | 'validated'
+    | 'document-only'
+    | 'no-documents'
+    | 'document-count-unavailable'
+    | 'missing-api-credentials'
+    | 'validation-failed';
 }
 
 /**
@@ -33,10 +41,11 @@ export async function validateKeyword(
       return {
         keyword,
         searchVolume: 0,
-        documentCount: 0,
+        documentCount: null,
         validated: false,
         validationScore: 0,
-        reason: '네이버 API 키 없음'
+        reason: '네이버 API 키 없음',
+        reasonCode: 'missing-api-credentials',
       };
     }
     
@@ -56,47 +65,20 @@ export async function validateKeyword(
       console.warn(`[KEYWORD-VALIDATOR] 검색량 조회 실패 (${keyword}):`, e);
     }
     
-    // 2. 문서수 검증 (블로그 검색)
-    let documentCount = 0;
+    // 2. 문서수 검증. 제품 전체가 같은 정규화된 broad Blog OpenAPI
+    // 쿼리를 사용해야 한다. API 실패는 null, 실제 total=0은 0으로
+    // 보존해 미측정과 실제 검색 결과 0건을 구분한다.
+    let documentCount: number | null = null;
     try {
-      const blogResults = await searchNaverWithApi(
-        keyword,
-        { customerId: clientId, secretKey: clientSecret },
-        'blog',
-        { timeout: 5000, retries: 1 }
-      );
-      
-      // 첫 페이지 결과로 문서수 추정 (정확한 문서수는 total 필드에 있지만 간접 추정)
-      if (blogResults && blogResults.length > 0) {
-        // 검색 API 응답에서 total 가져오기 (간접 추정)
-        documentCount = blogResults.length > 0 ? 100 : 0; // 최소 100개로 추정
-      }
-      
-      // 직접 API로 total 가져오기 시도
-      try {
-        const apiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-        const params = new URLSearchParams({
-          query: keyword,
-          display: '1',
-          start: '1',
-          sort: 'sim'
-        });
-        
-        const response = await fetch(`${apiUrl}?${params}`, {
-          headers: {
-            'X-Naver-Client-Id': clientId,
-            'X-Naver-Client-Secret': clientSecret
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          documentCount = parseInt(data.total || '0');
-        }
-      } catch (e) {
-        // 실패해도 계속 진행
-      }
-      
+      const measuredDocumentCount = await getNaverBlogDocumentCount(keyword, {
+        config: { clientId, clientSecret },
+        timeoutMs: 5000,
+      });
+      documentCount = typeof measuredDocumentCount === 'number'
+        && Number.isFinite(measuredDocumentCount)
+        && measuredDocumentCount >= 0
+        ? measuredDocumentCount
+        : null;
     } catch (e) {
       console.warn(`[KEYWORD-VALIDATOR] 문서수 조회 실패 (${keyword}):`, e);
     }
@@ -105,8 +87,9 @@ export async function validateKeyword(
     let validationScore = 0;
     let validated = false;
     let reason = '';
+    let reasonCode: NonNullable<ValidatedKeyword['reasonCode']> = 'validation-failed';
     
-    if (searchVolume > 0 && documentCount > 0) {
+    if (searchVolume > 0 && documentCount !== null && documentCount > 0) {
       // 검색량과 문서수가 모두 있으면 유효한 키워드
       validated = true;
       
@@ -118,15 +101,23 @@ export async function validateKeyword(
       
       validationScore = Math.round((volumeScore * 0.6) + (competitionScore * 0.4));
       reason = '검증 완료';
-    } else if (documentCount > 0) {
+      reasonCode = 'validated';
+    } else if (documentCount !== null && documentCount > 0) {
       // 문서수만 있어도 유효한 키워드 (검색량은 추정 불가일 수 있음)
       validated = true;
       validationScore = 60;
       reason = '문서 존재 확인 (검색량 미확인)';
-    } else {
+      reasonCode = 'document-only';
+    } else if (documentCount === 0) {
       validated = false;
       validationScore = 0;
       reason = '검색 결과 없음';
+      reasonCode = 'no-documents';
+    } else {
+      validated = false;
+      validationScore = 0;
+      reason = '문서수 조회 실패';
+      reasonCode = 'document-count-unavailable';
     }
     
     return {
@@ -135,7 +126,8 @@ export async function validateKeyword(
       documentCount,
       validated,
       validationScore,
-      reason
+      reason,
+      reasonCode,
     };
     
   } catch (error: any) {
@@ -143,10 +135,11 @@ export async function validateKeyword(
     return {
       keyword,
       searchVolume: 0,
-      documentCount: 0,
+      documentCount: null,
       validated: false,
       validationScore: 0,
-      reason: error.message || '검증 실패'
+      reason: error.message || '검증 실패',
+      reasonCode: 'validation-failed',
     };
   }
 }
@@ -174,10 +167,11 @@ export async function validateKeywords(
         results.push({
           keyword: batch[Math.min(batchResults.indexOf(result), batch.length - 1)] || '',
           searchVolume: 0,
-          documentCount: 0,
+          documentCount: null,
           validated: false,
           validationScore: 0,
-          reason: result.reason?.message || '검증 실패'
+          reason: result.reason?.message || '검증 실패',
+          reasonCode: 'validation-failed',
         });
       }
     }

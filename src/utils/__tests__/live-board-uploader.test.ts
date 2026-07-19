@@ -13,6 +13,7 @@ import {
   uploadGoldenBoardCandidates,
   uploadRowFromDiscoveryResult,
 } from '../live-board-uploader';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) {
@@ -59,6 +60,7 @@ async function run(): Promise<void> {
       searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
       documentCount: 800,
       ...canonicalDocumentMeasurement,
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('\uCCAD\uB144 \uC804\uC138\uC790\uAE08 \uB300\uCD9C \uC870\uAC74'),
       goldenRatio: 3,
       cpc: 120,
       serpMeasured: true,
@@ -82,6 +84,7 @@ async function run(): Promise<void> {
         && measured['documentCountSource'] === 'naver-api'
         && measured['documentCountConfidence'] === 'high'
         && measured['documentCountQueryMode'] === 'broad'
+        && measured['documentCountQueryKey'] === naverBlogDocumentCountQueryKey('\uCCAD\uB144 \uC804\uC138\uC790\uAE08 \uB300\uCD9C \uC870\uAC74')
         && measured['documentCountMeasuredAt'] === '2026-07-15T01:02:04.000Z'
         && measured['totalSearchVolume'] === 2400,
       JSON.stringify(measured));
@@ -124,6 +127,31 @@ async function run(): Promise<void> {
       documentCount: 300,
     });
     assert('a numeric document count cannot be relabeled as trusted OpenAPI provenance', provenanceFreeDocuments === null);
+
+    const missingDocumentQueryKey = uploadRowFromDiscoveryResult({
+      keyword: 'canonical broad upload query',
+      searchVolume: 1200,
+      pcSearchVolume: 300,
+      mobileSearchVolume: 900,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
+      documentCount: 300,
+      ...canonicalDocumentMeasurement,
+    });
+    assert('canonical provenance without its exact broad query key is rejected', missingDocumentQueryKey === null);
+
+    const mismatchedDocumentQueryKey = uploadRowFromDiscoveryResult({
+      keyword: 'canonical broad upload query',
+      searchVolume: 1200,
+      pcSearchVolume: 300,
+      mobileSearchVolume: 900,
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
+      documentCount: 300,
+      ...canonicalDocumentMeasurement,
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('different broad upload query'),
+    });
+    assert('a document count measured for a different broad query is rejected', mismatchedDocumentQueryKey === null);
 
     const nonCanonicalDocuments = uploadRowFromDiscoveryResult({
       keyword: '비정규 문서수 출처',
@@ -203,6 +231,7 @@ async function run(): Promise<void> {
       searchVolumeMeasuredAt: '2026-07-15T01:02:03.000Z',
       documentCount: 500,
       ...canonicalDocumentMeasurement,
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('\uB09C\uBC29\uBE44 \uC9C0\uC6D0\uAE08 \uC2E0\uCCAD \uBC29\uBC95'),
       winnable: true,
       vacancySlots: 4,
       briefRecommendedWords: 2000,
@@ -214,7 +243,7 @@ async function run(): Promise<void> {
         && !('briefRecommendedWords' in unreliableExtras),
       JSON.stringify(unreliableExtras));
 
-    console.log('[live-board-uploader.test] passed: 14 / failed: 0');
+    console.log('[live-board-uploader.test] passed');
   } finally {
     if (savedUrl === undefined) delete process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'];
     else process.env['LEWORD_LIVE_GOLDEN_INGEST_URL'] = savedUrl;

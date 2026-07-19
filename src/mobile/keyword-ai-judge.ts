@@ -5,7 +5,10 @@ import type {
   MobileKeywordResult,
   MobileResultGrade,
 } from './contracts';
-import { NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS } from '../utils/naver-blog-api';
+import {
+  NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS,
+  naverBlogDocumentCountQueryKey,
+} from '../utils/naver-blog-api';
 
 const ARTICLE_TITLE_KEYWORD_RE = /(보도참고자료|보도자료|브리핑|해명자료|설명자료|첨부파일|공고문|입장문|마감\s*결과|결과\s*\d{1,2}\.\d{1,2}|고유가\s*피해지원금\s*신청.*지급\s*마감)/u;
 
@@ -29,9 +32,13 @@ export function hasTrustedDocumentCountMeasurement(metric: MobileKeywordMetric):
   const confidence = normalizeText(metric.documentCountConfidence).toLowerCase();
   const queryMode = normalizeText(metric.documentCountQueryMode).toLowerCase();
   const documentCount = finiteNumber(metric.documentCount);
+  const expectedQueryKey = naverBlogDocumentCountQueryKey(metric.keyword);
+  const measuredQueryKey = normalizeText(metric.documentCountQueryKey).toLowerCase();
   if (metric.isDocumentCountEstimated === true || (metric as any).dcEstimated === true) return false;
   return documentCount !== null
     && documentCount >= 0
+    && expectedQueryKey.length > 0
+    && measuredQueryKey === expectedQueryKey
     && source === 'naver-api'
     && confidence === 'high'
     && (queryMode === 'broad' || queryMode === 'exact-phrase');
@@ -100,9 +107,15 @@ const EVENT_BOOKING_UTILITY_EXEMPT_RE = /(?:\uD56D\uACF5\uAD8C|\uC219\uC18C|\uD6
 const GENERIC_BENEFIT_INTENT_RE = /^(?:지원금|보조금|환급금|장려금|바우처|수당|급여)\s*(?:신청|대상|자격|조건|지급일|조회|마감|환급|서류|사용처|지원)/u;
 const BARE_INTENT_ONLY_RE = /^(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)(?:\s+(?:신청|신청방법|대상|자격|조건|지급일|조회|서류|마감|마감일|환급|방법|사용처|금액|준비서류|지원|혜택|가격|비교|추천|후기|할인|쿠폰|구매처|재고|최저가)){0,2}$/u;
 const TRAFFIC_CAPTURE_NEED_RE = /(신청|대상|자격|조건|지급일|입금일|조회|계산기|서류|마감|환급|사용처|예약\s*방법|예약\s*시기|취소|보험|완전자차|비교|후기|주의사항|예매|라인업|중계|일정|후보|전망|전말|이유|논란|반응|정리|방법|가격비교|실수령액|위반|신고|공식\s*확인|변경사항)/u;
-const BEGINNER_MONETIZABLE_NEED_RE = /(신청|대상|자격|조건|지급일|입금일|금액|실수령액|조회|계산기|서류|마감|환급|사용처|잔액|가맹점|온라인|오프라인|지역별|예약|예매|가격|가격비교|비교|추천|후기|할인|쿠폰|구매처|최저가|보험|완전자차|취소|수수료|픽업|오류|안됨|해결|가능|주의사항|체크리스트|차이|제외|누락|이의신청|변경사항|후보|전망|전말|선임|교체|경우의\s*수|라인업|중계)/u;
-const HIDDEN_LONGTAIL_SIGNAL_RE = /(잔액조회|온라인\s*사용처|오프라인\s*사용처|지역별\s*사용처|가맹점|본인충전금|제외대상|누락|이의신청|입금일|환급일|지급일|마감일|신청기간|대상자\s*확인|서류|준비물|오류|안됨|가능\s*여부|취소\s*수수료|완전자차|자차보험|보험\s*비교|공항\s*픽업|가격비교|최저가|주의사항|실수|체크리스트|차이|비교|후기|사용처\s*조회|다음\s*감독|감독\s*후보|선임\s*과정|협회\s*비리|전말|변수|경우의\s*수|반응\s*정리|후속\s*일정)/u;
+const BEGINNER_MONETIZABLE_NEED_RE = /(신청|대상|자격|조건|지급일|입금일|금액|실수령액|조회|계산기|서류|마감|환급|사용처|잔액|가맹점|온라인|오프라인|지역별|예약|예매|가격|가격비교|비교|추천|후기|할인|쿠폰|구매처|최저가|보험|완전자차|취소|수수료|픽업|오류|안됨|해결|가능|주의사항|체크리스트|차이|제외|누락|이의신청|변경사항|후보|전망|전말|선임|교체|경우의\s*수|인정\s*횟수|라인업|중계)/u;
+const HIDDEN_LONGTAIL_SIGNAL_RE = /(잔액조회|온라인\s*사용처|오프라인\s*사용처|지역별\s*사용처|가맹점|본인충전금|제외대상|누락|이의신청|입금일|환급일|지급일|마감일|신청기간|대상자\s*확인|서류|준비물|오류|안됨|가능\s*여부|취소\s*수수료|완전자차|자차보험|보험\s*비교|공항\s*픽업|가격비교|최저가|주의사항|실수|체크리스트|차이|비교|후기|사용처\s*조회|구직외활동|인정\s*횟수|다음\s*감독|감독\s*후보|선임\s*과정|협회\s*비리|전말|변수|경우의\s*수|반응\s*정리|후속\s*일정)/u;
 const BEGINNER_MONETIZATION_TOPIC_RE = /(문화누리카드|근로장려금|자녀장려금|주휴수당|최저임금|청년|지원금|환급|세금|정책|복지|보험|카드|대출|청약|렌터카|렌트카|숙소|호텔|항공권|여행|제주|가전|청소기|에어컨|제습기|노트북|유튜브|쇼츠|지식인|네이버|가맹점|사용처|감독|축구협회|대표팀|월드컵|KBO|야구)/u;
+const YEARLY_GENERIC_BENEFIT_TEMPLATE_RE = /^20\d{2}\s*(?:년\s*)?(?:(?:[가-힣0-9]{1,12})\s*)?(?:지원금|보조금|환급금|장려금|바우처|수당|급여)\s*(?:신청|신청\s*방법|대상|자격|조건|지급일|조회|마감|서류)?$/u;
+const HIDDEN_DISCOVERY_PROVENANCE_RE = /(?:naver[-_ ]?autocomplete|autocomplete-(?:second-hop|exact-measured)|related-keyword-exact|real-demand-(?:echo|extension|verified)|follow-up-intent|home-(?:keyword-)?briefing-reviewed)/i;
+const HIDDEN_STRONG_DISCOVERY_PROVENANCE_RE = /(?:autocomplete-second-hop|related-keyword-exact|real-demand-(?:echo|extension|verified)|follow-up-intent)/i;
+const HIDDEN_COMMUNITY_SOURCE_RE = /(?:theqoo|bobaedream|ppomppu|dcinside|fmkorea|clien|ruliweb|mlbpark|inven|natepann|todayhumor|mom-cafe)/ig;
+const HIDDEN_MULTI_COMMUNITY_PROVENANCE_RE = /(?:community(?:-source)?-count\s*[:=]\s*[2-9]|community-[2-9]-source|multi-source-community|cross-source-community)/i;
+const HIDDEN_TEMPLATE_PROVENANCE_RE = /(?:browser-fallback|server-intent-template|server-zero-live-fallback|intent-fallback|pc-intent-expansion|template-only)/i;
 const STRICT_HUNTER_CONTEXT_RE = /(golden|live-golden|pro-traffic|naver-mate|shopping-connect|kin-hidden|youtube-golden|server-measured|prewarm|persistent-measured)/i;
 const SYNTHETIC_PRODUCT_BASE_RE = /(?:차량용\s*청소기|무선\s*청소기|핸디\s*청소기|로봇\s*청소기|청소기|가방|신발|운동화|레인부츠|선크림|화장품|세럼|크림|샴푸|노트북|태블릿|키보드|마우스|이어폰|헤드폰|충전기|보조배터리|텐트|텀블러)/u;
 const SYNTHETIC_PRODUCT_POLICY_TAIL_RE = /(?:신청|대상|자격|지급일|서류|지원금|사용처|잔액조회|환급|실수령액|소득기준)/u;
@@ -534,6 +547,48 @@ function hasOverExpandedIntentChain(keyword: string): boolean {
   return hasRegexIntent(OVER_EXPANDED_INTENT_CHAIN_RE, keyword);
 }
 
+function hasMultiCommunityHiddenNeedEvidence(context: string): boolean {
+  if (HIDDEN_MULTI_COMMUNITY_PROVENANCE_RE.test(context)) return true;
+  const sourceIds = new Set((context.match(HIDDEN_COMMUNITY_SOURCE_RE) || []).map((value) => value.toLowerCase()));
+  return sourceIds.size >= 2;
+}
+
+function hasCanonicalSearchAdHiddenNeedMeasurement(
+  metric: MobileKeywordMetric,
+  now: Date = new Date(),
+): boolean {
+  const pc = finiteNumber(metric.pcSearchVolume);
+  const mobile = finiteNumber(metric.mobileSearchVolume);
+  const total = finiteNumber(metric.totalSearchVolume);
+  const measuredAtMs = Date.parse(String(metric.searchVolumeMeasuredAt || ''));
+  const hasExactSearchAd = normalizeText(metric.searchVolumeSource).toLowerCase() === 'searchad'
+    && normalizeText(metric.searchVolumeConfidence).toLowerCase() === 'high'
+    && normalizeText(metric.searchVolumeBindingVersion).toLowerCase() === 'keyword-keyed-v2'
+    && metric.isSearchVolumeEstimated !== true
+    && (metric as any).svEstimated !== true
+    && Number.isFinite(measuredAtMs)
+    && pc !== null && pc >= 0
+    && mobile !== null && mobile >= 0
+    && total !== null && total > 0
+    && Math.abs(pc + mobile - total) < 0.01;
+  return hasExactSearchAd && hasFreshCanonicalDocumentCountMeasurement(metric, now);
+}
+
+function hiddenNeedProvenanceContext(
+  metric: MobileKeywordMetric,
+  runtimeContext: string,
+  now: Date = new Date(),
+): string {
+  return normalizeText([
+    runtimeContext,
+    `search-volume-source:${normalizeText(metric.searchVolumeSource)}`,
+    `search-volume-binding:${normalizeText(metric.searchVolumeBindingVersion)}`,
+    `document-count-source:${normalizeText(metric.documentCountSource)}`,
+    `document-count-mode:${normalizeText(metric.documentCountQueryMode)}`,
+    `hidden-canonical-measurement:${hasCanonicalSearchAdHiddenNeedMeasurement(metric, now)}`,
+  ].join(' '));
+}
+
 function hasBeginnerMonetizableHiddenNeedKeyword(keyword: string, category = '', context = ''): boolean {
   const clean = normalizeText(keyword);
   if (!clean) return false;
@@ -544,14 +599,28 @@ function hasBeginnerMonetizableHiddenNeedKeyword(keyword: string, category = '',
     return false;
   }
   if (THIN_LOOKUP_RE.test(clean) || UNSAFE_RE.test(clean)) return false;
+  if (GENERIC_BENEFIT_INTENT_RE.test(clean) || YEARLY_GENERIC_BENEFIT_TEMPLATE_RE.test(clean)) return false;
+  if (HIDDEN_TEMPLATE_PROVENANCE_RE.test(context)) return false;
+
+  const compactLength = clean.replace(/\s+/g, '').length;
+  const tokenCount = clean.split(/\s+/).filter(Boolean).length;
+  if (compactLength < 5 || compactLength > 30 || tokenCount > 6) return false;
 
   const corpus = normalizeText(`${clean} ${category} ${context}`);
   const domain = keywordDomainSignalsForJudge(corpus);
   const hasClearNeed = hasRegexIntent(BEGINNER_MONETIZABLE_NEED_RE, clean)
     || hasRegexIntent(TRAFFIC_CAPTURE_NEED_RE, clean)
     || hasRegexIntent(SSS_READY_NEED_INTENT_RE, clean);
-  const hasHiddenLongtail = hasRegexIntent(HIDDEN_LONGTAIL_SIGNAL_RE, clean)
-    || (hasClearNeed && clean.replace(/\s+/g, '').length >= 7 && /[가-힣]{2,}/u.test(clean));
+  const hasExplicitHiddenSignal = hasRegexIntent(HIDDEN_LONGTAIL_SIGNAL_RE, clean);
+  const hasDiscoveryProvenance = HIDDEN_DISCOVERY_PROVENANCE_RE.test(context);
+  const hasStrongDiscoveryProvenance = HIDDEN_STRONG_DISCOVERY_PROVENANCE_RE.test(context)
+    || hasMultiCommunityHiddenNeedEvidence(context);
+  const hasMeasuredProvenance = /hidden-canonical-measurement:true/i.test(context);
+  const hasHiddenLongtail = hasExplicitHiddenSignal
+    || hasStrongDiscoveryProvenance;
+  const hasTrustedHiddenProvenance = hasDiscoveryProvenance
+    || hasStrongDiscoveryProvenance
+    || hasMeasuredProvenance;
   const hasMonetizableTopic = BEGINNER_MONETIZATION_TOPIC_RE.test(corpus)
     || COMMERCE_RE.test(corpus)
     || domain.policy
@@ -559,7 +628,7 @@ function hasBeginnerMonetizableHiddenNeedKeyword(keyword: string, category = '',
     || domain.local
     || (domain.sports && hasRegexIntent(TRAFFIC_CAPTURE_NEED_RE, clean));
 
-  return hasClearNeed && hasHiddenLongtail && hasMonetizableTopic;
+  return hasClearNeed && hasHiddenLongtail && hasTrustedHiddenProvenance && hasMonetizableTopic;
 }
 
 export function isUltimateLowValueLookupKeyword(keyword: string): boolean {
@@ -632,7 +701,11 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const crossDomainNonsense = isCrossDomainNonsenseKeywordForJudge(keyword, runtimeIntentText);
   const syntheticNoEffect = isSyntheticNoEffectKeywordForJudge(keyword);
   const strictHunterContext = STRICT_HUNTER_CONTEXT_RE.test(runtimeIntentText);
-  const beginnerHiddenNeed = hasBeginnerMonetizableHiddenNeedKeyword(keyword, category, runtimeIntentText);
+  const beginnerHiddenNeed = hasBeginnerMonetizableHiddenNeedKeyword(
+    keyword,
+    category,
+    hiddenNeedProvenanceContext(metric, runtimeIntentText, now),
+  );
   const commerce = COMMERCE_RE.test(keyword);
   const shoppingConnectContext = SHOPPING_CONNECT_CONTEXT_RE.test(runtimeIntentText);
   const shoppingConnectNeed = shoppingConnectContext
@@ -972,10 +1045,15 @@ export function isUltimateGoldenKeywordCandidate(
     metric.category,
     ...(Array.isArray(metric.evidence) ? metric.evidence : []),
   ].join(' ');
+  const now = options.now ?? new Date();
   const highValueNeed = hasUltimateHighValueNeedIntent(keyword);
   const actionModifier = hasUltimateActionModifier(keyword);
   const trafficCaptureNeed = hasRegexIntent(TRAFFIC_CAPTURE_NEED_RE, keyword);
-  const beginnerHiddenNeed = hasBeginnerMonetizableHiddenNeedKeyword(keyword, category, runtimeIntentText);
+  const beginnerHiddenNeed = hasBeginnerMonetizableHiddenNeedKeyword(
+    keyword,
+    category,
+    hiddenNeedProvenanceContext(metric, runtimeIntentText, now),
+  );
   const eventUtility = hasUltimateEventUtility(keyword);
   const lowValueCategory = isUltimateLowValueCategory(category);
   if (isTooBroadLowValueEventKeyword(keyword, category)) return false;
@@ -986,7 +1064,7 @@ export function isUltimateGoldenKeywordCandidate(
   if (!actionModifier && !commerce && !scarceBareNeed && !beginnerHiddenNeed) return false;
   if (lowValueCategory && !highValueNeed && !commerce && !eventUtility && !beginnerHiddenNeed && !trafficCaptureNeed) return false;
 
-  const judge = metric.aiJudge ?? judgeKeywordMetric(metric, options.now);
+  const judge = metric.aiJudge ?? judgeKeywordMetric(metric, now);
   if (judge.verdict !== 'publish') return false;
   if (judge.score < (options.minAiScore ?? 78)) return false;
   if (judge.needIntent !== 'strong') return false;

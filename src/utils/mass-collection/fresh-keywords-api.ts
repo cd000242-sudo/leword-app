@@ -11,7 +11,8 @@ import {
     StoredKeyword,
     CollectorSource,
     KeywordGrade,
-    FilterOptions
+    FilterOptions,
+    hasFreshCanonicalStoredDocumentCount
 } from './keyword-storage';
 import { KeywordMetricsUpdater, getMetricsUpdater, GradeChange } from './keyword-metrics-updater';
 import { KeywordCollectorScheduler, getCollectorScheduler, SchedulerStatus } from './keyword-collector-scheduler';
@@ -340,7 +341,12 @@ export class FreshKeywordsAPI {
             sortOrder: 'desc'
         };
 
-        const storedKeywords = await this.storage.getValidKeywords(filterOptions);
+        const storedKeywords = (await this.storage.getValidKeywords(filterOptions))
+            // Never use `metricsUpdatedAt` as document freshness. A SearchAd-only
+            // refresh may update that shared timestamp while the document lookup
+            // failed. Recommendations require an exact-query-bound, still-fresh
+            // canonical broad Blog OpenAPI measurement.
+            .filter((keyword) => hasFreshCanonicalStoredDocumentCount(keyword));
 
         // 2. 급등 키워드 조회
         let risingKeywords: GradeChange[] = [];

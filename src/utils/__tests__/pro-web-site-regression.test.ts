@@ -15,6 +15,18 @@ function assert(name: string, condition: unknown, detail = ''): void {
 
 const html = renderLewordLanding();
 const proWebHtml = renderLewordProWeb();
+const goldenFallbackPayloadStart = proWebHtml.indexOf('function buildClientGoldenFallbackPayload(error)');
+const goldenFallbackPayloadEnd = proWebHtml.indexOf('function renderClientGoldenFallback(error)', goldenFallbackPayloadStart);
+const goldenFallbackPayloadBlock = proWebHtml.slice(goldenFallbackPayloadStart, goldenFallbackPayloadEnd);
+const regularAdminLoginStart = proWebHtml.indexOf('async function submitAdminLogin(event)');
+const regularAdminLoginEnd = proWebHtml.indexOf('const reviewBooleanFields', regularAdminLoginStart);
+const regularAdminLoginBlock = proWebHtml.slice(regularAdminLoginStart, regularAdminLoginEnd);
+const reviewRequestStart = proWebHtml.indexOf('async function liveGoldenReviewRequest(method, body)');
+const reviewRequestEnd = proWebHtml.indexOf('function liveGoldenReviewQuestionHtml', reviewRequestStart);
+const reviewRequestBlock = proWebHtml.slice(reviewRequestStart, reviewRequestEnd);
+const reviewLoginStart = proWebHtml.indexOf('async function submitLiveGoldenReviewLogin(event)');
+const reviewLoginEnd = proWebHtml.indexOf('function defaultAdminSiteContent', reviewLoginStart);
+const reviewLoginBlock = proWebHtml.slice(reviewLoginStart, reviewLoginEnd);
 
 assert('includes AdSense site verification script',
   html.includes('ca-pub-4008574892672964')
@@ -215,28 +227,36 @@ assert('health polling does not overwrite live board counts with missing metrics
     && html.includes('Number.isFinite(Number(liveGolden.boardCount))')
     && html.includes('Number.isFinite(Number(liveGolden.boardTarget))')
     && !html.includes("(health.liveGolden.boardCount || 0) + '/' + (health.liveGolden.boardTarget || 120)"));
-assert('falls back to browser-side golden keyword search when the server is unavailable',
+assert('server failure keeps the golden board empty instead of inventing browser candidates',
   html.includes('function buildClientGoldenFallbackPayload')
     && html.includes('function renderClientGoldenFallback')
     && html.includes('function renderClientFeatureFallback')
     && html.includes('function isServerUnavailableError')
     && html.includes('renderClientGoldenFallback(err)')
     && html.includes('renderClientFeatureFallback(feature, displayKeyword, err)')
-    && html.includes('검색량·문서수는 가짜로 채우지 않고')
-    && html.includes('오프라인 Pro 후보')
-    && html.includes('서버가 꺼져 있어 Pro 세션을 로컬로 유지하고 사이트 자체 후보를 표시합니다.'));
-assert('unmeasured browser fallback never claims a full verified golden board',
-  proWebHtml.includes('boardCount: 0,')
-    && proWebHtml.includes("setGoldenSummary(0, payload.boardTarget, items.length, 0, false")
-    && !proWebHtml.includes('setGoldenSummary(120, 120, items.length, 0, false')
-    && proWebHtml.includes('미검증 참고 후보'),
-  'offline candidates must stay visibly separate from verified inventory');
-assert('golden board browser fallback is not just one seed keyword expansion chain',
-  proWebHtml.includes("const keywords = clientFallbackIntentKeywords('', 'pro-traffic', target)")
-    && proWebHtml.includes('function clientFallbackSeedExpansionKeywords')
+    && goldenFallbackPayloadBlock.includes('publicPreviewCount: 0')
+    && goldenFallbackPayloadBlock.includes('publicPreview: []')
+    && !goldenFallbackPayloadBlock.includes('clientFallbackIntentKeywords')
+    && !goldenFallbackPayloadBlock.includes('clientFallbackBoardItem')
+    && proWebHtml.includes('임시 조합 키워드는 황금키워드로 표시하지 않습니다.')
+    && proWebHtml.includes("setGoldenSummary(0, payload.boardTarget, 0, 0, false")
+    && !proWebHtml.includes('서버 복구 후 실측'));
+assert('golden snapshot failure exposes a useful reason code without confusing auth and server errors',
+  proWebHtml.includes('function clientGoldenFailureReason(error)')
+    && proWebHtml.includes("return 'AUTH_REQUIRED'")
+    && proWebHtml.includes("return 'NETWORK_ERROR'")
+    && proWebHtml.includes("return 'HTTP_5XX'")
+    && proWebHtml.includes("return 'SNAPSHOT_ROUTE_NOT_FOUND'")
+    && proWebHtml.includes("qs('goldenState').textContent = '연결 오류'"));
+assert('browser search helpers remain explicitly unmeasured and separate from the golden board',
+  proWebHtml.includes('function clientFallbackSeedExpansionKeywords')
     && proWebHtml.includes('for (let tailIndex = 0; tailIndex < maxTailCount; tailIndex += 1)')
     && proWebHtml.includes('clientFallbackSeedExpansionKeywords(displayKeyword || compactKeywordInput(), featureId, 12)')
-    && !proWebHtml.includes("const keywords = clientFallbackIntentKeywords(compactKeywordInput(), 'pro-traffic', target)"));
+    && proWebHtml.includes("source: 'browser-helper'")
+    && proWebHtml.includes("grade: '미측정'")
+    && proWebHtml.includes("{ label: '실측', value: '미측정 · 서버 연결 후 다시 실행' }")
+    && proWebHtml.includes("publicDocumentCountLabel: '미측정 · 서버 연결 후 다시 실행'")
+    && !proWebHtml.includes('서버 실측 대기'));
 assert('keyword lookup button is labeled as direct lookup, not server lookup',
   proWebHtml.includes('<button class="btn primary" type="submit">조회하기</button>')
     && proWebHtml.includes('키워드를 입력하고 조회하기를 실행하세요.')
@@ -272,11 +292,17 @@ assert('browser-local Blog totals keep spaced broad-query identity and response 
     && proWebHtml.includes('out.set(browserBlogBroadQueryKey(keyword), measurement)')
     && proWebHtml.includes('const documentKey = browserBlogBroadQueryKey(candidate);')
     && proWebHtml.includes('documentCountQueryKey: docs !== null ? browserBlogBroadQueryKey(keyword) : undefined')
-    && proWebHtml.includes('return Number.isFinite(total) ? { total: total, measuredAt: new Date().toISOString() } : null;')
+    && proWebHtml.includes("typeof payload.total === 'number'")
+    && proWebHtml.includes('Number.isFinite(total) && total >= 0')
+    && !proWebHtml.includes('const total = Number(payload.total);')
     && proWebHtml.includes('const controller = new AbortController();')
     && proWebHtml.includes('signal: controller.signal')
     && proWebHtml.includes('clearTimeout(timeout)')
     && !proWebHtml.includes('out.set(normalizeSearchAdKey(keyword), count)'));
+assert('keyword-analysis UI does not mislabel a requested row as an exact-phrase document query',
+  proWebHtml.includes("if (source === 'pc-keyword-analysis-exact') return '요청 키워드 실측';")
+    && proWebHtml.includes("return '문서수(네이버 블로그·확장검색)';")
+    && proWebHtml.includes('keywordAnalysisSourceLabel(row)'));
 assert('keyword graph remeasures with browser-local APIs instead of drawing synthetic bars',
   proWebHtml.includes('function fetchBrowserLocalExactMetric')
     && proWebHtml.includes('function renderMeasuredTrendGraph')
@@ -386,7 +412,7 @@ assert('live golden cards explain search intent and route shopping keywords away
     && proWebHtml.includes('function measurementProvenanceHtml')
     && proWebHtml.includes("documentCountQueryMode === 'exact-phrase'")
     && proWebHtml.includes('문서수(정확구문·블로그)')
-    && proWebHtml.includes('문서수(확장·블로그)')
+    && proWebHtml.includes('문서수(네이버 블로그·확장검색)')
     && proWebHtml.includes('row && row.documentCountMeasuredAt')
     && proWebHtml.includes('측정시각 미기록')
     && proWebHtml.includes('measurementProvenanceHtml(row)')
@@ -779,6 +805,35 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && /id="manusApiKey"[^>]*type="password"/.test(html)
     && /id="openaiApiKey"[^>]*type="password"/.test(html)
     && html.includes(' · AI 추론 ')
+    && html.includes("AI 추론 ' + aiReadyCount + '/2")
+    && html.includes('Manus 키는 현재 Pro Web 추론 보조에서는 사용하지 않습니다.')
+    && html.includes('Manus(Pro Web 미연결)')
+    && html.includes('id="externalAiInferenceOptIn"')
+    && html.includes('id="externalAiInferenceProvider"')
+    && html.includes('외부 AI 설명 보강 사용 · 기본 꺼짐(0원)')
+    && html.includes('job당 최대 1회 호출')
+    && html.includes('상위 8행, 출력 상한 2048 tokens')
+    && html.includes('실패 시 다른 provider를 자동 호출하지 않습니다.')
+    && html.includes('실제 금액은 공급자 청구서에서 확인하세요.')
+    && html.includes('구조화 결과행·검색량·문서수·등급은 바꾸지 않으며, AI가 만든 연관어·확장어는 미실측 제안입니다.')
+    && html.includes('구조화 결과행·검색량·문서수·등급은 실측 구조를 유지합니다. AI 생성 연관어·확장어는 미실측 제안입니다.')
+    && html.includes('maxAgentRows: 8')
+    && html.includes("const externalAiInferenceSettingsStorageKey = 'leword.pro.externalAiInferenceSettings.v1'")
+    && html.includes('function resolvedExternalAiInferenceState')
+    && html.includes('includeAiInference: externalAi.enabled')
+    && html.includes('forceExternalInference: externalAi.enabled')
+    && html.includes('externalAi: externalAi.enabled')
+    && !html.includes('includeAiInference: true')
+    && !html.includes('forceExternalInference: true')
+    && !html.includes('externalAi: true')
+    && html.includes("{ label: 'AI 보조', value: externalAiStatus }")
+    && html.includes('agentInsightExternalAttemptedProviders')
+    && html.includes('agentInsightExternalCallCount')
+    && html.includes('agentInsightExternalKeyOwner')
+    && html.includes("Object.prototype.hasOwnProperty.call(summary, 'agentInsightExternalCallCount')")
+    && html.includes('externalAiProvider && (!hasReportedCallCount || reportedCallCountValue > 0)')
+    && html.includes('!hasReportedCallCount && /recovered|복구|fallback|anthropic failed/i.test(externalAiError)')
+    && html.includes("'외부 AI 꺼짐 · provider 시도 0개 · 호출 0회 · 규칙 보조'")
     && html.includes('id="apiSettingsChecklist"')
     && html.includes('function apiSettingGroups')
     && html.includes('function apiSettingGroupState')
@@ -799,6 +854,16 @@ assert('user API key settings are first-class, local-only, and secret-safe',
     && html.includes('서버 공용 저장 아님')
     && !html.includes("naverApiSettings: apiUrl('/v1/mobile/api-settings/naver')"));
 
+assert('Naver document-count connection check performs a real read-only OpenAPI probe',
+  proWebHtml.includes("fetchBrowserNaverBlogDocumentCount('네이버')")
+    && proWebHtml.includes('openApiProbeError')
+    && proWebHtml.includes("openApiCheck.status = 'verified'")
+    && proWebHtml.includes("openApiCheck.status = 'error'")
+    && proWebHtml.includes("'저장됨·미검증'")
+    && proWebHtml.includes("'실호출 실패'")
+    && proWebHtml.includes("'실호출 정상(문서 '"),
+  'stored keys and a successful document-count API call must not be reported as the same state');
+
 const settingsHydrateIndex = html.indexOf("if (next === 'settings') {\n        hydrateNaverApiSettingsForm();\n        startApiAutofillGuard(30000);");
 const loadFalseIndex = html.indexOf('if (opts.load === false) return;');
 assert('API settings resist credential autofill and hydrate even when opened without view loading',
@@ -811,15 +876,16 @@ assert('API settings resist credential autofill and hydrate even when opened wit
     && html.includes("document.querySelectorAll('[data-api-key-input]')")
     && html.includes('startApiAutofillGuard(30000)'));
 
-assert('admin-only AI worker settings let admins choose Codex or Claude Code separately from Pro login',
+assert('admin-only AI settings report Codex and Claude Code readiness without claiming inference execution',
   html.includes('id="adminAiWorkerSettings"')
-    && html.includes('관리자 AI 작업자 설정')
+    && html.includes('관리자 AI 실행 준비 상태')
     && html.includes('name="adminAiWorkerProvider" value="codex"')
     && html.includes('name="adminAiWorkerProvider" value="claude-code"')
     && html.includes('name="adminAiWorkerProvider" value="api"')
     && html.includes('id="codexCliLoggedIn"')
     && html.includes('id="claudeCodeCliLoggedIn"')
-    && html.includes('id="adminAiFiveHourWindow"')
+    && !html.includes('id="adminAiFiveHourWindow"')
+    && !html.includes('5시간 사용 창 안에서 추론')
     && html.includes('id="adminAiMindmapAssist"')
     && html.includes('id="adminAiKeywordResearchAssist"')
     && html.includes('id="saveAdminAiWorkerSettings"')
@@ -838,19 +904,77 @@ assert('admin-only AI worker settings let admins choose Codex or Claude Code sep
     && html.includes('function adminAiWorkerServerWorker')
     && html.includes("session.tier === 'admin'")
     && html.includes('function adminAiWorkerRequestPayload')
+    && html.includes("mode: 'admin-readiness-status'")
+    && html.includes('statusOnly: true')
+    && html.includes('inferenceDispatched: false')
     && html.includes('serverVerified: !!settings.lastServerStatus')
     && html.includes("storage: 'server-verified-admin'")
     && html.includes('서버에서 Codex/Claude Code CLI 설치와 로그인 상태를 확인합니다.')
-    && html.includes('usageWindowHours: settings.fiveHourWindow === false ? null : 5')
+    && !html.includes('usageWindowHours: settings.fiveHourWindow === false ? null : 5')
     && html.includes('mindmapAssist: settings.mindmapAssist !== false')
     && html.includes('keywordResearchAssist: settings.keywordResearchAssist !== false')
     && html.includes('payload.adminAiWorker = adminAiWorker')
     && !html.includes('@Qkrtjdgus12')
-    && html.includes('관리자 전용 설정입니다. admin 계정으로 Pro 로그인하면 Codex/Claude Code 작업자를 선택할 수 있습니다.')
+    && html.includes('관리자 전용 readiness/status 설정입니다. Codex/Claude Code 추론은 실행하지 않습니다.')
+    && html.includes('Codex CLI 설치·로그인 상태만 확인합니다. 키워드 리서치나 추론을 실행하지 않습니다.')
+    && html.includes('Claude Code CLI 설치·로그인 상태만 확인합니다. 선택값은 추론 provider로 사용되지 않습니다.')
     && !html.includes('id="userId" name="leword-api-naver-client-id"')
     && !html.includes('id="password" name="leword-api-naver-client-secret"')
     && !html.includes('id="userId" name="leword-local-api-naver-client-id"')
     && !html.includes('id="password" name="leword-local-api-naver-client-secret"'));
+
+assert('Phase 2 blind review requires an isolated in-memory reviewer session and a complete irreversible cohort submission',
+  proWebHtml.includes('id="liveGoldenReviewPanel"')
+    && proWebHtml.includes('id="liveGoldenReviewLoginModal"')
+    && proWebHtml.includes('id="liveGoldenReviewLoginForm"')
+    && proWebHtml.includes("liveGoldenReview: apiUrl('/v1/admin/live-golden/review')")
+    && proWebHtml.includes("sessionPurpose: 'live-golden-review'")
+    && proWebHtml.includes('let liveGoldenReviewSession = null;')
+    && proWebHtml.includes('let liveGoldenReviewPacket = null;')
+    && proWebHtml.includes('function reviewSessionHeaders')
+    && proWebHtml.includes("Authorization: 'Bearer ' + liveGoldenReviewSession.accessToken")
+    && proWebHtml.includes('function sameLiveGoldenReviewBinding')
+    && proWebHtml.includes('const preserveDecisions = sameLiveGoldenReviewBinding(liveGoldenReviewPacket, nextPacket);')
+    && proWebHtml.includes('liveGoldenReviewSession = null;')
+    && proWebHtml.includes('검수 전용 세션이 만료되었습니다. 입력한 판정은 유지됩니다. 재인증하세요.')
+    && proWebHtml.includes('코호트가 변경되어 기존 판정을 폐기했습니다. 새 코호트를 처음부터 전수 검수하세요.')
+    && proWebHtml.includes("schemaVersion: 'live-golden-blind-review-submission-v2'")
+    && proWebHtml.includes("const reviewBooleanFields = ['naturalKeyword', 'intentMatch', 'hiddenKnown', 'malformed', 'semanticDuplicate', 'platformResidue', 'sentenceResidue'];")
+    && proWebHtml.includes("hiddenKnown: classification === 'hiddenKnown'")
+    && proWebHtml.includes("const confirmation = '코호트 ' + liveGoldenReviewPacket.cohortId + ' / ' + rows.length + '개 행을 제출합니다.")
+    && proWebHtml.includes('이 제출은 되돌릴 수 없으며, 한 행이라도 실패하면 코호트가 불변 종료됩니다.')
+    && proWebHtml.includes('if (!window.confirm(confirmation)) return;')
+    && regularAdminLoginBlock.includes('adminLogin: true')
+    && !regularAdminLoginBlock.includes('sessionPurpose')
+    && reviewRequestBlock.includes('headers: reviewSessionHeaders()')
+    && !reviewRequestBlock.includes('session.accessToken')
+    && !reviewLoginBlock.includes('saveSession(')
+    && !reviewLoginBlock.includes('localStorage')
+    && !reviewLoginBlock.includes('sessionStorage')
+    && !proWebHtml.includes('saveSession(liveGoldenReviewSession)')
+    && !proWebHtml.includes('localStorage.setItem(\'leword.pro.liveGoldenReviewSession\'')
+    && !proWebHtml.includes('sessionStorage.setItem(\'leword.pro.liveGoldenReviewSession\'')
+    && !proWebHtml.includes('obviousHead: classification'));
+
+assert('Phase 2 blind review renders only the server packet and starts every decision unselected',
+  proWebHtml.includes('function renderLiveGoldenReviewPacket')
+    && proWebHtml.includes("const rows = Array.isArray(packet && packet.rows) ? packet.rows : [];")
+    && proWebHtml.includes("escapeHtml(row.keyword || '')")
+    && proWebHtml.includes("escapeHtml(row.category || '')")
+    && proWebHtml.includes("escapeHtml(row.intent || '')")
+    && proWebHtml.includes("liveGoldenReviewQuestionHtml(index, 'naturalKeyword'")
+    && proWebHtml.includes("liveGoldenReviewQuestionHtml(index, 'intentMatch'")
+    && proWebHtml.includes('data-review-field="discoveryClass"')
+    && proWebHtml.includes("liveGoldenReviewQuestionHtml(index, 'malformed'")
+    && proWebHtml.includes("liveGoldenReviewQuestionHtml(index, 'semanticDuplicate'")
+    && proWebHtml.includes("liveGoldenReviewQuestionHtml(index, 'platformResidue'")
+    && proWebHtml.includes("liveGoldenReviewQuestionHtml(index, 'sentenceResidue'")
+    && !proWebHtml.includes('value="true" checked')
+    && !proWebHtml.includes('value="false" checked')
+    && !proWebHtml.includes('value="hiddenKnown" checked')
+    && !proWebHtml.includes('value="obviousHead" checked')
+    && !proWebHtml.includes('bulkPassLiveGoldenReview')
+    && !proWebHtml.includes('liveGoldenReviewPacket.rows.map(function(row) { return Object.assign'));
 
 assert('all keyword tools attach agent assist instructions to every execution payload',
   html.includes('function agentAssistRequestPayload')
@@ -875,12 +999,14 @@ assert('all keyword tools attach agent assist instructions to every execution pa
     && html.includes("'combinationIntent'")
     && html.includes("'autocompleteKeywords'")
     && html.includes("'expandedKeywords'")
-    && html.includes("explanationStyle: 'source-grounded-agent-inference'")
+    && html.includes("explanationStyle: externalAi.enabled ? 'opt-in-external-explanation' : 'server-rule-explanation'")
+    && html.includes("generatedKeywordMeasurement: 'unmeasured-suggestion'")
+    && html.includes('preserveStructuredResultRows: true')
     && html.includes('function agentInferredKeywordGuide')
     && html.includes('function agentObjectCandidates')
     && html.includes("source: 'mindmap-agent-inference'")
     && html.includes('payload.agentAssist = agentAssist')
-    && html.includes('payload.includeAiInference = payload.includeAiInference !== false')
+    && html.includes('payload.includeAiInference = agentAssist.includeAiInference === true')
     && html.includes("agentAssist: agentAssistRequestPayload(feature.route, { keyword: keyword, seedKeyword: keyword })"));
 
 assert('keeps technical Electron mapping hidden while retaining telemetry wiring',

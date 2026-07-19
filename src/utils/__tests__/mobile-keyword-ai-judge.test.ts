@@ -1,8 +1,10 @@
 import assert from 'assert';
 import {
   applyKeywordAiJudge,
+  hasTrustedDocumentCountMeasurement,
   isUltimateGoldenKeywordCandidate,
 } from '../../mobile/keyword-ai-judge';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function measuredMetric(keyword: string, category: string, pc: number, mobile: number, documentCount: number) {
   const totalSearchVolume = pc + mobile;
@@ -30,12 +32,30 @@ function measuredMetric(keyword: string, category: string, pc: number, mobile: n
     documentCountSource: 'naver-api' as const,
     documentCountConfidence: 'high' as const,
     documentCountQueryMode: 'broad' as const,
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
     documentCountMeasuredAt: now.toISOString(),
     isDocumentCountEstimated: false,
   };
 }
 
 const now = new Date('2026-06-22T09:00:00+09:00');
+
+const queryBoundMetric = measuredMetric(
+  '\uC81C\uC8FC \uB80C\uD130\uCE74 \uBCF4\uD5D8 \uBE44\uAD50',
+  'travel_domestic',
+  800,
+  3_200,
+  400,
+);
+assert.strictEqual(hasTrustedDocumentCountMeasurement(queryBoundMetric), true);
+assert.strictEqual(hasTrustedDocumentCountMeasurement({
+  ...queryBoundMetric,
+  documentCountQueryKey: undefined,
+}), false);
+assert.strictEqual(hasTrustedDocumentCountMeasurement({
+  ...queryBoundMetric,
+  documentCountQueryKey: naverBlogDocumentCountQueryKey('\uC81C\uC8FC\uB80C\uD130\uCE74 \uBCF4\uD5D8 \uBE44\uAD50'),
+}), false);
 
 const calculatorNeed = applyKeywordAiJudge(
   measuredMetric('주휴수당계산기', 'policy', 16500, 71100, 12230),
@@ -128,6 +148,86 @@ assert.ok(isUltimateGoldenKeywordCandidate(cultureCardBalance, {
   maxDocumentCount: 15000,
   minGoldenRatio: 2,
 }));
+
+const obviousAnnualBenefitTemplate = applyKeywordAiJudge(
+  {
+    ...measuredMetric('2026 지원금 신청', 'policy', 1200, 4800, 300),
+    source: 'persistent-measured-golden-cache',
+    intent: 'policy-template-candidate',
+    evidence: ['searchad-keyword-keyed-v2', 'naver-openapi-broad'],
+  },
+  { now },
+) as any;
+assert.ok(!obviousAnnualBenefitTemplate.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
+
+const obviousAnnualEarnedIncomeTemplate = applyKeywordAiJudge(
+  {
+    ...measuredMetric('2026 근로장려금 지급일', 'policy', 1600, 6200, 300),
+    source: 'persistent-measured-golden-cache',
+    intent: 'policy-template-candidate',
+    evidence: ['searchad-keyword-keyed-v2', 'naver-openapi-broad'],
+  },
+  { now },
+) as any;
+assert.ok(!obviousAnnualEarnedIncomeTemplate.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
+
+const obviousLengthOnlyBenefit = applyKeywordAiJudge(
+  {
+    ...measuredMetric('청년 지원금 신청방법', 'policy', 900, 3600, 300),
+    source: 'persistent-measured-golden-cache',
+    intent: 'policy-generic-need',
+    evidence: ['searchad-keyword-keyed-v2', 'naver-openapi-broad'],
+  },
+  { now },
+) as any;
+assert.ok(!obviousLengthOnlyBenefit.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
+
+const reviewedBriefingNeed = applyKeywordAiJudge(
+  {
+    ...measuredMetric('청년 월세 지원 조건', 'policy', 740, 2860, 220),
+    source: 'home-keyword-briefing-reviewed',
+    intent: 'admin-reviewed-candidate',
+    evidence: ['admin-image-ocr-reviewed'],
+  },
+  { now },
+) as any;
+assert.ok(!reviewedBriefingNeed.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
+
+const unmeasuredReviewedBriefingNeed = applyKeywordAiJudge(
+  {
+    ...measuredMetric('청년 월세 지원 조건', 'policy', 740, 2860, 220),
+    source: 'home-keyword-briefing-reviewed',
+    intent: 'admin-reviewed-candidate',
+    evidence: ['admin-image-ocr-reviewed'],
+    isSearchVolumeEstimated: true,
+  },
+  { now },
+) as any;
+assert.ok(!unmeasuredReviewedBriefingNeed.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
+
+const unemploymentSecondHopNeed = applyKeywordAiJudge(
+  {
+    ...measuredMetric('실업급여 구직외활동 인정 횟수', 'policy', 720, 2880, 240),
+    source: 'persistent-measured-golden-cache',
+    intent: 'unemployment-follow-up-need',
+    evidence: ['naver-autocomplete-second-hop', 'real-demand-verified'],
+  },
+  { now },
+) as any;
+assert.strictEqual(unemploymentSecondHopNeed.aiJudge?.verdict, 'publish');
+assert.ok(unemploymentSecondHopNeed.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
+
+const staleCanonicalOnlyHiddenNeed = applyKeywordAiJudge(
+  {
+    ...measuredMetric('실업급여 구직외활동 인정 횟수', 'policy', 720, 2880, 240),
+    source: 'measured-only-candidate',
+    intent: 'unemployment-follow-up-need',
+    evidence: ['searchad-keyword-keyed-v2', 'naver-openapi-broad'],
+    documentCountMeasuredAt: '2026-05-01T00:00:00.000Z',
+  },
+  { now },
+) as any;
+assert.ok(!staleCanonicalOnlyHiddenNeed.aiJudge?.reasons.includes('beginner-monetizable-hidden-need'));
 
 const jejuRentalInsurance = applyKeywordAiJudge(
   {

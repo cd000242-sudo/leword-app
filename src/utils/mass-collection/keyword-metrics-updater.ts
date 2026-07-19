@@ -9,8 +9,14 @@ import {
     KeywordStorage,
     getKeywordStorage,
     StoredKeyword,
-    KeywordGrade
+    KeywordGrade,
+    StoredDocumentCountMeasurement,
+    storedDocumentCountBroadQueryKey
 } from './keyword-storage';
+import {
+    getNaverBlogDocumentCount,
+    peekCachedNaverBlogDocumentCountMeasurement
+} from '../naver-blog-api';
 
 // ============================================================================
 // 인터페이스 정의
@@ -210,13 +216,22 @@ export class KeywordMetricsUpdater {
                 try {
                     const oldGrade = keyword.grade;
                     const newSearchVolume = searchVolumes.get(keyword.keyword);
-                    const newDocumentCount = documentCounts.get(keyword.keyword);
+                    const newDocumentMeasurement = documentCounts.get(keyword.keyword);
+
+                    const metrics: Parameters<KeywordStorage['updateMetrics']>[1] = {};
+                    if (newSearchVolume !== undefined) {
+                        metrics.searchVolume = newSearchVolume;
+                    }
+                    if (newDocumentMeasurement) {
+                        Object.assign(metrics, newDocumentMeasurement);
+                    }
+                    if (Object.keys(metrics).length === 0) {
+                        result.errors.push(`${keyword.keyword}: 갱신 가능한 실측 메트릭 없음`);
+                        continue;
+                    }
 
                     // 메트릭스 업데이트
-                    const updated = await this.storage.updateMetrics(keyword.id, {
-                        searchVolume: newSearchVolume ?? keyword.searchVolume,
-                        documentCount: newDocumentCount ?? keyword.documentCount
-                    });
+                    const updated = await this.storage.updateMetrics(keyword.id, metrics);
 
                     if (updated) {
                         result.updated++;
@@ -275,7 +290,13 @@ export class KeywordMetricsUpdater {
             );
 
             for (const result of results) {
-                volumes.set(result.keyword, result.totalSearchVolume);
+                if (
+                    typeof result.totalSearchVolume === 'number'
+                    && Number.isFinite(result.totalSearchVolume)
+                    && result.totalSearchVolume >= 0
+                ) {
+                    volumes.set(result.keyword, result.totalSearchVolume);
+                }
             }
         } catch (error: any) {
             console.warn('[METRICS-UPDATER] 검색량 조회 실패:', error?.message);
@@ -287,8 +308,8 @@ export class KeywordMetricsUpdater {
     /**
      * 문서수 조회 (네이버 블로그 API)
      */
-    private async fetchDocumentCounts(keywords: string[]): Promise<Map<string, number | null>> {
-        const counts = new Map<string, number | null>();
+    private async fetchDocumentCounts(keywords: string[]): Promise<Map<string, StoredDocumentCountMeasurement>> {
+        const counts = new Map<string, StoredDocumentCountMeasurement>();
 
         try {
             const { EnvironmentManager } = await import('../environment-manager');
@@ -302,19 +323,30 @@ export class KeywordMetricsUpdater {
             // 순차 조회 (API 제한 고려)
             for (const keyword of keywords) {
                 try {
-                    const response = await fetch(
-                        `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=1`,
-                        {
-                            headers: {
-                                'X-Naver-Client-Id': env.naverClientId,
-                                'X-Naver-Client-Secret': env.naverClientSecret
-                            }
+                    const documentCount = await getNaverBlogDocumentCount(keyword, {
+                        config: {
+                            clientId: env.naverClientId,
+                            clientSecret: env.naverClientSecret,
+                        },
+                    });
+                    if (documentCount !== null) {
+                        const cachedMeasurement = peekCachedNaverBlogDocumentCountMeasurement(keyword);
+                        if (
+                            cachedMeasurement
+                            && cachedMeasurement.total === documentCount
+                        ) {
+                            counts.set(keyword, {
+                                documentCount,
+                                documentCountSource: 'naver-api',
+                                documentCountConfidence: 'high',
+                                documentCountQueryMode: 'broad',
+                                documentCountQueryKey: storedDocumentCountBroadQueryKey(keyword),
+                                // Preserve the original API/cache measurement time. Copying a
+                                // cache hit now must not make the document count newly fresh.
+                                documentCountMeasuredAt: cachedMeasurement.measuredAt,
+                                isDocumentCountEstimated: false,
+                            });
                         }
-                    );
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        counts.set(keyword, data.total || 0);
                     }
 
                     // API 호출 간격
@@ -350,11 +382,13 @@ export class KeywordMetricsUpdater {
             // 검색량 조회
             const volumes = await this.fetchSearchVolumes([keyword]);
             const documentCounts = await this.fetchDocumentCounts([keyword]);
-
-            return await this.storage.updateMetrics(stored.id, {
-                searchVolume: volumes.get(keyword) ?? stored.searchVolume,
-                documentCount: documentCounts.get(keyword) ?? stored.documentCount
-            });
+            const searchVolume = volumes.get(keyword);
+            const documentMeasurement = documentCounts.get(keyword);
+            const metrics: Parameters<KeywordStorage['updateMetrics']>[1] = {};
+            if (searchVolume !== undefined) metrics.searchVolume = searchVolume;
+            if (documentMeasurement) Object.assign(metrics, documentMeasurement);
+            if (Object.keys(metrics).length === 0) return null;
+            return await this.storage.updateMetrics(stored.id, metrics);
         } catch (error: any) {
             console.error(`[METRICS-UPDATER] 키워드 갱신 실패 (${keyword}):`, error?.message);
             return null;

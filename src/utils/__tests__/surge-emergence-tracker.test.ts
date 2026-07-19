@@ -9,6 +9,7 @@
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { SurgeEmergenceTracker } from '../../mobile/surge-emergence-tracker';
 
@@ -25,7 +26,8 @@ const ok = (name: string, condition: boolean, detail?: string) => {
   passed += 1;
 };
 
-const file = path.join(process.cwd(), 'tmp', 'surge-emergence-tracker-test.json');
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-surge-emergence-'));
+const file = path.join(tmpDir, 'surge-emergence-tracker-test.json');
 fs.rmSync(file, { force: true });
 
 let nowMs = Date.parse('2026-07-10T09:00:00.000Z');
@@ -62,7 +64,7 @@ ok('snapshot survives a file round-trip (no cold start, diff still works)',
     && reloadedObserve.fresh.length === 1
     && reloadedObserve.fresh[0] === '신규 스냅샷 키워드');
 
-const capFile = path.join(process.cwd(), 'tmp', 'surge-emergence-cap-test.json');
+const capFile = path.join(tmpDir, 'surge-emergence-cap-test.json');
 fs.rmSync(capFile, { force: true });
 let capNowMs = Date.parse('2026-07-10T09:00:00.000Z');
 const capTracker = new SurgeEmergenceTracker({ file: capFile, now: () => new Date(capNowMs), maxEntries: 5 });
@@ -72,6 +74,5 @@ capTracker.observe(['e나비', 'f나비', 'g나비']);
 const capRaw = JSON.parse(fs.readFileSync(capFile, 'utf8'));
 ok('entry cap evicts the oldest observations', Object.keys(capRaw.seen).length === 5, String(Object.keys(capRaw.seen).length));
 
-fs.rmSync(file, { force: true });
-fs.rmSync(capFile, { force: true });
+fs.rmSync(tmpDir, { recursive: true, force: true });
 console.log(`[surge-emergence-tracker.test] passed: ${passed} / failed: 0`);

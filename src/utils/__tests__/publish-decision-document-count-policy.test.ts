@@ -1,4 +1,5 @@
 import { evaluatePublishDecision } from '../../mobile/publish-decision';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
@@ -24,10 +25,25 @@ const canonicalMetric: any = {
   documentCountMeasuredAt: new Date().toISOString(),
   isDocumentCountEstimated: false,
 };
+canonicalMetric.documentCountQueryKey = naverBlogDocumentCountQueryKey(canonicalMetric.keyword);
 
 const canonical = evaluatePublishDecision(canonicalMetric);
 assert('canonical broad OpenAPI metric can reach publish recommendation',
   canonical.verdict === 'publish', JSON.stringify(canonical));
+
+const missingDocumentQueryKey = evaluatePublishDecision({
+  ...canonicalMetric,
+  documentCountQueryKey: undefined,
+});
+assert('a document count without its exact broad query key cannot publish',
+  missingDocumentQueryKey.verdict !== 'publish', JSON.stringify(missingDocumentQueryKey));
+
+const mismatchedDocumentQueryKey = evaluatePublishDecision({
+  ...canonicalMetric,
+  documentCountQueryKey: naverBlogDocumentCountQueryKey(`${canonicalMetric.keyword} \uD6C4\uAE30`),
+});
+assert('a document count measured for a different broad query cannot publish',
+  mismatchedDocumentQueryKey.verdict !== 'publish', JSON.stringify(mismatchedDocumentQueryKey));
 
 const exactPhrase = evaluatePublishDecision({
   ...canonicalMetric,

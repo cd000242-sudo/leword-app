@@ -1,7 +1,9 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { MobileLiveGoldenRadar } from '../../mobile/live-golden-radar';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
@@ -12,7 +14,7 @@ const measuredAt = now.toISOString();
 const baseKeyword = '\uAE40\uBD80\uC7A5';
 const canonicalKeyword = `${baseKeyword} \uAE30\uBCF8\uC815\uBCF4`;
 const cacheKeyword = `${baseKeyword} \uBC29\uC1A1\uC77C\uC815`;
-const runtimeDir = path.join(process.cwd(), 'tmp');
+const runtimeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-document-provenance-'));
 const surgeBoardFile = path.join(runtimeDir, 'live-golden-document-provenance-surge.json');
 const ingestBoardFile = path.join(runtimeDir, 'live-golden-document-provenance-ingest.json');
 
@@ -64,6 +66,7 @@ async function run(): Promise<void> {
         documentCountSource: keyword === cacheKeyword ? 'cache' : 'naver-api',
         documentCountConfidence: keyword === cacheKeyword ? 'medium' : 'high',
         documentCountQueryMode: 'broad',
+        documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
         documentCountMeasuredAt: measuredAt,
         isDocumentCountEstimated: false,
       }))
@@ -123,6 +126,7 @@ async function run(): Promise<void> {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD \uB300\uC0C1'),
       documentCountMeasuredAt: measuredAt,
       isDocumentCountEstimated: false,
     },
@@ -145,6 +149,7 @@ async function run(): Promise<void> {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'exact-phrase',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('\uCCAD\uB144\uBBF8\uB798\uC801\uAE08 \uC2E0\uCCAD \uC11C\uB958'),
       documentCountMeasuredAt: measuredAt,
       isDocumentCountEstimated: false,
     },
@@ -173,6 +178,7 @@ run()
   .finally(() => {
     cleanupBoardFiles(surgeBoardFile);
     cleanupBoardFiles(ingestBoardFile);
+    fs.rmSync(runtimeDir, { recursive: true, force: true });
   })
   .then(
     () => process.exit(0),

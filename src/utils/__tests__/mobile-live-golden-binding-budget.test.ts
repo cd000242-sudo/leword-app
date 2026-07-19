@@ -1,5 +1,7 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
@@ -7,7 +9,7 @@ function assert(name: string, condition: boolean, detail?: string): void {
 
 const fixedNow = new Date('2026-07-15T01:00:00.000Z');
 const measuredAt = '2026-07-15T00:55:00.000Z';
-const tmpDir = path.join(process.cwd(), 'tmp');
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-binding-budget-'));
 const boardFile = path.join(tmpDir, 'mobile-live-golden-binding-budget-board.json');
 
 const groups = [
@@ -100,6 +102,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     source: 'mobile-live-golden-radar',
     intent: 'Commercial',
     evidence: [
+      'validated-modifier',
       `curated-policy:${spec.policyKey}`,
       'naver-openapi-broad',
     ],
@@ -110,6 +113,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(spec.keyword),
     documentCountMeasuredAt: measuredAt,
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-15T00:00:00.000Z',
@@ -124,8 +128,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
 }), 'utf8');
 
 function cleanup(): void {
-  fs.rmSync(boardFile, { force: true });
-  fs.rmSync(`${boardFile}.tmp`, { force: true });
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
 async function run(): Promise<void> {
@@ -241,6 +244,244 @@ async function run(): Promise<void> {
       item.keyword === zeroKeyword || !attemptedSet.has(item.keyword)
     )),
     JSON.stringify(snapshot.verifiedSupply),
+  );
+
+  const hiddenProofBoardFile = path.join(tmpDir, 'mobile-live-golden-hidden-proof-budget-board.json');
+  const hiddenProofFixtures = [{
+    keyword: '도수치료 실비 청구 필요서류',
+    evidence: ['curated-policy:policy', 'naver-openapi-broad'],
+    expected: 'unknown',
+  }, {
+    keyword: '청년도약계좌 중도해지 불이익',
+    evidence: ['real-demand-extension', 'curated-policy:policy', 'naver-openapi-broad'],
+    expected: 'stale-unknown',
+  }, {
+    keyword: '문화누리카드 온라인 사용처',
+    evidence: ['validated-modifier', 'curated-policy:policy', 'naver-openapi-broad'],
+    expected: 'trusted',
+  }, {
+    keyword: '프리랜서 근로장려금 지급액 조회',
+    evidence: ['curated-policy:policy', 'naver-openapi-broad'],
+    expected: 'real-demand',
+  }] as const;
+  fs.writeFileSync(hiddenProofBoardFile, JSON.stringify({
+    version: 1,
+    boardUpdatedAt: fixedNow.toISOString(),
+    items: hiddenProofFixtures.map((fixture, index) => ({
+      id: `hidden-proof-${index}`,
+      rank: index + 1,
+      keyword: fixture.keyword,
+      grade: 'SSS',
+      score: 98,
+      pcSearchVolume: 1_000,
+      mobileSearchVolume: 8_000,
+      totalSearchVolume: 9_000,
+      documentCount: 200,
+      goldenRatio: 45,
+      cpc: 220,
+      category: 'policy',
+      source: 'mobile-live-golden-radar',
+      intent: 'Commercial',
+      evidence: fixture.evidence,
+      isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey(fixture.keyword),
+      documentCountMeasuredAt: measuredAt,
+      isDocumentCountEstimated: false,
+      discoveredAt: '2026-07-15T00:00:00.000Z',
+      updatedAt: '2026-07-15T00:00:00.000Z',
+      freshness: 'live',
+      // Intentionally no current SearchAd binding: this is a quota-bearing repair lane.
+    })),
+  }), 'utf8');
+
+  const probedForHiddenDemand: string[] = [];
+  const splitMeasuredAfterHiddenGate: string[] = [];
+  const realDemandKeyword = hiddenProofFixtures.find((fixture) => fixture.expected === 'real-demand')!.keyword;
+  const trustedKeyword = hiddenProofFixtures.find((fixture) => fixture.expected === 'trusted')!.keyword;
+  const hiddenProofRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    boardFile: hiddenProofBoardFile,
+    boardTarget: 10,
+    publicPreviewCount: 1,
+    categories: ['policy'],
+    now: () => new Date(fixedNow),
+    setTimeoutFn: () => 0,
+    clearTimeoutFn: () => undefined,
+    realDemandProbe: async (keyword: string) => {
+      probedForHiddenDemand.push(keyword);
+      return keyword === realDemandKeyword
+        ? { ok: true, suggestions: [`${keyword} 후기`] }
+        : { ok: false, suggestions: [] };
+    },
+    measureLiveSearchVolumeSeparate: async (_config: unknown, keywords: string[]) => {
+      splitMeasuredAfterHiddenGate.push(...keywords);
+      return keywords.map((keyword) => ({
+        keyword,
+        pcSearchVolume: 1_200,
+        mobileSearchVolume: 4_800,
+        totalSearchVolume: 6_000,
+        documentCount: null,
+        monthlyAveCpc: 250,
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        searchVolumeBindingVersion: 'keyword-keyed-v2',
+        searchVolumeMeasuredAt: measuredAt,
+        isSearchVolumeEstimated: false,
+      }));
+    },
+  });
+
+  (hiddenProofRadar as any).searchAdMeasurementBudgetRemaining = 10;
+  await (hiddenProofRadar as any).promotePendingMeasuredCacheWithSearchAdMetrics(
+    { clientId: 'client', clientSecret: 'secret' },
+    10,
+    10,
+  );
+
+  const measuredAfterHiddenGate = new Set(splitMeasuredAfterHiddenGate);
+  assert(
+    'cache split repair spends SearchAd only after current hidden-known proof',
+    measuredAfterHiddenGate.size === 2
+      && measuredAfterHiddenGate.has(trustedKeyword)
+      && measuredAfterHiddenGate.has(realDemandKeyword)
+      && (hiddenProofRadar as any).searchAdMeasurementBudgetRemaining === 8,
+    JSON.stringify({
+      probedForHiddenDemand,
+      splitMeasuredAfterHiddenGate,
+      remaining: (hiddenProofRadar as any).searchAdMeasurementBudgetRemaining,
+    }),
+  );
+  assert(
+    'stale or unknown hidden-demand assertions cannot bypass the quota gate',
+    hiddenProofFixtures
+      .filter((fixture) => fixture.expected === 'unknown' || fixture.expected === 'stale-unknown')
+      .every((fixture) => !measuredAfterHiddenGate.has(fixture.keyword)),
+    JSON.stringify(splitMeasuredAfterHiddenGate),
+  );
+  assert(
+    'a current real-demand proof is bound into the promoted row evidence',
+    [...(hiddenProofRadar as any).board.values()]
+      .some((item: any) => (
+        item.keyword === realDemandKeyword
+        && item.evidence.includes('real-demand-extension')
+        && item.searchVolumeBindingVersion === 'keyword-keyed-v2'
+      )),
+    JSON.stringify([...(hiddenProofRadar as any).board.values()]),
+  );
+
+  const proofTailBoardFile = path.join(tmpDir, 'mobile-live-golden-hidden-proof-tail-board.json');
+  const proofTailKeywords = [
+    '실업급여 구직외활동 인정 횟수',
+    '프리랜서 근로장려금 지급액 조회',
+    '소상공인 정책자금 직접대출 서류',
+  ];
+  fs.writeFileSync(proofTailBoardFile, JSON.stringify({
+    version: 1,
+    boardUpdatedAt: fixedNow.toISOString(),
+    items: proofTailKeywords.map((keyword, index) => ({
+      id: `hidden-proof-tail-${index}`,
+      rank: index + 1,
+      keyword,
+      grade: 'SSS',
+      score: 98 - index,
+      pcSearchVolume: 1_000,
+      mobileSearchVolume: 8_000,
+      totalSearchVolume: 9_000,
+      documentCount: 200,
+      goldenRatio: 45,
+      cpc: 220,
+      category: 'policy',
+      source: 'mobile-live-golden-radar',
+      intent: 'Commercial',
+      evidence: ['curated-policy:policy', 'naver-openapi-broad'],
+      isMeasured: true,
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
+      documentCountMeasuredAt: measuredAt,
+      isDocumentCountEstimated: false,
+      discoveredAt: '2026-07-15T00:00:00.000Z',
+      updatedAt: '2026-07-15T00:00:00.000Z',
+      freshness: 'live',
+    })),
+  }), 'utf8');
+
+  const tailProofProbes: string[] = [];
+  const tailSplitMeasurements: string[] = [];
+  const proofTailRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    boardFile: proofTailBoardFile,
+    boardTarget: 10,
+    publicPreviewCount: 1,
+    categories: ['policy'],
+    now: () => new Date(fixedNow),
+    setTimeoutFn: () => 0,
+    clearTimeoutFn: () => undefined,
+    realDemandProbe: async (keyword: string) => {
+      tailProofProbes.push(keyword);
+      return tailProofProbes.length === 1
+        ? { ok: false, suggestions: [] }
+        : { ok: true, suggestions: [`${keyword} 후기`] };
+    },
+    measureLiveSearchVolumeSeparate: async (_config: unknown, keywords: string[]) => {
+      tailSplitMeasurements.push(...keywords);
+      return keywords.map((keyword) => ({
+        keyword,
+        pcSearchVolume: 1_200,
+        mobileSearchVolume: 4_800,
+        totalSearchVolume: 6_000,
+        documentCount: null,
+        monthlyAveCpc: 250,
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        searchVolumeBindingVersion: 'keyword-keyed-v2',
+        searchVolumeMeasuredAt: measuredAt,
+        isSearchVolumeEstimated: false,
+      }));
+    },
+  });
+
+  (proofTailRadar as any).searchAdMeasurementBudgetRemaining = 1;
+  await (proofTailRadar as any).promotePendingMeasuredCacheWithSearchAdMetrics(
+    { clientId: 'client', clientSecret: 'secret' },
+    10,
+    1,
+  );
+  assert(
+    'an unknown hidden-demand probe spends no SearchAd quota',
+    tailProofProbes.length === 1
+      && tailSplitMeasurements.length === 0
+      && (proofTailRadar as any).searchAdMeasurementBudgetRemaining === 1,
+    JSON.stringify({ tailProofProbes, tailSplitMeasurements }),
+  );
+
+  await (proofTailRadar as any).promotePendingMeasuredCacheWithSearchAdMetrics(
+    { clientId: 'client', clientSecret: 'secret' },
+    10,
+    1,
+  );
+  assert(
+    'unknown proof cooldown advances the next cycle to an unprobed inventory tail',
+    tailProofProbes.length === 2
+      && tailProofProbes[1] !== tailProofProbes[0]
+      && tailSplitMeasurements.length === 1
+      && tailSplitMeasurements[0] === tailProofProbes[1]
+      && (proofTailRadar as any).searchAdMeasurementBudgetRemaining === 0,
+    JSON.stringify({
+      tailProofProbes,
+      tailSplitMeasurements,
+      remaining: (proofTailRadar as any).searchAdMeasurementBudgetRemaining,
+    }),
   );
 }
 

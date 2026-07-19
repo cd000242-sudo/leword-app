@@ -40,6 +40,7 @@ export interface MDPResult {
     documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache' | 'unknown' | 'none';
     documentCountConfidence?: 'high' | 'medium' | 'low';
     documentCountQueryMode?: 'broad' | 'exact-phrase';
+    documentCountQueryKey?: string;
     documentCountMeasuredAt?: string;
     isDocumentCountEstimated?: boolean;
     // Phase 2: SERP Signals
@@ -546,6 +547,7 @@ export class MDPEngine {
                             documentCountSource: sig.documentCountSource,
                             documentCountConfidence: sig.documentCountConfidence,
                             documentCountQueryMode: sig.documentCountQueryMode,
+                            documentCountQueryKey: sig.documentCountQueryKey,
                             documentCountMeasuredAt: sig.documentCountMeasuredAt,
                             isDocumentCountEstimated: sig.isDocumentCountEstimated,
                             // Phase 2 Data

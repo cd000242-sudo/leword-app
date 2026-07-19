@@ -76,6 +76,8 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-api-guardrails.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-api-ai-judge.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-api-deploy-gate.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-api-image-manifest.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'production-volume-initializer.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-ci-workflow.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-ci-secrets-gate.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-store-listing-gate.test.ts'),
@@ -98,6 +100,9 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'document-count-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'document-count-runtime-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'document-count-query-key-policy.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'document-count-consumer-ssot.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'stored-document-count-provenance.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'measure-dc-exact-fail-closed.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'keyword-competition-document-count-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'naver-blog-document-cache.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'persistent-document-count-provenance.test.ts'),
@@ -122,9 +127,18 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'searchad-provenance-contract.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'naver-datalab-force-fresh-provenance.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'searchad-quota-concurrency.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'searchad-conservative-accounting.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'searchad-quota-fail-closed.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'naver-openapi-quota-concurrency.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-searchad-pool-health.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-category-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-supply-report.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-quality-policy.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-hidden-known-benchmark.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-review-cohort.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-review-hold.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-radar-phase2-safety.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-review-api-server.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-document-provenance-policy.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-document-provenance-wiring.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-source-signals-provenance.test.ts'),
@@ -140,7 +154,8 @@ const testFiles = [
 ];
 
 for (const testFile of testFiles) {
-    console.log(`[${path.basename(testFile)}] running...`);
+    const testBasename = path.basename(testFile);
+    console.log(`[${testBasename}] running...`);
     // Sanity tests must never inherit the operator's desktop credentials,
     // persistent keyword cache, or OpenAPI quota state. Individual tests that
     // need credentials inject deterministic fixtures explicitly.
@@ -151,6 +166,12 @@ for (const testFile of testFiles) {
     );
     fs.rmSync(isolatedRoot, { recursive: true, force: true });
     fs.mkdirSync(isolatedRoot, { recursive: true });
+    // Quota unit tests need the physical contract value at module-import time;
+    // every other test stays pinned to one call as a network-safety fuse.
+    // Credentials remain blank in both cases, so this cannot enable live spend.
+    const searchAdQuotaFixtureCeiling = /^searchad-.*\.test\.ts$/u.test(testBasename)
+        ? '25000'
+        : '1';
     const isolatedEnv = {
         ...process.env,
         APPDATA: isolatedRoot,
@@ -177,8 +198,8 @@ for (const testFile of testFiles) {
         NAVER_CLIENT_SECRET_POOL: '',
         LEWORD_SEARCHAD_ACCOUNTS_FILE: '',
         LEWORD_SEARCHAD_ACCOUNTS_B64: '',
-        LEWORD_SEARCHAD_SOFT_CEILING: '1',
-        LEWORD_SEARCHAD_DAILY_LIMIT: '1',
+        LEWORD_SEARCHAD_SOFT_CEILING: searchAdQuotaFixtureCeiling,
+        LEWORD_SEARCHAD_DAILY_LIMIT: searchAdQuotaFixtureCeiling,
         NAVER_SEARCH_AD_ACCESS_LICENSE: '',
         NAVER_SEARCH_AD_SECRET_KEY: '',
         NAVER_SEARCH_AD_CUSTOMER_ID: '',
@@ -196,6 +217,7 @@ for (const testFile of testFiles) {
         LEWORD_MOBILE_API_TOKEN: '',
         LEWORD_MOBILE_ENTITLEMENT_URL: '',
         LEWORD_MOBILE_PANEL_LOGIN_URL: '',
+        LEWORD_MOBILE_LIVE_GOLDEN_REVIEW_PANEL_LOGIN_URL: '',
         LEWORD_MOBILE_PUSH_PROVIDER: '',
         LEWORD_MOBILE_PUSH_ENDPOINT: '',
         LEWORD_MOBILE_PUSH_TOKEN: '',

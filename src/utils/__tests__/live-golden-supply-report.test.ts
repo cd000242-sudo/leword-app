@@ -5,6 +5,7 @@ import {
   parseLiveGoldenHumanReviewAttestation,
 } from '../../mobile/live-golden-supply-report';
 import { LIVE_GOLDEN_CORE_CATEGORY_POLICIES } from '../../mobile/live-golden-category-policy';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
@@ -32,6 +33,7 @@ function measuredItem(keyword: string, category: string, index: number): any {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
     documentCountMeasuredAt: '2026-07-11T09:55:00.000Z',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-11T09:00:00.000Z',

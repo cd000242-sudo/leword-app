@@ -15,9 +15,12 @@ function runEmptyEnv(): void {
   assert('empty env is not production ready', report.ok === false);
   assert('empty env reports required blockers', report.summary.failedRequired >= 6);
   assert('empty env requires measured document counts',
-    report.blockers.some((item) => item.name === 'Naver Open API credentials configured'));
+    report.blockers.some((item) => item.code === 'naver-openapi-credentials-configured'));
   assert('empty env requires measured search volume',
-    report.blockers.some((item) => item.name === 'Naver SearchAd credentials configured'));
+    report.blockers.some((item) => item.code === 'naver-searchad-credentials-configured'));
+  assert('runtime checks expose stable unique machine-readable codes',
+    report.checks.every((item) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.code))
+      && new Set(report.checks.map((item) => item.code)).size === report.checks.length);
 }
 
 function runReadyEnvWithSearchAdAliases(): void {
@@ -40,7 +43,7 @@ function runReadyEnvWithSearchAdAliases(): void {
   assert('complete env is production ready', report.ok === true);
   assert('complete env has no required blockers', report.summary.failedRequired === 0);
   assert('SearchAd no-underscore aliases are accepted',
-    report.checks.find((item) => item.name === 'Naver SearchAd credentials configured')?.ok === true);
+    report.checks.find((item) => item.code === 'naver-searchad-credentials-configured')?.ok === true);
   assert('OpenAPI single key reports configured count',
     report.checks.find((item) => item.name === 'Naver Open API credentials configured')?.detail.includes('1 OpenAPI key') === true);
   assert('OpenAPI quota check passes when no key is blocked',

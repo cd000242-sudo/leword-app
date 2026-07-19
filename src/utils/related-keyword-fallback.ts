@@ -41,11 +41,19 @@ export interface RelatedKeywordResult {
 async function fetchSearchAdRelKeywords(
     seed: string,
     config: FallbackConfig
-): Promise<{ keyword: string; monthlyPcVolume: number; monthlyMobileVolume: number }[]> {
+): Promise<{
+    keyword: string;
+    monthlyPcVolume: number | null;
+    monthlyMobileVolume: number | null;
+    totalSearchVolume: number | null;
+}[]> {
     if (!config.naverSearchAdAccessLicense || !config.naverSearchAdSecretKey) return [];
     try {
         // 기존 모듈 재사용
-        const { getNaverSearchAdKeywordSuggestions } = await import('./naver-searchad-api');
+        const {
+            exactSearchAdTotal,
+            getNaverSearchAdKeywordSuggestions,
+        } = await import('./naver-searchad-api');
         const items = await getNaverSearchAdKeywordSuggestions(
             {
                 accessLicense: config.naverSearchAdAccessLicense,
@@ -56,8 +64,9 @@ async function fetchSearchAdRelKeywords(
         );
         return (items || []).map((it: any) => ({
             keyword: it.keyword || it.relKeyword || '',
-            monthlyPcVolume: Number(it.monthlyPcQcCnt) || 0,
-            monthlyMobileVolume: Number(it.monthlyMobileQcCnt) || 0,
+            monthlyPcVolume: typeof it.pcSearchVolume === 'number' ? it.pcSearchVolume : null,
+            monthlyMobileVolume: typeof it.mobileSearchVolume === 'number' ? it.mobileSearchVolume : null,
+            totalSearchVolume: exactSearchAdTotal(it),
         })).filter(i => i.keyword);
     } catch (err: any) {
         console.warn(`[FALLBACK:relkwd] ${seed} 실패: ${err?.message}`);
@@ -248,7 +257,11 @@ export async function fetchRelatedKeywordsMulti(
         tasks.push(
             fetchSearchAdRelKeywords(seed, config).then(items => {
                 const volumes = new Map<string, number>();
-                items.forEach(i => volumes.set(i.keyword, i.monthlyPcVolume + i.monthlyMobileVolume));
+                items.forEach(i => {
+                    if (i.totalSearchVolume !== null) {
+                        volumes.set(i.keyword, i.totalSearchVolume);
+                    }
+                });
                 return { source: 'naver-relkwd', keywords: items.map(i => i.keyword), volumes };
             })
         );

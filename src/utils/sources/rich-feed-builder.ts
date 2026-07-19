@@ -69,6 +69,7 @@ export interface RichKeywordRow {
     dcConfidence?: 'high' | 'medium' | 'low';
     dcSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache';
     dcQueryMode?: 'broad' | 'exact-phrase';
+    dcQueryKey?: string;
     dcMeasuredAt?: string;
     searchVolumeSource?: string;
     searchVolumeConfidence?: 'high' | 'medium' | 'low';
@@ -77,6 +78,7 @@ export interface RichKeywordRow {
     documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache' | 'unknown' | 'none';
     documentCountConfidence?: 'high' | 'medium' | 'low';
     documentCountQueryMode?: 'broad' | 'exact-phrase';
+    documentCountQueryKey?: string;
     documentCountMeasuredAt?: string;
     isDocumentCountEstimated?: boolean;
     // v2.49.18: sv 가 휴리스틱 fallback 으로 빌려온 값인지 — sanity-gate [2] SV_ESTIMATED 가 SSS 자동 차단
@@ -1836,10 +1838,12 @@ export async function buildRichFeed(
                     dcConfidence: hasValidDocCount ? 'high' : 'low',
                     dcSource: hasValidDocCount ? 'naver-api' : 'fallback',
                     dcQueryMode: hasValidDocCount ? 'broad' : undefined,
+                    dcQueryKey: hasValidDocCount ? sig.documentCountQueryKey : undefined,
                     dcMeasuredAt: hasValidDocCount ? sig.documentCountMeasuredAt : undefined,
                     documentCountSource: hasValidDocCount ? 'naver-api' : 'fallback',
                     documentCountConfidence: hasValidDocCount ? 'high' : 'low',
                     documentCountQueryMode: hasValidDocCount ? 'broad' : undefined,
+                    documentCountQueryKey: hasValidDocCount ? sig.documentCountQueryKey : undefined,
                     documentCountMeasuredAt: hasValidDocCount ? sig.documentCountMeasuredAt : undefined,
                     isDocumentCountEstimated: !hasValidDocCount,
                     dcEstimated: !hasValidDocCount, // 🔥 v2.41.0: 동적 SSS 승격 풀 신뢰도 가드용
@@ -2328,7 +2332,7 @@ export async function buildRichFeed(
         //   실측 dc 행은 이미 신뢰. 추정값 (sv*0.5 fallback) 행만 재검증 필요
         // v2.43.52: persistent cache read-first — 24h 내 측정값 있으면 스크래핑 skip
         let persistentGet: ((k: string) => any) | null = null;
-        let getCanonicalPersistentDocumentCount: ((entry: any, now?: number) => number | null) | null = null;
+        let getCanonicalPersistentDocumentCount: ((entry: any, now?: number, expectedQuery?: unknown) => number | null) | null = null;
         try {
             const pc = await import('../persistent-keyword-cache');
             persistentGet = pc.getPersistent;
@@ -2341,7 +2345,7 @@ export async function buildRichFeed(
         if (persistentGet) {
             for (const r of initialNeeds) {
                 const cached = persistentGet(r.keyword);
-                const canonicalDc = getCanonicalPersistentDocumentCount?.(cached) ?? null;
+                const canonicalDc = getCanonicalPersistentDocumentCount?.(cached, Date.now(), r.keyword) ?? null;
                 if (canonicalDc !== null && canonicalDc > 0) {
                     r.documentCount = canonicalDc;
                     r.goldenRatio = parseFloat((r.searchVolume / Math.max(1, canonicalDc)).toFixed(2));
@@ -2349,10 +2353,12 @@ export async function buildRichFeed(
                     (r as any).dcConfidence = 'high';
                     (r as any).dcSource = 'naver-api';
                     (r as any).dcQueryMode = 'broad';
+                    (r as any).dcQueryKey = cached.documentCountQueryKey;
                     (r as any).dcMeasuredAt = cached.documentCountMeasuredAt;
                     r.documentCountSource = 'naver-api';
                     r.documentCountConfidence = 'high';
                     r.documentCountQueryMode = 'broad';
+                    r.documentCountQueryKey = cached.documentCountQueryKey;
                     r.documentCountMeasuredAt = cached.documentCountMeasuredAt;
                     cacheHits++;
                 }
@@ -2391,8 +2397,8 @@ export async function buildRichFeed(
                     scrapeOnly: true,
                     scrapeTimeoutMs: SCRAPE_TIMEOUT,
                 });
-                if (m.source === 'fallback') {
-                    // scrape 매칭 실패 — 기존 동작과 동일 (보정 skip, 기존 API dc 유지).
+                if (!m) {
+                    // scrape 매칭 실패 — 보정하지 않고 기존 행을 유지한다.
                     return;
                 }
                 verified++;
@@ -2409,10 +2415,12 @@ export async function buildRichFeed(
                     (r as any).dcConfidence = 'medium';
                     (r as any).dcSource = 'scrape';
                     (r as any).dcQueryMode = m.queryMode ?? 'broad';
+                    (r as any).dcQueryKey = m.queryKey;
                     (r as any).dcMeasuredAt = m.measuredAt;
                     r.documentCountSource = 'scrape';
                     r.documentCountConfidence = 'medium';
                     r.documentCountQueryMode = m.queryMode ?? 'broad';
+                    r.documentCountQueryKey = m.queryKey;
                     r.documentCountMeasuredAt = m.measuredAt;
                     corrected++;
                     if (r.goldenRatio < 1.0) {
@@ -3104,10 +3112,12 @@ JSON 배열로만 응답 (코드블록 X, 다른 텍스트 X):
             dcConfidence: 'high',
             dcSource: 'naver-api',
             dcQueryMode: 'broad',
+            dcQueryKey: sig.documentCountQueryKey,
             dcMeasuredAt: sig.documentCountMeasuredAt,
             documentCountSource: 'naver-api',
             documentCountConfidence: 'high',
             documentCountQueryMode: 'broad',
+            documentCountQueryKey: sig.documentCountQueryKey,
             documentCountMeasuredAt: sig.documentCountMeasuredAt,
             isDocumentCountEstimated: false,
             claudeDiscovered: true,

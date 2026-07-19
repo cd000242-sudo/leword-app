@@ -90,8 +90,10 @@ export function richRowsFromLiveGoldenSnapshot(snapshot: any): RichKeywordRow[] 
             documentCountSource: item.documentCountSource,
             documentCountConfidence: item.documentCountConfidence,
             documentCountQueryMode: item.documentCountQueryMode,
+            documentCountQueryKey: item.documentCountQueryKey,
             documentCountMeasuredAt: item.documentCountMeasuredAt,
             isDocumentCountEstimated: item.isDocumentCountEstimated,
+            dcQueryKey: item.documentCountQueryKey,
             dcEstimated: item.isDocumentCountEstimated === true,
             svEstimated: item.isSearchVolumeEstimated === true,
         };

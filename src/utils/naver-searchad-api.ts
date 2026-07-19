@@ -9,7 +9,7 @@ import {
   searchAdExhausted,
   searchAdRemaining,
   searchAdSoftCeiling,
-  recordSearchAdCall,
+  reserveSearchAdCall,
 } from './searchad-quota-governor';
 import {
   buildSearchAdAccountPool,
@@ -74,7 +74,8 @@ const decodeHtmlEntities = (str: string): string => {
 };
 
 /**
- * 검색량 숫자 파싱 (문자열 "< 10" 등을 0으로 변환 - 실제 검색량 10 미만 표시)
+ * 검색량 숫자 파싱. 문자열 "< 10"은 exact 0이 아니므로 null로 두고
+ * 호출자가 per-device range flag로 별도 보존한다.
  */
 const parseVolumeValue = (value: number | string | null | undefined): number | null => {
   if (value === null || value === undefined) return null;
@@ -83,9 +84,9 @@ const parseVolumeValue = (value: number | string | null | undefined): number | n
   const strValue = String(value).trim();
   const normalized = strValue.toLowerCase();
 
-  // "< 10" 패턴 감지: 검색량이 10 미만인 경우 0으로 반환 (UI에서 "< 10"으로 표시)
+  // "< 10"은 bounded range이며 exact numeric zero와 구분해야 한다.
   if (/^<\s*10$/.test(normalized) || /^less\s+than\s+10$/.test(normalized)) {
-    return 0; // 0을 반환하여 UI에서 "< 10"으로 표시하도록 함
+    return null;
   }
 
   // 일반 숫자 파싱: 숫자/쉼표/소수점 외 문자가 섞인 값은 신뢰하지 않는다.
@@ -101,6 +102,44 @@ const isLessThanTenVolume = (value: number | string | null | undefined): boolean
   const strValue = String(value).trim().toLowerCase();
   return /^<\s*10$/.test(strValue) || /^less\s+than\s+10$/.test(strValue);
 };
+
+export type SearchAdVolumeLike = {
+  monthlyPcQcCnt?: unknown;
+  monthlyMobileQcCnt?: unknown;
+  pcSearchVolume?: unknown;
+  mobileSearchVolume?: unknown;
+  pcSearchVolumeLt10?: unknown;
+  mobileSearchVolumeLt10?: unknown;
+  svEstimated?: unknown;
+  isSearchVolumeEstimated?: unknown;
+};
+
+/**
+ * Returns a total only when both device counts are exact. A SearchAd `<10`
+ * token/flag, an estimated marker, or either missing device fails closed.
+ */
+export function exactSearchAdTotal(row: SearchAdVolumeLike | null | undefined): number | null {
+  if (!row) return null;
+  const pcRaw = row.monthlyPcQcCnt !== undefined
+    ? row.monthlyPcQcCnt
+    : row.pcSearchVolume;
+  const mobileRaw = row.monthlyMobileQcCnt !== undefined
+    ? row.monthlyMobileQcCnt
+    : row.mobileSearchVolume;
+  if (
+    row.pcSearchVolumeLt10 === true
+    || row.mobileSearchVolumeLt10 === true
+    || row.svEstimated === true
+    || row.isSearchVolumeEstimated === true
+    || isLessThanTenVolume(pcRaw as any)
+    || isLessThanTenVolume(mobileRaw as any)
+  ) {
+    return null;
+  }
+  const pc = parseVolumeValue(pcRaw as any);
+  const mobile = parseVolumeValue(mobileRaw as any);
+  return pc !== null && mobile !== null ? pc + mobile : null;
+}
 
 /**
  * API 요청을 위한 키워드 전처리
@@ -193,6 +232,8 @@ export async function getNaverSearchAdKeywordVolume(
           monthlyPcQcCnt: cached.pc,
           monthlyMobileQcCnt: cached.mo,
           monthlyAveCpc: cached.cpc ?? null,
+          pcSearchVolumeLt10: false,
+          mobileSearchVolumeLt10: false,
           svEstimated: false,
           measuredAtMs: cached.at,
         });
@@ -261,12 +302,15 @@ export async function getNaverSearchAdKeywordVolume(
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000); // 타임아웃 20초
+        if (!reserveSearchAdCall(accountId, 1)) {
+          clearTimeout(timeoutId);
+          break;
+        }
         try {
           response = await fetch(`${apiUrl}?${params.toString()}`, { method, headers, signal: controller.signal });
         } finally {
           clearTimeout(timeoutId);
         }
-        recordSearchAdCall(accountId, 1); // 실제 HTTP 호출 = 쿼터 1 소모 (실패/429 포함 — over-count safe)
 
         if (response.ok) {
           searchAdAdaptiveIntervalMs = Math.max(900, searchAdAdaptiveIntervalMs - 150); // 성공 시 완만히 회복
@@ -321,9 +365,14 @@ export async function getNaverSearchAdKeywordVolume(
         if (match) {
           const pcRaw = match.monthlyPcQcCnt;
           const moRaw = match.monthlyMobileQcCnt;
+          const pcSearchVolumeLt10 = isLessThanTenVolume(pcRaw);
+          const mobileSearchVolumeLt10 = isLessThanTenVolume(moRaw);
+          const hasLessThanTenRange = pcSearchVolumeLt10 || mobileSearchVolumeLt10;
           const pc = parseVolumeValue(pcRaw);
           const mo = parseVolumeValue(moRaw);
-          const total = (pc !== null || mo !== null) ? ((pc || 0) + (mo || 0)) : null;
+          const total = !hasLessThanTenRange && pc !== null && mo !== null
+            ? pc + mo
+            : null;
           const aveCpc = parseVolumeValue(match.monthlyAveCpc);
           const competition = match.compIdx || match.competition;
 
@@ -342,13 +391,15 @@ export async function getNaverSearchAdKeywordVolume(
             monthlyPcQcCnt: pc,
             monthlyMobileQcCnt: mo,
             monthlyAveCpc: aveCpc,
-            pcSearchVolumeLt10: isLessThanTenVolume(pcRaw),
-            mobileSearchVolumeLt10: isLessThanTenVolume(moRaw),
-            svEstimated: false,  // v2.49.22: 휴리스틱 제거 — 항상 실측. 필드는 인터페이스 호환성 위해 유지.
+            pcSearchVolumeLt10,
+            mobileSearchVolumeLt10,
+            svEstimated: hasLessThanTenRange,
             measuredAtMs,
           });
           // 🗄️ Phase 2: 실측 양수 볼륨을 캐시에 기록 → 다음 실행부터 재측정 스킵 (하루 24회 재측정 제거)
-          setSearchAdVolumeCached(requestedKw, { pc, mo, total, comp: competition, cpc: aveCpc });
+          if (!hasLessThanTenRange) {
+            setSearchAdVolumeCached(requestedKw, { pc, mo, total, comp: competition, cpc: aveCpc });
+          }
         } else {
           // 🔥 v2.24.0 P0-3: 매칭 실패 시 0 저장 → 캐시 영구 고착 (복구 불가). null 로 변경.
           //   0 은 "진짜 0건"이고 null 은 "데이터 없음" 의미 구분.
@@ -378,12 +429,19 @@ export async function getNaverSearchAdKeywordVolume(
         totalSearchVolume: null,
       };
     }
+    const pcRange = matched.pcSearchVolumeLt10 === true;
+    const mobileRange = matched.mobileSearchVolumeLt10 === true;
     const hasKeywordBoundSplit = typeof matched.pcSearchVolume === 'number'
-      && typeof matched.mobileSearchVolume === 'number';
+      && typeof matched.mobileSearchVolume === 'number'
+      && !pcRange
+      && !mobileRange;
+    const hasKeywordBoundRange = (pcRange || mobileRange)
+      && (pcRange || typeof matched.pcSearchVolume === 'number')
+      && (mobileRange || typeof matched.mobileSearchVolume === 'number');
     return {
       ...matched,
       keyword: cleanKeywords[index],
-      ...(hasKeywordBoundSplit
+      ...(hasKeywordBoundSplit || hasKeywordBoundRange
         ? { searchVolumeBindingVersion: SEARCHAD_KEYWORD_BINDING_VERSION }
         : {}),
     };
@@ -392,13 +450,16 @@ export async function getNaverSearchAdKeywordVolume(
 
 export interface KeywordSuggestion {
   keyword: string;
-  pcSearchVolume: number;
-  mobileSearchVolume: number;
-  totalSearchVolume: number;
+  pcSearchVolume: number | null;
+  mobileSearchVolume: number | null;
+  totalSearchVolume: number | null;
   competition?: string;
-  monthlyPcQcCnt?: number;
-  monthlyMobileQcCnt?: number;
+  monthlyPcQcCnt?: number | null;
+  monthlyMobileQcCnt?: number | null;
   monthlyAveCpc?: number | null;
+  pcSearchVolumeLt10?: boolean;
+  mobileSearchVolumeLt10?: boolean;
+  svEstimated?: boolean;
   measuredAtMs?: number;
   searchVolumeBindingVersion?: SearchAdKeywordBindingVersion;
 }
@@ -457,8 +518,8 @@ export async function getNaverSearchAdKeywordSuggestions(
     const waitMs = lastSearchAdRequestAt - now;
     if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
 
+    if (!reserveSearchAdCall(accountId, 1)) return [];
     const response = await fetch(`${apiUrl}?${params.toString()}`, { method, headers });
-    recordSearchAdCall(accountId, 1); // 연관어 조회도 SearchAd 쿼터 1 소모
     if (!response.ok) {
       throw new Error(`API 호출 실패: ${response.status}`);
     }
@@ -468,19 +529,25 @@ export async function getNaverSearchAdKeywordSuggestions(
 
     const measuredAtMs = Date.now();
     const suggestions: KeywordSuggestion[] = keywordList.flatMap((item: any) => {
+      const pcSearchVolumeLt10 = isLessThanTenVolume(item.monthlyPcQcCnt);
+      const mobileSearchVolumeLt10 = isLessThanTenVolume(item.monthlyMobileQcCnt);
+      const hasLessThanTenRange = pcSearchVolumeLt10 || mobileSearchVolumeLt10;
       const pc = parseVolumeValue(item.monthlyPcQcCnt);
       const mo = parseVolumeValue(item.monthlyMobileQcCnt);
-      if (pc === null || mo === null || pc < 0 || mo < 0) return [];
+      if ((!pcSearchVolumeLt10 && pc === null) || (!mobileSearchVolumeLt10 && mo === null)) return [];
       const aveCpc = parseVolumeValue(item.monthlyAveCpc);
       return [{
         keyword: decodeHtmlEntities(item.relKeyword || ''),
         pcSearchVolume: pc,
         mobileSearchVolume: mo,
-        totalSearchVolume: pc + mo,
+        totalSearchVolume: hasLessThanTenRange ? null : (pc as number) + (mo as number),
         competition: item.compIdx,
         monthlyPcQcCnt: pc,
         monthlyMobileQcCnt: mo,
         monthlyAveCpc: aveCpc,
+        pcSearchVolumeLt10,
+        mobileSearchVolumeLt10,
+        svEstimated: hasLessThanTenRange,
         measuredAtMs,
         searchVolumeBindingVersion: SEARCHAD_KEYWORD_BINDING_VERSION,
       }];
@@ -488,16 +555,22 @@ export async function getNaverSearchAdKeywordSuggestions(
 
     const selectedSuggestions = suggestions
       .filter(s => s.keyword && s.keyword !== seedKeyword)
-      .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume)
+      .sort((a, b) => {
+        const bLowerBound = b.totalSearchVolume ?? ((b.pcSearchVolume || 0) + (b.mobileSearchVolume || 0));
+        const aLowerBound = a.totalSearchVolume ?? ((a.pcSearchVolume || 0) + (a.mobileSearchVolume || 0));
+        return bLowerBound - aLowerBound;
+      })
       .slice(0, limit);
     for (const suggestion of selectedSuggestions) {
-      setSearchAdVolumeCached(suggestion.keyword, {
-        pc: suggestion.pcSearchVolume,
-        mo: suggestion.mobileSearchVolume,
-        total: suggestion.totalSearchVolume,
-        comp: suggestion.competition,
-        cpc: suggestion.monthlyAveCpc,
-      });
+      if (suggestion.svEstimated !== true) {
+        setSearchAdVolumeCached(suggestion.keyword, {
+          pc: suggestion.pcSearchVolume,
+          mo: suggestion.mobileSearchVolume,
+          total: suggestion.totalSearchVolume,
+          comp: suggestion.competition,
+          cpc: suggestion.monthlyAveCpc,
+        });
+      }
     }
     return selectedSuggestions;
 

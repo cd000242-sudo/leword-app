@@ -12,8 +12,12 @@
  * 6. 종합 "트래픽 폭발 점수" 산출
  */
 
-import { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume } from './naver-searchad-api';
-import { getNaverBlogDocumentCount } from './naver-blog-api';
+import {
+  exactSearchAdTotal,
+  getNaverSearchAdKeywordSuggestions,
+  getNaverSearchAdKeywordVolume,
+} from './naver-searchad-api';
+import { getNaverBlogDocumentCount, normalizeNaverBlogBroadQuery } from './naver-blog-api';
 import { getDaumRealtimeKeywords, getGoogleRealtimeKeywords } from './realtime-search-keywords';
 import { deterministicRange, deterministicShuffle } from './deterministic-random';
 
@@ -510,7 +514,6 @@ export class TrafficExplosionHunter {
     const verifiedKeywords: TrafficExplosionKeyword[] = [];
     
     try {
-      const axios = (await import('axios')).default;
       const { EnvironmentManager } = await import('./environment-manager');
       const env = EnvironmentManager.getInstance().getConfig();
       
@@ -528,22 +531,20 @@ export class TrafficExplosionHunter {
           
           // ⚡ 배치 내 키워드 병렬 처리
           const results = await Promise.allSettled(batch.map(async (kw) => {
-            const cleanKeyword = kw.keyword.replace(/\s/g, '').replace(/[^\w가-힣0-9]/g, '');
-            if (cleanKeyword.length < 2) return null;
+            const broadKeyword = normalizeNaverBlogBroadQuery(kw.keyword);
+            if (broadKeyword.length < 2) return null;
             
             try {
-              const blogRes = await axios.get('https://openapi.naver.com/v1/search/blog.json', {
-                params: { query: cleanKeyword, display: 1 },
-                headers: {
-                  'X-Naver-Client-Id': env.naverClientId,
-                  'X-Naver-Client-Secret': env.naverClientSecret
+              // Preserve the exact normalized broad query, including spacing.
+              // Compacting it here used to produce a different Naver total
+              // from keyword analysis and the live golden board.
+              const realDocCount = await getNaverBlogDocumentCount(broadKeyword, {
+                config: {
+                  clientId: env.naverClientId,
+                  clientSecret: env.naverClientSecret,
                 },
-                timeout: 5000 // 타임아웃 단축
+                timeoutMs: 5000,
               });
-              const totalRaw = (blogRes as any)?.data?.total;
-              const realDocCount = typeof totalRaw === 'number'
-                ? totalRaw
-                : (typeof totalRaw === 'string' ? parseInt(totalRaw, 10) : null);
               if (realDocCount === null) return null;
               if (kw.searchVolume === null) return null;
               const realGoldenRatio = realDocCount > 0 ? kw.searchVolume / realDocCount : (kw.searchVolume > 0 ? 999 : 0);
@@ -869,22 +870,8 @@ export class TrafficExplosionHunter {
             continue; // 위험한 키워드는 스킵
           }
           
-          // 검색량 계산
-          const parseVolume = (value: unknown): number | null => {
-            if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-            if (typeof value === 'string') {
-              const cleaned = value.replace(/[^0-9]/g, '');
-              if (!cleaned) return null;
-              const parsed = parseInt(cleaned, 10);
-              return Number.isFinite(parsed) ? parsed : null;
-            }
-            return null;
-          };
-          const pcVolume = parseVolume((volumeItem as any).monthlyPcQcCnt ?? (volumeItem as any).pcSearchVolume);
-          const mobileVolume = parseVolume((volumeItem as any).monthlyMobileQcCnt ?? (volumeItem as any).mobileSearchVolume);
-          const searchVolume = (pcVolume !== null || mobileVolume !== null)
-            ? ((pcVolume ?? 0) + (mobileVolume ?? 0))
-            : null;
+          // SearchAd `<10` and one-sided rows are ranges/partial, not exact totals.
+          const searchVolume = exactSearchAdTotal(volumeItem);
           
           // 최소 검색량 필터
           if (searchVolume === null || searchVolume < minSearchVolume) continue;

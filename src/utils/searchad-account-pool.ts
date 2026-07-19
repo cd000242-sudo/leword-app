@@ -4,6 +4,7 @@ import {
   searchAdAccountId,
   searchAdCallsToday,
   searchAdDailyLimit,
+  searchAdEffectiveCeiling,
   searchAdSoftCeiling,
 } from './searchad-quota-governor';
 
@@ -120,7 +121,7 @@ export function selectSearchAdAccount(
   accounts: readonly NaverSearchAdConfig[],
   options: SearchAdAccountPoolOptions = {},
 ): NaverSearchAdConfig | null {
-  const softCeiling = Math.max(1, Math.floor(options.softCeiling || searchAdSoftCeiling()));
+  const softCeiling = searchAdEffectiveCeiling(options.softCeiling ?? searchAdSoftCeiling());
   let selected: NaverSearchAdConfig | null = null;
   let selectedRemaining = -1;
   for (const account of accounts) {
@@ -147,8 +148,8 @@ export function summarizeSearchAdAccountPool(
   accounts: readonly NaverSearchAdConfig[],
   options: SearchAdAccountPoolOptions = {},
 ): SearchAdAccountPoolSummary {
-  const perAccountSoftCeiling = Math.max(1, Math.floor(options.softCeiling || searchAdSoftCeiling()));
-  const perAccountDailyLimit = Math.max(1, Math.floor(options.dailyLimit || searchAdDailyLimit()));
+  const perAccountSoftCeiling = searchAdEffectiveCeiling(options.softCeiling ?? searchAdSoftCeiling());
+  const perAccountDailyLimit = searchAdEffectiveCeiling(options.dailyLimit ?? searchAdDailyLimit());
   const rows = accounts.map((account) => {
     const calls = callsForAccount(account, options);
     const remaining = Math.max(0, perAccountSoftCeiling - calls);

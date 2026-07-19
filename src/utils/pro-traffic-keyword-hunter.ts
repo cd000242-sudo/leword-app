@@ -1356,7 +1356,12 @@ import { MonetizationStrategyGenerator, MonetizationBlueprint } from './monetiza
 
 import { analyzeSerpWithPlaywright, closeBrowser as closePlaywrightBrowser } from './serp-crawler';
 
-import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions, NaverSearchAdConfig } from './naver-searchad-api';
+import {
+  exactSearchAdTotal,
+  getNaverSearchAdKeywordSuggestions,
+  getNaverSearchAdKeywordVolume,
+  NaverSearchAdConfig,
+} from './naver-searchad-api';
 import { classifyKeyword, isKeywordMatchingCategory, getCategorySeeds, getCategoryById, CATEGORIES, CATEGORY_ICONS } from './categories';
 import {
   getProTrafficCategoryDiscoverySeedBudget,
@@ -4416,14 +4421,7 @@ export async function huntProTrafficKeywords(options: {
               const seedSource = realtimeSourceMap.get(seed) || seed;
               for (const s of mergedSuggestions) {
                 if (!isProTrafficApiWorthyCandidate(s.keyword)) continue;
-                const svValue = (typeof s.totalSearchVolume === 'number')
-                  ? s.totalSearchVolume
-                  : (() => {
-                    const pc = (typeof s.monthlyPcQcCnt === 'number') ? s.monthlyPcQcCnt : 0;
-                    const mob = (typeof s.monthlyMobileQcCnt === 'number') ? s.monthlyMobileQcCnt : 0;
-                    const sum = pc + mob;
-                    return sum > 0 ? sum : null;
-                  })();
+                const svValue = exactSearchAdTotal(s);
                 allKeywords.push({
                   keyword: s.keyword,
                   source: seedSource,
@@ -4466,14 +4464,7 @@ export async function huntProTrafficKeywords(options: {
 
               const seedSource = realtimeSourceMap.get(seed) || seed;
               return suggestions.filter(s => isProTrafficApiWorthyCandidate(s.keyword)).map(s => {
-                const svValue = (typeof s.totalSearchVolume === 'number')
-                  ? s.totalSearchVolume
-                  : (() => {
-                    const pc = (typeof s.monthlyPcQcCnt === 'number') ? s.monthlyPcQcCnt : 0;
-                    const mob = (typeof s.monthlyMobileQcCnt === 'number') ? s.monthlyMobileQcCnt : 0;
-                    const sum = pc + mob;
-                    return sum > 0 ? sum : null;
-                  })();
+                const svValue = exactSearchAdTotal(s);
                 // 🔥 SearchAd 자연 키워드의 검색량을 캐시에 주입 (재조회 우회)
                 if (svValue !== null && svValue > 0 && s.keyword) {
                   const existing = getProApiCacheEntry(s.keyword);
@@ -9159,20 +9150,7 @@ async function getSearchVolumeReal(keyword: string): Promise<number | null> {
 
     const result = await getNaverSearchAdKeywordVolume(config, [keyword]);
     if (result && result.length > 0) {
-      const pcRaw = (result[0] as any).monthlyPcQcCnt;
-      const mobileRaw = (result[0] as any).monthlyMobileQcCnt;
-      const parseMonthly = (val: any): number | null => {
-        if (typeof val === 'number') return val;
-        if (typeof val === 'string') {
-          if (val.includes('<')) return 10;
-          const parsed = parseInt(val.replace(/[^0-9]/g, ''), 10);
-          return Number.isFinite(parsed) ? parsed : null;
-        }
-        return null;
-      };
-      const pc = parseMonthly(pcRaw);
-      const mobile = parseMonthly(mobileRaw);
-      const volume = (pc !== null || mobile !== null) ? ((pc ?? 0) + (mobile ?? 0)) : null;
+      const volume = exactSearchAdTotal(result[0]);
 
       if (volume !== null) {
         const existing = getProApiCacheEntry(keyword)
