@@ -1,7 +1,9 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { MobileLiveGoldenRadar, __liveGoldenRadarTestInternals } from '../../mobile/live-golden-radar';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 let passed = 0;
 let failed = 0;
@@ -17,8 +19,8 @@ function assert(name: string, condition: boolean, detail = ''): void {
 }
 
 const now = new Date('2026-07-11T16:30:00.000Z');
-const boardFile = path.join(process.cwd(), 'tmp', 'live-golden-quality-consistency.json');
-fs.mkdirSync(path.dirname(boardFile), { recursive: true });
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-quality-consistency-'));
+const boardFile = path.join(tmpDir, 'live-golden-quality-consistency.json');
 
 function row(
   keyword: string,
@@ -54,6 +56,7 @@ function row(
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
     documentCountMeasuredAt: '2026-07-11T16:25:00.000Z',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-11T16:10:00.000Z',
@@ -168,7 +171,7 @@ try {
     snapshot.board.every((item) => !(item.valueGrade === 'C' && item.publishDecision?.verdict === 'publish')),
   );
 } finally {
-  fs.rmSync(boardFile, { force: true });
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
 console.log(`\n[live-golden-quality-consistency.test] passed: ${passed} / failed: ${failed}`);

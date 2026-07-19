@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 function assert(name: string, condition: boolean, detail = ''): void {
@@ -6,8 +7,7 @@ function assert(name: string, condition: boolean, detail = ''): void {
 }
 
 async function run(): Promise<void> {
-  const runtimeDir = path.join(process.cwd(), 'tmp');
-  fs.mkdirSync(runtimeDir, { recursive: true });
+  const runtimeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-document-cache-'));
   const cacheFile = path.join(runtimeDir, `naver-document-count-cache-${process.pid}.json`);
   const nowMs = Date.now();
   const freshMeasuredAtMs = nowMs - 60_000;
@@ -143,7 +143,7 @@ async function run(): Promise<void> {
       && persisted.entries.some((entry: any) => entry.keyword === 'single flight keyword' && entry.total === 432),
     JSON.stringify(persisted),
   );
-  fs.rmSync(cacheFile, { force: true });
+  fs.rmSync(runtimeDir, { recursive: true, force: true });
 }
 
 run().then(

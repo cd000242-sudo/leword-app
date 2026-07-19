@@ -45,9 +45,26 @@ assert('mobile workflow publishes API docker image to GHCR in CI',
     && /docker login \$\{\{ env\.REGISTRY \}\}/.test(workflow)
     && /docker build -f apps\/api\/Dockerfile/.test(workflow)
     && /docker push "\$\{IMAGE_NAME\}:\$\{GITHUB_SHA\}"/.test(workflow)
-    && /docker push "\$\{IMAGE_NAME\}:latest"/.test(workflow)
-    && /mobile-api-image\.txt/.test(workflow)
+    && !/docker push "\$\{IMAGE_NAME\}:latest"/.test(workflow)
+    && /imagetools inspect "\$\{IMAGE_NAME\}:\$\{GITHUB_SHA\}" > "\$descriptor_output"/.test(workflow)
+    && /\^Digest:\[\[:space:\]\]\+\(sha256:\[0-9a-f\]\{64\}\)/.test(workflow)
+    && /verified_descriptor_digests\[0\]/.test(workflow)
+    && /RepoDigests/.test(workflow)
+    && !/sha256sum "\$manifest_raw"/.test(workflow)
+    && /mobile-api-image-manifest\.json/.test(workflow)
+    && /--manifest-digest "\$MANIFEST_DIGEST"/.test(workflow)
+    && /--commit-sha "\$GITHUB_SHA"/.test(workflow)
+    && /--image-repository "\$IMAGE_NAME"/.test(workflow)
     && /mobile-api-image-reference/.test(workflow));
+assert('production API image is published only from main',
+  /api-image:[\s\S]*github\.ref == 'refs\/heads\/main'/.test(workflow),
+  'branch images must never become production restart evidence');
+assert('API image credential cleanup exits explicitly on runner signals',
+  /trap cleanup EXIT/.test(workflow)
+    && /trap 'exit 129' HUP/.test(workflow)
+    && /trap 'exit 130' INT/.test(workflow)
+    && /trap 'exit 143' TERM/.test(workflow)
+    && !/trap cleanup EXIT HUP INT TERM/.test(workflow));
 assert('mobile workflow uses platform-specific deploy readiness',
   /mobile:deploy-readiness:android/.test(workflow)
     && /mobile:deploy-readiness:ios/.test(workflow));

@@ -10,6 +10,8 @@ export interface MobileEntitlement {
   tier: MobileEntitlementTier;
   source: 'env-static-token' | 'entitlement-file' | 'license-service' | 'configured-web-login' | 'fixture';
   expiresAt?: string | null;
+  /** Signed web-session scope. Review-purpose sessions cannot access metrics APIs. */
+  sessionPurpose?: 'mobile-api' | 'live-golden-review';
 }
 
 export interface MobileEntitlementVerification {

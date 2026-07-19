@@ -7,6 +7,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import {
+    NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS,
+    normalizeNaverBlogBroadQuery
+} from '../naver-blog-api';
 
 // ============================================================================
 // 인터페이스 정의
@@ -24,6 +28,12 @@ export interface StoredKeyword {
     // 메트릭스
     searchVolume: number | null;     // 검색량
     documentCount: number | null;    // 문서수
+    documentCountSource?: 'naver-api';
+    documentCountConfidence?: 'high';
+    documentCountQueryMode?: 'broad';
+    documentCountQueryKey?: string;
+    documentCountMeasuredAt?: string;
+    isDocumentCountEstimated?: false;
     goldenRatio: number;             // 황금비율
     grade: KeywordGrade;             // 등급
 
@@ -63,6 +73,16 @@ export type CollectorSource =
  * 키워드 등급
  */
 export type KeywordGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C';
+
+export interface StoredDocumentCountMeasurement {
+    documentCount: number;
+    documentCountSource: 'naver-api';
+    documentCountConfidence: 'high';
+    documentCountQueryMode: 'broad';
+    documentCountQueryKey: string;
+    documentCountMeasuredAt: string;
+    isDocumentCountEstimated: false;
+}
 
 /**
  * 필터 옵션
@@ -129,6 +149,43 @@ const GRADE_ORDER: Record<KeywordGrade, number> = {
     'B': 2,
     'C': 1
 };
+
+export function storedDocumentCountBroadQueryKey(value: unknown): string {
+    return normalizeNaverBlogBroadQuery(value).normalize('NFKC').toLowerCase();
+}
+
+/**
+ * Stored recommendation metrics are publishable only while their canonical
+ * broad Blog OpenAPI proof is still fresh and bound to this exact query.
+ * `metricsUpdatedAt` is intentionally ignored because a SearchAd-only refresh
+ * must not make an older document count look newly measured.
+ */
+export function hasFreshCanonicalStoredDocumentCount(
+    keyword: Pick<StoredKeyword,
+        | 'keyword'
+        | 'documentCount'
+        | 'documentCountSource'
+        | 'documentCountConfidence'
+        | 'documentCountQueryMode'
+        | 'documentCountQueryKey'
+        | 'documentCountMeasuredAt'
+        | 'isDocumentCountEstimated'>,
+    now: Date = new Date()
+): boolean {
+    const measuredAtMs = Date.parse(String(keyword.documentCountMeasuredAt || ''));
+    const nowMs = now.getTime();
+    return typeof keyword.documentCount === 'number'
+        && Number.isFinite(keyword.documentCount)
+        && keyword.documentCount >= 0
+        && keyword.documentCountSource === 'naver-api'
+        && keyword.documentCountConfidence === 'high'
+        && keyword.documentCountQueryMode === 'broad'
+        && keyword.isDocumentCountEstimated === false
+        && keyword.documentCountQueryKey === storedDocumentCountBroadQueryKey(keyword.keyword)
+        && Number.isFinite(measuredAtMs)
+        && measuredAtMs <= nowMs + 5 * 60 * 1000
+        && nowMs - measuredAtMs <= NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS;
+}
 
 // ============================================================================
 // 유틸리티 함수
@@ -308,6 +365,12 @@ export class KeywordStorage {
         category?: string;
         searchVolume?: number | null;
         documentCount?: number | null;
+        documentCountSource?: 'naver-api';
+        documentCountConfidence?: 'high';
+        documentCountQueryMode?: 'broad';
+        documentCountQueryKey?: string;
+        documentCountMeasuredAt?: string;
+        isDocumentCountEstimated?: false;
     }): Promise<StoredKeyword> {
         const { keyword, source, category = 'unknown' } = input;
         const id = generateKeywordId(keyword, source);
@@ -318,6 +381,25 @@ export class KeywordStorage {
         // 메트릭스 계산
         const searchVolume = input.searchVolume ?? existing?.searchVolume ?? null;
         const documentCount = input.documentCount ?? existing?.documentCount ?? null;
+        const hasIncomingDocumentCount = input.documentCount !== undefined && input.documentCount !== null;
+        const documentCountSource = hasIncomingDocumentCount
+            ? input.documentCountSource
+            : existing?.documentCountSource;
+        const documentCountConfidence = hasIncomingDocumentCount
+            ? input.documentCountConfidence
+            : existing?.documentCountConfidence;
+        const documentCountQueryMode = hasIncomingDocumentCount
+            ? input.documentCountQueryMode
+            : existing?.documentCountQueryMode;
+        const documentCountQueryKey = hasIncomingDocumentCount
+            ? input.documentCountQueryKey
+            : existing?.documentCountQueryKey;
+        const documentCountMeasuredAt = hasIncomingDocumentCount
+            ? input.documentCountMeasuredAt
+            : existing?.documentCountMeasuredAt;
+        const isDocumentCountEstimated = hasIncomingDocumentCount
+            ? input.isDocumentCountEstimated
+            : existing?.isDocumentCountEstimated;
         const goldenRatio = calculateGoldenRatio(searchVolume, documentCount);
         const grade = calculateGrade(searchVolume, documentCount, goldenRatio);
 
@@ -343,6 +425,12 @@ export class KeywordStorage {
             category,
             searchVolume,
             documentCount,
+            documentCountSource,
+            documentCountConfidence,
+            documentCountQueryMode,
+            documentCountQueryKey,
+            documentCountMeasuredAt,
+            isDocumentCountEstimated,
             goldenRatio,
             grade,
             collectedAt,
@@ -370,6 +458,12 @@ export class KeywordStorage {
         category?: string;
         searchVolume?: number | null;
         documentCount?: number | null;
+        documentCountSource?: 'naver-api';
+        documentCountConfidence?: 'high';
+        documentCountQueryMode?: 'broad';
+        documentCountQueryKey?: string;
+        documentCountMeasuredAt?: string;
+        isDocumentCountEstimated?: false;
     }>): Promise<StoredKeyword[]> {
         const results: StoredKeyword[] = [];
 
@@ -555,6 +649,12 @@ export class KeywordStorage {
     async updateMetrics(id: string, metrics: {
         searchVolume?: number | null;
         documentCount?: number | null;
+        documentCountSource?: 'naver-api';
+        documentCountConfidence?: 'high';
+        documentCountQueryMode?: 'broad';
+        documentCountQueryKey?: string;
+        documentCountMeasuredAt?: string;
+        isDocumentCountEstimated?: false;
     }): Promise<StoredKeyword | null> {
         const keyword = this.keywords.get(id);
         if (!keyword) return null;
@@ -567,6 +667,15 @@ export class KeywordStorage {
         }
         if (metrics.documentCount !== undefined) {
             keyword.documentCount = metrics.documentCount;
+            // A replacement number never inherits proof from the previous
+            // number. Callers must supply the complete canonical tuple or the
+            // row remains fail-closed for document-driven recommendations.
+            keyword.documentCountSource = metrics.documentCountSource;
+            keyword.documentCountConfidence = metrics.documentCountConfidence;
+            keyword.documentCountQueryMode = metrics.documentCountQueryMode;
+            keyword.documentCountQueryKey = metrics.documentCountQueryKey;
+            keyword.documentCountMeasuredAt = metrics.documentCountMeasuredAt;
+            keyword.isDocumentCountEstimated = metrics.isDocumentCountEstimated;
         }
 
         // 황금비율 및 등급 재계산

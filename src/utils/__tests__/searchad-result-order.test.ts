@@ -1,11 +1,12 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
 }
 
-const tmpDir = path.join(process.cwd(), 'tmp');
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-searchad-order-'));
 const cacheFile = path.join(tmpDir, 'searchad-result-order-cache.json');
 const quotaFile = path.join(tmpDir, 'searchad-result-order-quota.json');
 fs.mkdirSync(tmpDir, { recursive: true });
@@ -98,8 +99,7 @@ run()
     delete process.env['LEWORD_SEARCHAD_VOLUME_CACHE_FILE'];
     delete process.env['LEWORD_SEARCHAD_QUOTA_STATE_FILE'];
     delete process.env['LEWORD_SEARCHAD_SOFT_CEILING'];
-    fs.rmSync(cacheFile, { force: true });
-    fs.rmSync(quotaFile, { force: true });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
 export {};

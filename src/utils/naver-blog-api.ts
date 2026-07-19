@@ -10,13 +10,19 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-const NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS = 5 * 60 * 1000;
 const NAVER_BLOG_OPENAPI_RATE_LIMIT_BACKOFF_MS = 2_500;
 const NAVER_BLOG_OPENAPI_MIN_REQUEST_INTERVAL_MS = 250;
 export const NAVER_BLOG_OPENAPI_DEFAULT_TIMEOUT_MS = 8_000;
 export const NAVER_BLOG_OPENAPI_MAX_TIMEOUT_MS = 15_000;
 const NAVER_BLOG_DOCUMENT_COUNT_CACHE_WRITE_DEBOUNCE_MS = 500;
 const NAVER_BLOG_OPENAPI_STATE_SCHEMA = 1;
+const NAVER_BLOG_OPENAPI_QUOTA_STATE_MAX_BYTES = 1024 * 1024;
+const NAVER_BLOG_OPENAPI_QUOTA_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const NAVER_BLOG_OPENAPI_QUOTA_LOCK_WAIT_MS = Math.max(
+  100,
+  Number(process.env['LEWORD_NAVER_OPENAPI_QUOTA_LOCK_WAIT_MS']) || 10_000,
+);
+const NAVER_BLOG_OPENAPI_QUOTA_LOCK_RETRY_MS = 5;
 const NAVER_BLOG_DOCUMENT_COUNT_CACHE_SCHEMA = 1;
 export const NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS = 15 * 60 * 1000;
 const NAVER_BLOG_DOCUMENT_COUNT_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
@@ -32,6 +38,7 @@ let documentCountCacheWriteTimer: NodeJS.Timeout | null = null;
 let documentCountCacheBeforeExitHooked = false;
 let naverBlogOpenApiRequestQueue: Promise<void> = Promise.resolve();
 let naverBlogOpenApiLastRequestAtMs = 0;
+const naverBlogOpenApiQuotaLockWaitBuffer = new Int32Array(new SharedArrayBuffer(4));
 const naverBlogDocumentCountInFlight = new Map<string, Promise<number | null>>();
 const naverBlogDocumentCountCache = new Map<string, {
   total: number;
@@ -104,7 +111,12 @@ export function markNaverBlogOpenApiQuotaBlocked(
 }
 
 function quotaBlockedUntilMs(nowMs: number): number {
-  return nowMs + NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS;
+  const kst = new Date(nowMs + 9 * 60 * 60 * 1000);
+  return Date.UTC(
+    kst.getUTCFullYear(),
+    kst.getUTCMonth(),
+    kst.getUTCDate() + 1,
+  ) - 9 * 60 * 60 * 1000;
 }
 
 export function selectNaverBlogOpenApiCredential(
@@ -252,53 +264,219 @@ function quotaStateFile(): string {
   return path.join(dataDir, 'naver-openapi-quota-state.json');
 }
 
-function loadNaverBlogOpenApiQuotaState(): void {
-  if (quotaStateLoaded) return;
-  quotaStateLoaded = true;
-  const file = quotaStateFile();
+interface NaverBlogOpenApiQuotaDiskState {
+  legacyBlockedUntil: number;
+  blockedUntilByKey: Record<string, number>;
+}
+
+function lstatQuotaPath(filePath: string): fs.Stats | null {
   try {
-    if (!fs.existsSync(file)) return;
-    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (parsed?.schemaVersion !== NAVER_BLOG_OPENAPI_STATE_SCHEMA) return;
-    const nowMs = Date.now();
-    const savedAtMs = Date.parse(String(parsed.savedAt || '')) || 0;
-    if (savedAtMs > 0 && nowMs - savedAtMs > NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS) {
-      quotaStateDirty = true;
-      saveNaverBlogOpenApiQuotaState();
-      return;
-    }
-    legacyNaverBlogOpenApiQuotaBlockedUntil = Number(parsed.legacyBlockedUntil || 0) || 0;
-    for (const [key, value] of Object.entries(parsed.blockedUntilByKey || {})) {
-      const until = Number(value || 0);
-      if (until > nowMs) naverBlogOpenApiQuotaBlockedUntilByKey.set(key, until);
-    }
-  } catch {
-    // Quota state is only a throttle optimization.
+    return fs.lstatSync(filePath);
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
   }
 }
 
-function saveNaverBlogOpenApiQuotaState(): void {
-  if (!quotaStateDirty) return;
-  quotaStateDirty = false;
+function assertSafeQuotaPathComponents(filePath: string): void {
+  const resolved = path.resolve(filePath);
+  const parent = path.dirname(resolved);
+  let current = parent;
+  while (true) {
+    const stat = lstatQuotaPath(current);
+    if (stat) {
+      if (stat.isSymbolicLink() || !stat.isDirectory()) {
+        throw new Error(`unsafe Naver OpenAPI quota directory: ${current}`);
+      }
+      return;
+    }
+    const next = path.dirname(current);
+    if (next === current) throw new Error(`Naver OpenAPI quota directory is unavailable: ${parent}`);
+    current = next;
+  }
+}
+
+function ensureSafeQuotaDirectory(filePath: string): void {
+  assertSafeQuotaPathComponents(filePath);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  assertSafeQuotaPathComponents(filePath);
+}
+
+function assertSafeQuotaStateFile(filePath: string): fs.Stats | null {
+  assertSafeQuotaPathComponents(filePath);
+  const stat = lstatQuotaPath(filePath);
+  if (!stat) return null;
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    throw new Error(`unsafe Naver OpenAPI quota state file: ${filePath}`);
+  }
+  if (stat.size > NAVER_BLOG_OPENAPI_QUOTA_STATE_MAX_BYTES) {
+    throw new Error(`Naver OpenAPI quota state exceeds size limit: ${filePath}`);
+  }
+  return stat;
+}
+
+function parseQuotaTimestamp(value: unknown, label: string): number {
+  const timestamp = Number(value || 0);
+  if (!Number.isSafeInteger(timestamp) || timestamp < 0) {
+    throw new Error(`invalid ${label} in Naver OpenAPI quota state`);
+  }
+  return timestamp;
+}
+
+function readNaverBlogOpenApiQuotaStateFromDisk(nowMs: number): NaverBlogOpenApiQuotaDiskState {
   const file = quotaStateFile();
+  if (!assertSafeQuotaStateFile(file)) {
+    return { legacyBlockedUntil: 0, blockedUntilByKey: {} };
+  }
+  const body = fs.readFileSync(file);
+  if (body.length > NAVER_BLOG_OPENAPI_QUOTA_STATE_MAX_BYTES) {
+    throw new Error(`Naver OpenAPI quota state changed while reading: ${file}`);
+  }
+  let parsed: any;
   try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
+    parsed = JSON.parse(body.toString('utf8'));
+  } catch {
+    throw new Error(`invalid Naver OpenAPI quota state JSON: ${file}`);
+  }
+  if (parsed?.schemaVersion !== NAVER_BLOG_OPENAPI_STATE_SCHEMA) {
+    throw new Error(`unsupported Naver OpenAPI quota state schema: ${file}`);
+  }
+  const savedAtMs = Date.parse(String(parsed.savedAt || ''));
+  if (!Number.isFinite(savedAtMs) || savedAtMs <= 0) {
+    throw new Error(`invalid Naver OpenAPI quota state timestamp: ${file}`);
+  }
+  if (savedAtMs > nowMs + NAVER_BLOG_OPENAPI_QUOTA_MAX_FUTURE_SKEW_MS) {
+    throw new Error(`future Naver OpenAPI quota state timestamp: ${file}`);
+  }
+  // Daily-quota blocks stay durable until their explicit KST-midnight expiry.
+  // `savedAt` is observability metadata only; using its age as a TTL would
+  // silently reopen an exhausted credential after a process restart.
+  if (!parsed.blockedUntilByKey
+    || typeof parsed.blockedUntilByKey !== 'object'
+    || Array.isArray(parsed.blockedUntilByKey)) {
+    throw new Error(`invalid Naver OpenAPI quota credential map: ${file}`);
+  }
+  const blockedUntilByKey: Record<string, number> = {};
+  for (const [key, value] of Object.entries(parsed.blockedUntilByKey)) {
+    if (!key) throw new Error(`empty credential key in Naver OpenAPI quota state: ${file}`);
+    const until = parseQuotaTimestamp(value, `credential ${key}`);
+    if (until > nowMs) blockedUntilByKey[key] = until;
+  }
+  const legacyBlockedUntil = parseQuotaTimestamp(
+    parsed.legacyBlockedUntil,
+    'legacy cooldown',
+  );
+  return {
+    legacyBlockedUntil: legacyBlockedUntil > nowMs ? legacyBlockedUntil : 0,
+    blockedUntilByKey,
+  };
+}
+
+function mergeNaverBlogOpenApiQuotaState(
+  incoming: NaverBlogOpenApiQuotaDiskState,
+  nowMs: number,
+): void {
+  legacyNaverBlogOpenApiQuotaBlockedUntil = Math.max(
+    legacyNaverBlogOpenApiQuotaBlockedUntil > nowMs
+      ? legacyNaverBlogOpenApiQuotaBlockedUntil
+      : 0,
+    incoming.legacyBlockedUntil,
+  );
+  for (const [key, until] of [...naverBlogOpenApiQuotaBlockedUntilByKey.entries()]) {
+    if (until <= nowMs) naverBlogOpenApiQuotaBlockedUntilByKey.delete(key);
+  }
+  for (const [key, until] of Object.entries(incoming.blockedUntilByKey)) {
+    naverBlogOpenApiQuotaBlockedUntilByKey.set(
+      key,
+      Math.max(naverBlogOpenApiQuotaBlockedUntilByKey.get(key) || 0, until),
+    );
+  }
+}
+
+function sleepForQuotaLock(ms: number): void {
+  Atomics.wait(naverBlogOpenApiQuotaLockWaitBuffer, 0, 0, ms);
+}
+
+function withNaverBlogOpenApiQuotaFileLock<T>(action: () => T): T {
+  const file = quotaStateFile();
+  ensureSafeQuotaDirectory(file);
+  const lockFile = `${file}.lock`;
+  const startedAt = Date.now();
+  let descriptor: number | null = null;
+  while (descriptor === null) {
+    try {
+      descriptor = fs.openSync(lockFile, 'wx', 0o600);
+    } catch (error: any) {
+      if (error?.code !== 'EEXIST') throw error;
+      const lockStat = lstatQuotaPath(lockFile);
+      if (lockStat?.isSymbolicLink() || (lockStat && !lockStat.isFile())) {
+        throw new Error(`unsafe Naver OpenAPI quota lock file: ${lockFile}`);
+      }
+      if (Date.now() - startedAt >= NAVER_BLOG_OPENAPI_QUOTA_LOCK_WAIT_MS) {
+        throw new Error('Naver OpenAPI quota lock timeout');
+      }
+      sleepForQuotaLock(NAVER_BLOG_OPENAPI_QUOTA_LOCK_RETRY_MS);
+    }
+  }
+  try {
+    return action();
+  } finally {
+    try { fs.closeSync(descriptor); } catch { /* already closed */ }
+    try { fs.unlinkSync(lockFile); } catch { /* a retained lock forces later calls to time out closed */ }
+  }
+}
+
+function replaceQuotaStateAtomically(file: string, body: string): void {
+  ensureSafeQuotaDirectory(file);
+  assertSafeQuotaStateFile(file);
+  const temporary = `${file}.${process.pid}.${crypto.randomBytes(8).toString('hex')}.tmp`;
+  let descriptor: number | null = null;
+  try {
+    descriptor = fs.openSync(temporary, 'wx', 0o600);
+    fs.writeFileSync(descriptor, body, 'utf8');
+    fs.fsyncSync(descriptor);
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
+  }
+  try {
+    fs.renameSync(temporary, file);
+    if (process.platform !== 'win32') {
+      const directoryDescriptor = fs.openSync(path.dirname(file), 'r');
+      try { fs.fsyncSync(directoryDescriptor); } finally { fs.closeSync(directoryDescriptor); }
+    }
+  } catch (error) {
+    try { fs.unlinkSync(temporary); } catch { /* preserve the original failure */ }
+    throw error;
+  }
+}
+
+function loadNaverBlogOpenApiQuotaState(nowMs = Date.now()): void {
+  mergeNaverBlogOpenApiQuotaState(readNaverBlogOpenApiQuotaStateFromDisk(nowMs), nowMs);
+  quotaStateLoaded = true;
+}
+
+function saveNaverBlogOpenApiQuotaState(): void {
+  if (!quotaStateDirty || !quotaStateLoaded) return;
+  const file = quotaStateFile();
+  withNaverBlogOpenApiQuotaFileLock(() => {
     const nowMs = Date.now();
+    // The lock protects a fresh read-merge-write transaction across API and
+    // worker processes. Max/union semantics can only extend cooldowns.
+    mergeNaverBlogOpenApiQuotaState(readNaverBlogOpenApiQuotaStateFromDisk(nowMs), nowMs);
     const blockedUntilByKey: Record<string, number> = {};
     for (const [key, until] of naverBlogOpenApiQuotaBlockedUntilByKey.entries()) {
       if (until > nowMs) blockedUntilByKey[key] = until;
     }
-    fs.writeFileSync(file, JSON.stringify({
+    replaceQuotaStateAtomically(file, JSON.stringify({
       schemaVersion: NAVER_BLOG_OPENAPI_STATE_SCHEMA,
       savedAt: new Date(nowMs).toISOString(),
       legacyBlockedUntil: legacyNaverBlogOpenApiQuotaBlockedUntil > nowMs
         ? legacyNaverBlogOpenApiQuotaBlockedUntil
         : 0,
       blockedUntilByKey,
-    }, null, 2), 'utf8');
-  } catch {
-    // Runtime still works without persisted throttle state.
-  }
+    }, null, 2));
+  });
+  quotaStateDirty = false;
 }
 
 export function isNaverBlogOpenApiQuotaExceededText(text: string): boolean {
@@ -356,13 +534,23 @@ async function runInNaverBlogOpenApiRequestSlot<T>(operation: () => Promise<T>):
  */
 export function normalizeNaverBlogBroadQuery(keyword: unknown): string {
   return String(keyword || '')
+    .normalize('NFKC')
     .replace(/["“”„‟«»＂]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
+/** Stable identity for one exact normalized broad Blog OpenAPI query. */
+export function naverBlogDocumentCountQueryKey(keyword: unknown): string {
+  return normalizeNaverBlogBroadQuery(keyword).normalize('NFKC').toLowerCase();
+}
+
+function hasNaverExactPhraseOperator(keyword: unknown): boolean {
+  return /["“”„‟«»＂]/u.test(String(keyword || ''));
+}
+
 function documentCountCacheKey(keyword: string): string {
-  return String(keyword || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  return normalizeNaverBlogBroadQuery(keyword).toLowerCase();
 }
 
 function isReusableDocumentCountTimestamp(measuredAtMs: number, nowMs: number): boolean {
@@ -393,6 +581,10 @@ function loadNaverBlogDocumentCountCache(): void {
     if (parsed?.schemaVersion !== NAVER_BLOG_DOCUMENT_COUNT_CACHE_SCHEMA) return;
     const nowMs = Date.now();
     for (const entry of parsed.entries || []) {
+      // Cache schema v1 predates the broad-only client boundary and may contain
+      // quote-bearing exact queries. Normalizing those legacy keys here would
+      // silently relabel an exact total as the canonical broad total.
+      if (hasNaverExactPhraseOperator(entry?.keyword)) continue;
       const key = documentCountCacheKey(entry?.keyword);
       const total = Number(entry?.total);
       const measuredAtMs = Number(entry?.measuredAtMs || Date.parse(entry?.measuredAt || ''));
@@ -519,7 +711,8 @@ export async function getNaverBlogDocumentCount(
   keyword: string,
   options: NaverBlogDocumentCountOptions = {},
 ): Promise<number | null> {
-  const key = documentCountCacheKey(keyword);
+  const broadQuery = normalizeNaverBlogBroadQuery(keyword);
+  const key = documentCountCacheKey(broadQuery);
   if (!key) return null;
   const canShare = !options.signal;
   const configScope = options.config?.clientId || 'environment';
@@ -528,7 +721,7 @@ export async function getNaverBlogDocumentCount(
     const existing = naverBlogDocumentCountInFlight.get(inFlightKey);
     if (existing) return existing;
   }
-  const task = fetchNaverBlogDocumentCount(keyword, options);
+  const task = fetchNaverBlogDocumentCount(broadQuery, options);
   if (canShare) naverBlogDocumentCountInFlight.set(inFlightKey, task);
   try {
     return await task;

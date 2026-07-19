@@ -7,11 +7,24 @@ import {
 export type MobileRuntimeReadinessSeverity = 'required' | 'recommended';
 
 export interface MobileRuntimeReadinessCheck {
+  code: MobileRuntimeReadinessCode;
   name: string;
   ok: boolean;
   detail: string;
   severity: MobileRuntimeReadinessSeverity;
 }
+
+export type MobileRuntimeReadinessCode =
+  | 'naver-openapi-credentials-configured'
+  | 'naver-openapi-document-quota-available'
+  | 'naver-searchad-credentials-configured'
+  | 'naver-searchad-customer-id-configured'
+  | 'production-entitlement-service-configured'
+  | 'server-prewarm-scheduler-configured'
+  | 'persistent-mobile-result-cache-configured'
+  | 'push-delivery-configured'
+  | 'push-timeout-valid'
+  | 'mobile-api-request-guardrails-configured';
 
 export interface MobileRuntimeReadinessReport {
   ok: boolean;
@@ -48,12 +61,13 @@ function isProductionHttpsUrl(url: string): boolean {
 }
 
 function check(
+  code: MobileRuntimeReadinessCode,
   name: string,
   ok: boolean,
   detail: string,
   severity: MobileRuntimeReadinessSeverity = 'required',
 ): MobileRuntimeReadinessCheck {
-  return { name, ok, detail, severity };
+  return { code, name, ok, detail, severity };
 }
 
 export function getMobileRuntimeReadiness(
@@ -99,6 +113,7 @@ export function getMobileRuntimeReadiness(
 
   const checks = [
     check(
+      'naver-openapi-credentials-configured',
       'Naver Open API credentials configured',
       naverOpenApiCredentials.length > 0,
       naverOpenApiCredentials.length > 0
@@ -106,6 +121,7 @@ export function getMobileRuntimeReadiness(
         : 'required for measured document counts in keyword-analysis and mindmap-expansion',
     ),
     check(
+      'naver-openapi-document-quota-available',
       'Naver Open API document quota available',
       naverOpenApiCredentials.length > 0 && !naverOpenApiQuotaBlocked,
       naverOpenApiCredentials.length === 0
@@ -115,43 +131,51 @@ export function getMobileRuntimeReadiness(
           : `${naverOpenApiCredentials.length} configured OpenAPI key(s) have available quota`,
     ),
     check(
+      'naver-searchad-credentials-configured',
       'Naver SearchAd credentials configured',
       !!searchAdLicense && !!searchAdSecret,
       'required for measured PC/mobile/total search volume and CPC',
     ),
     check(
+      'naver-searchad-customer-id-configured',
       'Naver SearchAd customer id configured',
       !!searchAdCustomerId,
       'recommended to avoid account inference for SearchAd X-Customer',
       'recommended',
     ),
     check(
+      'production-entitlement-service-configured',
       'Production entitlement service configured',
       isProductionHttpsUrl(entitlementUrl),
       'set LEWORD_MOBILE_ENTITLEMENT_URL to the HTTPS account/license service',
     ),
     check(
+      'server-prewarm-scheduler-configured',
       'Server prewarm scheduler configured',
       Number.isFinite(prewarmInterval) && prewarmInterval > 0,
       'set LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES so fresh winners are warmed before mobile users ask',
     ),
     check(
+      'persistent-mobile-result-cache-configured',
       'Persistent mobile result cache configured',
       !!cacheFile,
       'set LEWORD_MOBILE_CACHE_FILE so repeated mobile requests stay fast after process restarts',
     ),
     check(
+      'push-delivery-configured',
       'Push delivery configured',
       pushReady,
       'set LEWORD_MOBILE_PUSH_PROVIDER=expo or LEWORD_MOBILE_PUSH_ENDPOINT to a production HTTPS push gateway',
     ),
     check(
+      'push-timeout-valid',
       'Push timeout is finite',
       Number.isFinite(pushTimeout) && pushTimeout >= 1000,
       'recommended LEWORD_MOBILE_PUSH_TIMEOUT_MS >= 1000',
       'recommended',
     ),
     check(
+      'mobile-api-request-guardrails-configured',
       'Mobile API request guardrails configured',
       guardrails.maxBodyBytes > 0 && guardrails.maxRequestsPerMinute > 0,
       `max body ${guardrails.maxBodyBytes} bytes; ${guardrails.maxRequestsPerMinute} requests/minute`,

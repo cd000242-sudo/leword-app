@@ -1626,6 +1626,7 @@ export function setupKeywordAnalysisHandlers(): void {
           documentCountSource?: string;
           documentCountConfidence?: string;
           documentCountQueryMode?: 'broad';
+          documentCountQueryKey?: string;
           documentCountMeasuredAt?: string;
           isDocumentCountEstimated?: boolean;
           type: 'original' | 'expansion' | 'related' | 'suggested';
@@ -1673,7 +1674,8 @@ export function setupKeywordAnalysisHandlers(): void {
                 skipCache: forceFresh,
               });
               if (
-                !measurement.isEstimated
+                measurement
+                && !measurement.isEstimated
                 && measurement.dc >= 0
                 && (measurement.source === 'naver-api' || measurement.source === 'cache')
               ) {
@@ -1755,6 +1757,7 @@ export function setupKeywordAnalysisHandlers(): void {
                 documentCountSource: documentMeasurement?.source,
                 documentCountConfidence: documentMeasurement?.confidence,
                 documentCountQueryMode: documentMeasurement ? 'broad' : undefined,
+                documentCountQueryKey: documentMeasurement?.queryKey,
                 documentCountMeasuredAt: documentMeasurement?.measuredAt,
                 isDocumentCountEstimated: documentMeasurement?.isEstimated,
               };
@@ -1851,6 +1854,12 @@ export function setupKeywordAnalysisHandlers(): void {
             searchVolume: typeof k.searchVolume === 'number' ? k.searchVolume : null,
             documentCount: typeof k.documentCount === 'number' ? k.documentCount : null,
             goldenRatio: typeof k.goldenRatio === 'number' ? k.goldenRatio : null,
+            documentCountSource: k.documentCountSource,
+            documentCountConfidence: k.documentCountConfidence,
+            documentCountQueryMode: k.documentCountQueryMode,
+            documentCountQueryKey: k.documentCountQueryKey,
+            documentCountMeasuredAt: k.documentCountMeasuredAt,
+            isDocumentCountEstimated: k.isDocumentCountEstimated,
             isGolden: isGoldenKeyword(k),
             type: k.type
           })),
@@ -2196,7 +2205,8 @@ export function setupKeywordAnalysisHandlers(): void {
                   queryMode: CANONICAL_DOCUMENT_COUNT_QUERY_MODE,
                   searchVolume: totalVol || 0,
                 });
-                documentCount = !measuredDc.isEstimated
+                documentCount = measuredDc
+                  && !measuredDc.isEstimated
                   && (measuredDc.source === 'naver-api' || measuredDc.source === 'cache')
                   ? measuredDc.dc
                   : null;

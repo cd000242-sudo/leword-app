@@ -27,6 +27,23 @@ export type MobileJobEventType =
 
 export type MobileResultGrade = 'SSS' | 'SS' | 'S' | 'A' | 'B' | 'C';
 
+export type MobileMeasurementConfidence = 'high' | 'medium' | 'low';
+
+export type MobileSearchVolumeSource =
+  | 'searchad'
+  | 'cache'
+  | 'manual'
+  | 'unknown'
+  | 'none';
+
+export type MobileDocumentCountSource =
+  | 'naver-api'
+  | 'cache'
+  | 'scrape'
+  | 'fallback'
+  | 'unknown'
+  | 'none';
+
 export interface MobileKeywordMetric {
   keyword: string;
   grade: MobileResultGrade;
@@ -41,6 +58,19 @@ export interface MobileKeywordMetric {
   intent: string;
   evidence: string[];
   isMeasured: boolean;
+  searchVolumeSource?: MobileSearchVolumeSource;
+  searchVolumeConfidence?: MobileMeasurementConfidence;
+  searchVolumeBindingVersion?: 'keyword-keyed-v2';
+  searchVolumeMeasuredAt?: string;
+  isSearchVolumeEstimated?: boolean;
+  pcSearchVolumeLt10?: boolean;
+  mobileSearchVolumeLt10?: boolean;
+  documentCountSource?: MobileDocumentCountSource;
+  documentCountConfidence?: MobileMeasurementConfidence;
+  documentCountQueryMode?: 'broad' | 'exact-phrase';
+  documentCountQueryKey?: string;
+  documentCountMeasuredAt?: string;
+  isDocumentCountEstimated?: boolean;
 }
 
 export interface MobileJobEnvelope<TParams, TResult> {

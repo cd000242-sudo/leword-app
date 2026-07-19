@@ -64,6 +64,7 @@ import {
 } from '../utils/naver-searchad-api';
 import {
   getNaverBlogDocumentCount,
+  naverBlogDocumentCountQueryKey,
   normalizeNaverBlogBroadQuery,
   peekCachedNaverBlogDocumentCountMeasurement,
 } from '../utils/naver-blog-api';
@@ -96,7 +97,7 @@ import {
 } from './keyword-ai-judge';
 
 const EXTERNAL_AGENT_MAX_ROWS = 8;
-const EXTERNAL_AGENT_MAX_OUTPUT_TOKENS = 4096;
+const EXTERNAL_AGENT_MAX_OUTPUT_TOKENS = 2048;
 
 export class MobilePcEngineNotConnectedError extends Error {
   constructor(product: MobileKeywordProduct) {
@@ -198,6 +199,13 @@ function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext |
   const enabled = raw.enabled !== false;
   if (!enabled) return { enabled: false };
   const usageWindowHours = Number(raw.usageWindowHours);
+  const externalAiKeyOwner = normalizeKeyword(raw.externalAiKeyOwner);
+  const externalAiProvider = normalizeKeyword(raw.externalAiProvider).toLowerCase();
+  const externalAiProviders = normalizeStringList(raw.externalAiProviders, 2)
+    .map((provider) => provider.toLowerCase())
+    .filter((provider): provider is 'anthropic' | 'openai' => (
+      provider === 'anthropic' || provider === 'openai'
+    ));
   return {
     enabled: true,
     version: normalizeKeyword(raw.version) || 'web-agent-assist-v1',
@@ -206,9 +214,16 @@ function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext |
     provider: normalizeKeyword(raw.provider) || 'server-auto',
     providerLabel: normalizeKeyword(raw.providerLabel) || undefined,
     seedKeyword: normalizeKeyword(raw.seedKeyword) || null,
-    includeAiInference: raw.includeAiInference !== false,
+    includeAiInference: raw.includeAiInference === true,
     forceExternalInference: raw.forceExternalInference === true,
     externalAi: raw.externalAi === true,
+    externalAiKeyOwner: externalAiKeyOwner === 'user-local' || externalAiKeyOwner === 'server-approved'
+      ? externalAiKeyOwner
+      : undefined,
+    externalAiProvider: externalAiProvider === 'anthropic' || externalAiProvider === 'openai'
+      ? externalAiProvider
+      : undefined,
+    externalAiProviders,
     maxAgentRows: clampInt(raw.maxAgentRows, EXTERNAL_AGENT_MAX_ROWS, 1, EXTERNAL_AGENT_MAX_ROWS),
     mindmapAssist: raw.mindmapAssist !== false,
     keywordResearchAssist: raw.keywordResearchAssist !== false,
@@ -235,7 +250,7 @@ function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext |
 
 function copyAgentAwareParams(payload: Partial<MobileAgentAwareParams>): MobileAgentAwareParams {
   return {
-    includeAiInference: payload.includeAiInference !== false,
+    includeAiInference: payload.includeAiInference === true,
     agentAssist: normalizeAgentAssistContext(payload.agentAssist),
     adminAiWorker: normalizeAgentAssistContext(payload.adminAiWorker) || null,
   };
@@ -253,7 +268,7 @@ function compactKeyword(value: string): string {
  * document-count maps.
  */
 export function documentCountBroadQueryKey(value: unknown): string {
-  return normalizeNaverBlogBroadQuery(value).normalize('NFKC').toLowerCase();
+  return naverBlogDocumentCountQueryKey(value);
 }
 
 export function selectForceFreshDocumentCountQueryKey(
@@ -327,26 +342,32 @@ function metricFromExpansion(
 }
 
 export function metricFromMdpResult(result: MDPResult, categoryId: string): MobileKeywordMetric {
-  const totalSearchVolume = finiteNumber(result.searchVolume);
+  const pcSearchVolumeLt10 = (result as any).pcSearchVolumeLt10 === true;
+  const mobileSearchVolumeLt10 = (result as any).mobileSearchVolumeLt10 === true;
+  const hasSearchVolumeRange = pcSearchVolumeLt10 || mobileSearchVolumeLt10;
+  const rawTotalSearchVolume = finiteNumber(result.searchVolume);
   const documentCount = finiteNumber(result.documentCount);
-  const pcSearchVolume = finiteNumber(result.pcSearchVolume);
-  const mobileSearchVolume = finiteNumber(result.mobileSearchVolume);
+  const rawPcSearchVolume = finiteNumber(result.pcSearchVolume);
+  const rawMobileSearchVolume = finiteNumber(result.mobileSearchVolume);
+  const pcSearchVolume = pcSearchVolumeLt10 ? null : rawPcSearchVolume;
+  const mobileSearchVolume = mobileSearchVolumeLt10 ? null : rawMobileSearchVolume;
+  const totalSearchVolume = hasSearchVolumeRange ? null : rawTotalSearchVolume;
   const hasConsistentBoundSplit = pcSearchVolume !== null
     && mobileSearchVolume !== null
     && totalSearchVolume !== null
     && pcSearchVolume + mobileSearchVolume === totalSearchVolume;
-  const bindingMetadata = hasConsistentBoundSplit
+  const bindingMetadata = hasConsistentBoundSplit || hasSearchVolumeRange
     ? searchAdKeywordBindingMetadata(result)
     : null;
   return {
     keyword: normalizeKeyword(result.keyword),
-    grade: normalizeGrade(result.grade, result.score),
-    score: finiteNumber(result.score),
+    grade: hasSearchVolumeRange ? 'C' : normalizeGrade(result.grade, result.score),
+    score: hasSearchVolumeRange ? null : finiteNumber(result.score),
     pcSearchVolume,
     mobileSearchVolume,
     totalSearchVolume,
     documentCount,
-    goldenRatio: finiteNumber(result.goldenRatio),
+    goldenRatio: hasSearchVolumeRange ? null : finiteNumber(result.goldenRatio),
     cpc: finiteNumber(result.cpc),
     category: categoryId || (result.categoryMatched ? 'matched' : 'auto'),
     source: 'pc-mdp-engine',
@@ -356,12 +377,19 @@ export function metricFromMdpResult(result: MDPResult, categoryId: string): Mobi
       result.goldenReason || '',
       ...(result.externalSources || []),
     ].filter(Boolean),
-    isMeasured: totalSearchVolume !== null && documentCount !== null,
+    isMeasured: !hasSearchVolumeRange && totalSearchVolume !== null && documentCount !== null,
+    ...(hasSearchVolumeRange
+      ? {
+          pcSearchVolumeLt10,
+          mobileSearchVolumeLt10,
+          measurementStatus: 'partial' as const,
+        }
+      : {}),
     ...(bindingMetadata
       ? {
           searchVolumeSource: 'searchad' as const,
-          searchVolumeConfidence: 'high' as const,
-          isSearchVolumeEstimated: false,
+          searchVolumeConfidence: hasSearchVolumeRange ? 'low' as const : 'high' as const,
+          isSearchVolumeEstimated: hasSearchVolumeRange,
           ...bindingMetadata,
         }
       : {}),
@@ -1360,9 +1388,7 @@ function buildMetricAgentInsight(
     sourceSummary: agentInsightString(metric, ['sourceSummary', 'source', 'evidenceSummary'])
       || `${metric.source || product} · ${metric.intent || 'keyword-intent'} · ${metric.isMeasured ? '실측 포함' : '측정 필요'}`,
     warning: domain === 'unclear' ? '문맥 충돌 가능성이 있어 발행 전 원 소스 확인이 필요합니다.' : undefined,
-    generatedBy: agent && agent.enabled !== false
-      ? `agent-assist:${normalizeKeyword(agent.provider) || 'server-auto'}`
-      : 'server-semantic-agent',
+    generatedBy: 'server-semantic-agent',
   };
 }
 
@@ -1388,15 +1414,22 @@ type ExternalAgentInsightItem = Partial<MobileKeywordAgentInsight> & {
   originalKeyword?: string;
 };
 
+type ExternalAgentProvider = 'anthropic' | 'openai';
+
 type ExternalAgentInsightResponse = {
-  provider: 'anthropic' | 'openai';
+  provider: ExternalAgentProvider;
   items: ExternalAgentInsightItem[];
-  recoveryError?: string;
+};
+
+type ExternalAgentInsightSelection = {
+  provider: ExternalAgentProvider;
+  apiKey: string;
+  keyOwner: 'user-local' | 'server-approved';
 };
 
 class ExternalAgentInsightCallError extends Error {
   constructor(
-    readonly provider: ExternalAgentInsightResponse['provider'],
+    readonly provider: ExternalAgentProvider,
     message: string,
   ) {
     super(message);
@@ -1404,17 +1437,45 @@ class ExternalAgentInsightCallError extends Error {
   }
 }
 
-function shouldUseExternalAgentInsight(
+function resolveExternalAgentInsightSelection(
   agent: MobileAgentAssistContext | undefined,
   env: Partial<EnvConfig>,
-): boolean {
-  if (!agent || agent.enabled === false || agent.includeAiInference === false) return false;
-  if (process.env['LEWORD_AGENT_EXTERNAL_INFERENCE'] === '0') return false;
-  if (process.env['NODE_ENV'] === 'test' && agent.forceExternalInference !== true && agent.externalAi !== true) return false;
-  if (agent.forceExternalInference !== true && agent.externalAi !== true) return false;
-  const anthropicKey = envValue(env, 'anthropicApiKey', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY');
-  const openAiKey = envValue(env, 'openaiApiKey', 'OPENAI_API_KEY');
-  return anthropicKey.startsWith('sk-ant-') || openAiKey.startsWith('sk-');
+): ExternalAgentInsightSelection | null {
+  if (
+    !agent
+    || agent.enabled === false
+    || agent.includeAiInference !== true
+    || agent.forceExternalInference !== true
+    || agent.externalAi !== true
+    || process.env['LEWORD_AGENT_EXTERNAL_INFERENCE'] === '0'
+  ) return null;
+  const keyOwner = agent.externalAiKeyOwner;
+  if (keyOwner !== 'user-local' && keyOwner !== 'server-approved') return null;
+  const allowedProviders = new Set(
+    (agent.externalAiProviders || [])
+      .map((provider) => normalizeKeyword(provider).toLowerCase())
+      .filter((provider): provider is ExternalAgentProvider => (
+        provider === 'anthropic' || provider === 'openai'
+      )),
+  );
+  if (allowedProviders.size === 0) return null;
+  const preferred = normalizeKeyword(agent.externalAiProvider).toLowerCase();
+  const providerCandidates: ExternalAgentProvider[] = [];
+  if (preferred === 'anthropic' || preferred === 'openai') providerCandidates.push(preferred);
+  providerCandidates.push('anthropic', 'openai');
+  const providerOrder = providerCandidates.filter((provider, index, values) => (
+    values.indexOf(provider) === index && allowedProviders.has(provider)
+  ));
+  for (const provider of providerOrder) {
+    // Use only the credential scope that the API boundary explicitly marked.
+    // envValue() falls back to process.env, which would silently spend a
+    // server-owned key even when the user supplied only the other provider.
+    const apiKey = normalizeKeyword(provider === 'anthropic' ? env.anthropicApiKey : env.openaiApiKey);
+    if (provider === 'anthropic' ? apiKey.startsWith('sk-ant-') : apiKey.startsWith('sk-')) {
+      return { provider, apiKey, keyOwner };
+    }
+  }
+  return null;
 }
 
 function externalAgentInsightList(value: unknown, limit: number): string[] {
@@ -1424,7 +1485,9 @@ function externalAgentInsightList(value: unknown, limit: number): string[] {
       ? value.split(/[,\n|]/)
       : [];
   return uniqueKeywords(raw.map((item) => normalizeKeyword(item)).filter(Boolean), limit)
-    .filter((item) => item.length <= 48 && !/AEO|GEO|SEO|제목보다|한 화면에서/i.test(item));
+    .filter((item) => item.length <= 48
+      && !/[<>]/u.test(item)
+      && !/AEO|GEO|SEO|제목보다|한 화면에서/i.test(item));
 }
 
 function extractJsonObject(text: string): Record<string, unknown> {
@@ -1512,11 +1575,10 @@ function buildExternalAgentInsightPrompt(
         index: 0,
         keyword: '원본 키워드',
         subject: '키워드가 실제로 가리키는 대상/사건/상품/장소',
-        searchVolumeReason: '왜 지금 검색량이 붙는지. 계절/일정/뉴스/정책/구매상황/현장 맥락을 근거로 1~2문장',
         combinationIntent: '블로거가 어떤 각도로 글을 써야 하는지. 제목 접미사 나열 금지',
-        autocompleteKeywords: ['네이버 자동완성처럼 짧고 실제 검색 가능한 확장어 5~8개'],
-        relatedKeywords: ['자연스럽게 같이 확인할 연관 검색어 4~8개'],
-        expandedKeywords: ['마인드맵용 후속 의문/비교/방법/주의사항 키워드 6~12개'],
+        autocompleteKeywords: ['AI 생성·미실측 확장어 5~8개. 실제 자동완성이라고 주장하지 않음'],
+        relatedKeywords: ['AI 생성·미실측 연관어 4~8개'],
+        expandedKeywords: ['AI 생성·미실측 후속 의문/비교/방법/주의사항 키워드 6~12개'],
         label: '의도 라벨',
         route: 'blog-seo | shopping-connect | kin-answer | youtube-to-blog',
         warning: '억지 조합/광고 잠식/대형 헤드어면 경고. 정상 후보면 빈 문자열',
@@ -1525,6 +1587,8 @@ function buildExternalAgentInsightPrompt(
     hardRules: [
       '반드시 JSON 객체만 반환합니다.',
       '검색량과 문서수 숫자는 절대 새로 만들지 말고 원본 row 값만 전제로 해석합니다.',
+      '제공된 row/evidence 밖의 최신 뉴스, 일정, 정책 변경, 출처를 사실처럼 주장하지 않습니다.',
+      '생성한 연관어는 모두 미실측 제안이며 실제 자동완성이나 실검색량이 확인됐다고 표현하지 않습니다.',
       '접미사만 붙인 기계식 확장어 금지. 실제 검색자가 이어서 칠 법한 짧은 검색어만 제시합니다.',
       '키워드 의미가 불명확하면 그대로 미화하지 말고 warning에 이유를 씁니다.',
       '정책/여행 편향을 만들지 말고 row의 실제 주제별로 다르게 판단합니다.',
@@ -1602,46 +1666,32 @@ async function callOpenAiAgentInsightModel(
 }
 
 async function callExternalAgentInsightModel(
-  env: Partial<EnvConfig>,
+  selection: ExternalAgentInsightSelection,
   prompt: string,
 ): Promise<ExternalAgentInsightResponse> {
-  const anthropicKey = envValue(env, 'anthropicApiKey', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY');
-  const openAiKey = envValue(env, 'openaiApiKey', 'OPENAI_API_KEY');
-  const hasAnthropic = anthropicKey.startsWith('sk-ant-');
-  const hasOpenAi = openAiKey.startsWith('sk-');
-
-  if (hasAnthropic) {
+  if (selection.provider === 'anthropic') {
     try {
-      return await callAnthropicAgentInsightModel(anthropicKey, prompt);
+      return await callAnthropicAgentInsightModel(selection.apiKey, prompt);
     } catch (anthropicError) {
-      const anthropicDetail = externalAgentErrorDetail(anthropicError);
-      if (!hasOpenAi) {
-        throw new ExternalAgentInsightCallError('anthropic', `anthropic failed: ${anthropicDetail}`);
-      }
-      try {
-        const fallback = await callOpenAiAgentInsightModel(openAiKey, prompt);
-        return {
-          ...fallback,
-          recoveryError: `anthropic failed: ${anthropicDetail}; recovered with openai`,
-        };
-      } catch (openAiError) {
-        throw new ExternalAgentInsightCallError(
-          'openai',
-          `anthropic failed: ${anthropicDetail}; openai fallback failed: ${externalAgentErrorDetail(openAiError)}`,
-        );
-      }
+      throw new ExternalAgentInsightCallError(
+        'anthropic',
+        `anthropic failed: ${externalAgentErrorDetail(anthropicError)}`,
+      );
     }
   }
-
-  if (hasOpenAi) {
-    try {
-      return await callOpenAiAgentInsightModel(openAiKey, prompt);
-    } catch (openAiError) {
-      throw new ExternalAgentInsightCallError('openai', `openai failed: ${externalAgentErrorDetail(openAiError)}`);
-    }
+  try {
+    return await callOpenAiAgentInsightModel(selection.apiKey, prompt);
+  } catch (openAiError) {
+    throw new ExternalAgentInsightCallError('openai', `openai failed: ${externalAgentErrorDetail(openAiError)}`);
   }
+}
 
-  throw new ExternalAgentInsightCallError('openai', 'no supported external AI key configured');
+const EXTERNAL_AGENT_METRIC_CLAIM_RE = /(?:검색량|문서수|경쟁비|황금비|CPC|PC|모바일)[^\n]{0,20}\d|\d[\d,.]*\s*(?:건|회|명|퍼센트|%)/iu;
+
+function safeExternalAgentProse(value: unknown, maxLength: number): string {
+  const clean = normalizeKeyword(value).replace(/[<>]/gu, '');
+  if (!clean || EXTERNAL_AGENT_METRIC_CLAIM_RE.test(clean)) return '';
+  return clean.slice(0, maxLength);
 }
 
 function mergeExternalAgentInsightItem(
@@ -1651,19 +1701,22 @@ function mergeExternalAgentInsightItem(
 ): MobileKeywordMetric {
   const current = metric.agentInsight || {};
   const merged: MobileKeywordAgentInsight = { ...current };
-  const stringKeys: Array<keyof MobileKeywordAgentInsight> = [
-    'label',
-    'route',
-    'subject',
-    'searchVolumeReason',
-    'combinationIntent',
-    'sourceSummary',
-    'warning',
+  const stringKeys: Array<[keyof MobileKeywordAgentInsight, number]> = [
+    ['label', 80],
+    ['subject', 120],
+    ['combinationIntent', 600],
   ];
-  for (const key of stringKeys) {
-    const value = normalizeKeyword(item[key]);
+  for (const [key, maxLength] of stringKeys) {
+    const value = safeExternalAgentProse(item[key], maxLength);
     if (value) (merged as Record<string, unknown>)[key] = value;
   }
+  const route = normalizeKeyword(item.route).toLowerCase();
+  if (['blog-seo', 'shopping-connect', 'kin-answer', 'youtube-to-blog'].includes(route)) {
+    merged.route = route;
+  }
+  // searchVolumeReason/sourceSummary remain server-composed from the trusted
+  // structured metric. Model prose may explain intent but can never introduce
+  // an unverified numeric/source claim into a measured result.
   const autocompleteKeywords = externalAgentInsightList(item.autocompleteKeywords, 10);
   const relatedKeywords = externalAgentInsightList(item.relatedKeywords, 12);
   const expandedKeywords = externalAgentInsightList(item.expandedKeywords, 14);
@@ -1678,6 +1731,18 @@ function mergeExternalAgentInsightItem(
       ...(current.expandedKeywords || []),
     ], 14);
   }
+  const generatedUnmeasuredKeywords = autocompleteKeywords.length > 0
+    || relatedKeywords.length > 0
+    || expandedKeywords.length > 0;
+  const warning = safeExternalAgentProse(item.warning, 400);
+  const warningParts = uniqueKeywords([
+    ...(current.warning ? [current.warning] : []),
+    ...(warning ? [warning] : []),
+    ...(generatedUnmeasuredKeywords
+      ? ['AI 생성 연관어는 미실측이며 SearchAd/네이버 broad 실측 전에는 결과 키워드나 등급으로 사용하지 않습니다.']
+      : []),
+  ], 3);
+  merged.warning = warningParts.length ? warningParts.join(' ') : undefined;
   merged.generatedBy = `external-agent:${provider}`;
   return {
     ...metric,
@@ -1693,12 +1758,14 @@ async function withExternalAgentInsight(
   agent: MobileAgentAssistContext | undefined,
   env: Partial<EnvConfig>,
 ): Promise<MobileKeywordResult> {
-  if (!shouldUseExternalAgentInsight(agent, env) || result.keywords.length === 0 || !agent) return result;
+  if (result.keywords.length === 0 || !agent) return result;
+  const selection = resolveExternalAgentInsightSelection(agent, env);
+  if (!selection) return result;
   const maxRows = clampInt(agent.maxAgentRows, EXTERNAL_AGENT_MAX_ROWS, 1, EXTERNAL_AGENT_MAX_ROWS);
   const sliced = withKeywordResultSummary(result, result.keywords.slice(0, maxRows));
   try {
     const prompt = buildExternalAgentInsightPrompt(sliced, params, product, agent);
-    const response = await callExternalAgentInsightModel(env, prompt);
+    const response = await callExternalAgentInsightModel(selection, prompt);
     if (!response.items.length) return result;
     const byIndex = new Map<number, ExternalAgentInsightItem>();
     const allowedIndexByKeyword = new Map<string, number>();
@@ -1735,19 +1802,22 @@ async function withExternalAgentInsight(
         ...summarized.summary,
         agentInsightExternalProvider: response.provider,
         agentInsightExternalCount: mergedCount,
-        ...(response.recoveryError ? { agentInsightExternalError: response.recoveryError } : {}),
+        agentInsightExternalAttemptedProviders: [selection.provider],
+        agentInsightExternalCallCount: 1,
+        agentInsightExternalKeyOwner: selection.keyOwner,
       },
     };
   } catch (error) {
-    const provider = error instanceof ExternalAgentInsightCallError ? error.provider : undefined;
+    const provider = error instanceof ExternalAgentInsightCallError ? error.provider : selection.provider;
     return {
       ...result,
       summary: {
         ...result.summary,
-        ...(provider ? {
-          agentInsightExternalProvider: provider,
-          agentInsightExternalCount: 0,
-        } : {}),
+        agentInsightExternalProvider: provider,
+        agentInsightExternalCount: 0,
+        agentInsightExternalAttemptedProviders: [selection.provider],
+        agentInsightExternalCallCount: 1,
+        agentInsightExternalKeyOwner: selection.keyOwner,
         agentInsightExternalError: normalizeKeyword((error as Error).message).slice(0, 180),
       },
     };
@@ -1848,7 +1918,8 @@ async function withAgentAssistSummary(
   if (!agent) return insightResult;
   const tasks = normalizeStringList(agent.tasks, 16);
   const provider = normalizeKeyword(agent.provider) || 'server-auto';
-  const tag = `agent-assist:${provider}`;
+  const readinessOnlyProvider = /^(?:codex|claude(?:-code)?|claude_code)$/iu.test(provider);
+  const tag = 'agent-assist:deterministic';
   return {
     ...insightResult,
     keywords: insightResult.keywords.map((item) => ({
@@ -1862,7 +1933,9 @@ async function withAgentAssistSummary(
         product,
         featureId: normalizeKeyword(agent.featureId) || product,
         provider,
-        mode: normalizeKeyword(agent.mode) || 'server-default-worker',
+        mode: readinessOnlyProvider
+          ? 'readiness-status-only'
+          : normalizeKeyword(agent.mode) || 'server-default-worker',
         tasks,
       },
     },
@@ -4193,6 +4266,7 @@ async function fetchNaverDocumentCount(
   confidence: 'high';
   isEstimated: false;
   queryMode: 'broad';
+  queryKey: string;
   measuredAt: string;
 } | null> {
   const clientId = envValue(env, 'naverClientId', 'NAVER_CLIENT_ID');
@@ -4220,6 +4294,7 @@ async function fetchNaverDocumentCount(
     confidence: 'high',
     isEstimated: false,
     queryMode: 'broad',
+    queryKey: documentCountBroadQueryKey(broadQuery),
     measuredAt: cachedMeasurement.measuredAt,
   };
 }
@@ -4285,71 +4360,180 @@ export function mergeMeasuredMetric(
   volume: KeywordSearchVolume | undefined,
   documentMeasurement: Awaited<ReturnType<typeof fetchNaverDocumentCount>> | undefined,
 ): MobileKeywordMetric {
+  const hasExplicitVolumeResult = volume !== undefined;
   const volumePcSearchVolume = finiteNumber(volume?.pcSearchVolume);
   const volumeMobileSearchVolume = finiteNumber(volume?.mobileSearchVolume);
+  const volumePcSearchVolumeLt10 = volume?.pcSearchVolumeLt10 === true;
+  const volumeMobileSearchVolumeLt10 = volume?.mobileSearchVolumeLt10 === true;
+  const volumeHasLessThanTenRange = volumePcSearchVolumeLt10 || volumeMobileSearchVolumeLt10;
   const volumeBindingMetadata = searchAdKeywordBindingMetadata(volume);
-  const hasBoundVolumeSplit = volumePcSearchVolume !== null
+  const hasBoundVolumeSplit = !volumeHasLessThanTenRange
+    && volumePcSearchVolume !== null
     && volumeMobileSearchVolume !== null
     && volumeBindingMetadata !== null;
-  const pcSearchVolume = hasBoundVolumeSplit ? volumePcSearchVolume : metric.pcSearchVolume;
-  const mobileSearchVolume = hasBoundVolumeSplit ? volumeMobileSearchVolume : metric.mobileSearchVolume;
-  const splitTotal = pcSearchVolume !== null || mobileSearchVolume !== null
-    ? (pcSearchVolume || 0) + (mobileSearchVolume || 0)
-    : null;
-  const totalSearchVolume = hasBoundVolumeSplit
-    ? splitTotal
-    : metric.totalSearchVolume;
-  const resolvedDocumentCount = documentMeasurement !== undefined && documentMeasurement !== null
-    ? documentMeasurement.documentCount
-    : metric.documentCount;
-  const cpc = (hasBoundVolumeSplit ? finiteNumber(volume?.monthlyAveCpc) : null) ?? metric.cpc;
-  const goldenRatio = ratioFromMetrics(totalSearchVolume, resolvedDocumentCount) ?? metric.goldenRatio;
-  const searchVolumeSource = hasBoundVolumeSplit ? 'searchad' : metric.searchVolumeSource;
-  const searchVolumeConfidence = hasBoundVolumeSplit ? 'high' : metric.searchVolumeConfidence;
-  const isSearchVolumeEstimated = hasBoundVolumeSplit
-    ? Boolean(volume?.svEstimated)
-    : metric.isSearchVolumeEstimated === true;
+  const hasBoundVolumeRange = volumeHasLessThanTenRange
+    && volumeBindingMetadata !== null
+    && (volumePcSearchVolumeLt10 || volumePcSearchVolume !== null)
+    && (volumeMobileSearchVolumeLt10 || volumeMobileSearchVolume !== null);
+  const hasAcceptedVolumeMeasurement = hasBoundVolumeSplit || hasBoundVolumeRange;
+  const invalidatedVolumeTuple = hasExplicitVolumeResult && !hasAcceptedVolumeMeasurement;
+  const metricPcSearchVolumeLt10 = metric.pcSearchVolumeLt10 === true;
+  const metricMobileSearchVolumeLt10 = metric.mobileSearchVolumeLt10 === true;
+  const metricHasLessThanTenRange = metricPcSearchVolumeLt10 || metricMobileSearchVolumeLt10;
   const metricPcSearchVolume = finiteNumber(metric.pcSearchVolume);
   const metricMobileSearchVolume = finiteNumber(metric.mobileSearchVolume);
   const metricTotalSearchVolume = finiteNumber(metric.totalSearchVolume);
-  const metricHasConsistentSplit = metricPcSearchVolume !== null
+  const metricBindingMetadata = searchAdKeywordBindingMetadata(metric);
+  const metricHasConsistentSplit = !metricHasLessThanTenRange
+    && metricPcSearchVolume !== null
     && metricMobileSearchVolume !== null
     && metricTotalSearchVolume !== null
     && metricPcSearchVolume + metricMobileSearchVolume === metricTotalSearchVolume;
-  const retainedBindingMetadata = hasBoundVolumeSplit
-    ? volumeBindingMetadata
-    : metricHasConsistentSplit
-      ? searchAdKeywordBindingMetadata(metric)
+  const pcSearchVolume = hasBoundVolumeRange
+    ? (volumePcSearchVolumeLt10 ? null : volumePcSearchVolume)
+    : hasBoundVolumeSplit
+      ? volumePcSearchVolume
+      : invalidatedVolumeTuple
+        ? null
+        : metricPcSearchVolumeLt10
+          ? null
+          : metric.pcSearchVolume;
+  const mobileSearchVolume = hasBoundVolumeRange
+    ? (volumeMobileSearchVolumeLt10 ? null : volumeMobileSearchVolume)
+    : hasBoundVolumeSplit
+      ? volumeMobileSearchVolume
+      : invalidatedVolumeTuple
+        ? null
+        : metricMobileSearchVolumeLt10
+          ? null
+          : metric.mobileSearchVolume;
+  const splitTotal = hasBoundVolumeSplit
+    ? volumePcSearchVolume + volumeMobileSearchVolume
+    : null;
+  const totalSearchVolume = hasBoundVolumeSplit
+    ? splitTotal
+    : hasBoundVolumeRange || invalidatedVolumeTuple || metricHasLessThanTenRange
+      ? null
+      : metric.totalSearchVolume;
+  const pcSearchVolumeLt10 = hasAcceptedVolumeMeasurement
+    ? volumePcSearchVolumeLt10
+    : invalidatedVolumeTuple
+      ? false
+      : metricPcSearchVolumeLt10;
+  const mobileSearchVolumeLt10 = hasAcceptedVolumeMeasurement
+    ? volumeMobileSearchVolumeLt10
+    : invalidatedVolumeTuple
+      ? false
+      : metricMobileSearchVolumeLt10;
+  const searchVolumeIsPartial = hasExplicitVolumeResult
+    ? hasBoundVolumeRange || (hasBoundVolumeSplit && volume?.svEstimated === true)
+    : metricHasLessThanTenRange || metric.isSearchVolumeEstimated === true;
+  const newDocumentCandidate: MobileKeywordMetric | null = documentMeasurement
+    ? {
+      ...metric,
+      documentCount: documentMeasurement.documentCount,
+      documentCountSource: documentMeasurement.source,
+      documentCountConfidence: documentMeasurement.confidence,
+      documentCountQueryMode: documentMeasurement.queryMode,
+      documentCountQueryKey: documentMeasurement.queryKey,
+      documentCountMeasuredAt: documentMeasurement.measuredAt,
+      isDocumentCountEstimated: documentMeasurement.isEstimated,
+    }
+    : null;
+  const hasFreshBoundDocumentMeasurement = newDocumentCandidate !== null
+    && hasFreshCanonicalDocumentCountMeasurement(newDocumentCandidate);
+  const canRetainExistingDocumentMeasurement = documentMeasurement === undefined
+    && hasFreshCanonicalDocumentCountMeasurement(metric);
+  const resolvedDocumentCount = hasFreshBoundDocumentMeasurement
+    ? finiteNumber(documentMeasurement?.documentCount)
+    : canRetainExistingDocumentMeasurement
+      ? finiteNumber(metric.documentCount)
       : null;
-  const documentCountSource = documentMeasurement
-    ? documentMeasurement.source
-    : metric.documentCountSource;
-  const documentCountConfidence = documentMeasurement
-    ? documentMeasurement.confidence
-    : metric.documentCountConfidence;
-  const documentCountQueryMode = documentMeasurement
-    ? documentMeasurement.queryMode
-    : metric.documentCountQueryMode;
-  const documentCountMeasuredAt = documentMeasurement
-    ? documentMeasurement.measuredAt
-    : metric.documentCountMeasuredAt;
-  const isDocumentCountEstimated = documentMeasurement
-    ? documentMeasurement.isEstimated
-    : metric.isDocumentCountEstimated === true;
+  const cpc = (hasAcceptedVolumeMeasurement ? finiteNumber(volume?.monthlyAveCpc) : null) ?? metric.cpc;
+  const goldenRatio = searchVolumeIsPartial || invalidatedVolumeTuple
+    ? null
+    : ratioFromMetrics(totalSearchVolume, resolvedDocumentCount);
+  const searchVolumeSource = hasAcceptedVolumeMeasurement
+    ? 'searchad'
+    : invalidatedVolumeTuple
+      ? undefined
+      : metric.searchVolumeSource;
+  const searchVolumeConfidence = hasAcceptedVolumeMeasurement
+    ? searchVolumeIsPartial ? 'low' : 'high'
+    : invalidatedVolumeTuple
+      ? undefined
+      : metricHasLessThanTenRange ? 'low' : metric.searchVolumeConfidence;
+  const isSearchVolumeEstimated = hasAcceptedVolumeMeasurement
+    ? searchVolumeIsPartial
+    : invalidatedVolumeTuple
+      ? undefined
+      : metricHasLessThanTenRange || metric.isSearchVolumeEstimated === true;
+  const retainedBindingMetadata = hasAcceptedVolumeMeasurement
+    ? volumeBindingMetadata
+    : invalidatedVolumeTuple
+      ? null
+      : metricHasConsistentSplit || metricHasLessThanTenRange
+        ? metricBindingMetadata
+        : null;
+  const documentCountSource = hasFreshBoundDocumentMeasurement
+    ? documentMeasurement?.source
+    : canRetainExistingDocumentMeasurement
+      ? metric.documentCountSource
+      : undefined;
+  const documentCountConfidence = hasFreshBoundDocumentMeasurement
+    ? documentMeasurement?.confidence
+    : canRetainExistingDocumentMeasurement
+      ? metric.documentCountConfidence
+      : undefined;
+  const documentCountQueryMode = hasFreshBoundDocumentMeasurement
+    ? documentMeasurement?.queryMode
+    : canRetainExistingDocumentMeasurement
+      ? metric.documentCountQueryMode
+      : undefined;
+  const documentCountQueryKey = hasFreshBoundDocumentMeasurement
+    ? documentMeasurement?.queryKey
+    : canRetainExistingDocumentMeasurement
+      ? metric.documentCountQueryKey
+      : undefined;
+  const documentCountMeasuredAt = hasFreshBoundDocumentMeasurement
+    ? documentMeasurement?.measuredAt
+    : canRetainExistingDocumentMeasurement
+      ? metric.documentCountMeasuredAt
+      : undefined;
+  const isDocumentCountEstimated = hasFreshBoundDocumentMeasurement
+    ? documentMeasurement?.isEstimated
+    : canRetainExistingDocumentMeasurement
+      ? metric.isDocumentCountEstimated === true
+      : undefined;
+  const invalidatedDocumentTuple = !hasFreshBoundDocumentMeasurement
+    && !canRetainExistingDocumentMeasurement
+    && (
+      finiteNumber(metric.documentCount) !== null
+      || documentMeasurement !== undefined
+    );
+  const derivedInputsChanged = hasExplicitVolumeResult
+    || documentMeasurement !== undefined
+    || invalidatedDocumentTuple;
 
   let evidence = metric.evidence;
-  if (hasBoundVolumeSplit && totalSearchVolume !== null) {
+  if (hasAcceptedVolumeMeasurement) {
     evidence = addEvidence(evidence, 'pc-searchad-volume');
-    if (volume.svEstimated) {
+    if (searchVolumeIsPartial) {
       evidence = addEvidence(evidence, 'pc-searchad-volume-estimated');
     }
-    if (volume.pcSearchVolumeLt10 || volume.mobileSearchVolumeLt10) {
+    if (pcSearchVolumeLt10 || mobileSearchVolumeLt10) {
       evidence = addEvidence(evidence, 'pc-searchad-lt10-range');
     }
   }
-  if (documentMeasurement && resolvedDocumentCount !== null && resolvedDocumentCount !== metric.documentCount) {
+  if (invalidatedVolumeTuple) {
+    evidence = addEvidence(evidence, 'search-volume-binding-invalidated');
+  }
+  if (hasFreshBoundDocumentMeasurement && resolvedDocumentCount !== null && resolvedDocumentCount !== metric.documentCount) {
     evidence = addEvidence(evidence, 'pc-naver-blog-document-count');
     evidence = addEvidence(evidence, 'pc-naver-openapi-document-count');
+  }
+  if (invalidatedDocumentTuple) {
+    evidence = addEvidence(evidence, 'document-count-query-binding-invalidated');
   }
 
   const trustedCandidate: MobileKeywordMetric = {
@@ -4360,17 +4544,35 @@ export function mergeMeasuredMetric(
     documentCount: resolvedDocumentCount,
     goldenRatio,
     cpc,
-    grade: measuredGrade(metric.grade, totalSearchVolume, resolvedDocumentCount, goldenRatio),
+    grade: resolvedDocumentCount !== null && goldenRatio !== null
+      ? measuredGrade(metric.grade, totalSearchVolume, resolvedDocumentCount, goldenRatio)
+      : 'C',
+    score: derivedInputsChanged ? null : metric.score,
+    aiJudge: derivedInputsChanged ? undefined : metric.aiJudge,
+    publishDecision: derivedInputsChanged ? undefined : metric.publishDecision,
+    rejectReason: derivedInputsChanged ? undefined : metric.rejectReason,
+    agentInsight: derivedInputsChanged ? undefined : metric.agentInsight,
+    measurementStatus: searchVolumeIsPartial
+      ? 'partial'
+      : invalidatedVolumeTuple
+        ? 'unmeasured'
+        : derivedInputsChanged ? undefined : metric.measurementStatus,
     evidence,
-    isMeasured: totalSearchVolume !== null && resolvedDocumentCount !== null,
+    isMeasured: !searchVolumeIsPartial
+      && !invalidatedVolumeTuple
+      && totalSearchVolume !== null
+      && resolvedDocumentCount !== null,
     searchVolumeSource,
     searchVolumeConfidence,
     searchVolumeBindingVersion: retainedBindingMetadata?.searchVolumeBindingVersion,
     searchVolumeMeasuredAt: retainedBindingMetadata?.searchVolumeMeasuredAt,
     isSearchVolumeEstimated,
+    pcSearchVolumeLt10,
+    mobileSearchVolumeLt10,
     documentCountSource,
     documentCountConfidence,
     documentCountQueryMode,
+    documentCountQueryKey,
     documentCountMeasuredAt,
     isDocumentCountEstimated,
   };

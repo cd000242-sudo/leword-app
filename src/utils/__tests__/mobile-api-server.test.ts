@@ -3,7 +3,10 @@ import http from 'http';
 import crypto from 'crypto';
 import os from 'os';
 import path from 'path';
-import { createLewordApiServer } from '../../../apps/api/src/server';
+import {
+  createLewordApiServer,
+  mergeCanonicalMetricWithLiveBoard,
+} from '../../../apps/api/src/server';
 import { createHttpMobileEntitlementVerifier } from '../../mobile/entitlements';
 import {
   MobilePushDispatcher,
@@ -25,8 +28,10 @@ import {
   MOBILE_RANK_TRACKING_ROUTES,
   MOBILE_SCHEDULE_ROUTES,
   MOBILE_WORDPRESS_ROUTES,
+  type MobileKeywordMetric,
   type MobileKeywordResult,
 } from '../../mobile/contracts';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) {
@@ -140,8 +145,10 @@ const result: MobileKeywordResult = {
 
     const previousCodexCli = process.env.LEWORD_CODEX_CLI;
     const previousClaudeCli = process.env.LEWORD_CLAUDE_CODE_CLI;
+    const previousServerExternalAiOptIn = process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI;
     process.env.LEWORD_CODEX_CLI = path.join(os.tmpdir(), 'missing-leword-codex-cli-for-test');
     process.env.LEWORD_CLAUDE_CODE_CLI = path.join(os.tmpdir(), 'missing-leword-claude-cli-for-test');
+    delete process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI;
     try {
       const adminAiStatus = await fetch(`${baseUrl}/v1/admin/ai-worker/status`, {
         method: 'POST',
@@ -155,7 +162,9 @@ const result: MobileKeywordResult = {
       assert('admin AI worker status route responds',
         adminAiStatus.ok
           && adminAiStatusJson.ok === true
-          && adminAiStatusJson.selectedProvider === 'api');
+          && adminAiStatusJson.selectedProvider === 'api'
+          && adminAiStatusJson.execution?.mode === 'readiness-status-only'
+          && adminAiStatusJson.execution?.inferenceDispatched === false);
       assert('admin AI worker status reports API assist without exposing keys',
         adminAiStatusJson.ready?.api === true
           && adminAiStatusJson.apiAssist?.count === 1
@@ -164,6 +173,18 @@ const result: MobileKeywordResult = {
       const externalAiEnvKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY'] as const;
       const externalAiEnvBefore = Object.fromEntries(externalAiEnvKeys.map((key) => [key, process.env[key]]));
       try {
+        process.env.OPENAI_API_KEY = 'sk-server-key-must-stay-disabled-by-default';
+        const serverKeyDefaultOffStatus = await fetch(`${baseUrl}/v1/admin/ai-worker/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selectedProvider: 'api', apiAssist: {} }),
+        });
+        const serverKeyDefaultOffStatusJson: any = await serverKeyDefaultOffStatus.json();
+        assert('server-owned external AI keys remain unavailable without explicit server opt-in',
+          serverKeyDefaultOffStatus.ok
+            && serverKeyDefaultOffStatusJson.ready?.api === false
+            && serverKeyDefaultOffStatusJson.apiAssist?.serverKeyUseEnabled === false,
+          JSON.stringify(serverKeyDefaultOffStatusJson));
         for (const key of externalAiEnvKeys) delete process.env[key];
         const manusOnlyStatus = await fetch(`${baseUrl}/v1/admin/ai-worker/status`, {
           method: 'POST',
@@ -197,6 +218,8 @@ const result: MobileKeywordResult = {
       else process.env.LEWORD_CODEX_CLI = previousCodexCli;
       if (previousClaudeCli === undefined) delete process.env.LEWORD_CLAUDE_CODE_CLI;
       else process.env.LEWORD_CLAUDE_CODE_CLI = previousClaudeCli;
+      if (previousServerExternalAiOptIn === undefined) delete process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI;
+      else process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI = previousServerExternalAiOptIn;
     }
 
     const apiStatus = await fetch(`${baseUrl}/v1/mobile/api-status`);
@@ -1630,9 +1653,15 @@ const result: MobileKeywordResult = {
           intent: '신청방법',
           evidence: ['fixture cache result'],
           isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: new Date().toISOString(),
+          isSearchVolumeEstimated: false,
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey('고유가 지원금 2차 신청방법'),
           documentCountMeasuredAt: new Date().toISOString(),
           isDocumentCountEstimated: false,
         }],
@@ -1686,6 +1715,185 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-cache.test] passed');
 
+  const externalPolicyExecutions: any[] = [];
+  const externalPolicyServer = createLewordApiServer({
+    entitlementVerifier: null,
+    resultCache: new InMemoryMobileResultCache(),
+    executor: async (job) => {
+      externalPolicyExecutions.push(job.params);
+      return {
+        ...result,
+        keywords: [{
+          keyword: '고유가 지원금 2차 신청방법',
+          grade: 'SSS',
+          pcSearchVolume: 1000,
+          mobileSearchVolume: 500,
+          totalSearchVolume: 1500,
+          documentCount: 100,
+          goldenRatio: 15,
+          cpc: 120,
+          category: 'policy',
+          source: 'fixture',
+          intent: '신청방법',
+          evidence: ['external policy cache fixture'],
+          isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: new Date().toISOString(),
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey('고유가 지원금 2차 신청방법'),
+          documentCountMeasuredAt: new Date().toISOString(),
+          isDocumentCountEstimated: false,
+        }],
+        summary: {
+          total: 1,
+          sss: 0,
+          measured: 1,
+          elapsedMs: 10,
+          fromCache: false,
+          parityMode: 'pc-engine',
+        },
+      };
+    },
+  });
+  const externalPolicyPort = await listen(externalPolicyServer);
+  const externalPolicyBaseUrl = `http://127.0.0.1:${externalPolicyPort}`;
+  const previousServerOpenAiKey = process.env.OPENAI_API_KEY;
+  const previousServerAiOptIn = process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI;
+  const previousExternalAiOpenAiModel = process.env.LEWORD_AGENT_OPENAI_MODEL;
+  process.env.OPENAI_API_KEY = 'sk-server-key-not-authorized-for-jobs';
+  delete process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI;
+  process.env.LEWORD_AGENT_OPENAI_MODEL = 'gpt-cache-policy-v1';
+  const externalPolicyBody = {
+    keyword: '고유가 지원금 2차',
+    agentAssist: {
+      enabled: true,
+      provider: 'openai',
+      includeAiInference: true,
+      forceExternalInference: true,
+      externalAi: true,
+      maxAgentRows: 8,
+      externalAiKeyOwner: 'user-local',
+      externalAiProviders: ['openai'],
+      externalAiProvider: 'anthropic',
+      externalAiKeyFingerprint: 'client-forged-fingerprint',
+    },
+  };
+  const submitExternalPolicyJob = async (body: unknown, credentials?: Record<string, string>) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (credentials) {
+      headers['X-Leword-User-Api-Credentials'] = Buffer.from(JSON.stringify(credentials)).toString('base64');
+    }
+    const response = await fetch(`${externalPolicyBaseUrl}/v1/keywords/analyze`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    const payload: any = await response.json();
+    assert('external policy job accepted', response.status === 202 && payload.ok === true, JSON.stringify(payload));
+    const completed = payload.job?.state === 'completed'
+      ? payload.job
+      : await waitForCompletedJob(externalPolicyBaseUrl, payload.job.id);
+    return { payload, completed };
+  };
+
+  try {
+    const blockedServerKeyJob = await submitExternalPolicyJob(externalPolicyBody);
+    const blockedParams = externalPolicyExecutions[0];
+    assert('server-owned AI key is blocked by default and forged ownership markers are replaced',
+      blockedParams?.agentAssist?.externalAiKeyOwner === 'none'
+        && Array.isArray(blockedParams?.agentAssist?.externalAiProviders)
+        && blockedParams.agentAssist.externalAiProviders.length === 0
+        && blockedParams.agentAssist.includeAiInference === false
+        && blockedParams.agentAssist.forceExternalInference === false
+        && blockedParams.agentAssist.externalAi === false
+        && blockedParams.agentAssist.externalAiProvider === 'openai'
+        && !JSON.stringify(blockedServerKeyJob.payload).includes('client-forged-fingerprint'));
+
+    const firstUserKeyJob = await submitExternalPolicyJob(externalPolicyBody, { openaiApiKey: 'sk-user-policy-one' });
+    const firstUserParams = externalPolicyExecutions[1];
+    assert('decoded user AI credentials inject trusted executor ownership metadata without public secret leakage',
+      firstUserParams?.agentAssist?.externalAiKeyOwner === 'user-local'
+        && firstUserParams.agentAssist.externalAiProvider === 'openai'
+        && firstUserParams.agentAssist.externalAiProviders?.length === 1
+        && firstUserParams.agentAssist.externalAiProviders[0] === 'openai'
+        && firstUserParams.agentAssist.includeAiInference === true
+        && firstUserParams.agentAssist.forceExternalInference === true
+        && firstUserParams.agentAssist.externalAi === true
+        && !JSON.stringify(firstUserKeyJob.payload).includes('sk-user-policy-one'));
+
+    await submitExternalPolicyJob({
+      ...externalPolicyBody,
+      agentAssist: { ...externalPolicyBody.agentAssist, maxAgentRows: 4 },
+    }, { openaiApiKey: 'sk-user-policy-one' });
+    const samePolicyCached = await submitExternalPolicyJob({
+      ...externalPolicyBody,
+      agentAssist: { ...externalPolicyBody.agentAssist, maxAgentRows: 4 },
+    }, { openaiApiKey: 'sk-user-policy-one' });
+    assert('identical effective external inference policy is cacheable',
+      samePolicyCached.completed.result.summary.fromCache === true
+        && externalPolicyExecutions.length === 3,
+      JSON.stringify({ executions: externalPolicyExecutions.length, job: samePolicyCached.completed }));
+
+    await submitExternalPolicyJob({
+      ...externalPolicyBody,
+      agentAssist: { ...externalPolicyBody.agentAssist, maxAgentRows: 4 },
+    }, { openaiApiKey: 'sk-user-policy-two' });
+    assert('cache key separates max rows and user key-owner fingerprint scopes',
+      externalPolicyExecutions.length === 4,
+      JSON.stringify(externalPolicyExecutions.map((params) => params?.agentAssist)));
+
+    process.env.LEWORD_AGENT_OPENAI_MODEL = 'gpt-cache-policy-v2';
+    await submitExternalPolicyJob({
+      ...externalPolicyBody,
+      agentAssist: { ...externalPolicyBody.agentAssist, maxAgentRows: 4 },
+    }, { openaiApiKey: 'sk-user-policy-two' });
+    assert('cache key separates external AI model policy changes',
+      externalPolicyExecutions.length === 5,
+      JSON.stringify(externalPolicyExecutions.map((params) => params?.agentAssist)));
+
+    const dualUserCredentials = {
+      anthropicApiKey: 'sk-ant-user-policy-dual',
+      openaiApiKey: 'sk-user-policy-dual',
+    };
+    await submitExternalPolicyJob({
+      ...externalPolicyBody,
+      agentAssist: { ...externalPolicyBody.agentAssist, maxAgentRows: 4, provider: 'openai' },
+    }, dualUserCredentials);
+    await submitExternalPolicyJob({
+      ...externalPolicyBody,
+      agentAssist: { ...externalPolicyBody.agentAssist, maxAgentRows: 4, provider: 'anthropic' },
+    }, dualUserCredentials);
+    assert('cache key separates the effective external AI provider with the same key-owner scope',
+      externalPolicyExecutions.length === 7,
+      JSON.stringify(externalPolicyExecutions.map((params) => params?.agentAssist)));
+
+    process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI = '1';
+    await submitExternalPolicyJob(externalPolicyBody);
+    const serverApprovedParams = externalPolicyExecutions[7];
+    assert('server-owned external AI key requires and records the explicit server approval scope',
+      serverApprovedParams?.agentAssist?.externalAiKeyOwner === 'server-approved'
+        && serverApprovedParams.agentAssist.externalAiProvider === 'openai'
+        && serverApprovedParams.agentAssist.externalAiProviders?.includes('openai')
+        && serverApprovedParams.agentAssist.includeAiInference === true
+        && externalPolicyExecutions.length === 8,
+      JSON.stringify(serverApprovedParams?.agentAssist));
+  } finally {
+    if (previousServerOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = previousServerOpenAiKey;
+    if (previousServerAiOptIn === undefined) delete process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI;
+    else process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI = previousServerAiOptIn;
+    if (previousExternalAiOpenAiModel === undefined) delete process.env.LEWORD_AGENT_OPENAI_MODEL;
+    else process.env.LEWORD_AGENT_OPENAI_MODEL = previousExternalAiOpenAiModel;
+    await close(externalPolicyServer);
+  }
+
+  console.log('[mobile-api-server-external-ai-policy-cache.test] passed');
+
   const proTrafficPrewarmCache = new InMemoryMobileResultCache();
   const proTrafficMeasuredAt = new Date().toISOString();
   proTrafficPrewarmCache.set('pro-traffic-hunter', {
@@ -1721,6 +1929,9 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey(
+        index === 0 ? 'server prewarmed pro traffic keyword' : `server prewarmed pro traffic keyword ${index + 1}`,
+      ),
       documentCountMeasuredAt: proTrafficMeasuredAt,
       isDocumentCountEstimated: false,
     })),
@@ -1814,6 +2025,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey(`shallow prewarmed pro traffic keyword ${index + 1}`),
       documentCountMeasuredAt: proTrafficMeasuredAt,
       isDocumentCountEstimated: false,
     })),
@@ -1856,6 +2068,7 @@ const result: MobileKeywordResult = {
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey(`fresh expanded pro traffic keyword ${index + 1}`),
           documentCountMeasuredAt: proTrafficMeasuredAt,
           isDocumentCountEstimated: false,
         })),
@@ -1970,6 +2183,7 @@ const result: MobileKeywordResult = {
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey('fresh measured pro traffic keyword'),
           documentCountMeasuredAt: proTrafficMeasuredAt,
           isDocumentCountEstimated: false,
         }],
@@ -2046,6 +2260,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98'),
       documentCountMeasuredAt: '2026-06-15T02:50:00.000Z',
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T02:50:00.000Z',
@@ -2073,6 +2288,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('\uC0BC\uC131\uCC3D\uBB38\uD615\uC5D0\uC5B4\uCEE8 \uAC00\uACA9\uBE44\uAD50'),
       documentCountMeasuredAt: '2026-06-15T02:50:00.000Z',
       isDocumentCountEstimated: false,
       updatedAt: '2026-06-15T02:50:00.000Z',
@@ -2127,6 +2343,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('\uBD80\uC0B0\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC\uC0AC\uC6A9\uCC98'),
       documentCountMeasuredAt: intentSeparatedMeasuredAt,
       isDocumentCountEstimated: false,
     }],
@@ -2172,6 +2389,7 @@ const result: MobileKeywordResult = {
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey('\uB124\uC774\uBC84\uBA54\uC774\uD2B8\uC790\uB3D9\uC644\uC131'),
           documentCountMeasuredAt: intentSeparatedMeasuredAt,
           isDocumentCountEstimated: false,
         }],
@@ -2228,9 +2446,522 @@ const result: MobileKeywordResult = {
 
   console.log('[mobile-api-server-feature-intent-separation.test] passed');
 
+  const mergeBaseAtMs = Date.now() - 60_000;
+  const mergeStamp = (offsetMs: number): string => new Date(mergeBaseAtMs + offsetMs).toISOString();
+  const mergeCurrentMetric = (
+    overrides: Partial<MobileKeywordMetric> = {},
+  ): MobileKeywordMetric => ({
+    keyword: 'latest dimension keyword',
+    grade: 'S',
+    score: 71,
+    pcSearchVolume: 100,
+    mobileSearchVolume: 900,
+    totalSearchVolume: 1000,
+    documentCount: 200,
+    goldenRatio: 5,
+    cpc: 10,
+    category: 'current-category',
+    source: 'pc-keyword-analysis-exact',
+    intent: 'requested-keyword',
+    evidence: ['current-evidence'],
+    isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: mergeStamp(20_000),
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey('latest dimension keyword'),
+    documentCountMeasuredAt: mergeStamp(20_000),
+    isDocumentCountEstimated: false,
+    agentInsight: {
+      searchVolumeReason: 'current measurement reason',
+      sourceSummary: 'current measurement source',
+    },
+    ...overrides,
+  });
+  const mergeBoardMetric = (
+    overrides: Partial<MobileKeywordMetric> = {},
+  ): MobileKeywordMetric => ({
+    keyword: 'latest dimension keyword',
+    grade: 'SS',
+    score: 88,
+    pcSearchVolume: 200,
+    mobileSearchVolume: 1800,
+    totalSearchVolume: 2000,
+    documentCount: 100,
+    goldenRatio: 20,
+    cpc: 80,
+    category: 'board-category',
+    source: 'live-golden-board-exact-match',
+    intent: 'board-intent',
+    evidence: ['board-evidence'],
+    isMeasured: true,
+    searchVolumeSource: 'searchad',
+    searchVolumeConfidence: 'high',
+    searchVolumeBindingVersion: 'keyword-keyed-v2',
+    searchVolumeMeasuredAt: mergeStamp(10_000),
+    isSearchVolumeEstimated: false,
+    documentCountSource: 'naver-api',
+    documentCountConfidence: 'high',
+    documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey('latest dimension keyword'),
+    documentCountMeasuredAt: mergeStamp(10_000),
+    isDocumentCountEstimated: false,
+    ...overrides,
+  });
+
+  const currentNewerMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric(),
+    mergeBoardMetric(),
+  );
+  assert('latest-per-dimension keeps newer current search and documents on the same broad query',
+    currentNewerMerge.totalSearchVolume === 1000
+      && currentNewerMerge.documentCount === 200
+      && currentNewerMerge.goldenRatio === 5
+      && currentNewerMerge.cpc === 10
+      && currentNewerMerge.source === 'pc-keyword-analysis-exact'
+      && currentNewerMerge.grade === 'S'
+      && currentNewerMerge.intent === 'requested-keyword'
+      && !currentNewerMerge.evidence.some((entry) => entry.startsWith('analysis-board-')),
+    JSON.stringify(currentNewerMerge));
+
+  const boardNewerMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+  );
+  assert('latest-per-dimension uses strictly newer trusted board search and documents',
+    boardNewerMerge.totalSearchVolume === 2000
+      && boardNewerMerge.documentCount === 100
+      && boardNewerMerge.goldenRatio === 20
+      && boardNewerMerge.cpc === 80
+      && boardNewerMerge.searchVolumeMeasuredAt === mergeStamp(20_000)
+      && boardNewerMerge.documentCountMeasuredAt === mergeStamp(20_000)
+      && boardNewerMerge.evidence.includes('analysis-board-metric-sync')
+      && boardNewerMerge.evidence.includes('current-evidence')
+      && boardNewerMerge.evidence.includes('board-evidence')
+      && boardNewerMerge.source === 'pc-keyword-analysis-exact'
+      && boardNewerMerge.grade === 'SS'
+      && boardNewerMerge.score === 88
+      && boardNewerMerge.intent === 'requested-keyword',
+    JSON.stringify(boardNewerMerge));
+
+  const crossDimensionMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+  );
+  assert('latest-per-dimension independently keeps current search and selects newer board documents',
+    crossDimensionMerge.totalSearchVolume === 1000
+      && crossDimensionMerge.documentCount === 100
+      && crossDimensionMerge.goldenRatio === 10
+      && crossDimensionMerge.cpc === 10
+      && crossDimensionMerge.grade === 'SSS'
+      && crossDimensionMerge.score === null
+      && crossDimensionMerge.evidence.includes('analysis-board-document-count-sync')
+      && !crossDimensionMerge.evidence.includes('analysis-board-search-volume-sync')
+      && !crossDimensionMerge.evidence.includes('analysis-board-metric-sync'),
+    JSON.stringify(crossDimensionMerge));
+
+  const reverseCrossDimensionMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+  );
+  assert('latest-per-dimension independently selects newer board search and keeps current documents',
+    reverseCrossDimensionMerge.totalSearchVolume === 2000
+      && reverseCrossDimensionMerge.documentCount === 200
+      && reverseCrossDimensionMerge.goldenRatio === 10
+      && reverseCrossDimensionMerge.cpc === 80
+      && reverseCrossDimensionMerge.grade === 'SSS'
+      && reverseCrossDimensionMerge.score === null
+      && reverseCrossDimensionMerge.evidence.includes('analysis-board-search-volume-sync')
+      && !reverseCrossDimensionMerge.evidence.includes('analysis-board-document-count-sync')
+      && !reverseCrossDimensionMerge.evidence.includes('analysis-board-metric-sync'),
+    JSON.stringify(reverseCrossDimensionMerge));
+
+  const untrustedCurrentSearchMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      isSearchVolumeEstimated: true,
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(10_000),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+  );
+  assert('trusted board search replaces a timestamp-newer but estimated current search dimension',
+    untrustedCurrentSearchMerge.totalSearchVolume === 2000
+      && untrustedCurrentSearchMerge.documentCount === 200
+      && untrustedCurrentSearchMerge.goldenRatio === 10
+      && untrustedCurrentSearchMerge.cpc === 80
+      && untrustedCurrentSearchMerge.evidence.includes('analysis-board-search-volume-sync'),
+    JSON.stringify(untrustedCurrentSearchMerge));
+
+  const untrustedCurrentDocumentsMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+      isDocumentCountEstimated: true,
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(10_000),
+    }),
+  );
+  assert('trusted board documents replace timestamp-newer but estimated current documents',
+    untrustedCurrentDocumentsMerge.totalSearchVolume === 1000
+      && untrustedCurrentDocumentsMerge.documentCount === 100
+      && untrustedCurrentDocumentsMerge.goldenRatio === 10
+      && untrustedCurrentDocumentsMerge.cpc === 10
+      && untrustedCurrentDocumentsMerge.evidence.includes('analysis-board-document-count-sync'),
+    JSON.stringify(untrustedCurrentDocumentsMerge));
+
+  const canonicalBoardDocumentsOnlyMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+      searchVolumeSource: 'cache',
+      isMeasured: false,
+    }),
+  );
+  assert('untrusted board search cannot block a newer independent canonical board document measurement',
+    canonicalBoardDocumentsOnlyMerge.totalSearchVolume === 1000
+      && canonicalBoardDocumentsOnlyMerge.documentCount === 100
+      && canonicalBoardDocumentsOnlyMerge.goldenRatio === 10
+      && canonicalBoardDocumentsOnlyMerge.cpc === 10
+      && canonicalBoardDocumentsOnlyMerge.evidence.includes('analysis-board-document-count-sync')
+      && !canonicalBoardDocumentsOnlyMerge.evidence.includes('analysis-board-search-volume-sync'),
+    JSON.stringify(canonicalBoardDocumentsOnlyMerge));
+
+  const canonicalBoardSearchOnlyMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+      documentCountSource: 'cache',
+      isMeasured: false,
+    }),
+  );
+  assert('untrusted board documents cannot block a newer independent canonical board search measurement',
+    canonicalBoardSearchOnlyMerge.totalSearchVolume === 2000
+      && canonicalBoardSearchOnlyMerge.documentCount === 200
+      && canonicalBoardSearchOnlyMerge.goldenRatio === 10
+      && canonicalBoardSearchOnlyMerge.cpc === 80
+      && canonicalBoardSearchOnlyMerge.evidence.includes('analysis-board-search-volume-sync')
+      && !canonicalBoardSearchOnlyMerge.evidence.includes('analysis-board-document-count-sync'),
+    JSON.stringify(canonicalBoardSearchOnlyMerge));
+
+  const estimatedBoardMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+      isSearchVolumeEstimated: true,
+      isDocumentCountEstimated: true,
+    }),
+  );
+  assert('newer estimated board dimensions never override trusted current measurements',
+    estimatedBoardMerge.totalSearchVolume === 1000
+      && estimatedBoardMerge.documentCount === 200
+      && estimatedBoardMerge.cpc === 10
+      && !estimatedBoardMerge.evidence.some((entry) => entry.startsWith('analysis-board-')),
+    JSON.stringify(estimatedBoardMerge));
+
+  const untrustedBoardMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+      searchVolumeSource: 'cache',
+      documentCountSource: 'cache',
+    }),
+  );
+  assert('newer untrusted board dimensions never override trusted current measurements',
+    untrustedBoardMerge.totalSearchVolume === 1000
+      && untrustedBoardMerge.documentCount === 200
+      && untrustedBoardMerge.cpc === 10
+      && !untrustedBoardMerge.evidence.some((entry) => entry.startsWith('analysis-board-')),
+    JSON.stringify(untrustedBoardMerge));
+
+  const invalidTimestampBoardMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: 'invalid',
+      documentCountMeasuredAt: undefined,
+    }),
+  );
+  assert('missing or invalid board measurement timestamps never override current measurements',
+    invalidTimestampBoardMerge.totalSearchVolume === 1000
+      && invalidTimestampBoardMerge.documentCount === 200
+      && invalidTimestampBoardMerge.cpc === 10,
+    JSON.stringify(invalidTimestampBoardMerge));
+
+  const futureCurrentSearchMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      pcSearchVolume: 9_000,
+      mobileSearchVolume: 91_000,
+      totalSearchVolume: 100_000,
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: new Date(Date.now() - 30_000).toISOString(),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+  );
+  assert('a future-dated current SearchAd measurement cannot outrank a current canonical board measurement',
+    futureCurrentSearchMerge.totalSearchVolume === 2000
+      && futureCurrentSearchMerge.searchVolumeMeasuredAt !== undefined
+      && Date.parse(futureCurrentSearchMerge.searchVolumeMeasuredAt) <= Date.now() + 5 * 60_000
+      && futureCurrentSearchMerge.goldenRatio === 10
+      && futureCurrentSearchMerge.score === null,
+    JSON.stringify(futureCurrentSearchMerge));
+
+  const staleCurrentSearchMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+      pcSearchVolume: 9_000,
+      mobileSearchVolume: 91_000,
+      totalSearchVolume: 100_000,
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: new Date(Date.now() - 30_000).toISOString(),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+  );
+  assert('a SearchAd measurement older than seven days cannot outrank a current canonical board measurement',
+    staleCurrentSearchMerge.totalSearchVolume === 2000
+      && staleCurrentSearchMerge.goldenRatio === 10
+      && staleCurrentSearchMerge.score === null,
+    JSON.stringify(staleCurrentSearchMerge));
+
+  const futureBoardSearchMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric(),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+  );
+  assert('a future-dated board SearchAd measurement never overrides a current analysis measurement',
+    futureBoardSearchMerge.totalSearchVolume === 1000
+      && futureBoardSearchMerge.searchVolumeMeasuredAt === mergeStamp(20_000),
+    JSON.stringify(futureBoardSearchMerge));
+
+  const differentBroadQueryMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      keyword: '제주 렌터카',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('제주 렌터카'),
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      keyword: '제주렌터카',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('제주렌터카'),
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+  );
+  assert('spacing aliases may share newer SearchAd volume but never share broad document counts',
+    differentBroadQueryMerge.totalSearchVolume === 2000
+      && differentBroadQueryMerge.documentCount === 200
+      && differentBroadQueryMerge.goldenRatio === 10
+      && differentBroadQueryMerge.cpc === 80
+      && differentBroadQueryMerge.evidence.includes('analysis-board-search-volume-sync')
+      && !differentBroadQueryMerge.evidence.includes('analysis-board-document-count-sync')
+      && !differentBroadQueryMerge.evidence.includes('analysis-board-metric-sync'),
+    JSON.stringify(differentBroadQueryMerge));
+
+  const unrelatedKeywordMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      keyword: 'current unrelated keyword',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('current unrelated keyword'),
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      keyword: 'different board keyword',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('different board keyword'),
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+  );
+  assert('exported latest-per-dimension merge never crosses unrelated keyword identities',
+    unrelatedKeywordMerge.totalSearchVolume === 1000
+      && unrelatedKeywordMerge.documentCount === 200
+      && unrelatedKeywordMerge.goldenRatio === 5
+      && unrelatedKeywordMerge.cpc === 10
+      && !unrelatedKeywordMerge.evidence.some((entry) => entry.startsWith('analysis-board-')),
+    JSON.stringify(unrelatedKeywordMerge));
+
+  const untrustedSearchRatioMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeSource: 'cache',
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(0),
+    }),
+    mergeBoardMetric({
+      searchVolumeSource: 'cache',
+      searchVolumeMeasuredAt: mergeStamp(10_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+  );
+  assert('document sync fails closed instead of recomputing ratio from untrusted numeric search volume',
+    untrustedSearchRatioMerge.pcSearchVolume === null
+      && untrustedSearchRatioMerge.mobileSearchVolume === null
+      && untrustedSearchRatioMerge.totalSearchVolume === null
+      && untrustedSearchRatioMerge.cpc === null
+      && untrustedSearchRatioMerge.documentCount === 100
+      && untrustedSearchRatioMerge.goldenRatio === null
+      && untrustedSearchRatioMerge.isMeasured === false
+      && untrustedSearchRatioMerge.searchVolumeSource === 'none'
+      && untrustedSearchRatioMerge.searchVolumeConfidence === undefined
+      && untrustedSearchRatioMerge.searchVolumeBindingVersion === undefined
+      && untrustedSearchRatioMerge.searchVolumeMeasuredAt === undefined
+      && untrustedSearchRatioMerge.evidence.includes('analysis-untrusted-search-volume-cleared')
+      && untrustedSearchRatioMerge.evidence.includes('analysis-board-document-count-sync')
+      && String(untrustedSearchRatioMerge.agentInsight?.searchVolumeReason || '')
+        .includes('월간 검색량 - (PC - / 모바일 -), 문서수 100, 비율 -')
+      && String(untrustedSearchRatioMerge.agentInsight?.sourceSummary || '')
+        .includes('검색량 신뢰 증명 없음'),
+    JSON.stringify(untrustedSearchRatioMerge));
+
+  const untrustedDocumentRatioMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(0),
+      documentCountSource: 'cache',
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountSource: 'cache',
+      documentCountMeasuredAt: mergeStamp(10_000),
+    }),
+  );
+  assert('search sync fails closed instead of recomputing ratio from untrusted numeric documents',
+    untrustedDocumentRatioMerge.totalSearchVolume === 2000
+      && untrustedDocumentRatioMerge.documentCount === null
+      && untrustedDocumentRatioMerge.goldenRatio === null
+      && untrustedDocumentRatioMerge.isMeasured === false
+      && untrustedDocumentRatioMerge.documentCountSource === 'none'
+      && untrustedDocumentRatioMerge.documentCountConfidence === undefined
+      && untrustedDocumentRatioMerge.documentCountQueryMode === undefined
+      && untrustedDocumentRatioMerge.documentCountMeasuredAt === undefined
+      && untrustedDocumentRatioMerge.evidence.includes('analysis-untrusted-document-count-cleared')
+      && untrustedDocumentRatioMerge.evidence.includes('analysis-board-search-volume-sync')
+      && String(untrustedDocumentRatioMerge.agentInsight?.searchVolumeReason || '')
+        .includes('월간 검색량 2,000 (PC 200 / 모바일 1,800), 문서수 -, 비율 -')
+      && String(untrustedDocumentRatioMerge.agentInsight?.sourceSummary || '')
+        .includes('문서수 신뢰 증명 없음'),
+    JSON.stringify(untrustedDocumentRatioMerge));
+
+  const untrustedCurrentSearchWithoutBoardSync = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeSource: 'cache',
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+    mergeBoardMetric({
+      searchVolumeSource: 'cache',
+      searchVolumeMeasuredAt: mergeStamp(10_000),
+      documentCountMeasuredAt: mergeStamp(10_000),
+    }),
+  );
+  assert('an untrusted current search dimension is cleared when no canonical board replacement exists',
+    untrustedCurrentSearchWithoutBoardSync.pcSearchVolume === null
+      && untrustedCurrentSearchWithoutBoardSync.mobileSearchVolume === null
+      && untrustedCurrentSearchWithoutBoardSync.totalSearchVolume === null
+      && untrustedCurrentSearchWithoutBoardSync.cpc === null
+      && untrustedCurrentSearchWithoutBoardSync.documentCount === 200
+      && untrustedCurrentSearchWithoutBoardSync.documentCountSource === 'naver-api'
+      && untrustedCurrentSearchWithoutBoardSync.searchVolumeSource === 'none'
+      && untrustedCurrentSearchWithoutBoardSync.goldenRatio === null
+      && untrustedCurrentSearchWithoutBoardSync.isMeasured === false
+      && untrustedCurrentSearchWithoutBoardSync.evidence.includes('analysis-untrusted-search-volume-cleared'),
+    JSON.stringify(untrustedCurrentSearchWithoutBoardSync));
+
+  const untrustedCurrentDocumentsWithoutBoardSync = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(20_000),
+      documentCountSource: 'cache',
+      documentCountMeasuredAt: mergeStamp(20_000),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(10_000),
+      documentCountSource: 'cache',
+      documentCountMeasuredAt: mergeStamp(10_000),
+    }),
+  );
+  assert('an untrusted current document dimension is cleared when no canonical board replacement exists',
+    untrustedCurrentDocumentsWithoutBoardSync.totalSearchVolume === 1000
+      && untrustedCurrentDocumentsWithoutBoardSync.searchVolumeSource === 'searchad'
+      && untrustedCurrentDocumentsWithoutBoardSync.documentCount === null
+      && untrustedCurrentDocumentsWithoutBoardSync.documentCountSource === 'none'
+      && untrustedCurrentDocumentsWithoutBoardSync.documentCountConfidence === undefined
+      && untrustedCurrentDocumentsWithoutBoardSync.documentCountQueryMode === undefined
+      && untrustedCurrentDocumentsWithoutBoardSync.documentCountMeasuredAt === undefined
+      && untrustedCurrentDocumentsWithoutBoardSync.goldenRatio === null
+      && untrustedCurrentDocumentsWithoutBoardSync.isMeasured === false
+      && untrustedCurrentDocumentsWithoutBoardSync.evidence.includes('analysis-untrusted-document-count-cleared'),
+    JSON.stringify(untrustedCurrentDocumentsWithoutBoardSync));
+
+  const tieMerge = mergeCanonicalMetricWithLiveBoard(
+    mergeCurrentMetric({
+      searchVolumeMeasuredAt: mergeStamp(10_000),
+      documentCountMeasuredAt: mergeStamp(10_000),
+    }),
+    mergeBoardMetric({
+      searchVolumeMeasuredAt: mergeStamp(10_000),
+      documentCountMeasuredAt: mergeStamp(10_000),
+    }),
+  );
+  assert('measurement timestamp ties deterministically keep current dimensions',
+    tieMerge.totalSearchVolume === 1000
+      && tieMerge.documentCount === 200
+      && tieMerge.cpc === 10
+      && !tieMerge.evidence.some((entry) => entry.startsWith('analysis-board-')),
+    JSON.stringify(tieMerge));
+
+  console.log('[mobile-api-server-latest-dimension-overlay.test] passed');
+
   const overlayInbox = new MobileNotificationInbox();
   const overlayBoardFile = path.join(os.tmpdir(), `leword-live-board-overlay-${Date.now()}.json`);
   const overlayMeasuredAt = new Date().toISOString();
+  const overlayEarlierMeasuredAt = new Date(Date.parse(overlayMeasuredAt) - 60_000).toISOString();
   const overlayAnalysisMeasuredAt = new Date(Date.parse(overlayMeasuredAt) + 60_000).toISOString();
   const overlayRadarNow = new Date(Date.parse(overlayMeasuredAt) + 5 * 60_000);
   const staleOverlaySearchMeasuredAt = new Date(Date.parse(overlayMeasuredAt) - 8 * 24 * 60 * 60_000).toISOString();
@@ -2258,6 +2989,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('한강유람선예약'),
       documentCountMeasuredAt: overlayMeasuredAt,
       isDocumentCountEstimated: false,
       updatedAt: overlayMeasuredAt,
@@ -2353,7 +3085,8 @@ const result: MobileKeywordResult = {
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
-          documentCountMeasuredAt: overlayMeasuredAt,
+          documentCountQueryKey: naverBlogDocumentCountQueryKey('한강유람선예약'),
+          documentCountMeasuredAt: overlayEarlierMeasuredAt,
           isDocumentCountEstimated: false,
           agentInsight: {
             searchVolumeReason: '기존 분석 검색량 6,400 기준입니다.',
@@ -2389,13 +3122,17 @@ const result: MobileKeywordResult = {
       const canonicalAnalyzeJson: any = await canonicalAnalyze.json();
       const canonicalCompleted = await waitForCompletedJob(canonicalOverlayBaseUrl, canonicalAnalyzeJson.job.id);
       const canonicalKeyword = canonicalCompleted.result.keywords[0];
-      assert('trusted broad live board metric is canonical for exact keyword analysis',
+      assert('strictly newer trusted board dimensions replace only measurements on exact keyword analysis',
         canonicalKeyword.pcSearchVolume === 960
           && canonicalKeyword.mobileSearchVolume === 9120
           && canonicalKeyword.totalSearchVolume === 10080
           && canonicalKeyword.documentCount === 900
           && canonicalKeyword.goldenRatio === 11.2
-          && canonicalKeyword.source === 'live-golden-board-exact-match',
+          && canonicalKeyword.source === 'pc-keyword-analysis-exact'
+          && canonicalKeyword.grade === overlayRadar.findMeasuredBoardItems(canonicalKeyword.keyword)[0]?.grade
+          && canonicalKeyword.score === overlayRadar.findMeasuredBoardItems(canonicalKeyword.keyword)[0]?.score
+          && canonicalKeyword.intent === 'requested-keyword'
+          && canonicalKeyword.evidence.includes('analysis-board-metric-sync'),
         JSON.stringify(canonicalKeyword));
       assert('canonical live board overlay preserves measurement provenance',
         canonicalKeyword.searchVolumeBindingVersion === 'keyword-keyed-v2'
@@ -2414,10 +3151,15 @@ const result: MobileKeywordResult = {
       os.tmpdir(),
       `leword-live-board-overlay-query-key-${Date.now()}.json`,
     );
-    writeJson(spacedQueryBoardFile, {
+    const exactAliasDocumentMeasuredAt = new Date(
+      Date.parse(overlayAnalysisMeasuredAt) + 60_000,
+    ).toISOString();
+    const spacedQueryKeyword = '\uC81C\uC8FC \uB80C\uD130\uCE74 \uC644\uC804\uC790\uCC28 \uAC00\uACA9\uBE44\uAD50';
+    const unspacedQueryKeyword = '\uC81C\uC8FC\uB80C\uD130\uCE74\uC644\uC804\uC790\uCC28\uAC00\uACA9\uBE44\uAD50';
+    const spacedQueryBoardPayload = {
       boardUpdatedAt: overlayMeasuredAt,
       items: [{
-        keyword: '제주렌터카',
+        keyword: unspacedQueryKeyword,
         grade: 'SS',
         score: 80,
         pcSearchVolume: 960,
@@ -2428,7 +3170,7 @@ const result: MobileKeywordResult = {
         cpc: 80,
         category: 'travel_domestic',
         source: 'live-golden-board-fixture',
-        intent: '예약',
+        intent: 'compact SearchAd alias',
         evidence: ['fixture unspaced broad query'],
         searchVolumeSource: 'searchad',
         searchVolumeConfidence: 'high',
@@ -2438,13 +3180,43 @@ const result: MobileKeywordResult = {
         documentCountSource: 'naver-api',
         documentCountConfidence: 'high',
         documentCountQueryMode: 'broad',
+        documentCountQueryKey: naverBlogDocumentCountQueryKey(unspacedQueryKeyword),
         documentCountMeasuredAt: overlayMeasuredAt,
         isDocumentCountEstimated: false,
         updatedAt: overlayMeasuredAt,
         discoveredAt: overlayMeasuredAt,
         isMeasured: true,
+      }, {
+        keyword: spacedQueryKeyword,
+        grade: 'S',
+        score: 65,
+        pcSearchVolume: 500,
+        mobileSearchVolume: 4500,
+        totalSearchVolume: 5000,
+        documentCount: 333,
+        goldenRatio: 15.02,
+        cpc: 40,
+        category: 'travel_domestic',
+        source: 'live-golden-board-fixture',
+        intent: 'exact broad query',
+        evidence: ['fixture exact spaced broad query'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        searchVolumeBindingVersion: 'keyword-keyed-v2',
+        searchVolumeMeasuredAt: overlayEarlierMeasuredAt,
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        documentCountQueryMode: 'broad',
+        documentCountQueryKey: naverBlogDocumentCountQueryKey(spacedQueryKeyword),
+        documentCountMeasuredAt: exactAliasDocumentMeasuredAt,
+        isDocumentCountEstimated: false,
+        updatedAt: exactAliasDocumentMeasuredAt,
+        discoveredAt: overlayEarlierMeasuredAt,
+        isMeasured: true,
       }],
-    });
+    };
+    writeJson(spacedQueryBoardFile, spacedQueryBoardPayload);
     const spacedQueryRadar = new MobileLiveGoldenRadar({
       notificationInbox: overlayInbox,
       runOnStart: false,
@@ -2453,6 +3225,25 @@ const result: MobileKeywordResult = {
       boardTarget: 5,
       now: () => new Date(overlayRadarNow),
     });
+    // Exercise the production merge path, not only persisted-file loading:
+    // compact SearchAd aliases must retain two exact broad-query rows.
+    (spacedQueryRadar as any).board.clear();
+    (spacedQueryRadar as any).mergeBoard(spacedQueryBoardPayload.items, { pruneAndSave: false });
+    const mergedSpacingAliases = spacedQueryRadar.findMeasuredBoardItems(spacedQueryKeyword);
+    const mergedSpacingByKeyword = new Map(mergedSpacingAliases.map((item) => [item.keyword, item]));
+    assert('radar merge preserves both spacing aliases before API overlay',
+      mergedSpacingAliases.length === 2
+        && new Set(mergedSpacingAliases.map((item) => item.keyword)).size === 2
+        && mergedSpacingAliases.every((item) => (
+          item.pcSearchVolume === 960
+          && item.mobileSearchVolume === 9120
+          && item.searchVolumeMeasuredAt === overlayMeasuredAt
+        ))
+        && mergedSpacingByKeyword.get(unspacedQueryKeyword)?.documentCount === 222
+        && mergedSpacingByKeyword.get(unspacedQueryKeyword)?.documentCountMeasuredAt === overlayMeasuredAt
+        && mergedSpacingByKeyword.get(spacedQueryKeyword)?.documentCount === 333
+        && mergedSpacingByKeyword.get(spacedQueryKeyword)?.documentCountMeasuredAt === exactAliasDocumentMeasuredAt,
+      JSON.stringify(mergedSpacingAliases));
     const spacedQueryServer = createLewordApiServer({
       entitlementVerifier: null,
       resultCache: new InMemoryMobileResultCache(),
@@ -2463,7 +3254,7 @@ const result: MobileKeywordResult = {
       executor: async () => ({
         ...result,
         keywords: [{
-          keyword: '제주 렌터카',
+          keyword: spacedQueryKeyword,
           grade: 'S',
           pcSearchVolume: 1800,
           mobileSearchVolume: 4600,
@@ -2479,12 +3270,13 @@ const result: MobileKeywordResult = {
           searchVolumeSource: 'searchad',
           searchVolumeConfidence: 'high',
           searchVolumeBindingVersion: 'keyword-keyed-v2',
-          searchVolumeMeasuredAt: overlayAnalysisMeasuredAt,
+          searchVolumeMeasuredAt: overlayEarlierMeasuredAt,
           isSearchVolumeEstimated: false,
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
-          documentCountMeasuredAt: overlayAnalysisMeasuredAt,
+          documentCountQueryKey: naverBlogDocumentCountQueryKey(spacedQueryKeyword),
+          documentCountMeasuredAt: overlayEarlierMeasuredAt,
           isDocumentCountEstimated: false,
         }],
         summary: {
@@ -2503,26 +3295,143 @@ const result: MobileKeywordResult = {
       const response = await fetch(`${spacedQueryBaseUrl}/v1/keywords/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword: '제주 렌터카', maxRelatedCount: 10 }),
+        body: JSON.stringify({ keyword: spacedQueryKeyword, maxRelatedCount: 10 }),
       });
       const responseJson: any = await response.json();
       const completed = await waitForCompletedJob(spacedQueryBaseUrl, responseJson.job.id);
       const keyword = completed.result.keywords[0];
       assert('spaced and unspaced Blog queries share SearchAd aliases without sharing documents',
-        keyword.keyword === '제주 렌터카'
+        keyword.keyword === spacedQueryKeyword
           && keyword.pcSearchVolume === 960
           && keyword.mobileSearchVolume === 9120
           && keyword.totalSearchVolume === 10080
-          && keyword.documentCount === 111
-          && keyword.documentCountMeasuredAt === overlayAnalysisMeasuredAt
+          && keyword.documentCount === 333
+          && keyword.documentCountMeasuredAt === exactAliasDocumentMeasuredAt
           && keyword.documentCountSource === 'naver-api'
           && keyword.source === 'pc-keyword-analysis-exact'
-          && keyword.evidence.includes('analysis-board-search-volume-sync')
-          && !keyword.evidence.includes('analysis-board-metric-sync'),
+          && keyword.goldenRatio === 30.27
+          && keyword.score === mergedSpacingByKeyword.get(spacedQueryKeyword)?.score
+          && keyword.grade === 'SSS'
+          && keyword.evidence.includes('searchad-compact-alias-shared')
+          && keyword.evidence.includes('analysis-board-metric-sync')
+          && !keyword.evidence.includes('analysis-board-search-volume-sync')
+          && !keyword.evidence.includes('analysis-board-document-count-sync'),
         JSON.stringify(keyword));
     } finally {
       await close(spacedQueryServer);
       fs.rmSync(spacedQueryBoardFile, { force: true });
+    }
+
+    const aliasOnlyBoardFile = path.join(
+      os.tmpdir(),
+      `leword-live-board-overlay-alias-only-${Date.now()}.json`,
+    );
+    writeJson(aliasOnlyBoardFile, {
+      boardUpdatedAt: overlayMeasuredAt,
+      items: [{
+        keyword: '\uC81C\uC8FC\uB80C\uD130\uCE74',
+        grade: 'SS',
+        score: 80,
+        pcSearchVolume: 960,
+        mobileSearchVolume: 9120,
+        totalSearchVolume: 10080,
+        documentCount: 222,
+        goldenRatio: 45.41,
+        cpc: 80,
+        category: 'travel_domestic',
+        source: 'live-golden-board-fixture',
+        intent: 'alias-only',
+        evidence: ['fixture alias-only broad query'],
+        searchVolumeSource: 'searchad',
+        searchVolumeConfidence: 'high',
+        searchVolumeBindingVersion: 'keyword-keyed-v2',
+        searchVolumeMeasuredAt: overlayMeasuredAt,
+        isSearchVolumeEstimated: false,
+        documentCountSource: 'naver-api',
+        documentCountConfidence: 'high',
+        documentCountQueryMode: 'broad',
+        documentCountQueryKey: naverBlogDocumentCountQueryKey('\uC81C\uC8FC\uB80C\uD130\uCE74'),
+        documentCountMeasuredAt: overlayMeasuredAt,
+        isDocumentCountEstimated: false,
+        updatedAt: overlayMeasuredAt,
+        discoveredAt: overlayMeasuredAt,
+        isMeasured: true,
+      }],
+    });
+    const aliasOnlyRadar = new MobileLiveGoldenRadar({
+      notificationInbox: overlayInbox,
+      runOnStart: false,
+      getEnvConfig: () => ({ naverClientId: '', naverClientSecret: '' }),
+      boardFile: aliasOnlyBoardFile,
+      boardTarget: 5,
+      now: () => new Date(overlayRadarNow),
+    });
+    const aliasOnlyServer = createLewordApiServer({
+      entitlementVerifier: null,
+      resultCache: new InMemoryMobileResultCache(),
+      liveGoldenRadar: aliasOnlyRadar,
+      notificationInbox: overlayInbox,
+      prewarmService: null,
+      prewarmScheduler: null,
+      executor: async () => ({
+        ...result,
+        keywords: [{
+          keyword: '\uC81C\uC8FC\uB80C\uD130\uCE74',
+          grade: 'SS',
+          score: 75,
+          pcSearchVolume: 900,
+          mobileSearchVolume: 8100,
+          totalSearchVolume: 9000,
+          documentCount: 777,
+          goldenRatio: 11.58,
+          cpc: 70,
+          category: 'travel_domestic',
+          source: 'pc-keyword-analysis-exact',
+          intent: 'requested-keyword',
+          evidence: ['pc-naver-openapi-document-count'],
+          isMeasured: true,
+          searchVolumeSource: 'searchad',
+          searchVolumeConfidence: 'high',
+          searchVolumeBindingVersion: 'keyword-keyed-v2',
+          searchVolumeMeasuredAt: overlayEarlierMeasuredAt,
+          isSearchVolumeEstimated: false,
+          documentCountSource: 'naver-api',
+          documentCountConfidence: 'high',
+          documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey('\uC81C\uC8FC\uB80C\uD130\uCE74'),
+          documentCountMeasuredAt: overlayAnalysisMeasuredAt,
+          isDocumentCountEstimated: false,
+        }],
+        summary: {
+          total: 1,
+          sss: 0,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const aliasOnlyPort = await listen(aliasOnlyServer);
+    const aliasOnlyBaseUrl = `http://127.0.0.1:${aliasOnlyPort}`;
+    try {
+      const aliasOnlyResponse = await fetch(
+        `${aliasOnlyBaseUrl}/v1/keywords/analyze`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyword: '\uC81C\uC8FC \uB80C\uD130\uCE74', maxRelatedCount: 10 }),
+        },
+      );
+      const aliasOnlyJson: any = await aliasOnlyResponse.json();
+      const aliasOnlyCompleted = await waitForCompletedJob(aliasOnlyBaseUrl, aliasOnlyJson.job.id);
+      assert('compact alias fallback never rebinds a different broad-query document count to the requested seed',
+        aliasOnlyCompleted.result.keywords.length === 0
+          && aliasOnlyCompleted.result.summary.measured === 0,
+        JSON.stringify(aliasOnlyCompleted.result));
+    } finally {
+      await close(aliasOnlyServer);
+      fs.rmSync(aliasOnlyBoardFile, { force: true });
     }
 
     const searchOnlyPayload = JSON.parse(fs.readFileSync(overlayBoardFile, 'utf8'));
@@ -2612,15 +3521,10 @@ const result: MobileKeywordResult = {
       });
       const staleAnalyzeJson: any = await staleAnalyze.json();
       const staleCompleted = await waitForCompletedJob(staleOverlayBaseUrl, staleAnalyzeJson.job.id);
-      const staleKeyword = staleCompleted.result.keywords[0];
-      assert('stale SearchAd binding never overrides a fresh exact keyword analysis',
-        staleKeyword.pcSearchVolume === 1800
-          && staleKeyword.mobileSearchVolume === 4600
-          && staleKeyword.totalSearchVolume === 6400
-          && staleKeyword.documentCount === 350
-          && staleKeyword.source === 'pc-keyword-analysis-exact'
-          && !staleKeyword.evidence.includes('analysis-board-metric-sync'),
-        JSON.stringify(staleKeyword));
+      assert('keyword analysis rejects a SearchAd dimension older than seven days when no current source exists',
+        staleCompleted.result.keywords.length === 0
+          && staleCompleted.result.summary.measured === 0,
+        JSON.stringify(staleCompleted.result));
     } finally {
       await close(staleOverlayServer);
     }
@@ -2655,6 +3559,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('한강유람선예약'),
       documentCountMeasuredAt: overlayMeasuredAt,
       isDocumentCountEstimated: false,
       updatedAt: overlayMeasuredAt,
@@ -2701,6 +3606,7 @@ const result: MobileKeywordResult = {
         documentCountSource: 'naver-api',
         documentCountConfidence: 'high',
         documentCountQueryMode: 'broad',
+        documentCountQueryKey: naverBlogDocumentCountQueryKey('한강유람선예약'),
         documentCountMeasuredAt: overlayMeasuredAt,
         isDocumentCountEstimated: false,
       }],
@@ -2765,6 +3671,7 @@ const result: MobileKeywordResult = {
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey('한강 유람선 예약 디너'),
           documentCountMeasuredAt: overlayMeasuredAt,
           isDocumentCountEstimated: false,
         }],
@@ -2883,6 +3790,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('실측키워드'),
       documentCountMeasuredAt: strictMeasuredAt,
       isDocumentCountEstimated: false,
     }, {
@@ -3303,6 +4211,7 @@ const result: MobileKeywordResult = {
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey(`청년미래적금 ${batch}차 신청 대상`),
           documentCountMeasuredAt: new Date().toISOString(),
           isDocumentCountEstimated: false,
         } as any,
@@ -3330,6 +4239,7 @@ const result: MobileKeywordResult = {
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey(`제주 렌터카 ${batch}차 가격비교`),
           documentCountMeasuredAt: new Date().toISOString(),
           isDocumentCountEstimated: false,
         } as any,
@@ -3357,6 +4267,7 @@ const result: MobileKeywordResult = {
           documentCountSource: 'naver-api',
           documentCountConfidence: 'high',
           documentCountQueryMode: 'broad',
+          documentCountQueryKey: naverBlogDocumentCountQueryKey(`도수치료 ${batch}차 보험 적용 비용`),
           documentCountMeasuredAt: new Date().toISOString(),
           isDocumentCountEstimated: false,
         } as any,
@@ -3517,6 +4428,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey(`${policy.label} 사람 검수 ${index + 1}`),
       documentCountMeasuredAt: reviewBoardUpdatedAt,
       isDocumentCountEstimated: false,
       discoveredAt: reviewBoardUpdatedAt,
@@ -3550,6 +4462,10 @@ const result: MobileKeywordResult = {
     entitlementVerifier: null,
     liveGoldenRadar: {
       snapshot: () => reviewSnapshot,
+      snapshotForInternalReview: () => ({
+        ...reviewSnapshot,
+        reviewCandidates: reviewSnapshot.verifiedSupply,
+      }),
       start: () => reviewSnapshot,
       stop: () => reviewSnapshot,
     } as any,
@@ -3664,6 +4580,7 @@ const result: MobileKeywordResult = {
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey('청년미래적금 200차 신청 대상'),
       documentCountMeasuredAt: new Date().toISOString(),
       isDocumentCountEstimated: false,
       isMeasured: true,

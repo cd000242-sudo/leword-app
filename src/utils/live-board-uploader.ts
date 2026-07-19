@@ -13,6 +13,7 @@
 
 import axios from 'axios';
 import { CANONICAL_DOCUMENT_COUNT_QUERY_MODE } from './measure-dc';
+import { naverBlogDocumentCountQueryKey } from './naver-blog-api';
 import { searchAdKeywordBindingMetadata } from './searchad-result-alignment';
 
 const UPLOAD_TIMEOUT_MS = 15_000;
@@ -82,6 +83,7 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
     const documentCountSource = String(row['documentCountSource'] || '').trim();
     const documentCountConfidence = String(row['documentCountConfidence'] || '').trim();
     const documentCountQueryMode = String(row['documentCountQueryMode'] || '').trim();
+    const documentCountQueryKey = String(row['documentCountQueryKey'] || '').trim();
     const documentCountMeasuredAt = String(row['documentCountMeasuredAt'] || '').trim();
     const bindingMetadata = searchAdKeywordBindingMetadata(row);
     if (
@@ -98,6 +100,7 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
         || documentCountSource !== 'naver-api'
         || documentCountConfidence !== 'high'
         || documentCountQueryMode !== CANONICAL_DOCUMENT_COUNT_QUERY_MODE
+        || documentCountQueryKey !== naverBlogDocumentCountQueryKey(keyword)
         || !Number.isFinite(Date.parse(documentCountMeasuredAt))
         || row['isDocumentCountEstimated'] !== false
     ) {
@@ -124,6 +127,7 @@ export function uploadRowFromDiscoveryResult(result: unknown): Record<string, un
         documentCountSource,
         documentCountConfidence,
         documentCountQueryMode,
+        documentCountQueryKey,
         documentCountMeasuredAt,
         isDocumentCountEstimated: row['isDocumentCountEstimated'],
         isMeasured: true,

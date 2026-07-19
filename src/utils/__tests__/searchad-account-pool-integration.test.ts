@@ -1,13 +1,13 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
 }
 
-const quotaFile = path.join(process.cwd(), 'tmp', 'searchad-account-pool-integration-quota.json');
-fs.mkdirSync(path.dirname(quotaFile), { recursive: true });
-fs.rmSync(quotaFile, { force: true });
+const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'searchad-account-pool-integration-'));
+const quotaFile = path.join(fixtureRoot, 'searchad-quota-state.json');
 
 process.env['LEWORD_SEARCHAD_QUOTA_STATE_FILE'] = quotaFile;
 process.env['LEWORD_SEARCHAD_SOFT_CEILING'] = '1';
@@ -109,7 +109,7 @@ run()
     delete process.env['LEWORD_SEARCHAD_QUOTA_STATE_FILE'];
     delete process.env['LEWORD_SEARCHAD_SOFT_CEILING'];
     delete process.env['LEWORD_SEARCHAD_ACCOUNTS_B64'];
-    fs.rmSync(quotaFile, { force: true });
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
   });
 
 export {};

@@ -15,6 +15,7 @@ import {
   getNaverBlogDocumentCount,
   isNaverBlogOpenApiQuotaBlocked,
   NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS,
+  naverBlogDocumentCountQueryKey,
   normalizeNaverBlogBroadQuery,
   peekCachedNaverBlogDocumentCountMeasurement,
 } from './naver-blog-api';
@@ -42,6 +43,7 @@ export interface NaverKeywordSearchVolumeSeparateResult {
   documentCountSource?: 'naver-api' | 'scrape' | 'fallback' | 'cache' | 'unknown' | 'none';
   documentCountConfidence?: 'high' | 'medium' | 'low';
   documentCountQueryMode?: 'broad' | 'exact-phrase';
+  documentCountQueryKey?: string;
   documentCountMeasuredAt?: string;
   isDocumentCountEstimated?: boolean;
 }
@@ -50,10 +52,12 @@ export interface NaverKeywordSearchVolumeSeparateResult {
 export function hasFreshCanonicalNaverDocumentCount(
   result: Pick<
     NaverKeywordSearchVolumeSeparateResult,
+    | 'keyword'
     | 'documentCount'
     | 'documentCountSource'
     | 'documentCountConfidence'
     | 'documentCountQueryMode'
+    | 'documentCountQueryKey'
     | 'documentCountMeasuredAt'
     | 'isDocumentCountEstimated'
   >,
@@ -66,6 +70,7 @@ export function hasFreshCanonicalNaverDocumentCount(
     && result.documentCountSource === 'naver-api'
     && result.documentCountConfidence === 'high'
     && result.documentCountQueryMode === 'broad'
+    && result.documentCountQueryKey === naverBlogDocumentCountQueryKey(result.keyword)
     && result.isDocumentCountEstimated === false
     && Number.isFinite(measuredAtMs)
     && measuredAtMs <= nowMs + 5 * 60 * 1000
@@ -858,6 +863,11 @@ export async function getNaverKeywordSearchVolumeSeparate(
               const measuredAtMs = Number(r.measuredAtMs);
               if (Number.isFinite(measuredAtMs) && measuredAtMs > 0) {
                 results[idx].searchVolumeMeasuredAt = new Date(measuredAtMs).toISOString();
+                if (pcVol !== null && mobileVol !== null && r.svEstimated === false) {
+                  results[idx].searchVolumeSource = 'searchad';
+                  results[idx].searchVolumeConfidence = 'high';
+                  results[idx].isSearchVolumeEstimated = false;
+                }
               }
             }
           }
@@ -924,6 +934,7 @@ export async function getNaverKeywordSearchVolumeSeparate(
               results[idx].documentCountSource = 'naver-api';
               results[idx].documentCountConfidence = 'high';
               results[idx].documentCountQueryMode = 'broad';
+              results[idx].documentCountQueryKey = naverBlogDocumentCountQueryKey(originalKeyword);
               results[idx].documentCountMeasuredAt = measurement.measuredAt;
               results[idx].isDocumentCountEstimated = false;
             }

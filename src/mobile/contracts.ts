@@ -135,10 +135,16 @@ export interface MobileKeywordMetric {
   searchVolumeBindingVersion?: 'keyword-keyed-v2';
   searchVolumeMeasuredAt?: string;
   isSearchVolumeEstimated?: boolean;
+  /** Naver SearchAd returned a bounded `<10` range, not an exact PC zero. */
+  pcSearchVolumeLt10?: boolean;
+  /** Naver SearchAd returned a bounded `<10` range, not an exact mobile zero. */
+  mobileSearchVolumeLt10?: boolean;
   documentCountSource?: MobileDocumentCountSource;
   documentCountConfidence?: MobileMeasurementConfidence;
   /** Query shape used for the current documentCount measurement. */
   documentCountQueryMode?: 'broad' | 'exact-phrase';
+  /** Normalized exact broad-query identity that produced documentCount. */
+  documentCountQueryKey?: string;
   /** Timestamp of the OpenAPI/scrape observation that produced documentCount. */
   documentCountMeasuredAt?: string;
   isDocumentCountEstimated?: boolean;
@@ -1042,6 +1048,9 @@ export interface MobileAgentAssistContext {
   includeAiInference?: boolean;
   forceExternalInference?: boolean;
   externalAi?: boolean;
+  externalAiKeyOwner?: 'user-local' | 'server-approved';
+  externalAiProvider?: 'anthropic' | 'openai';
+  externalAiProviders?: Array<'anthropic' | 'openai'>;
   maxAgentRows?: number;
   mindmapAssist?: boolean;
   keywordResearchAssist?: boolean;
@@ -1165,6 +1174,9 @@ export interface MobileKeywordResult {
     agentInsightExternalProvider?: string;
     agentInsightExternalCount?: number;
     agentInsightExternalError?: string;
+    agentInsightExternalAttemptedProviders?: string[];
+    agentInsightExternalCallCount?: number;
+    agentInsightExternalKeyOwner?: string;
     agentAssist?: {
       enabled: boolean;
       product: MobileKeywordProduct;

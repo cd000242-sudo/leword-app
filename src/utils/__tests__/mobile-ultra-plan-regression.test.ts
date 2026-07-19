@@ -768,17 +768,16 @@ assert('api README documents container deployment',
     && /mobile:api-runtime-gate/.test(apiReadme)
     && /mobile:api-smoke/.test(apiReadme));
 assert('api production compose deploys CI-published GHCR image',
-  /\$\{LEWORD_MOBILE_API_IMAGE/.test(apiProductionCompose)
-    && /ghcr\.io/.test(apiProductionCompose)
-    && /leword-mobile-api/.test(apiProductionCompose)
+  (apiProductionCompose.match(/image:\s*\$\{LEWORD_MOBILE_API_IMAGE:\?[^}]+\}/g) || []).length === 3
+    && !/leword-mobile-api:latest/.test(apiProductionCompose)
     && /env_file:/.test(apiProductionCompose)
     && /\.env\.production/.test(apiProductionCompose)
     && /LEWORD_MOBILE_CACHE_FILE:\s*\/data\/mobile-cache\.json/.test(apiProductionCompose)
     && /leword-mobile-cache:\/data/.test(apiProductionCompose)
     && /leword-live-golden-worker:/.test(apiProductionCompose)
     && /worker:live-golden/.test(apiProductionCompose)
-    && /LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE:\s*\/data\/live-golden-worker-heartbeat\.json/.test(apiProductionCompose)
-    && /LEWORD_MOBILE_LIVE_GOLDEN_HUMAN_REVIEW_FILE:\s*\/data\/live-golden-human-review\.json/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE:\s*\/golden\/live-golden-worker-heartbeat\.json/.test(apiProductionCompose)
+    && /LEWORD_MOBILE_LIVE_GOLDEN_HUMAN_REVIEW_FILE:\s*\/review\/live-golden-human-review\.json/.test(apiProductionCompose)
     && /healthcheck:[\s\S]*live-golden-worker-heartbeat\.json/.test(apiProductionCompose)
     && !/healthcheck:\s*\n\s*disable:\s*true/.test(apiProductionCompose)
     && /health/.test(apiProductionCompose));
@@ -1169,17 +1168,21 @@ assert('mobile executor measures analysis and mindmap candidates with PC metrics
     && /pc-searchad-volume/.test(pcExecutor)
     && /pc-naver-blog-document-count/.test(pcExecutor)
     && /calculateMindmapMetricGrade/.test(pcExecutor));
-assert('mobile executor preserves existing measured document counts when OpenAPI returns null',
-  /documentMeasurement !== undefined && documentMeasurement !== null[\s\S]{0,100}\? documentMeasurement\.documentCount[\s\S]{0,100}: metric\.documentCount/.test(pcExecutor));
+assert('mobile executor retains only an unattempted fresh exact document binding and clears failed remeasurement',
+  /const canRetainExistingDocumentMeasurement = documentMeasurement === undefined[\s\S]{0,100}hasFreshCanonicalDocumentCountMeasurement\(metric\)/.test(pcExecutor)
+    && /const invalidatedDocumentTuple = !hasFreshBoundDocumentMeasurement[\s\S]{0,180}documentMeasurement !== undefined/.test(pcExecutor)
+    && /documentCount: resolvedDocumentCount/.test(pcExecutor)
+    && /document-count-query-binding-invalidated/.test(pcExecutor));
 assert('mobile executor marks SearchAd/OpenAPI measurement provenance and blocks estimated metrics',
   /searchAdKeywordBindingMetadata/.test(pcExecutor)
     && /const hasBoundVolumeSplit =/.test(pcExecutor)
-    && /searchVolumeSource = hasBoundVolumeSplit \? 'searchad'/.test(pcExecutor)
+    && /const hasBoundVolumeRange =/.test(pcExecutor)
+    && /searchVolumeSource = hasAcceptedVolumeMeasurement/.test(pcExecutor)
     && /searchVolumeBindingVersion: retainedBindingMetadata/.test(pcExecutor)
     && /searchVolumeMeasuredAt: retainedBindingMetadata/.test(pcExecutor)
-    && /documentCountSource = documentMeasurement/.test(pcExecutor)
-    && /documentCountConfidence = documentMeasurement/.test(pcExecutor)
-    && /isDocumentCountEstimated = documentMeasurement/.test(pcExecutor)
+    && /documentCountSource = hasFreshBoundDocumentMeasurement/.test(pcExecutor)
+    && /documentCountConfidence = hasFreshBoundDocumentMeasurement/.test(pcExecutor)
+    && /isDocumentCountEstimated = hasFreshBoundDocumentMeasurement/.test(pcExecutor)
     && /hasTrustedDocumentCountMeasurement/.test(pcExecutor)
     && /hasTrustedSearchVolumeMeasurement/.test(pcExecutor));
 assert('mobile executor uses the shared broad Naver Blog OpenAPI total without adding cafe documents',
@@ -1189,10 +1192,10 @@ assert('mobile executor uses the shared broad Naver Blog OpenAPI total without a
     && /fetchNaverDocumentCountMap/.test(pcExecutor)
     && /pc-naver-openapi-document-count/.test(pcExecutor));
 assert('mobile executor replaces search volume only with an explicitly keyword-bound SearchAd split',
-  /const splitTotal = pcSearchVolume !== null \|\| mobileSearchVolume !== null/.test(pcExecutor)
+  /const splitTotal = hasBoundVolumeSplit/.test(pcExecutor)
     && /const totalSearchVolume = hasBoundVolumeSplit/.test(pcExecutor)
-    && /\? splitTotal[\s\S]{0,80}: metric\.totalSearchVolume/.test(pcExecutor)
-    && /retainedBindingMetadata = hasBoundVolumeSplit/.test(pcExecutor));
+    && /const totalSearchVolume = hasBoundVolumeSplit[\s\S]{0,240}\? splitTotal[\s\S]{0,240}: metric\.totalSearchVolume/.test(pcExecutor)
+    && /retainedBindingMetadata = hasAcceptedVolumeMeasurement/.test(pcExecutor));
 assert('mobile executor wires golden discovery to PC MDP engine', /MDPEngine/.test(pcExecutor) && /runGoldenDiscoveryWithPcMdp/.test(pcExecutor));
 assert('mobile bulk golden direct supplement keeps measured SS/S quality backfill',
   /isQualityGoldenDiscoveryResult/.test(pcExecutor)

@@ -39,6 +39,7 @@ export interface RealDemandVerifierOptions {
 
 const DEFAULT_RECHECK_MS = 14 * 24 * 60 * 60 * 1000;
 const DEFAULT_REQUEST_DELAY_MS = 350;
+const MAX_VERDICT_CLOCK_SKEW_MS = 5 * 60 * 1000;
 // 장애 안전장치: 한 번의 verify 에서 신규 판정이 이 개수 이상인데 전부 fake 면(정상 상황에선
 // 드묾 — 차단 페이지가 200 으로 빈 제안을 줄 때의 패턴) 판정을 폐기하고 unknown 으로 되돌린다.
 const SUSPICIOUS_ALL_FAKE_MIN = 8;
@@ -69,8 +70,14 @@ export class RealDemandVerifier {
     this.loadCache();
     const verdict = this.verdicts.get(compactText(keyword));
     if (!verdict) return null;
-    const age = this.now().getTime() - Date.parse(verdict.checkedAt);
-    if (!Number.isFinite(age) || age > this.recheckMs) return null;
+    const nowMs = this.now().getTime();
+    const checkedAtMs = Date.parse(verdict.checkedAt);
+    if (
+      !Number.isFinite(checkedAtMs)
+      || checkedAtMs > nowMs + MAX_VERDICT_CLOCK_SKEW_MS
+    ) return null;
+    const age = nowMs - checkedAtMs;
+    if (age > this.recheckMs) return null;
     return verdict;
   }
 

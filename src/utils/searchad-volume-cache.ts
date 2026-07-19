@@ -27,6 +27,8 @@ export interface SearchAdVolumeEntry {
   pc: number | null;
   mo: number | null;
   total: number | null;
+  /** Added after legacy `<10` values had been collapsed to numeric zero. */
+  exactDeviceCounts?: boolean;
   comp?: string;
   cpc?: number | null;
   at: number; // measured epoch ms
@@ -38,6 +40,8 @@ let writeTimer: NodeJS.Timeout | null = null;
 let diskFingerprint = '';
 
 function isValidDiskEntry(entry: SearchAdVolumeEntry, now: number): boolean {
+  const hasAmbiguousLegacyZero = (entry.pc === 0 || entry.mo === 0)
+    && entry.exactDeviceCounts !== true;
   return Number.isFinite(entry.at)
     && now - entry.at <= TTL_MS
     && entry.at <= now + MAX_CLOCK_SKEW_MS
@@ -50,7 +54,8 @@ function isValidDiskEntry(entry: SearchAdVolumeEntry, now: number): boolean {
     && typeof entry.total === 'number'
     && Number.isFinite(entry.total)
     && entry.total > 0
-    && entry.pc + entry.mo === entry.total;
+    && entry.pc + entry.mo === entry.total
+    && !hasAmbiguousLegacyZero;
 }
 
 function cacheFile(): string {
@@ -133,7 +138,15 @@ export function setSearchAdVolumeCached(
   ) return;
   const c = load();
   syncFromDisk();
-  c.set(norm(keyword), { pc: v.pc, mo: v.mo, total: v.total, comp: v.comp, cpc: v.cpc ?? null, at: Date.now() });
+  c.set(norm(keyword), {
+    pc: v.pc,
+    mo: v.mo,
+    total: v.total,
+    exactDeviceCounts: true,
+    comp: v.comp,
+    cpc: v.cpc ?? null,
+    at: Date.now(),
+  });
   scheduleWrite();
 }
 

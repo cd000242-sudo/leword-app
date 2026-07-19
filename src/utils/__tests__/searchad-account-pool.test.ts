@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import {
   buildSearchAdAccountPool,
@@ -87,8 +88,8 @@ const legacyPrimary = buildSearchAdAccountPool({
 assert('legacy single-account callers remain compatible when customer ID is inferred later',
   legacyPrimary.length === 1 && legacyPrimary[0]?.accessLicense === 'legacy-test-access');
 
-const secretFile = path.join(process.cwd(), 'tmp', 'searchad-account-pool-secret-test.json');
-fs.mkdirSync(path.dirname(secretFile), { recursive: true });
+const secretFixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'searchad-account-pool-secret-'));
+const secretFile = path.join(secretFixtureRoot, 'searchad-accounts.json');
 fs.writeFileSync(secretFile, JSON.stringify(extras.slice(0, 2)), 'utf8');
 process.env['LEWORD_SEARCHAD_ACCOUNTS_FILE'] = secretFile;
 delete process.env['LEWORD_SEARCHAD_ACCOUNTS_B64'];
@@ -97,6 +98,7 @@ assert('production account pool can be loaded from a secret file without environ
   filePool.length === 3 && filePool[2]?.customerId === '3000003');
 delete process.env['LEWORD_SEARCHAD_ACCOUNTS_FILE'];
 fs.rmSync(secretFile, { force: true });
+fs.rmSync(secretFixtureRoot, { recursive: true, force: true });
 
 console.log('[searchad-account-pool.test] passed');
 

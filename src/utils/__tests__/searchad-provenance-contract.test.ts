@@ -1,11 +1,12 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
 }
 
-const tmpDir = path.join(process.cwd(), 'tmp');
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-searchad-provenance-'));
 const cacheFile = path.join(tmpDir, 'searchad-provenance-contract-cache.json');
 const quotaFile = path.join(tmpDir, 'searchad-provenance-contract-quota.json');
 fs.mkdirSync(tmpDir, { recursive: true });
@@ -16,6 +17,7 @@ fs.writeFileSync(cacheFile, JSON.stringify({
   entries: {
     cachedalpha: { pc: 12, mo: 34, total: 46, at: Date.now() - 1_000 },
     relatedtwo: { pc: 900, mo: 900, total: 1800, at: Date.now() - 1_000 },
+    legacyambiguouszero: { pc: 0, mo: 20, total: 20, at: Date.now() - 1_000 },
   },
 }), 'utf8');
 
@@ -40,6 +42,8 @@ let fetchCalls = 0;
           { relKeyword: 'relatedtwo', monthlyPcQcCnt: 9, monthlyMobileQcCnt: 90 },
           { relKeyword: 'seedterm', monthlyPcQcCnt: 1, monthlyMobileQcCnt: 1 },
           { relKeyword: 'relatedone', monthlyPcQcCnt: 7, monthlyMobileQcCnt: 70 },
+          { relKeyword: 'relatedrange', monthlyPcQcCnt: '< 10', monthlyMobileQcCnt: 400 },
+          { relKeyword: 'relatedzero', monthlyPcQcCnt: 0, monthlyMobileQcCnt: 300 },
           { relKeyword: 'malformedvolume', monthlyPcQcCnt: 'n/a', monthlyMobileQcCnt: 20 },
           { relKeyword: 'negativevolume', monthlyPcQcCnt: '-1', monthlyMobileQcCnt: 11 },
           { relKeyword: 'invalidless', monthlyPcQcCnt: '<bad', monthlyMobileQcCnt: 20 },
@@ -62,6 +66,20 @@ let fetchCalls = 0;
           monthlyAveCpc: 303,
           compIdx: 'LOW',
         },
+        {
+          relKeyword: 'rangeddelta',
+          monthlyPcQcCnt: '< 10',
+          monthlyMobileQcCnt: 20,
+          monthlyAveCpc: 30,
+          compIdx: 'LOW',
+        },
+        {
+          relKeyword: 'exactzero',
+          monthlyPcQcCnt: 0,
+          monthlyMobileQcCnt: 20,
+          monthlyAveCpc: 30,
+          compIdx: 'LOW',
+        },
       ],
     }),
   } as any;
@@ -72,8 +90,7 @@ function cleanup(): void {
   delete process.env['LEWORD_SEARCHAD_VOLUME_CACHE_FILE'];
   delete process.env['LEWORD_SEARCHAD_QUOTA_STATE_FILE'];
   delete process.env['LEWORD_SEARCHAD_SOFT_CEILING'];
-  fs.rmSync(cacheFile, { force: true });
-  fs.rmSync(quotaFile, { force: true });
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
 async function run(): Promise<void> {
@@ -94,7 +111,7 @@ async function run(): Promise<void> {
 
   const rows = await getNaverSearchAdKeywordVolume(
     config,
-    ['cachedalpha', 'missingbeta', 'measuredgamma'],
+    ['cachedalpha', 'missingbeta', 'measuredgamma', 'rangeddelta', 'exactzero'],
   );
   setSearchAdVolumeCached('partial-cache-entry', {
     pc: null,
@@ -119,7 +136,7 @@ async function run(): Promise<void> {
   const missing = rows[1];
   assert(
     'mixed cache/API results retain one row per requested keyword',
-    rows.map((row: any) => row.keyword).join(',') === 'cachedalpha,missingbeta,measuredgamma'
+    rows.map((row: any) => row.keyword).join(',') === 'cachedalpha,missingbeta,measuredgamma,rangeddelta,exactzero'
       && rows[0]?.totalSearchVolume === 46
       && rows[2]?.totalSearchVolume === 303,
     JSON.stringify(rows),
@@ -134,25 +151,72 @@ async function run(): Promise<void> {
     JSON.stringify(missing),
   );
   assert(
-    'only exact cached/API split rows carry current binding provenance',
+    'exact cached/API split rows carry current keyword-binding provenance',
     rows[0]?.searchVolumeBindingVersion === 'keyword-keyed-v2'
       && rows[2]?.searchVolumeBindingVersion === 'keyword-keyed-v2'
       && Number.isFinite(rows[0]?.measuredAtMs)
       && Number.isFinite(rows[2]?.measuredAtMs),
     JSON.stringify(rows),
   );
+  assert(
+    'legacy cache zero without an exact-device marker is not trusted after <10 migration',
+    getSearchAdVolumeCached('legacy ambiguous zero') === null,
+    JSON.stringify(getSearchAdVolumeCached('legacy ambiguous zero')),
+  );
+  const ranged = rows[3];
+  const exactZero = rows[4];
+  assert(
+    'SearchAd <10 remains a keyword-bound per-device range instead of exact numeric zero',
+    ranged?.pcSearchVolume === null
+      && ranged?.mobileSearchVolume === 20
+      && ranged?.totalSearchVolume === null
+      && ranged?.pcSearchVolumeLt10 === true
+      && ranged?.mobileSearchVolumeLt10 === false
+      && ranged?.svEstimated === true
+      && ranged?.searchVolumeBindingVersion === 'keyword-keyed-v2'
+      && Number.isFinite(ranged?.measuredAtMs),
+    JSON.stringify(ranged),
+  );
+  assert(
+    'an actual numeric SearchAd zero remains exact and distinct from <10',
+    exactZero?.pcSearchVolume === 0
+      && exactZero?.mobileSearchVolume === 20
+      && exactZero?.totalSearchVolume === 20
+      && exactZero?.pcSearchVolumeLt10 === false
+      && exactZero?.mobileSearchVolumeLt10 === false
+      && exactZero?.svEstimated === false
+      && exactZero?.searchVolumeBindingVersion === 'keyword-keyed-v2',
+    JSON.stringify(exactZero),
+  );
+  assert(
+    'partial <10 SearchAd ranges never poison the exact-volume cache',
+    getSearchAdVolumeCached('rangeddelta') === null
+      && getSearchAdVolumeCached('exactzero')?.pc === 0
+      && getSearchAdVolumeCached('exactzero')?.total === 20,
+    JSON.stringify({
+      ranged: getSearchAdVolumeCached('rangeddelta'),
+      exactZero: getSearchAdVolumeCached('exactzero'),
+    }),
+  );
 
   const suggestions = await getNaverSearchAdKeywordSuggestions(config, 'seedterm', 10);
   assert(
     'suggestions carry per-relKeyword measurement provenance and preserve their own values',
-    suggestions.length === 2
-      && suggestions.every((row: any) => (
+    suggestions.length === 4
+      && suggestions.filter((row: any) => row.svEstimated !== true).every((row: any) => (
         row.searchVolumeBindingVersion === 'keyword-keyed-v2'
         && Number.isFinite(row.measuredAtMs)
         && row.totalSearchVolume === row.pcSearchVolume + row.mobileSearchVolume
       ))
       && suggestions.find((row: any) => row.keyword === 'relatedtwo')?.totalSearchVolume === 99
-      && suggestions.find((row: any) => row.keyword === 'relatedone')?.totalSearchVolume === 77,
+      && suggestions.find((row: any) => row.keyword === 'relatedone')?.totalSearchVolume === 77
+      && suggestions.find((row: any) => row.keyword === 'relatedrange')?.pcSearchVolume === null
+      && suggestions.find((row: any) => row.keyword === 'relatedrange')?.pcSearchVolumeLt10 === true
+      && suggestions.find((row: any) => row.keyword === 'relatedrange')?.totalSearchVolume === null
+      && suggestions.find((row: any) => row.keyword === 'relatedrange')?.svEstimated === true
+      && suggestions.find((row: any) => row.keyword === 'relatedzero')?.pcSearchVolume === 0
+      && suggestions.find((row: any) => row.keyword === 'relatedzero')?.pcSearchVolumeLt10 === false
+      && suggestions.find((row: any) => row.keyword === 'relatedzero')?.totalSearchVolume === 300,
     JSON.stringify(suggestions),
   );
   const callsAfterSuggestions = fetchCalls;
@@ -168,6 +232,9 @@ async function run(): Promise<void> {
       && suggestionCacheRows[1]?.pc === 7
       && suggestionCacheRows[1]?.mo === 70
       && suggestionCacheRows[1]?.total === 77
+      && getSearchAdVolumeCached('relatedrange') === null
+      && getSearchAdVolumeCached('relatedzero')?.pc === 0
+      && getSearchAdVolumeCached('relatedzero')?.total === 300
       && getSearchAdVolumeCached('seedterm') === null,
     JSON.stringify(suggestionCacheRows),
   );

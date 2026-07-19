@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import {
   PERSISTENT_DOCUMENT_COUNT_TTL_MS,
@@ -168,12 +169,7 @@ assert('secondary scrape is labeled and timestamped but remains noncanonical',
     && selectedScrape.measuredAt === measuredAt,
   JSON.stringify(selectedScrape));
 
-const isolatedAppData = path.join(
-  process.cwd(),
-  'tmp',
-  `persistent-document-query-key-${process.pid}-${Date.now()}`,
-);
-fs.mkdirSync(isolatedAppData, { recursive: true });
+const isolatedAppData = fs.mkdtempSync(path.join(os.tmpdir(), 'persistent-document-query-key-'));
 process.env['APPDATA'] = isolatedAppData;
 const runtimeMeasuredAt = new Date().toISOString();
 const canonicalWrite = (searchVolume: number, documentCount: number) => ({

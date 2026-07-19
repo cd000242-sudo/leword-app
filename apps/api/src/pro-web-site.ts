@@ -1454,6 +1454,24 @@ export function renderLewordProWeb(): string {
     .settings-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
     .settings-message { min-height: 18px; margin-top: 10px; color: var(--muted); font-size: 12px; }
     .settings-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+    .live-golden-review-panel { border-color: rgba(245,158,11,.5); background: linear-gradient(180deg, #FFFFFF, #FFFBEB); }
+    .live-golden-review-warning { margin-top: 10px; border: 1px solid rgba(239,68,68,.34); border-radius: 8px; background: #FEF2F2; color: #991B1B; padding: 10px 12px; font-size: 12px; line-height: 1.55; }
+    .live-golden-review-status { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .live-golden-review-status > div { border: 1px solid var(--line); border-radius: 8px; background: #FFFFFF; padding: 10px; }
+    .live-golden-review-status strong { display: block; color: var(--text); font-size: 13px; }
+    .live-golden-review-status span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.4; word-break: break-word; }
+    .live-golden-review-rows { display: grid; gap: 10px; margin-top: 12px; }
+    .live-golden-review-row { border: 1px solid var(--line); border-radius: 8px; background: #FFFFFF; padding: 12px; }
+    .live-golden-review-row-head { display: grid; gap: 4px; margin-bottom: 10px; }
+    .live-golden-review-row-head strong { color: var(--text); font-size: 15px; word-break: keep-all; }
+    .live-golden-review-row-head span { color: var(--muted); font-size: 12px; word-break: break-word; }
+    .live-golden-review-questions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .live-golden-review-question { border: 1px solid var(--line-soft); border-radius: 8px; background: var(--surface-2); padding: 9px; }
+    .live-golden-review-question > strong { display: block; margin-bottom: 7px; color: var(--text-2); font-size: 12px; line-height: 1.4; }
+    .live-golden-review-options { display: flex; gap: 6px; flex-wrap: wrap; }
+    .live-golden-review-options label { display: inline-flex; align-items: center; gap: 5px; margin: 0; border: 1px solid var(--line); border-radius: 999px; background: #FFFFFF; padding: 5px 8px; color: var(--text-2); font-size: 12px; font-weight: 800; }
+    .live-golden-review-options input { margin: 0; }
+    .live-golden-review-result { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; background: #FFFFFF; padding: 10px 12px; color: var(--text-2); font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
     .admin-ai-panel { margin-top: 14px; border-color: rgba(14,165,233,.36); background: linear-gradient(180deg, #FFFFFF, var(--surface-2)); }
     .admin-ai-panel.locked { opacity: .74; }
     .admin-ai-panel.password-locked { border-color: rgba(255,159,67,.5); }
@@ -1792,7 +1810,20 @@ export function renderLewordProWeb(): string {
               </div>
               <div>
                 <label>AI 추론 보조</label>
-                <div class="muted" style="min-height:44px; line-height:1.5;">Claude 또는 OpenAI 키가 있으면 이미 실측된 상위 후보의 검색 이유·의도·연관어 설명을 외부 AI로 보강합니다. 키워드와 문서수를 새로 만들거나 고치지는 않습니다. Manus 키는 현재 Pro Web 추론 보조에서는 사용하지 않습니다.</div>
+                <div class="muted" style="min-height:44px; line-height:1.5;">외부 AI는 명시적으로 켠 경우에만 사용합니다. 구조화 결과행·검색량·문서수·등급은 바꾸지 않으며, AI가 만든 연관어·확장어는 미실측 제안입니다. Manus 키는 현재 Pro Web 추론 보조에서는 사용하지 않습니다.</div>
+              </div>
+              <label class="tool-checks" style="display:flex; grid-column:1 / -1; align-items:flex-start;">
+                <input type="checkbox" id="externalAiInferenceOptIn" />
+                <span><strong>외부 AI 설명 보강 사용 · 기본 꺼짐(0원)</strong>켜면 선택한 사용자 소유 Claude/OpenAI 키 provider 1곳만 job당 최대 1회 호출합니다. 상위 8행, 출력 상한 2048 tokens이며 실패 시 다른 provider를 자동 호출하지 않습니다. 실제 금액은 공급자 청구서에서 확인하세요.</span>
+              </label>
+              <div style="grid-column:1 / -1;">
+                <label for="externalAiInferenceProvider">외부 AI provider</label>
+                <select class="input" id="externalAiInferenceProvider">
+                  <option value="auto">저장된 사용자 키 1곳 자동 선택(Claude 우선)</option>
+                  <option value="anthropic">Claude · 사용자 Anthropic 키</option>
+                  <option value="openai">OpenAI · 사용자 OpenAI 키</option>
+                </select>
+                <div class="muted" style="margin-top:6px;">선택한 provider 키가 없으면 외부 호출 없이 규칙 보조만 적용합니다.</div>
               </div>
             </div>
             <div class="settings-actions">
@@ -1805,8 +1836,8 @@ export function renderLewordProWeb(): string {
             <div class="settings-checklist" id="apiSettingsChecklist"></div>
           </div>
           <div class="settings-panel admin-ai-panel locked" id="adminAiWorkerSettings">
-            <h3 style="margin:0 0 6px;">관리자 AI 작업자 설정</h3>
-            <p class="muted" style="margin:0;">Codex와 Claude Code는 관리자 전용 서버 작업자입니다. 관리자 계정으로 Pro 로그인한 뒤 사용할 작업자를 선택하세요.</p>
+            <h3 style="margin:0 0 6px;">관리자 AI 실행 준비 상태</h3>
+            <p class="muted" style="margin:0;">Codex와 Claude Code 선택은 서버 CLI 설치·로그인 readiness/status 확인 전용입니다. 여기서 선택해도 추론을 실행하지 않습니다.</p>
             <div class="admin-ai-lock-banner" id="adminAiLockBanner" role="button" tabindex="0">
               <strong>관리자 설정 잠김</strong>
               <span>관리자 로그인 후 비밀번호를 입력하면 Codex/Claude Code 작업자 설정이 열립니다.</span>
@@ -1815,31 +1846,27 @@ export function renderLewordProWeb(): string {
               <label class="admin-ai-provider" data-admin-ai-provider="codex">
                 <input type="radio" name="adminAiWorkerProvider" value="codex" />
                 <strong>Codex</strong>
-                <span>서버 작업자가 Codex 로그인 세션을 우선 사용해 키워드 리서치/추론 보강을 수행합니다.</span>
+                <span>Codex CLI 설치·로그인 상태만 확인합니다. 키워드 리서치나 추론을 실행하지 않습니다.</span>
               </label>
               <label class="admin-ai-provider" data-admin-ai-provider="claude-code">
                 <input type="radio" name="adminAiWorkerProvider" value="claude-code" />
                 <strong>Claude Code</strong>
-                <span>Claude Code 로그인 세션을 우선 사용합니다. Codex와 같은 관리자 작업자 레벨로 선택됩니다.</span>
+                <span>Claude Code CLI 설치·로그인 상태만 확인합니다. 선택값은 추론 provider로 사용되지 않습니다.</span>
               </label>
               <label class="admin-ai-provider" data-admin-ai-provider="api">
                 <input type="radio" name="adminAiWorkerProvider" value="api" />
                 <strong>API 키 보조</strong>
-                <span>CLI 로그인 작업자 대신 Claude/OpenAI API 키로 이미 실측된 결과의 설명만 보강합니다. Manus는 현재 이 경로에 연결되어 있지 않습니다.</span>
+                <span>사용자 Claude/OpenAI 키의 준비 상태를 확인합니다. 실제 호출은 위의 외부 AI opt-in을 켠 job에서만 실행합니다.</span>
               </label>
             </div>
             <div class="agent-window-options">
               <label>
-                <input type="checkbox" id="adminAiFiveHourWindow" />
-                <span><strong>5시간 사용 창 안에서 추론</strong>Codex/Claude Code 로그인 세션이 살아있는 동안만 마인드맵과 키워드 발굴 보강에 사용합니다.</span>
-              </label>
-              <label>
                 <input type="checkbox" id="adminAiMindmapAssist" />
-                <span><strong>마인드맵 추론 보강</strong>후속 의문형, 이슈 롱테일, 자동완성 확장을 작업자에게 우선 보강 요청합니다.</span>
+                <span><strong>마인드맵 규칙 보조 지침</strong>후속 의문형, 이슈 롱테일, 자동완성 확장을 서버 규칙 보조에 전달합니다.</span>
               </label>
               <label>
                 <input type="checkbox" id="adminAiKeywordResearchAssist" />
-                <span><strong>키워드 발굴 보강</strong>LIVE 황금키워드와 Pro 헌터의 억지 조합/광고 장악 후보를 걸러내는 보조 판단값을 전달합니다.</span>
+                <span><strong>키워드 발굴 규칙 보조 지침</strong>LIVE 황금키워드와 Pro 헌터의 억지 조합/광고 장악 후보를 걸러내는 보조 판단값을 전달합니다.</span>
               </label>
             </div>
             <div class="settings-grid">
@@ -1857,14 +1884,14 @@ export function renderLewordProWeb(): string {
               </div>
               <div>
                 <label>적용 범위</label>
-                <div class="muted" style="min-height:44px; line-height:1.5;">일반 사용자는 볼 수 없고, 관리자 세션에서 실행하는 job 요청에만 작업자 선택 메타가 전달됩니다.</div>
+                <div class="muted" style="min-height:44px; line-height:1.5;">관리자 세션의 readiness/status 메타에만 적용됩니다. Codex/Claude Code CLI에 추론 명령을 보내지 않습니다.</div>
               </div>
             </div>
             <div class="settings-actions">
-              <button class="btn primary" type="button" id="saveAdminAiWorkerSettings">관리자 작업자 저장</button>
-              <button class="btn blue" type="button" id="checkAdminAiWorkerSettings">관리자 연동상태 확인</button>
+              <button class="btn primary" type="button" id="saveAdminAiWorkerSettings">readiness 선택 저장</button>
+              <button class="btn blue" type="button" id="checkAdminAiWorkerSettings">CLI 상태 확인</button>
             </div>
-            <div class="settings-message" id="adminAiWorkerMessage">관리자 계정으로 로그인하면 Codex 또는 Claude Code 작업자를 선택할 수 있습니다.</div>
+            <div class="settings-message" id="adminAiWorkerMessage">관리자 로그인 후 Codex/Claude Code CLI readiness만 확인할 수 있으며 추론은 실행하지 않습니다.</div>
             <div class="settings-checklist" id="adminAiWorkerChecklist"></div>
           </div>
           <div class="settings-panel admin-ai-panel locked" id="adminSiteContentSettings">
@@ -1905,6 +1932,24 @@ export function renderLewordProWeb(): string {
               <button class="btn" type="button" id="addAdminProductDraft">신규 제품 추가</button>
             </div>
             <div class="settings-message" id="adminContentMessage">관리자 로그인 후 콘텐츠를 불러오세요.</div>
+          </div>
+          <div class="settings-panel live-golden-review-panel" id="liveGoldenReviewPanel" hidden>
+            <h3 style="margin:0 0 6px;">Phase 2 블라인드 전수 검수</h3>
+            <p class="muted" style="margin:0;">운영 서버가 동결한 블라인드 packet의 키워드·카테고리·의도만 검수합니다. 검색량, 문서수, 등급, 순위와 일반 LIVE 보드 데이터는 이 화면에 합치지 않습니다.</p>
+            <div class="live-golden-review-warning">검수 전용 관리자 재인증이 필요합니다. 모든 항목은 기본 미선택이며 일괄 통과 기능이 없습니다. 한 행이라도 실패 판정으로 제출되면 해당 코호트는 불변 종료되고 되돌릴 수 없습니다.</div>
+            <div class="live-golden-review-status">
+              <div><strong>Phase 2 상태</strong><span id="liveGoldenReviewPhase2State">검수 전용 재인증 대기</span></div>
+              <div><strong>동결 코호트</strong><span id="liveGoldenReviewCohortSummary">아직 불러오지 않음</span></div>
+              <div><strong>판정 진행률</strong><span id="liveGoldenReviewCompletion">0 / 0행 완료</span></div>
+            </div>
+            <div class="settings-actions">
+              <button class="btn blue" type="button" id="openLiveGoldenReviewLogin">검수 전용 재인증</button>
+              <button class="btn blue" type="button" id="refreshLiveGoldenReview">블라인드 packet 새로고침</button>
+              <button class="btn primary" type="button" id="submitLiveGoldenReview" disabled>전체 코호트 제출</button>
+            </div>
+            <div class="settings-message" id="liveGoldenReviewMessage" aria-live="polite">/admin 화면에서 검수 전용 관리자 계정으로 재인증하세요.</div>
+            <div class="live-golden-review-result" id="liveGoldenReviewResult" hidden></div>
+            <div class="live-golden-review-rows" id="liveGoldenReviewRows"></div>
           </div>
         </section>
 
@@ -2084,6 +2129,27 @@ export function renderLewordProWeb(): string {
     </form>
   </div>
 
+  <div class="modal" id="liveGoldenReviewLoginModal" aria-hidden="true">
+    <form class="dialog" id="liveGoldenReviewLoginForm" autocomplete="off" data-lpignore="true" data-1p-ignore="true">
+      <h2>Phase 2 검수 전용 재인증</h2>
+      <p>일반 Pro/관리자 세션과 분리된 <code>live-golden-review</code> 목적의 세션을 새로 발급합니다. 토큰은 메모리에만 유지되므로 새로고침하면 다시 인증해야 합니다.</p>
+      <label for="liveGoldenReviewUserId">관리자 ID</label>
+      <input class="input" id="liveGoldenReviewUserId" name="leword-live-golden-review-user-id" autocomplete="off" autocapitalize="none" spellcheck="false" required />
+      <label for="liveGoldenReviewPassword">관리자 비밀번호</label>
+      <input class="input" id="liveGoldenReviewPassword" name="leword-live-golden-review-password" type="password" autocomplete="new-password" required />
+      <details class="login-license">
+        <summary>라이선스 키로 검수 관리자 인증</summary>
+        <label for="liveGoldenReviewLicenseCode">라이선스 키</label>
+        <input class="input" id="liveGoldenReviewLicenseCode" autocomplete="off" placeholder="LEWORD-ADMIN-XXXX" />
+      </details>
+      <div class="dialog-actions">
+        <button class="btn primary" type="submit">검수 세션 발급</button>
+        <button class="btn" type="button" id="liveGoldenReviewLoginClose">닫기</button>
+      </div>
+      <div class="muted" id="liveGoldenReviewLoginMessage" style="margin-top:12px; min-height:18px;" aria-live="polite"></div>
+    </form>
+  </div>
+
   <div class="modal" id="apiIssueModal" aria-hidden="true">
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="apiIssueTitle">
       <h2 id="apiIssueTitle">API 키 발급 모음</h2>
@@ -2160,6 +2226,7 @@ export function renderLewordProWeb(): string {
       adminSettingsUnlock: apiUrl('/v1/admin/settings/unlock'),
       adminAiWorkerStatus: apiUrl('/v1/admin/ai-worker/status'),
       adminSiteContent: apiUrl('/v1/admin/site-content'),
+      liveGoldenReview: apiUrl('/v1/admin/live-golden/review'),
       adminCommerceDashboard: apiUrl('/v1/admin/commerce/dashboard'),
       publicSiteContent: apiUrl('/v1/public/site-content'),
       publicCommerceCatalog: apiUrl('/v1/public/commerce/catalog'),
@@ -2206,16 +2273,18 @@ export function renderLewordProWeb(): string {
       { id: 'keyword', label: '키워드 발굴' }
     ];
 
-    const youtubeFeature = { id: 'youtube', group: 'youtube', title: '유튜브 황금키워드 및 쇼츠분석', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승/쇼츠 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', defaultTargetCount: 50, payload: (_q, options) => ({ maxResults: options.targetCount || 50, categoryId: options.categoryId && options.categoryId !== 'all' ? options.categoryId : undefined, crossReferenceNaver: options.crossReferenceNaver !== false, includeShortsSignals: options.includeShortsSignals !== false, includeAiInference: options.includeAiInference !== false }) };
+    const youtubeFeature = { id: 'youtube', group: 'youtube', title: '유튜브 황금키워드 및 쇼츠분석', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승/쇼츠 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', defaultTargetCount: 50, payload: (_q, options) => ({ maxResults: options.targetCount || 50, categoryId: options.categoryId && options.categoryId !== 'all' ? options.categoryId : undefined, crossReferenceNaver: options.crossReferenceNaver !== false, includeShortsSignals: options.includeShortsSignals !== false, includeAiInference: options.includeAiInference === true }) };
 
     const features = [
-      { id: 'pro-traffic', group: 'keyword', title: 'PRO 트래픽 폭발키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '서버가 24시간 prewarm한 PRO 트래픽 후보를 먼저 보여주고, 필요하면 실시간 job으로 보강합니다.', defaultTargetCount: 60, payload: (q, options) => ({ categoryId: options.categoryId || 'all', seedKeyword: q || undefined, targetCount: options.targetCount || 60, includeSeasonal: options.includeSeasonal !== false, includeEvergreen: options.includeEvergreen !== false, includeFreshIssue: options.includeFreshIssue !== false, autoDiscovery: true, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 180), includeAiInference: options.includeAiInference !== false }) },
-      { id: 'naver-mate', group: 'keyword', title: '네이버 메이트 황금키워드 헌터', status: 'ready', route: endpoints.naverMate, desc: '네이버 자동완성/연관어를 실측 검색량과 연결해 네이버 친화 롱테일 후보를 확장합니다.', requiresKeyword: false, defaultTargetCount: 50, payload: (q, options) => ({ seedKeyword: q || options.autoSeedKeyword || '오늘 실시간 이슈', targetCount: options.targetCount || 50, includeAutocomplete: true, includeRelated: true, includeVolumeMetrics: options.includeVolumeMetrics !== false, autoDiscovery: !q, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference !== false }) },
-      { id: 'shopping', group: 'keyword', title: '쇼핑커넥트 황금제품키워드', status: 'ready', route: endpoints.shoppingConnect, desc: '지금 이슈가 있거나 구매 전환 가능성이 있는 상품 신호를 블로그 진입형 제품 키워드로 변환합니다.', requiresKeyword: false, defaultTargetCount: 30, payload: (q, options) => ({ keyword: q || '', targetCount: options.targetCount || 30, autoDiscoveryLimit: options.targetCount || 30, sort: options.sort || 'sim', requireSellableIntent: true, autoDiscovery: !q, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference !== false }) },
-      { id: 'kin', group: 'keyword', title: '지식인 황금키워드', status: 'ready', route: endpoints.kin, desc: '지식인 질문 신호에서 답변 수요가 높고 문서 경쟁이 낮은 정보형 키워드를 발굴합니다.', defaultTargetCount: 30, payload: (_q, options) => ({ tabType: ['rising', 'full'].includes(options.sort) ? options.sort : 'trending', targetCount: options.targetCount || 30, isPremiumRequest: true, contextKeywords: buildLookupContextKeywords(options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference !== false }) }
+      { id: 'pro-traffic', group: 'keyword', title: 'PRO 트래픽 폭발키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '서버가 24시간 prewarm한 PRO 트래픽 후보를 먼저 보여주고, 필요하면 실시간 job으로 보강합니다.', defaultTargetCount: 60, payload: (q, options) => ({ categoryId: options.categoryId || 'all', seedKeyword: q || undefined, targetCount: options.targetCount || 60, includeSeasonal: options.includeSeasonal !== false, includeEvergreen: options.includeEvergreen !== false, includeFreshIssue: options.includeFreshIssue !== false, autoDiscovery: true, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 180), includeAiInference: options.includeAiInference === true }) },
+      { id: 'naver-mate', group: 'keyword', title: '네이버 메이트 황금키워드 헌터', status: 'ready', route: endpoints.naverMate, desc: '네이버 자동완성/연관어를 실측 검색량과 연결해 네이버 친화 롱테일 후보를 확장합니다.', requiresKeyword: false, defaultTargetCount: 50, payload: (q, options) => ({ seedKeyword: q || options.autoSeedKeyword || '오늘 실시간 이슈', targetCount: options.targetCount || 50, includeAutocomplete: true, includeRelated: true, includeVolumeMetrics: options.includeVolumeMetrics !== false, autoDiscovery: !q, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference === true }) },
+      { id: 'shopping', group: 'keyword', title: '쇼핑커넥트 황금제품키워드', status: 'ready', route: endpoints.shoppingConnect, desc: '지금 이슈가 있거나 구매 전환 가능성이 있는 상품 신호를 블로그 진입형 제품 키워드로 변환합니다.', requiresKeyword: false, defaultTargetCount: 30, payload: (q, options) => ({ keyword: q || '', targetCount: options.targetCount || 30, autoDiscoveryLimit: options.targetCount || 30, sort: options.sort || 'sim', requireSellableIntent: true, autoDiscovery: !q, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference === true }) },
+      { id: 'kin', group: 'keyword', title: '지식인 황금키워드', status: 'ready', route: endpoints.kin, desc: '지식인 질문 신호에서 답변 수요가 높고 문서 경쟁이 낮은 정보형 키워드를 발굴합니다.', defaultTargetCount: 30, payload: (_q, options) => ({ tabType: ['rising', 'full'].includes(options.sort) ? options.sort : 'trending', targetCount: options.targetCount || 30, isPremiumRequest: true, contextKeywords: buildLookupContextKeywords(options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference === true }) }
     ];
 
     let session = null;
+    let liveGoldenReviewSession = null;
+    let liveGoldenReviewPacket = null;
     let pcCatalog = null;
     let selectedToolId = 'pro-traffic';
     let selectedToolGroupId = 'keyword';
@@ -2226,6 +2295,7 @@ export function renderLewordProWeb(): string {
     let selectedCommercePlan = null;
     let selectedCommercePeriod = 'today';
     const userApiSettingsStorageKey = 'leword.pro.userApiSettings.v1';
+    const externalAiInferenceSettingsStorageKey = 'leword.pro.externalAiInferenceSettings.v1';
     const proLoginIdStorageKey = 'leword.pro.lastLoginId.v1';
     const proLoginRememberStorageKey = 'leword.pro.rememberLogin.v1';
     const proLoginCredentialsStorageKey = 'leword.pro.savedCredentials.v1';
@@ -3574,7 +3644,9 @@ export function renderLewordProWeb(): string {
       };
     }
     function intentMetricNumber(row, key) {
-      const n = Number(row && row[key]);
+      const raw = row && row[key];
+      if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') return null;
+      const n = Number(raw);
       return Number.isFinite(n) ? n : null;
     }
     function measuredIntentEvidence(row) {
@@ -3890,8 +3962,15 @@ export function renderLewordProWeb(): string {
           const message = payload && (payload.message || payload.errorMessage || payload.error) ? String(payload.message || payload.errorMessage || payload.error) : 'HTTP ' + res.status;
           throw new Error('네이버 블로그 OpenAPI 직접 호출 실패: ' + message);
         }
-        const total = Number(payload.total);
-        return Number.isFinite(total) ? { total: total, measuredAt: new Date().toISOString() } : null;
+        // OpenAPI의 실제 숫자 total만 실측값으로 인정한다. Number(null)이나
+        // Number('')는 0이 되므로 느슨하게 변환하면 malformed 응답을 실제
+        // 검색 결과 0건으로 오인하게 된다.
+        const total = payload && typeof payload.total === 'number'
+          ? payload.total
+          : Number.NaN;
+        return Number.isFinite(total) && total >= 0
+          ? { total: total, measuredAt: new Date().toISOString() }
+          : null;
       } finally {
         clearTimeout(timeout);
       }
@@ -3922,9 +4001,9 @@ export function renderLewordProWeb(): string {
       return map;
     }
     function browserLocalGrade(totalSearchVolume, documentCount) {
-      const total = Number(totalSearchVolume);
-      const docs = Number(documentCount);
-      if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(docs)) return '-';
+      const total = typeof totalSearchVolume === 'number' ? totalSearchVolume : Number.NaN;
+      const docs = typeof documentCount === 'number' ? documentCount : Number.NaN;
+      if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(docs) || docs < 0) return '-';
       const ratio = docs <= 0 ? total : total / Math.max(1, docs);
       const score = browserLocalKeywordQualityScore(total, docs);
       if (total >= 1000 && docs <= 5000 && ratio >= 5) return 'SSS';
@@ -3965,8 +4044,11 @@ export function renderLewordProWeb(): string {
       const hasCompleteSearchVolumeSplit = pc !== null && mobile !== null;
       const total = hasCompleteSearchVolumeSplit ? (pc + mobile) : null;
       const cpc = searchAdItem ? (parseNaverMetricNumber(searchAdItem.monthlyAveCpc) || parseNaverMetricNumber(searchAdItem.monthlyAvePcCpc) || parseNaverMetricNumber(searchAdItem.monthlyAveMobileCpc)) : null;
-      const docs = documentMeasurement && Number.isFinite(Number(documentMeasurement.total))
-        ? Number(documentMeasurement.total)
+      const docs = documentMeasurement
+        && typeof documentMeasurement.total === 'number'
+        && Number.isFinite(documentMeasurement.total)
+        && documentMeasurement.total >= 0
+        ? documentMeasurement.total
         : null;
       const documentMeasuredAt = documentMeasurement && documentMeasurement.measuredAt
         ? String(documentMeasurement.measuredAt)
@@ -4640,7 +4722,7 @@ export function renderLewordProWeb(): string {
         label: '검색 확인',
         verdict: 'conditional',
         score: null,
-        reasons: ['서버 실측 전이라 검색 바로가기에서 최신 문서와 수요를 먼저 확인하세요.'],
+        reasons: ['미측정 상태입니다. 서버 연결 후 다시 실행하고 검색 바로가기에서 최신 문서와 수요를 확인하세요.'],
         nextAction: '네이버 검색 결과에서 최신성, 공식 정보, 블로그 문서량을 확인',
       };
     }
@@ -4653,8 +4735,8 @@ export function renderLewordProWeb(): string {
         freshness: 'unknown',
         isMeasured: false,
         publicSearchVolumeLabel: '브라우저 검색',
-        publicDocumentCountLabel: '미측정 · 서버 연결 필요',
-        publicReason: source || '서버 미연결 · 검색 보조 후보',
+        publicDocumentCountLabel: '미측정 · 서버 연결 후 다시 실행',
+        publicReason: source || '미측정 · 서버 연결 후 다시 실행',
         category: goldenDisplayLane({ keyword: keyword, source: source || 'browser-helper' }),
         source: 'browser-helper',
         publishDecision: clientFallbackPublishDecision(keyword),
@@ -4685,14 +4767,14 @@ export function renderLewordProWeb(): string {
         publicPreviewCount: 0,
         running: false,
         exactMetricsLocked: true,
-        previewPolicyLabel: '실측 스냅샷 연결 필요',
+        previewPolicyLabel: '미측정 · 서버 연결 후 다시 실행',
         publicPreview: [],
       };
     }
     function renderClientGoldenFallback(error) {
       const payload = buildClientGoldenFallbackPayload(error);
       const reason = payload.failureReason || 'SNAPSHOT_UNAVAILABLE';
-      setGoldenSummary(0, payload.boardTarget, 0, 0, false, payload.updatedAt, '실측 서버 연결 필요');
+      setGoldenSummary(0, payload.boardTarget, 0, 0, false, payload.updatedAt, '미측정 · 서버 연결 후 다시 실행');
       renderGoldenQuality([], false, 0, 0);
       renderGoldenRows([], hasActiveProSession(), 0);
       qs('goldenState').textContent = '연결 오류';
@@ -4726,11 +4808,11 @@ export function renderLewordProWeb(): string {
       const keywords = clientFallbackSeedExpansionKeywords(displayKeyword || compactKeywordInput(), featureId, 12);
       if (!keywords.length) return false;
       const rows = keywords.map(function(keyword, index) {
-        return '<li><strong>' + escapeHtml(keyword) + '</strong><span>서버 실측 대기 · 브라우저 검색 후보 #' + (index + 1) + '</span>' + keywordActionHtml(keyword) + '</li>';
+        return '<li><strong>' + escapeHtml(keyword) + '</strong><span>미측정 · 서버 연결 후 다시 실행 · 브라우저 검색 후보 #' + (index + 1) + '</span>' + keywordActionHtml(keyword) + '</li>';
       });
       const metrics = [
         { label: '후보', value: fmt(keywords.length) },
-        { label: '실측', value: '연결 후 재조회' },
+        { label: '실측', value: '미측정 · 서버 연결 후 다시 실행' },
         { label: '출처', value: '브라우저 검색 보조' },
         { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
       ];
@@ -4745,7 +4827,7 @@ export function renderLewordProWeb(): string {
         clientFallback: true,
         error: error && error.message ? error.message : String(error || ''),
         keywords: keywords.map(function(keyword, index) {
-          return clientFallbackBoardItem(keyword, index, '서버 미연결 · 브라우저 자체 후보');
+          return clientFallbackBoardItem(keyword, index, '미측정 · 서버 연결 후 다시 실행 · 브라우저 자체 후보');
         }),
       });
       return true;
@@ -5450,7 +5532,9 @@ export function renderLewordProWeb(): string {
         : null;
     }
     function rowNumber(row, key) {
-      const n = Number(row && row[key]);
+      const raw = row && row[key];
+      if (raw === null || raw === undefined || raw === '' || typeof raw === 'boolean') return null;
+      const n = Number(raw);
       return Number.isFinite(n) ? n : null;
     }
     function rowGoldenRatio(row) {
@@ -5527,14 +5611,24 @@ export function renderLewordProWeb(): string {
     function keywordAnalysisMetricHtml(label, value) {
       return '<div class="keyword-analysis-metric"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value == null || value === '' ? '-' : String(value)) + '</strong></div>';
     }
+    function keywordAnalysisSourceLabel(row) {
+      const source = normalizeText(row && row.source);
+      // "exact" in this legacy source id means the requested keyword row, not
+      // an exact-phrase Blog query. Showing the raw id made the broad document
+      // count look contradictory even when its provenance was correct.
+      if (source === 'pc-keyword-analysis-exact') return '요청 키워드 실측';
+      if (source === 'browser-local-api') return '브라우저 직접 실측';
+      if (source === 'live-golden-board-exact-match') return '황금키워드 동일 검색어 실측';
+      return source;
+    }
     function documentCountMetricLabel(row) {
       if (row && row.documentCountQueryMode === 'exact-phrase') return '문서수(정확구문·블로그)';
       const evidence = Array.isArray(row && row.evidence) ? row.evidence.join(' ') : '';
       if (row && row.documentCountQueryMode === 'broad' && (String(row.source || '').indexOf('pc-keyword-analysis') >= 0 || evidence.indexOf('pc-naver-openapi-document-count') >= 0)) {
-        return '문서수(확장·블로그)';
+        return '문서수(네이버 블로그·확장검색)';
       }
       if (row && row.documentCountQueryMode === 'broad' && (row.source === 'browser-local-api' || evidence.indexOf('naver-openapi-browser') >= 0)) {
-        return '문서수(확장·블로그)';
+        return '문서수(네이버 블로그·확장검색)';
       }
       if (row && row.documentCountQueryMode === 'broad') return '문서수(확장검색)';
       return '문서수(측정방식 미기록)';
@@ -5590,7 +5684,7 @@ export function renderLewordProWeb(): string {
         : '';
       const meta = [
         row && row.category ? row.category : '',
-        row && row.source ? row.source : '',
+        keywordAnalysisSourceLabel(row),
       ].map(normalizeText).filter(Boolean).join(' · ');
       return '<article class="keyword-analysis-card">'
         + '<div class="keyword-analysis-head"><div><div class="keyword-analysis-title">' + escapeHtml((index + 1) + '. ' + keyword) + '</div>'
@@ -5701,11 +5795,34 @@ export function renderLewordProWeb(): string {
       const externalAiProvider = normalizeText(summary.agentInsightExternalProvider || '');
       const externalAiCount = Number(summary.agentInsightExternalCount || 0);
       const externalAiError = normalizeText(summary.agentInsightExternalError || '');
-      const externalAiStatus = externalAiProvider && externalAiCount > 0
-        ? externalAiProvider + ' · ' + externalAiCount + '개 설명 보강'
-        : externalAiError
-          ? '외부 AI 실패 · 규칙 보조만 적용'
-          : '규칙 보조';
+      const externalAiKeyOwner = normalizeText(summary.agentInsightExternalKeyOwner || 'none');
+      const reportedCallCountValue = Number(summary.agentInsightExternalCallCount);
+      const hasReportedCallCount = Object.prototype.hasOwnProperty.call(summary, 'agentInsightExternalCallCount')
+        && Number.isFinite(reportedCallCountValue)
+        && reportedCallCountValue >= 0;
+      const attemptedProviders = (Array.isArray(summary.agentInsightExternalAttemptedProviders)
+        ? summary.agentInsightExternalAttemptedProviders
+        : summary.agentInsightExternalAttemptedProvider
+          ? [summary.agentInsightExternalAttemptedProvider]
+          : externalAiProvider && (!hasReportedCallCount || reportedCallCountValue > 0)
+            ? [externalAiProvider]
+            : [])
+        .map(function(provider) { return normalizeText(provider); })
+        .filter(function(provider, index, list) { return !!provider && list.indexOf(provider) === index; });
+      const legacyFallbackCount = !hasReportedCallCount && /recovered|복구|fallback|anthropic failed/i.test(externalAiError) ? 2 : 0;
+      const externalAiCallCount = hasReportedCallCount
+        ? Math.floor(reportedCallCountValue)
+        : legacyFallbackCount || (attemptedProviders.length || externalAiError ? 1 : 0);
+      const externalAiAttempted = externalAiCallCount > 0 || attemptedProviders.length > 0;
+      const externalAiStatus = externalAiAttempted
+        ? (externalAiProvider || attemptedProviders[0] || '외부 AI')
+          + ' · provider 시도 ' + Math.max(attemptedProviders.length, legacyFallbackCount, externalAiCallCount > 0 ? 1 : 0) + '개'
+          + (attemptedProviders.length ? '(' + attemptedProviders.join(', ') + ')' : '')
+          + ' · 호출 ' + externalAiCallCount + '회'
+          + ' · 키 소유 ' + externalAiKeyOwner
+          + ' · ' + externalAiCount + '개 설명 보강'
+          + (externalAiError ? ' · 오류: ' + externalAiError : '')
+        : '외부 AI 꺼짐 · provider 시도 0개 · 호출 0회 · 규칙 보조';
       const topRows = rows.slice(0, 5).map(function(row) {
         return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong>'
           + '<span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 황금비 ' + fmt(row.goldenRatio) + '</span>'
@@ -5725,7 +5842,7 @@ export function renderLewordProWeb(): string {
         + '<button class="tiny-btn" type="button" id="exportKeywordJson">JSON</button>'
         + '<button class="tiny-btn pro" type="button" id="trackTopKeyword">상위 추적 등록</button>'
         + '</div><span>결과를 저장하거나 내 글 URL을 입력해 상위 키워드를 노출 추적에 바로 등록합니다.</span></li>';
-      renderResultSummary(title, '서버 실측 결과를 PC/모바일/문서수 기준으로 정리했습니다.', [
+      renderResultSummary(title, '구조화 결과행·검색량·문서수·등급은 실측 구조를 유지합니다. AI 생성 연관어·확장어는 미실측 제안입니다.', [
         { label: '전체 후보', value: fmt(summary.total == null ? rows.length : summary.total) },
         { label: 'SSS 후보', value: fmt(sss) },
         { label: '실측 완료', value: fmt(measured) },
@@ -6103,7 +6220,6 @@ export function renderLewordProWeb(): string {
         claudeCodeCliLoggedIn: false,
         lastServerStatus: null,
         lastCheckedAt: '',
-        fiveHourWindow: true,
         mindmapAssist: true,
         keywordResearchAssist: true,
         note: '',
@@ -6119,7 +6235,6 @@ export function renderLewordProWeb(): string {
           claudeCodeCliLoggedIn: raw.claudeCodeCliLoggedIn === true,
           lastServerStatus: raw.lastServerStatus && typeof raw.lastServerStatus === 'object' ? raw.lastServerStatus : null,
           lastCheckedAt: typeof raw.lastCheckedAt === 'string' ? raw.lastCheckedAt : '',
-          fiveHourWindow: raw.fiveHourWindow !== false,
           mindmapAssist: raw.mindmapAssist !== false,
           keywordResearchAssist: raw.keywordResearchAssist !== false,
           note: typeof raw.note === 'string' ? raw.note.slice(0, 80) : '',
@@ -6145,7 +6260,7 @@ export function renderLewordProWeb(): string {
           ready: count > 0,
           status: count > 0 ? 'ready' : 'missing',
           detail: count > 0
-            ? '외부 추론 API ' + count + '개 사용 가능' + (serverApi && serverApi.count ? ' · 서버 저장 아님' : '')
+            ? '사용자 외부 추론 API ' + count + '개 readiness 확인 · 실제 호출은 별도 opt-in job만' + (serverApi && serverApi.count ? ' · 서버 저장 아님' : '')
             : manusOnly
               ? 'Manus 키는 저장됐지만 Pro Web 추론 경로에는 연결되지 않았습니다. Claude 또는 OpenAI 키가 필요합니다.'
               : 'Claude 또는 OpenAI API 키가 필요합니다.',
@@ -6158,10 +6273,10 @@ export function renderLewordProWeb(): string {
           return {
             ready: ready,
             status: ready ? 'ready' : 'missing',
-            detail: ready ? 'Claude Code 서버 로그인 확인됨' : (worker.detail || 'Claude Code 서버 로그인 확인 필요'),
+            detail: ready ? 'Claude Code 서버 로그인 상태 확인됨 · 추론 미집행' : (worker.detail || 'Claude Code 서버 로그인 확인 필요'),
           };
         }
-        return { ready: !!settings.claudeCodeCliLoggedIn, status: settings.claudeCodeCliLoggedIn ? 'ready' : 'missing', detail: settings.claudeCodeCliLoggedIn ? 'Claude Code 서버 로그인 확인됨' : 'Claude Code 서버 상태 확인 필요' };
+        return { ready: !!settings.claudeCodeCliLoggedIn, status: settings.claudeCodeCliLoggedIn ? 'ready' : 'missing', detail: settings.claudeCodeCliLoggedIn ? 'Claude Code 로컬 readiness 표시 · 서버 상태 재확인 필요 · 추론 미집행' : 'Claude Code 서버 상태 확인 필요' };
       }
       const worker = adminAiWorkerServerWorker(settings, 'codex');
       if (worker) {
@@ -6169,10 +6284,10 @@ export function renderLewordProWeb(): string {
         return {
           ready: ready,
           status: ready ? 'ready' : 'missing',
-          detail: ready ? 'Codex 서버 로그인 확인됨' : (worker.detail || 'Codex 서버 로그인 확인 필요'),
+          detail: ready ? 'Codex 서버 로그인 상태 확인됨 · 추론 미집행' : (worker.detail || 'Codex 서버 로그인 확인 필요'),
         };
       }
-      return { ready: !!settings.codexCliLoggedIn, status: settings.codexCliLoggedIn ? 'ready' : 'missing', detail: settings.codexCliLoggedIn ? 'Codex 서버 로그인 확인됨' : 'Codex 서버 상태 확인 필요' };
+      return { ready: !!settings.codexCliLoggedIn, status: settings.codexCliLoggedIn ? 'ready' : 'missing', detail: settings.codexCliLoggedIn ? 'Codex 로컬 readiness 표시 · 서버 상태 재확인 필요 · 추론 미집행' : 'Codex 서버 상태 확인 필요' };
     }
     function collectAdminAiWorkerSettings() {
       const selected = document.querySelector('input[name="adminAiWorkerProvider"]:checked');
@@ -6183,7 +6298,6 @@ export function renderLewordProWeb(): string {
         claudeCodeCliLoggedIn: !!(qs('claudeCodeCliLoggedIn') && qs('claudeCodeCliLoggedIn').checked),
         lastServerStatus: previous.lastServerStatus || null,
         lastCheckedAt: previous.lastCheckedAt || '',
-        fiveHourWindow: !!(qs('adminAiFiveHourWindow') && qs('adminAiFiveHourWindow').checked),
         mindmapAssist: !!(qs('adminAiMindmapAssist') && qs('adminAiMindmapAssist').checked),
         keywordResearchAssist: !!(qs('adminAiKeywordResearchAssist') && qs('adminAiKeywordResearchAssist').checked),
         note: qs('adminAiWorkerNote') ? qs('adminAiWorkerNote').value.trim().slice(0, 80) : '',
@@ -6197,8 +6311,8 @@ export function renderLewordProWeb(): string {
       const unlocked = isAdminSettingsUnlocked();
       const passwordStatusHtml = '<div class="settings-check ' + (unlocked ? 'ready' : 'missing') + '"><strong>비밀번호 · ' + (unlocked ? '확인됨' : '잠김') + '</strong><span>' + (unlocked ? '관리자 설정 입력이 활성화되었습니다.' : '관리자 설정을 열려면 비밀번호를 입력하세요.') + '</span></div>';
       target.innerHTML =
-        '<div class="settings-check ' + adminStatus + '"><strong>관리자 권한 · ' + (isAdminSession() ? '확인됨' : '잠김') + '</strong><span>' + (isAdminSession() ? 'admin 세션에서만 작업자 선택이 저장됩니다.' : '관리자 계정으로 Pro 로그인해야 설정할 수 있습니다.') + '</span></div>'
-        + '<div class="settings-check ' + state.status + '"><strong>' + escapeHtml(adminAiWorkerProviderLabel(settings.provider)) + ' · ' + (state.ready ? '사용 준비' : '확인 필요') + '</strong><span>' + escapeHtml(state.detail) + '</span></div>';
+        '<div class="settings-check ' + adminStatus + '"><strong>관리자 권한 · ' + (isAdminSession() ? '확인됨' : '잠김') + '</strong><span>' + (isAdminSession() ? 'admin 세션에서 readiness 선택만 저장됩니다.' : '관리자 계정으로 Pro 로그인해야 설정할 수 있습니다.') + '</span></div>'
+        + '<div class="settings-check ' + state.status + '"><strong>' + escapeHtml(adminAiWorkerProviderLabel(settings.provider)) + ' · ' + (state.ready ? 'readiness 확인' : '확인 필요') + '</strong><span>' + escapeHtml(state.detail) + '</span></div>';
       const codexWorker = adminAiWorkerServerWorker(settings, 'codex');
       const claudeWorker = adminAiWorkerServerWorker(settings, 'claudeCode');
       if (codexWorker || claudeWorker) {
@@ -6228,9 +6342,9 @@ export function renderLewordProWeb(): string {
         return;
       }
       if (!isAdminSession()) {
-        qs('adminAiWorkerMessage').textContent = '관리자 전용 설정입니다. admin 계정으로 Pro 로그인하면 Codex/Claude Code 작업자를 선택할 수 있습니다.';
+        qs('adminAiWorkerMessage').textContent = '관리자 전용 readiness/status 설정입니다. Codex/Claude Code 추론은 실행하지 않습니다.';
       } else {
-        qs('adminAiWorkerMessage').textContent = '관리자 작업자: ' + adminAiWorkerProviderLabel(saved.provider) + ' · ' + state.detail + ' · 일반 사용자 API 키와 분리 저장';
+        qs('adminAiWorkerMessage').textContent = 'readiness 확인 대상: ' + adminAiWorkerProviderLabel(saved.provider) + ' · ' + state.detail + ' · 추론 미집행';
       }
       renderAdminAiWorkerChecklist(saved);
     }
@@ -6264,7 +6378,6 @@ export function renderLewordProWeb(): string {
         qs('claudeCodeCliLoggedIn').disabled = !enabled;
       }
       [
-        ['adminAiFiveHourWindow', 'fiveHourWindow'],
         ['adminAiMindmapAssist', 'mindmapAssist'],
         ['adminAiKeywordResearchAssist', 'keywordResearchAssist'],
       ].forEach(function(pair) {
@@ -6286,7 +6399,9 @@ export function renderLewordProWeb(): string {
       const settings = readAdminAiWorkerSettings();
       const state = adminAiWorkerReadyState(settings);
       return {
-        mode: 'admin-worker',
+        mode: 'admin-readiness-status',
+        statusOnly: true,
+        inferenceDispatched: false,
         provider: settings.provider,
         providerLabel: adminAiWorkerProviderLabel(settings.provider),
         ready: state.ready,
@@ -6306,7 +6421,6 @@ export function renderLewordProWeb(): string {
         } : null,
         codexCliLoggedIn: settings.codexCliLoggedIn,
         claudeCodeCliLoggedIn: settings.claudeCodeCliLoggedIn,
-        usageWindowHours: settings.fiveHourWindow === false ? null : 5,
         mindmapAssist: settings.mindmapAssist !== false,
         keywordResearchAssist: settings.keywordResearchAssist !== false,
       };
@@ -6453,30 +6567,70 @@ export function renderLewordProWeb(): string {
         ],
       };
     }
+    function defaultExternalAiInferenceSettings() {
+      return { enabled: false, provider: 'auto' };
+    }
+    function readExternalAiInferenceSettings() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(externalAiInferenceSettingsStorageKey) || '{}');
+        return {
+          enabled: raw.enabled === true,
+          provider: ['auto', 'anthropic', 'openai'].includes(raw.provider) ? raw.provider : 'auto',
+        };
+      } catch (err) {
+        return defaultExternalAiInferenceSettings();
+      }
+    }
+    function writeExternalAiInferenceSettings(settings) {
+      const safe = settings && typeof settings === 'object' ? settings : defaultExternalAiInferenceSettings();
+      localStorage.setItem(externalAiInferenceSettingsStorageKey, JSON.stringify({
+        enabled: safe.enabled === true,
+        provider: ['auto', 'anthropic', 'openai'].includes(safe.provider) ? safe.provider : 'auto',
+      }));
+    }
+    function collectExternalAiInferenceSettings() {
+      return {
+        enabled: !!(qs('externalAiInferenceOptIn') && qs('externalAiInferenceOptIn').checked),
+        provider: qs('externalAiInferenceProvider') ? qs('externalAiInferenceProvider').value : 'auto',
+      };
+    }
+    function resolvedExternalAiInferenceState() {
+      const preference = readExternalAiInferenceSettings();
+      const apiSettings = readUserApiSettings();
+      let provider = '';
+      if (preference.provider === 'anthropic' && apiSettings.anthropicApiKey) provider = 'anthropic';
+      if (preference.provider === 'openai' && apiSettings.openaiApiKey) provider = 'openai';
+      if (preference.provider === 'auto') {
+        provider = apiSettings.anthropicApiKey ? 'anthropic' : apiSettings.openaiApiKey ? 'openai' : '';
+      }
+      return {
+        optedIn: preference.enabled === true,
+        enabled: preference.enabled === true && !!provider,
+        provider: provider || 'none',
+        providerLabel: provider === 'anthropic' ? 'Claude 사용자 API' : provider === 'openai' ? 'OpenAI 사용자 API' : '외부 AI 꺼짐',
+      };
+    }
     function agentAssistRequestPayload(url, payload) {
       const featureId = agentAssistFeatureId(url);
       if (!featureId) return null;
       const adminWorker = adminAiWorkerRequestPayload();
-      const settings = readAdminAiWorkerSettings();
-      const provider = adminWorker && adminWorker.provider ? adminWorker.provider : 'server-auto';
-      const providerLabel = adminWorker && adminWorker.providerLabel ? adminWorker.providerLabel : '서버 에이전트 자동 선택';
+      const externalAi = resolvedExternalAiInferenceState();
       const charter = agentAssistHunterCharter(featureId);
       return {
         enabled: true,
         version: 'web-agent-assist-v1',
-        mode: adminWorker ? 'admin-configured-worker' : 'server-default-worker',
+        mode: externalAi.enabled ? 'external-ai-user-opt-in' : 'server-rule-only',
         featureId,
-        provider,
-        providerLabel,
+        provider: externalAi.enabled ? externalAi.provider : 'rule-assist',
+        providerLabel: externalAi.providerLabel,
         seedKeyword: agentAssistSeedKeyword(payload) || null,
         mission: charter.mission,
-        includeAiInference: true,
-        forceExternalInference: true,
-        externalAi: true,
+        includeAiInference: externalAi.enabled,
+        forceExternalInference: externalAi.enabled,
+        externalAi: externalAi.enabled,
         maxAgentRows: 8,
         mindmapAssist: adminWorker ? adminWorker.mindmapAssist !== false : true,
         keywordResearchAssist: adminWorker ? adminWorker.keywordResearchAssist !== false : true,
-        usageWindowHours: adminWorker && adminWorker.usageWindowHours ? adminWorker.usageWindowHours : null,
         tasks: agentAssistTasksForFeature(featureId),
         mustFind: charter.mustFind,
         rejectIf: charter.rejectIf,
@@ -6499,6 +6653,8 @@ export function renderLewordProWeb(): string {
           includeBeginnerPublishingAngle: true,
           includeMonetizationRoute: true,
           rejectLowValueComposite: true,
+          preserveStructuredResultRows: true,
+          generatedKeywordMeasurement: 'unmeasured-suggestion',
           outputFields: [
             'searchVolumeReason',
             'combinationIntent',
@@ -6510,13 +6666,14 @@ export function renderLewordProWeb(): string {
             'route',
             'warning',
           ],
-          explanationStyle: 'source-grounded-agent-inference',
+          explanationStyle: externalAi.enabled ? 'opt-in-external-explanation' : 'server-rule-explanation',
         },
-        serverVerified: adminWorker ? adminWorker.serverVerified === true : false,
-        adminPreference: adminWorker ? null : {
-          provider: settings.provider,
-          fiveHourWindow: settings.fiveHourWindow !== false,
-        },
+        serverVerified: false,
+        adminReadiness: adminWorker ? {
+          provider: adminWorker.provider,
+          statusOnly: true,
+          ready: adminWorker.ready === true,
+        } : null,
       };
     }
     async function saveAdminAiWorkerSettings() {
@@ -6529,15 +6686,15 @@ export function renderLewordProWeb(): string {
         openAdminPasswordModal();
         return;
       }
-      openProgress('관리자 AI 작업자 저장', 'Codex/Claude Code 선택값을 관리자 로컬 설정으로 저장합니다.');
+      openProgress('관리자 AI readiness 저장', 'Codex/Claude Code 상태 확인 대상을 관리자 로컬 설정으로 저장합니다. 추론은 실행하지 않습니다.');
       try {
         const settings = collectAdminAiWorkerSettings();
         writeAdminAiWorkerSettings(settings);
         hydrateAdminAiWorkerSettingsForm();
         hydrateAdminSiteContentSettings();
         setResult({ adminAiWorker: Object.assign({ storage: 'browser-local-admin-only' }, adminAiWorkerRequestPayload()) });
-        log('관리자 AI 작업자 저장 완료: ' + adminAiWorkerProviderLabel(settings.provider));
-        completeProgress('관리자 AI 작업자 설정이 저장되었습니다.');
+        log('관리자 AI readiness 대상 저장 완료: ' + adminAiWorkerProviderLabel(settings.provider));
+        completeProgress('관리자 AI readiness/status 설정이 저장되었습니다.');
       } catch (err) {
         qs('adminAiWorkerMessage').textContent = err.message;
         failProgress(err.message);
@@ -6553,7 +6710,7 @@ export function renderLewordProWeb(): string {
         openAdminPasswordModal();
         return;
       }
-      openProgress('관리자 AI 작업자 연동상태 확인', 'Codex/Claude Code 로그인 확인값과 선택 작업자를 점검합니다.');
+      openProgress('관리자 AI readiness 확인', 'Codex/Claude Code CLI 설치·로그인 상태만 점검하며 추론은 실행하지 않습니다.');
       try {
         const settings = collectAdminAiWorkerSettings();
         const apiSettings = readUserApiSettings();
@@ -6566,7 +6723,7 @@ export function renderLewordProWeb(): string {
             openai: !!apiSettings.openaiApiKey,
           },
         });
-        updateProgress(75, '관리자 작업자 연동 결과를 화면에 반영합니다.');
+        updateProgress(75, '관리자 readiness/status 결과를 화면에 반영합니다.');
         const next = Object.assign({}, settings, {
           codexCliLoggedIn: !!(status.workers && status.workers.codex && status.workers.codex.loggedIn),
           claudeCodeCliLoggedIn: !!(status.workers && status.workers.claudeCode && status.workers.claudeCode.loggedIn),
@@ -6591,8 +6748,8 @@ export function renderLewordProWeb(): string {
             serverStatus: status,
           },
         });
-        log('관리자 AI 작업자 확인: ' + adminAiWorkerProviderLabel(next.provider) + '=' + state.status);
-        completeProgress(state.ready ? '관리자 AI 작업자 사용 준비가 확인되었습니다.' : state.detail);
+        log('관리자 AI readiness 확인: ' + adminAiWorkerProviderLabel(next.provider) + '=' + state.status);
+        completeProgress(state.ready ? 'CLI readiness/status를 확인했습니다. 추론은 실행하지 않았습니다.' : state.detail);
       } catch (err) {
         qs('adminAiWorkerMessage').textContent = err.message;
         failProgress(err.message);
@@ -6685,6 +6842,395 @@ export function renderLewordProWeb(): string {
       } catch (err) {
         if (qs('adminLoginMessage')) qs('adminLoginMessage').textContent = err.message || String(err);
         failProgress(err.message || String(err));
+      }
+    }
+    const reviewBooleanFields = ['naturalKeyword', 'intentMatch', 'hiddenKnown', 'malformed', 'semanticDuplicate', 'platformResidue', 'sentenceResidue'];
+    const reviewInputFields = ['naturalKeyword', 'intentMatch', 'discoveryClass', 'malformed', 'semanticDuplicate', 'platformResidue', 'sentenceResidue'];
+    let liveGoldenReviewSubmissionClosed = false;
+    function setLiveGoldenReviewMessage(message, tone) {
+      const target = qs('liveGoldenReviewMessage');
+      if (!target) return;
+      target.textContent = String(message || '');
+      target.style.color = tone === 'error' ? '#B91C1C' : tone === 'success' ? '#166534' : '';
+    }
+    function openLiveGoldenReviewLoginModal(message) {
+      const modal = qs('liveGoldenReviewLoginModal');
+      if (!modal || !isAdminSurface()) return;
+      if (qs('liveGoldenReviewPassword')) qs('liveGoldenReviewPassword').value = '';
+      if (qs('liveGoldenReviewLoginMessage')) qs('liveGoldenReviewLoginMessage').textContent = message || '';
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      setTimeout(function() {
+        const userId = qs('liveGoldenReviewUserId');
+        if (userId) userId.focus();
+      }, 0);
+    }
+    function closeLiveGoldenReviewLoginModal() {
+      const modal = qs('liveGoldenReviewLoginModal');
+      if (!modal) return;
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      if (qs('liveGoldenReviewPassword')) qs('liveGoldenReviewPassword').value = '';
+    }
+    function reviewSessionHeaders() {
+      if (!liveGoldenReviewSession || !liveGoldenReviewSession.accessToken) {
+        throw new Error('검수 전용 관리자 재인증이 필요합니다.');
+      }
+      return {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + liveGoldenReviewSession.accessToken,
+      };
+    }
+    function sameLiveGoldenReviewBinding(left, right) {
+      return !!(
+        left
+        && right
+        && left.cohortId
+        && left.cohortId === right.cohortId
+        && left.boardFingerprint
+        && left.boardFingerprint === right.boardFingerprint
+      );
+    }
+    function liveGoldenReviewFailureMessage(payload, status) {
+      const source = payload && typeof payload === 'object' ? payload : {};
+      const phase2 = source.phase2Entry && typeof source.phase2Entry === 'object' ? source.phase2Entry : {};
+      const code = String(source.code || source.error || ('HTTP_' + status));
+      const reasons = [];
+      if (source.reason) reasons.push(String(source.reason));
+      if (Array.isArray(source.failureReasons)) reasons.push(source.failureReasons.map(String).join(','));
+      if (phase2.reason) reasons.push(String(phase2.reason));
+      return 'reason code: ' + code + (reasons.length ? ' / ' + reasons.join(' / ') : '');
+    }
+    async function requestLiveGoldenReviewSession(credentials) {
+      let res;
+      try {
+        res = await fetch(endpoints.session, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credentials),
+        });
+      } catch (err) {
+        if (isFetchNetworkError(err)) throw new Error(formatNetworkError(endpoints.session, err));
+        throw err;
+      }
+      const payload = await res.json().catch(function() { return {}; });
+      if (!res.ok) throw new Error(liveGoldenReviewFailureMessage(payload, res.status));
+      if (!payload || !payload.session || !payload.session.accessToken) throw new Error('검수 전용 세션이 발급되지 않았습니다.');
+      if (payload.session.tier !== 'admin') throw new Error('검수 전용 세션은 관리자 계정만 발급할 수 있습니다.');
+      return payload.session;
+    }
+    async function liveGoldenReviewRequest(method, body) {
+      let res;
+      try {
+        res = await fetch(endpoints.liveGoldenReview, {
+          method: method,
+          cache: 'no-store',
+          headers: reviewSessionHeaders(),
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+      } catch (err) {
+        if (isFetchNetworkError(err)) throw new Error(formatNetworkError(endpoints.liveGoldenReview, err));
+        throw err;
+      }
+      const payload = await res.json().catch(function() { return {}; });
+      if (res.status === 401 || res.status === 403) {
+        liveGoldenReviewSession = null;
+        const message = '검수 전용 세션이 만료되었습니다. 입력한 판정은 유지됩니다. 재인증하세요.';
+        setLiveGoldenReviewMessage(message, 'error');
+        openLiveGoldenReviewLoginModal(message);
+        updateLiveGoldenReviewCompletion();
+        const authError = new Error(liveGoldenReviewFailureMessage(payload, res.status));
+        authError.reviewPayload = payload;
+        authError.status = res.status;
+        throw authError;
+      }
+      if (!res.ok) {
+        const requestError = new Error(liveGoldenReviewFailureMessage(payload, res.status));
+        requestError.reviewPayload = payload;
+        requestError.status = res.status;
+        throw requestError;
+      }
+      return payload;
+    }
+    function liveGoldenReviewQuestionHtml(index, field, prompt, positiveLabel, negativeLabel) {
+      const name = 'live-golden-review-' + index + '-' + field;
+      return '<div class="live-golden-review-question">'
+        + '<strong>' + escapeHtml(prompt) + '</strong>'
+        + '<div class="live-golden-review-options">'
+        + '<label><input type="radio" name="' + escapeAttr(name) + '" data-review-field="' + escapeAttr(field) + '" value="true" /> ' + escapeHtml(positiveLabel) + '</label>'
+        + '<label><input type="radio" name="' + escapeAttr(name) + '" data-review-field="' + escapeAttr(field) + '" value="false" /> ' + escapeHtml(negativeLabel) + '</label>'
+        + '</div></div>';
+    }
+    function liveGoldenReviewClassificationHtml(index) {
+      const name = 'live-golden-review-' + index + '-discoveryClass';
+      return '<div class="live-golden-review-question">'
+        + '<strong>발굴 가치가 숨은 수요인가, 이미 뻔한 헤드키워드인가?</strong>'
+        + '<div class="live-golden-review-options">'
+        + '<label><input type="radio" name="' + escapeAttr(name) + '" data-review-field="discoveryClass" value="hiddenKnown" /> 숨은 수요</label>'
+        + '<label><input type="radio" name="' + escapeAttr(name) + '" data-review-field="discoveryClass" value="obviousHead" /> 뻔한 헤드</label>'
+        + '</div></div>';
+    }
+    function renderLiveGoldenReviewPacket(packet) {
+      const target = qs('liveGoldenReviewRows');
+      if (!target) return;
+      const rows = Array.isArray(packet && packet.rows) ? packet.rows : [];
+      if (!rows.length) {
+        target.innerHTML = '<div class="live-golden-review-result">현재 검수 가능한 동결 코호트가 없습니다.</div>';
+        updateLiveGoldenReviewCompletion();
+        return;
+      }
+      target.innerHTML = rows.map(function(row, index) {
+        const semanticHash = String(row && row.semanticHash || '');
+        return '<article class="live-golden-review-row" data-review-row="' + index + '" data-semantic-hash="' + escapeAttr(semanticHash) + '">'
+          + '<div class="live-golden-review-row-head">'
+          + '<strong>' + (index + 1) + '. ' + escapeHtml(row.keyword || '') + '</strong>'
+          + '<span>카테고리: ' + escapeHtml(row.category || '') + ' · 의도: ' + escapeHtml(row.intent || '') + '</span>'
+          + '</div><div class="live-golden-review-questions">'
+          + liveGoldenReviewQuestionHtml(index, 'naturalKeyword', '사람이 실제로 검색할 자연스러운 키워드인가?', '예', '아니오')
+          + liveGoldenReviewQuestionHtml(index, 'intentMatch', '표시된 검색 의도와 키워드가 일치하는가?', '예', '아니오')
+          + liveGoldenReviewClassificationHtml(index)
+          + liveGoldenReviewQuestionHtml(index, 'malformed', '형식이 깨졌거나 비정상 조합인가?', '있음', '없음')
+          + liveGoldenReviewQuestionHtml(index, 'semanticDuplicate', '다른 행과 의미가 중복되는가?', '중복', '고유')
+          + liveGoldenReviewQuestionHtml(index, 'platformResidue', '플랫폼명·사이트명 잔재가 있는가?', '있음', '없음')
+          + liveGoldenReviewQuestionHtml(index, 'sentenceResidue', '문장·제목·질문 잔재가 있는가?', '있음', '없음')
+          + '</div></article>';
+      }).join('');
+      updateLiveGoldenReviewCompletion();
+    }
+    function selectedLiveGoldenReviewValue(rowNode, field) {
+      const selected = rowNode.querySelector('[data-review-field="' + field + '"]:checked');
+      return selected ? selected.value : null;
+    }
+    function completedLiveGoldenReviewRowCount() {
+      return Array.from(document.querySelectorAll('#liveGoldenReviewRows [data-review-row]')).filter(function(rowNode) {
+        return reviewInputFields.every(function(field) {
+          return selectedLiveGoldenReviewValue(rowNode, field) !== null;
+        });
+      }).length;
+    }
+    function updateLiveGoldenReviewCompletion() {
+      const total = Array.isArray(liveGoldenReviewPacket && liveGoldenReviewPacket.rows) ? liveGoldenReviewPacket.rows.length : 0;
+      const completed = completedLiveGoldenReviewRowCount();
+      if (qs('liveGoldenReviewCompletion')) qs('liveGoldenReviewCompletion').textContent = completed + ' / ' + total + '행 완료';
+      if (qs('submitLiveGoldenReview')) {
+        qs('submitLiveGoldenReview').disabled = !liveGoldenReviewSession
+          || liveGoldenReviewSubmissionClosed
+          || total === 0
+          || completed !== total;
+      }
+    }
+    function liveGoldenReviewResultLines(payload) {
+      const phase2 = payload && payload.phase2Entry && typeof payload.phase2Entry === 'object' ? payload.phase2Entry : {};
+      const summary = payload && payload.reviewSummary && typeof payload.reviewSummary === 'object' ? payload.reviewSummary : {};
+      const state = String(phase2.state || 'unknown');
+      const reason = String(phase2.reason || (state === 'eligible' ? 'PASS' : 'none'));
+      const precision = Number(summary.precision || phase2.precision || 0);
+      const lines = [
+        'Phase 2 상태: ' + state,
+        'reason code: ' + reason,
+        '검수 행: ' + Number(summary.reviewed || phase2.reviewedCount || 0),
+        '정밀도: ' + (precision * 100).toFixed(1) + '%',
+        'malformed: ' + Number(summary.malformedCount || 0),
+        '의미중복: ' + Number(summary.semanticDuplicateCount || 0),
+        '플랫폼 잔재: ' + Number(summary.platformResidueCount || 0),
+        '문장 잔재: ' + Number(summary.sentenceResidueCount || 0),
+        '인증서 발급: ' + (payload && payload.certificate ? '예' : '아니오'),
+      ];
+      if (payload && Array.isArray(payload.failureReasons) && payload.failureReasons.length) {
+        lines.push('실패 reason: ' + payload.failureReasons.map(String).join(','));
+      }
+      return lines;
+    }
+    function renderLiveGoldenReviewStatus(payload) {
+      const source = payload && typeof payload === 'object' ? payload : {};
+      const phase2 = source.phase2Entry && typeof source.phase2Entry === 'object' ? source.phase2Entry : {};
+      const packet = source.cohort && typeof source.cohort === 'object' ? source.cohort : null;
+      const state = String(phase2.state || 'unknown');
+      liveGoldenReviewSubmissionClosed = state === 'eligible' || state === 'human-review-failed' || !!source.certificate;
+      if (qs('liveGoldenReviewPhase2State')) {
+        qs('liveGoldenReviewPhase2State').textContent = state + (phase2.reason ? ' · ' + phase2.reason : '');
+      }
+      if (qs('liveGoldenReviewCohortSummary')) {
+        qs('liveGoldenReviewCohortSummary').textContent = packet
+          ? String(packet.cohortId || '-') + ' · ' + (Array.isArray(packet.rows) ? packet.rows.length : 0) + '행 · 동결 ' + String(packet.frozenAt || '-')
+          : '동결 코호트 없음 · 대기 후보 ' + Number(source.pendingCandidateCount || 0);
+      }
+      const result = qs('liveGoldenReviewResult');
+      if (result) {
+        result.hidden = false;
+        result.textContent = liveGoldenReviewResultLines(source).join(String.fromCharCode(10));
+      }
+      updateLiveGoldenReviewCompletion();
+    }
+    function renderLiveGoldenReviewFailure(error) {
+      const payload = error && error.reviewPayload && typeof error.reviewPayload === 'object' ? error.reviewPayload : {};
+      const result = qs('liveGoldenReviewResult');
+      const lines = [error && error.message ? error.message : String(error || '검수 요청 실패')];
+      if (payload.phase2Entry || payload.reviewSummary || payload.certificate || payload.failureReasons) {
+        lines.push.apply(lines, liveGoldenReviewResultLines(payload));
+      }
+      if (result) {
+        result.hidden = false;
+        result.textContent = lines.join(String.fromCharCode(10));
+      }
+      if (!liveGoldenReviewSession && error && (error.status === 401 || error.status === 403)) {
+        setLiveGoldenReviewMessage('검수 전용 세션이 만료되었습니다. 입력한 판정은 유지됩니다. 재인증하세요.', 'error');
+      } else {
+        setLiveGoldenReviewMessage(lines[0], 'error');
+      }
+    }
+    function reconcileLiveGoldenReviewPacket(payload, options) {
+      const nextPacket = payload && payload.cohort && typeof payload.cohort === 'object' ? payload.cohort : null;
+      const hadPacket = !!liveGoldenReviewPacket;
+      const preserveDecisions = sameLiveGoldenReviewBinding(liveGoldenReviewPacket, nextPacket);
+      const changedBinding = hadPacket && !preserveDecisions;
+      liveGoldenReviewPacket = nextPacket;
+      renderLiveGoldenReviewStatus(payload);
+      if (!preserveDecisions || !qs('liveGoldenReviewRows') || !qs('liveGoldenReviewRows').querySelector('[data-review-row]')) {
+        renderLiveGoldenReviewPacket(nextPacket);
+      }
+      if (changedBinding) {
+        setLiveGoldenReviewMessage('코호트가 변경되어 기존 판정을 폐기했습니다. 새 코호트를 처음부터 전수 검수하세요.', 'error');
+      } else if (preserveDecisions && options && options.afterReauth) {
+        setLiveGoldenReviewMessage('동일 코호트가 확인되었습니다. 입력한 판정을 유지했으므로 검수를 이어서 제출할 수 있습니다.', 'success');
+      } else if (nextPacket) {
+        setLiveGoldenReviewMessage('블라인드 packet을 불러왔습니다. 모든 행의 7개 판정을 직접 선택하세요.', 'success');
+      } else {
+        setLiveGoldenReviewMessage('자동 공급 게이트가 통과한 동결 코호트가 아직 없습니다.', 'error');
+      }
+      updateLiveGoldenReviewCompletion();
+      return { packet: nextPacket, changedBinding: changedBinding, preserved: preserveDecisions };
+    }
+    async function loadLiveGoldenReviewPacket(options) {
+      if (!liveGoldenReviewSession || !liveGoldenReviewSession.accessToken) {
+        openLiveGoldenReviewLoginModal('검수 전용 관리자 재인증 후 packet을 불러올 수 있습니다.');
+        return null;
+      }
+      const payload = await liveGoldenReviewRequest('GET');
+      return reconcileLiveGoldenReviewPacket(payload, options || {});
+    }
+    function parseLiveGoldenReviewBoolean(value) {
+      if (value === 'true') return true;
+      if (value === 'false') return false;
+      return null;
+    }
+    function collectLiveGoldenReviewDecisions() {
+      const packetRows = Array.isArray(liveGoldenReviewPacket && liveGoldenReviewPacket.rows) ? liveGoldenReviewPacket.rows : [];
+      const rowNodes = Array.from(document.querySelectorAll('#liveGoldenReviewRows [data-review-row]'));
+      if (!packetRows.length || rowNodes.length !== packetRows.length) throw new Error('full-cohort-review-required: packet 행수와 화면 행수가 다릅니다.');
+      const seen = new Set();
+      return packetRows.map(function(packetRow, index) {
+        const rowNode = rowNodes[index];
+        const semanticHash = String(packetRow && packetRow.semanticHash || '');
+        if (!semanticHash || rowNode.getAttribute('data-semantic-hash') !== semanticHash || seen.has(semanticHash)) {
+          throw new Error('review-semantic-hash-mismatch: 코호트 행 결합이 일치하지 않습니다.');
+        }
+        seen.add(semanticHash);
+        const naturalKeyword = parseLiveGoldenReviewBoolean(selectedLiveGoldenReviewValue(rowNode, 'naturalKeyword'));
+        const intentMatch = parseLiveGoldenReviewBoolean(selectedLiveGoldenReviewValue(rowNode, 'intentMatch'));
+        const classification = selectedLiveGoldenReviewValue(rowNode, 'discoveryClass');
+        const malformed = parseLiveGoldenReviewBoolean(selectedLiveGoldenReviewValue(rowNode, 'malformed'));
+        const semanticDuplicate = parseLiveGoldenReviewBoolean(selectedLiveGoldenReviewValue(rowNode, 'semanticDuplicate'));
+        const platformResidue = parseLiveGoldenReviewBoolean(selectedLiveGoldenReviewValue(rowNode, 'platformResidue'));
+        const sentenceResidue = parseLiveGoldenReviewBoolean(selectedLiveGoldenReviewValue(rowNode, 'sentenceResidue'));
+        if (classification !== 'hiddenKnown' && classification !== 'obviousHead') {
+          throw new Error((index + 1) + '행의 숨은 수요/뻔한 헤드 판정을 선택하세요.');
+        }
+        const decision = {
+          semanticHash: semanticHash,
+          naturalKeyword: naturalKeyword,
+          intentMatch: intentMatch,
+          hiddenKnown: classification === 'hiddenKnown',
+          malformed: malformed,
+          semanticDuplicate: semanticDuplicate,
+          platformResidue: platformResidue,
+          sentenceResidue: sentenceResidue,
+        };
+        if (reviewBooleanFields.some(function(field) { return typeof decision[field] !== 'boolean'; })) {
+          throw new Error((index + 1) + '행에 미선택 판정이 있습니다. 7개 항목을 모두 선택하세요.');
+        }
+        return decision;
+      });
+    }
+    async function submitLiveGoldenReview() {
+      if (!liveGoldenReviewSession || !liveGoldenReviewSession.accessToken) {
+        openLiveGoldenReviewLoginModal('검수 전용 세션을 다시 발급하세요. 입력한 판정은 유지됩니다.');
+        return;
+      }
+      if (!liveGoldenReviewPacket) {
+        setLiveGoldenReviewMessage('제출할 동결 코호트가 없습니다.', 'error');
+        return;
+      }
+      const expectedPacket = liveGoldenReviewPacket;
+      try {
+        const refreshed = await loadLiveGoldenReviewPacket({ beforeSubmit: true });
+        if (!refreshed || refreshed.changedBinding || !sameLiveGoldenReviewBinding(expectedPacket, liveGoldenReviewPacket)) return;
+        const rows = collectLiveGoldenReviewDecisions();
+        const failingRowCount = rows.filter(function(decision) {
+          return !decision.naturalKeyword
+            || !decision.intentMatch
+            || !decision.hiddenKnown
+            || decision.malformed
+            || decision.semanticDuplicate
+            || decision.platformResidue
+            || decision.sentenceResidue;
+        }).length;
+        const confirmation = '코호트 ' + liveGoldenReviewPacket.cohortId + ' / ' + rows.length + '개 행을 제출합니다.'
+          + String.fromCharCode(10, 10)
+          + '실패 판정 포함: ' + failingRowCount + '행'
+          + String.fromCharCode(10)
+          + '이 제출은 되돌릴 수 없으며, 한 행이라도 실패하면 코호트가 불변 종료됩니다.';
+        if (!window.confirm(confirmation)) return;
+        qs('submitLiveGoldenReview').disabled = true;
+        setLiveGoldenReviewMessage('전체 코호트 판정을 제출하고 있습니다.', '');
+        const payload = await liveGoldenReviewRequest('POST', {
+          schemaVersion: 'live-golden-blind-review-submission-v2',
+          cohortId: liveGoldenReviewPacket.cohortId,
+          boardFingerprint: liveGoldenReviewPacket.boardFingerprint,
+          decisions: rows,
+        });
+        reconcileLiveGoldenReviewPacket(payload, { afterSubmit: true });
+        document.querySelectorAll('#liveGoldenReviewRows input').forEach(function(input) { input.disabled = true; });
+        const state = payload && payload.phase2Entry ? payload.phase2Entry.state : 'unknown';
+        setLiveGoldenReviewMessage(
+          state === 'eligible'
+            ? '검수가 통과되어 Phase 2 진입 인증서가 발급되었습니다.'
+            : '검수 결과가 제출되었습니다. Phase 2 상태와 실패 reason을 확인하세요.',
+          state === 'eligible' ? 'success' : 'error',
+        );
+        updateLiveGoldenReviewCompletion();
+      } catch (err) {
+        renderLiveGoldenReviewFailure(err);
+        updateLiveGoldenReviewCompletion();
+      }
+    }
+    async function submitLiveGoldenReviewLogin(event) {
+      event.preventDefault();
+      const userId = qs('liveGoldenReviewUserId') ? qs('liveGoldenReviewUserId').value.trim() : '';
+      const password = qs('liveGoldenReviewPassword') ? qs('liveGoldenReviewPassword').value : '';
+      const licenseCode = qs('liveGoldenReviewLicenseCode') ? qs('liveGoldenReviewLicenseCode').value.trim() : '';
+      if (!userId || !password) {
+        if (qs('liveGoldenReviewLoginMessage')) qs('liveGoldenReviewLoginMessage').textContent = '관리자 ID와 비밀번호를 입력하세요.';
+        return;
+      }
+      const credentials = {
+        userId: userId,
+        password: password,
+        adminLogin: true,
+        sessionPurpose: 'live-golden-review',
+      };
+      if (licenseCode) credentials.licenseCode = licenseCode;
+      try {
+        if (qs('liveGoldenReviewLoginMessage')) qs('liveGoldenReviewLoginMessage').textContent = '검수 전용 세션을 발급하고 있습니다.';
+        liveGoldenReviewSession = await requestLiveGoldenReviewSession(credentials);
+        closeLiveGoldenReviewLoginModal();
+        setLiveGoldenReviewMessage('검수 전용 재인증이 완료되었습니다. 일반 관리자 세션과 분리되어 있습니다.', 'success');
+        await loadLiveGoldenReviewPacket({ afterReauth: true });
+      } catch (err) {
+        liveGoldenReviewSession = null;
+        if (qs('liveGoldenReviewLoginMessage')) qs('liveGoldenReviewLoginMessage').textContent = err.message || String(err);
+        setLiveGoldenReviewMessage(err.message || String(err), 'error');
+        updateLiveGoldenReviewCompletion();
       }
     }
     function defaultAdminSiteContent() {
@@ -7146,7 +7692,7 @@ export function renderLewordProWeb(): string {
       }
       const agentAssist = agentAssistRequestPayload(url, payload);
       if (agentAssist) {
-        payload.includeAiInference = payload.includeAiInference !== false;
+        payload.includeAiInference = agentAssist.includeAiInference === true;
         payload.agentAssist = agentAssist;
       }
       if (url !== endpoints.session) {
@@ -7747,6 +8293,9 @@ export function renderLewordProWeb(): string {
     }
     function hydrateNaverApiSettingsForm() {
       const settings = readUserApiSettings();
+      const externalAiSettings = readExternalAiInferenceSettings();
+      if (qs('externalAiInferenceOptIn')) qs('externalAiInferenceOptIn').checked = externalAiSettings.enabled === true;
+      if (qs('externalAiInferenceProvider')) qs('externalAiInferenceProvider').value = externalAiSettings.provider;
       naverApiSettingsFields().forEach(function(id) {
         const input = qs(id);
         if (!input) return;
@@ -7879,6 +8428,7 @@ export function renderLewordProWeb(): string {
     }
     function renderNaverApiStatusMessage(payload) {
       const settings = payload && payload.localSettings ? payload.localSettings : readUserApiSettings();
+      const externalAiState = resolvedExternalAiInferenceState();
       const openReady = !!(settings.naverClientId && settings.naverClientSecret);
       const adReady = !!(settings.naverSearchAdAccessLicense && settings.naverSearchAdSecretKey && settings.naverSearchAdCustomerId);
       const youtubeReady = !!settings.youtubeApiKey;
@@ -7895,6 +8445,7 @@ export function renderLewordProWeb(): string {
         + ' · 네이버 검색광고 ' + (adReady ? '저장됨·실행 시 검증' : '미설정')
         + ' · 유튜브 ' + (youtubeReady ? '저장됨' : '미설정')
         + ' · AI 추론 ' + aiReadyCount + '/2'
+        + ' · 외부 AI ' + (externalAiState.enabled ? externalAiState.providerLabel + ' opt-in' : externalAiState.optedIn ? '키 확인 필요' : '꺼짐(0원)')
         + (settings.manusApiKey ? ' · Manus(Pro Web 미연결)' : '')
         + ' · 서버 공용 저장 아님 · 실행 요청에만 전달';
       renderApiSettingsChecklist(settings);
@@ -7903,14 +8454,20 @@ export function renderLewordProWeb(): string {
       const entered = collectNaverApiSettings();
       const previous = readUserApiSettings();
       const settings = Object.assign({}, previous, entered);
+      const externalAiSettings = collectExternalAiInferenceSettings();
       if (!Object.keys(settings).length) {
-        qs('naverApiSettingsMessage').textContent = '저장할 API 키를 입력하세요.';
+        writeExternalAiInferenceSettings(externalAiSettings);
+        hydrateNaverApiSettingsForm();
+        qs('naverApiSettingsMessage').textContent = externalAiSettings.enabled
+          ? '외부 AI opt-in은 저장됐지만 사용자 Claude/OpenAI 키가 없어 호출하지 않습니다.'
+          : '외부 AI 기본 꺼짐(0원) 설정을 저장했습니다.';
         return;
       }
       openProgress('API 키 저장', '이 브라우저 로컬 저장소에 저장하는 중입니다.');
       try {
         updateProgress(55, '입력값을 로컬 설정으로 병합하고 있습니다.');
         writeUserApiSettings(settings);
+        writeExternalAiInferenceSettings(externalAiSettings);
         const savedSettings = readUserApiSettings();
         clearNaverApiSecretInputs();
         hydrateNaverApiSettingsForm();
@@ -7977,6 +8534,7 @@ export function renderLewordProWeb(): string {
             searchAdReady: !!(settings.naverSearchAdAccessLicense && settings.naverSearchAdSecretKey && settings.naverSearchAdCustomerId),
             youtubeReady: !!settings.youtubeApiKey,
             aiInferenceReady: ['anthropicApiKey', 'openaiApiKey'].filter(function(key) { return !!settings[key]; }).length,
+            externalAiInference: resolvedExternalAiInferenceState(),
             openApiProbe: openApiProbe,
             openApiProbeError: openApiProbeError || null,
             checks: checks,
@@ -8002,6 +8560,7 @@ export function renderLewordProWeb(): string {
     function clearNaverApiSettings() {
       try {
         localStorage.removeItem(userApiSettingsStorageKey);
+        localStorage.removeItem(externalAiInferenceSettingsStorageKey);
         clearNaverApiSecretInputs();
         hydrateNaverApiSettingsForm();
         setResult({ userApiSettings: { ok: true, storage: 'browser-local', savedKeys: [] } });
@@ -8585,7 +9144,7 @@ export function renderLewordProWeb(): string {
         targetCount: Math.max(10, Math.min(100, Number(qs('youtubeTargetCount') ? qs('youtubeTargetCount').value || 50 : 50))),
         crossReferenceNaver: qs('youtubeCrossRef') ? qs('youtubeCrossRef').checked : true,
         includeShortsSignals: qs('youtubeShorts') ? qs('youtubeShorts').checked : true,
-        includeAiInference: true,
+        includeAiInference: resolvedExternalAiInferenceState().enabled,
         autoDiscovery: true,
       };
     }
@@ -9300,6 +9859,19 @@ export function renderLewordProWeb(): string {
     qs('adminLoginClose').addEventListener('click', closeAdminLoginModal);
     qs('adminLoginModal').addEventListener('click', function(event) { if (event.target.id === 'adminLoginModal') closeAdminLoginModal(); });
     qs('openAdminLogin').addEventListener('click', openAdminLoginModal);
+    qs('liveGoldenReviewLoginForm').addEventListener('submit', submitLiveGoldenReviewLogin);
+    qs('liveGoldenReviewLoginClose').addEventListener('click', closeLiveGoldenReviewLoginModal);
+    qs('liveGoldenReviewLoginModal').addEventListener('click', function(event) {
+      if (event.target.id === 'liveGoldenReviewLoginModal') closeLiveGoldenReviewLoginModal();
+    });
+    qs('openLiveGoldenReviewLogin').addEventListener('click', function() {
+      openLiveGoldenReviewLoginModal('일반 관리자 세션을 재사용하지 않습니다. 비밀번호를 다시 입력하세요.');
+    });
+    qs('refreshLiveGoldenReview').addEventListener('click', function() {
+      loadLiveGoldenReviewPacket({ manualRefresh: true }).catch(renderLiveGoldenReviewFailure);
+    });
+    qs('submitLiveGoldenReview').addEventListener('click', submitLiveGoldenReview);
+    qs('liveGoldenReviewRows').addEventListener('change', updateLiveGoldenReviewCompletion);
     qs('adminContentLockBanner').addEventListener('click', function(event) {
       event.preventDefault();
       if (!isAdminSession()) openAdminLoginModal();
@@ -9496,6 +10068,7 @@ export function renderLewordProWeb(): string {
       target.click();
     });
 
+    qs('liveGoldenReviewPanel').hidden = !isAdminSurface();
     restoreSession();
     hydrateNaverApiSettingsForm();
     renderFeatureGrid();

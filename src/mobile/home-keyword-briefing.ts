@@ -226,11 +226,15 @@ function buildSnapshot(options: {
 }
 
 export function resolveHomeKeywordBriefingFile(): string {
-  if (process.env['LEWORD_HOME_KEYWORD_BRIEFING_FILE']) {
-    return path.resolve(process.env['LEWORD_HOME_KEYWORD_BRIEFING_FILE']);
+  const explicitFile = process.env['LEWORD_MOBILE_HOME_KEYWORD_BRIEFING_FILE']
+    || process.env['LEWORD_HOME_KEYWORD_BRIEFING_FILE'];
+  if (explicitFile) {
+    return path.resolve(explicitFile);
   }
   const dataRoot = process.env['LEWORD_API_DATA_DIR']
-    || (fs.existsSync('/data') ? '/data' : path.resolve(process.cwd(), 'data'));
+    || (fs.existsSync('/briefing')
+      ? '/briefing'
+      : fs.existsSync('/data') ? '/data' : path.resolve(process.cwd(), 'data'));
   return path.join(dataRoot, 'home-keyword-briefing.json');
 }
 

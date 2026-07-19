@@ -3,6 +3,11 @@ dist/
 release/
 *.log
 .env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
 .DS_Store
 *.map
 
@@ -15,6 +20,7 @@ resources/chromium/
 leword-source-history.json
 test-results/
 .cache/
+/tmp/
 .codex-build-cache/
 .expo/
 .server-keys/

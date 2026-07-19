@@ -85,12 +85,14 @@ For `android-public`, also set `LEWORD_MOBILE_REVIEWER_TOKEN_READY=true` only af
 
 `npm run mobile:ci-secrets-gate` is the target-aware preflight used by the workflow. It keeps `verify-only` light and blocks release targets before EAS or store work starts when a required variable/secret is missing. `npm run mobile:release-secret-scan` runs before evidence upload and blocks concrete GitHub/Expo tokens, service-account private keys, or non-placeholder `gh secret set --body` values from release artifacts. `npm run mobile:submit-config:materialize` writes temporary Google Play and App Store Connect credential files from base64 secrets during CI.
 
-The `api-image` target publishes the production API worker to GHCR and uploads the immutable tag in the `mobile-api-image-reference` artifact. Deploy that image with:
+The `api-image` target publishes the production API worker to GHCR from `main` and uploads a strict commit/repository/run/OCI-digest manifest in the `mobile-api-image-reference` artifact. Manual compose recovery must use the registry digest, never a SHA tag or `latest`:
 
 ```powershell
-$env:LEWORD_MOBILE_API_IMAGE='ghcr.io/<owner>/leword-mobile-api:<sha>'
+$env:LEWORD_MOBILE_API_IMAGE='ghcr.io/<owner>/leword-mobile-api@sha256:<64-hex-digest>'
 docker compose -f apps/api/docker-compose.production.yml up -d
 ```
+
+Normal production restarts use `.github/workflows/api-production-restart.yml`, which accepts no image input and selects only a successful API image build for the current `origin/main` commit.
 
 ## SDK Baseline
 
@@ -143,8 +145,9 @@ npm run mobile:api-runtime-gate
 ```
 
 The API container is built from the repository root with `apps/api/Dockerfile`. It installs system Chromium and sets `LEWORD_CHROME_PATH=/usr/bin/chromium`, so browser-heavy PC-grade work stays on the server worker.
-Production hosts can run the CI-published GHCR image through `apps/api/docker-compose.production.yml`; the compose file loads `apps/api/.env.production`, maps `34983`, persists `/data/mobile-cache.json`, and healthchecks `/health`.
+Production hosts run the CI-published digest through `apps/api/docker-compose.production.yml`; the API loads `.env.production`, while the live-golden worker loads the dedicated minimal `.env.live-golden-worker.production`. Compose maps `34983`, keeps `/data` API-only for cache/commerce, gives the worker only `/golden` state, mounts the SearchAd account pool read-only from `/searchad`, shares only monotonic SearchAd/OpenAPI quota ledgers through API/worker-RW `/quota`, stores review artifacts on a separate API-RW/worker-RO volume, initializes legacy volume ownership without deleting rollback sources, and healthchecks `/health` while both runtime containers run as non-root. Verified rollback stops failed-generation writers and exports the maximum quota state to legacy `/data` before restarting the previous compose.
 The API `/health` response includes `runtime` so operators can verify whether the deployed worker is actually ready to return measured PC-grade mobile results.
+The API `/health.liveGolden.reviewStorage` response separately reports whether Phase 2 review storage is configured, readable, and writable; deployment requires all three.
 The API `/health.guardrails` response includes request body and per-client rate-limit settings so public mobile traffic cannot silently overwhelm PC-grade workers.
 
 After the deployed API is reachable:

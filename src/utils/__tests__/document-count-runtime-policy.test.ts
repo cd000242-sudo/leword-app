@@ -4,6 +4,7 @@ import type { MobileKeywordMetric } from '../../mobile/contracts';
 import { hasFreshCanonicalDocumentCountMeasurement } from '../../mobile/keyword-ai-judge';
 import {
   NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS,
+  naverBlogDocumentCountQueryKey,
   normalizeNaverBlogBroadQuery,
 } from '../naver-blog-api';
 
@@ -21,6 +22,12 @@ assert(
   normalizeNaverBlogBroadQuery('전세   대출 금리') === '전세 대출 금리',
 );
 
+assert(
+  'broad document-count query canonicalizes full-width text before cache and HTTP identity',
+  normalizeNaverBlogBroadQuery('\uFF21\uFF22\uFF23 \uFF02\uC804\uC138 \uB300\uCD9C\uFF02') === 'ABC \uC804\uC138 \uB300\uCD9C',
+  normalizeNaverBlogBroadQuery('\uFF21\uFF22\uFF23 \uFF02\uC804\uC138 \uB300\uCD9C\uFF02'),
+);
+
 const measuredAtMs = Date.parse('2026-07-18T00:00:00.000Z');
 const canonicalMetric = {
   keyword: '전세 대출 금리 비교',
@@ -29,6 +36,7 @@ const canonicalMetric = {
   documentCountSource: 'naver-api',
   documentCountConfidence: 'high',
   documentCountQueryMode: 'broad',
+  documentCountQueryKey: naverBlogDocumentCountQueryKey('전세 대출 금리 비교'),
   documentCountMeasuredAt: new Date(measuredAtMs).toISOString(),
   isDocumentCountEstimated: false,
 } as MobileKeywordMetric;
@@ -54,6 +62,10 @@ assert(
   }, new Date(measuredAtMs + 60_000)),
 );
 
+const naverBlogApiSource = fs.readFileSync(
+  path.join(__dirname, '..', 'naver-blog-api.ts'),
+  'utf8',
+);
 const pcExecutorSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'mobile', 'pc-engine-executor.ts'),
   'utf8',
@@ -64,6 +76,10 @@ const apiServerSource = fs.readFileSync(
 );
 const desktopKeywordAnalysisSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'main', 'handlers', 'keyword-analysis.ts'),
+  'utf8',
+);
+const mobileAppContractsSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', '..', 'apps', 'mobile', 'src', 'contracts.ts'),
   'utf8',
 );
 const proTrafficSource = fs.readFileSync(
@@ -80,6 +96,10 @@ const richFeedSource = fs.readFileSync(
 );
 
 assert(
+  'shared Blog OpenAPI boundary canonicalizes every raw caller before cache, in-flight, and fetch',
+  /const broadQuery = normalizeNaverBlogBroadQuery\(keyword\)[\s\S]{0,500}documentCountCacheKey\(broadQuery\)[\s\S]{0,500}fetchNaverBlogDocumentCount\(broadQuery, options\)/.test(naverBlogApiSource),
+);
+assert(
   'PC analyzer normalizes the broad query and requires fresh canonical counts for completion',
   pcExecutorSource.includes('normalizeNaverBlogBroadQuery(keyword)')
     && pcExecutorSource.includes('return !hasFreshCanonicalDocumentCountMeasurement(metric)')
@@ -89,6 +109,27 @@ assert(
   'desktop direct analysis force-refreshes only the original seed document count',
   desktopKeywordAnalysisSource.includes("kw.type === 'original'")
     && desktopKeywordAnalysisSource.includes('skipCache: forceFresh'),
+);
+assert(
+  'desktop direct analysis response preserves all document-count provenance fields',
+  /keywords:\s*filteredKeywords\.map[\s\S]{0,1200}documentCountSource:\s*k\.documentCountSource/.test(desktopKeywordAnalysisSource)
+    && /keywords:\s*filteredKeywords\.map[\s\S]{0,1200}documentCountConfidence:\s*k\.documentCountConfidence/.test(desktopKeywordAnalysisSource)
+    && /keywords:\s*filteredKeywords\.map[\s\S]{0,1200}documentCountQueryMode:\s*k\.documentCountQueryMode/.test(desktopKeywordAnalysisSource)
+    && /keywords:\s*filteredKeywords\.map[\s\S]{0,1200}documentCountMeasuredAt:\s*k\.documentCountMeasuredAt/.test(desktopKeywordAnalysisSource)
+    && /keywords:\s*filteredKeywords\.map[\s\S]{0,1200}isDocumentCountEstimated:\s*k\.isDocumentCountEstimated/.test(desktopKeywordAnalysisSource),
+);
+assert(
+  'mobile app result contract carries canonical search and document provenance',
+  mobileAppContractsSource.includes('searchVolumeSource?: MobileSearchVolumeSource;')
+    && mobileAppContractsSource.includes('searchVolumeConfidence?: MobileMeasurementConfidence;')
+    && mobileAppContractsSource.includes("searchVolumeBindingVersion?: 'keyword-keyed-v2';")
+    && mobileAppContractsSource.includes('searchVolumeMeasuredAt?: string;')
+    && mobileAppContractsSource.includes('isSearchVolumeEstimated?: boolean;')
+    && mobileAppContractsSource.includes('documentCountSource?: MobileDocumentCountSource;')
+    && mobileAppContractsSource.includes('documentCountConfidence?: MobileMeasurementConfidence;')
+    && mobileAppContractsSource.includes("documentCountQueryMode?: 'broad' | 'exact-phrase';")
+    && mobileAppContractsSource.includes('documentCountMeasuredAt?: string;')
+    && mobileAppContractsSource.includes('isDocumentCountEstimated?: boolean;'),
 );
 assert(
   'API keyword-analysis cache boundary rejects stale document counts',

@@ -5,7 +5,10 @@ import type {
   MobileKeywordResult,
   MobileResultGrade,
 } from './contracts';
-import { NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS } from '../utils/naver-blog-api';
+import {
+  NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS,
+  naverBlogDocumentCountQueryKey,
+} from '../utils/naver-blog-api';
 
 const ARTICLE_TITLE_KEYWORD_RE = /(보도참고자료|보도자료|브리핑|해명자료|설명자료|첨부파일|공고문|입장문|마감\s*결과|결과\s*\d{1,2}\.\d{1,2}|고유가\s*피해지원금\s*신청.*지급\s*마감)/u;
 
@@ -29,9 +32,13 @@ export function hasTrustedDocumentCountMeasurement(metric: MobileKeywordMetric):
   const confidence = normalizeText(metric.documentCountConfidence).toLowerCase();
   const queryMode = normalizeText(metric.documentCountQueryMode).toLowerCase();
   const documentCount = finiteNumber(metric.documentCount);
+  const expectedQueryKey = naverBlogDocumentCountQueryKey(metric.keyword);
+  const measuredQueryKey = normalizeText(metric.documentCountQueryKey).toLowerCase();
   if (metric.isDocumentCountEstimated === true || (metric as any).dcEstimated === true) return false;
   return documentCount !== null
     && documentCount >= 0
+    && expectedQueryKey.length > 0
+    && measuredQueryKey === expectedQueryKey
     && source === 'naver-api'
     && confidence === 'high'
     && (queryMode === 'broad' || queryMode === 'exact-phrase');

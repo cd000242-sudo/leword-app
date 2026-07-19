@@ -1,7 +1,34 @@
 services:
+  leword-volume-init:
+    image: ${LEWORD_MOBILE_API_IMAGE:?LEWORD_MOBILE_API_IMAGE must be an immutable digest-pinned GHCR image}
+    user: "0:0"
+    restart: "no"
+    network_mode: none
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+    entrypoint: ["node"]
+    command: ["/app/apps/api/scripts/initialize-production-volumes.js"]
+    environment:
+      LEWORD_VOLUME_INIT_MODE: forward
+    volumes:
+      - leword-mobile-cache:/data
+      - leword-live-golden-data:/golden
+      - leword-review-artifacts:/review
+      - leword-home-keyword-briefing:/briefing
+      - leword-searchad-accounts:/searchad
+      - leword-measurement-quota:/quota
+
   leword-api:
-    image: ${LEWORD_MOBILE_API_IMAGE:-ghcr.io/cd000242-sudo/leword-mobile-api:latest}
+    image: ${LEWORD_MOBILE_API_IMAGE:?LEWORD_MOBILE_API_IMAGE must be an immutable digest-pinned GHCR image}
     restart: unless-stopped
+    depends_on:
+      leword-volume-init:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:${LEWORD_API_BIND_PORT:-34983}:34983"
     env_file:
@@ -12,9 +39,12 @@ services:
       LEWORD_CHROME_PATH: /usr/bin/chromium
       LEWORD_MOBILE_CACHE_FILE: /data/mobile-cache.json
       LEWORD_MOBILE_KEYWORD_CACHE_FILE: /data/keyword-cache.json
-      LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE: /data/live-golden-board.json
-      LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE: /data/live-golden-worker-heartbeat.json
-      LEWORD_MOBILE_LIVE_GOLDEN_HUMAN_REVIEW_FILE: /data/live-golden-human-review.json
+      LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE: /golden/live-golden-board.json
+      LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE: /golden/live-golden-worker-heartbeat.json
+      LEWORD_MOBILE_LIVE_GOLDEN_HUMAN_REVIEW_FILE: /review/live-golden-human-review.json
+      LEWORD_MOBILE_LIVE_GOLDEN_REVIEW_COHORT_FILE: /review/live-golden-review-cohort.json
+      LEWORD_MOBILE_PHASE2_ENTRY_CERTIFICATE_FILE: /review/live-golden-phase2-entry-certificate.json
+      LEWORD_MOBILE_HOME_KEYWORD_BRIEFING_FILE: /briefing/home-keyword-briefing.json
       LEWORD_MOBILE_LIVE_GOLDEN_ENABLED: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_READONLY: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_ON_START: "false"
@@ -24,7 +54,7 @@ services:
       LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS: ${LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS:-300000}
       LEWORD_MOBILE_LIVE_GOLDEN_MAX_SEEDS: ${LEWORD_MOBILE_LIVE_GOLDEN_MAX_SEEDS:-1000}
       LEWORD_MOBILE_LIVE_GOLDEN_MAX_CANDIDATES: ${LEWORD_MOBILE_LIVE_GOLDEN_MAX_CANDIDATES:-3600}
-      LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET: ${LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:-120}
+      LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET: ${LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:-64}
       LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES: ${LEWORD_MOBILE_PREWARM_INTERVAL_MINUTES:-360}
       LEWORD_MOBILE_PREWARM_LIMIT: ${LEWORD_MOBILE_PREWARM_LIMIT:-2}
       LEWORD_MOBILE_PREWARM_CONCURRENCY: ${LEWORD_MOBILE_PREWARM_CONCURRENCY:-1}
@@ -34,12 +64,19 @@ services:
       LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT: ${LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT:-5}
       LEWORD_MOBILE_MAX_CONCURRENT_JOBS: ${LEWORD_MOBILE_MAX_CONCURRENT_JOBS:-1}
       LEWORD_SEARCHAD_SOFT_CEILING: ${LEWORD_SEARCHAD_WORKER_SOFT_CEILING:-22000}
-      LEWORD_SEARCHAD_ACCOUNTS_FILE: /data/searchad-accounts.json
+      LEWORD_SEARCHAD_ACCOUNTS_FILE: /searchad/searchad-accounts.json
+      LEWORD_SEARCHAD_QUOTA_STATE_FILE: /quota/searchad-quota-state.json
+      LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE: /quota/naver-openapi-quota-state.json
       LEWORD_BROWSER_POOL_MAX_SIZE: ${LEWORD_BROWSER_POOL_MAX_SIZE:-1}
       LEWORD_BROWSER_POOL_IDLE_MS: ${LEWORD_BROWSER_POOL_IDLE_MS:-5000}
       LEWORD_BROWSER_POOL_MAX_LEASE_MS: ${LEWORD_BROWSER_POOL_MAX_LEASE_MS:-600000}
     volumes:
       - leword-mobile-cache:/data
+      - leword-live-golden-data:/golden:ro
+      - leword-review-artifacts:/review
+      - leword-home-keyword-briefing:/briefing
+      - leword-searchad-accounts:/searchad:ro
+      - leword-measurement-quota:/quota
     healthcheck:
       test:
         - CMD
@@ -52,26 +89,31 @@ services:
       retries: 3
 
   leword-live-golden-worker:
-    image: ${LEWORD_MOBILE_API_IMAGE:-ghcr.io/cd000242-sudo/leword-mobile-api:latest}
+    image: ${LEWORD_MOBILE_API_IMAGE:?LEWORD_MOBILE_API_IMAGE must be an immutable digest-pinned GHCR image}
     restart: unless-stopped
+    depends_on:
+      leword-volume-init:
+        condition: service_completed_successfully
     command: ["npm", "--prefix", "apps/api", "run", "worker:live-golden"]
     healthcheck:
       test:
         - CMD-SHELL
-        - "test -s /data/live-golden-worker-heartbeat.json && find /data/live-golden-worker-heartbeat.json -mmin -3 -print -quit | grep -q ."
+        - "test -s /golden/live-golden-worker-heartbeat.json && find /golden/live-golden-worker-heartbeat.json -mmin -3 -print -quit | grep -q ."
       interval: 60s
       timeout: 5s
       start_period: 30s
       retries: 3
     env_file:
-      - .env.production
+      - .env.live-golden-worker.production
     environment:
       NODE_ENV: production
       LEWORD_CHROME_PATH: /usr/bin/chromium
-      LEWORD_MOBILE_CACHE_FILE: /data/mobile-cache.json
-      LEWORD_MOBILE_KEYWORD_CACHE_FILE: /data/keyword-cache.json
-      LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE: /data/live-golden-board.json
-      LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE: /data/live-golden-worker-heartbeat.json
+      LEWORD_MOBILE_CACHE_FILE: /golden/mobile-cache.json
+      LEWORD_MOBILE_KEYWORD_CACHE_FILE: /golden/keyword-cache.json
+      LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE: /golden/live-golden-board.json
+      LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE: /golden/live-golden-worker-heartbeat.json
+      LEWORD_MOBILE_LIVE_GOLDEN_REVIEW_COHORT_FILE: /review/live-golden-review-cohort.json
+      LEWORD_MOBILE_HOME_KEYWORD_BRIEFING_FILE: /briefing/home-keyword-briefing.json
       LEWORD_MOBILE_LIVE_GOLDEN_ENABLED: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_ON_START: "true"
       LEWORD_MOBILE_LIVE_GOLDEN_IGNORE_PREWARM: "true"
@@ -80,15 +122,26 @@ services:
       LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS: ${LEWORD_MOBILE_LIVE_GOLDEN_START_DELAY_MS:-15000}
       LEWORD_MOBILE_LIVE_GOLDEN_MAX_SEEDS: ${LEWORD_MOBILE_LIVE_GOLDEN_MAX_SEEDS:-1000}
       LEWORD_MOBILE_LIVE_GOLDEN_MAX_CANDIDATES: ${LEWORD_MOBILE_LIVE_GOLDEN_MAX_CANDIDATES:-3600}
-      LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET: ${LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:-120}
+      LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET: ${LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:-64}
       LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT: ${LEWORD_PUBLIC_GOLDEN_PREVIEW_COUNT:-5}
       LEWORD_SEARCHAD_SOFT_CEILING: ${LEWORD_SEARCHAD_WORKER_SOFT_CEILING:-22000}
-      LEWORD_SEARCHAD_ACCOUNTS_FILE: /data/searchad-accounts.json
+      LEWORD_SEARCHAD_ACCOUNTS_FILE: /searchad/searchad-accounts.json
+      LEWORD_SEARCHAD_QUOTA_STATE_FILE: /quota/searchad-quota-state.json
+      LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE: /quota/naver-openapi-quota-state.json
       LEWORD_BROWSER_POOL_MAX_SIZE: ${LEWORD_BROWSER_POOL_MAX_SIZE:-1}
       LEWORD_BROWSER_POOL_IDLE_MS: ${LEWORD_BROWSER_POOL_IDLE_MS:-5000}
       LEWORD_BROWSER_POOL_MAX_LEASE_MS: ${LEWORD_BROWSER_POOL_MAX_LEASE_MS:-600000}
     volumes:
-      - leword-mobile-cache:/data
+      - leword-live-golden-data:/golden
+      - leword-review-artifacts:/review:ro
+      - leword-home-keyword-briefing:/briefing:ro
+      - leword-searchad-accounts:/searchad:ro
+      - leword-measurement-quota:/quota
 
 volumes:
   leword-mobile-cache:
+  leword-live-golden-data:
+  leword-review-artifacts:
+  leword-home-keyword-briefing:
+  leword-searchad-accounts:
+  leword-measurement-quota:

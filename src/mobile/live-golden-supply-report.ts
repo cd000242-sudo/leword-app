@@ -14,6 +14,8 @@ import { NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS } from '../utils/naver-blog-api'
 export interface LiveGoldenHumanReview {
   reviewed: number;
   precision: number;
+  hiddenKnownCount?: number;
+  obviousCount?: number;
   malformedCount: number;
   semanticDuplicateCount: number;
   platformResidueCount: number;
@@ -325,6 +327,7 @@ export function buildLiveGoldenSupplyReport(
   if (automatedSupplyGate === 'pass' && humanReview) {
     superiorityGate = humanReview.reviewed >= verified.length
       && humanReview.precision >= 0.9
+      && (humanReview.obviousCount === undefined || humanReview.obviousCount === 0)
       && humanReview.malformedCount === 0
       && humanReview.semanticDuplicateCount === 0
       && humanReview.platformResidueCount === 0

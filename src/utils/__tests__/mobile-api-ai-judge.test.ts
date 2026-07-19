@@ -5,6 +5,7 @@ import type {
   MobileKeywordMetric,
   MobileKeywordResult,
 } from '../../mobile/contracts';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: unknown, detail = ''): void {
   if (!condition) {
@@ -41,7 +42,7 @@ async function waitForCompletedJob(baseUrl: string, jobId: string): Promise<any>
 }
 
 function keyword(overrides: Partial<MobileKeywordMetric>): MobileKeywordMetric {
-  return {
+  const metric: MobileKeywordMetric = {
     keyword: '청년도약계좌 신청 방법',
     grade: 'SSS',
     score: 94,
@@ -67,6 +68,11 @@ function keyword(overrides: Partial<MobileKeywordMetric>): MobileKeywordMetric {
     documentCountMeasuredAt: new Date().toISOString(),
     isDocumentCountEstimated: false,
     ...overrides,
+  };
+  return {
+    ...metric,
+    documentCountQueryKey: overrides.documentCountQueryKey
+      ?? naverBlogDocumentCountQueryKey(metric.keyword),
   };
 }
 

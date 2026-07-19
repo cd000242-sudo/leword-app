@@ -2,6 +2,7 @@ import { MobileLiveGoldenRadar, __liveGoldenRadarTestInternals } from '../../mob
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: unknown): void {
   if (!condition) {
@@ -10,9 +11,10 @@ function assert(name: string, condition: boolean, detail?: unknown): void {
 }
 
 function trustedBoardItem(category: string, index: number): any {
+  const keyword = `${category} verified ${index}`;
   return {
     id: `verified-${category}-${index}`,
-    keyword: `${category} verified ${index}`,
+    keyword,
     category,
     grade: 'SSS',
     score: 95,
@@ -30,6 +32,7 @@ function trustedBoardItem(category: string, index: number): any {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'exact-phrase',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
     documentCountMeasuredAt: '2026-07-15T02:00:00.000Z',
     isDocumentCountEstimated: false,
     updatedAt: '2026-07-15T01:00:00.000Z',
@@ -111,6 +114,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
         confidence: 'high',
         isEstimated: false,
         queryMode: 'broad',
+        queryKey: naverBlogDocumentCountQueryKey(keyword),
         measuredAt: '2026-07-15T02:00:00.000Z',
       };
     },
@@ -123,6 +127,10 @@ function pendingItem(keyword: string, category: string, index: number): any {
       'mobile-live-seed-backfill',
       'naver-openapi-exact-phrase',
       'persistent-cache-exact-document-recovery',
+      // This fixture predates the hidden-known cohort gate. Keep it eligible
+      // for document-scope migration by giving the trusted board row an
+      // independently validated differentiating modifier.
+      'validated-modifier',
     ],
   };
   canonicalRefreshInternal.board.set(legacyExactBoardItem.id, legacyExactBoardItem);
@@ -167,10 +175,77 @@ function pendingItem(keyword: string, category: string, index: number): any {
       documentCount: 900_000,
       category,
       source: 'persistent-keyword-cache',
+      evidence: keyword === '에어컨 청소 비용 비교'
+        ? Array.from({ length: 8 }, (_, index) => `ordinary-cache-evidence-${index + 1}`)
+        : undefined,
     },
   ]))), 'utf8');
 
   const now = new Date('2026-07-15T02:00:00.000Z');
+  const untrustedMaintenanceCacheFile = path.join(dir, 'untrusted-maintenance-cache.json');
+  const untrustedMaintenanceBoardFile = path.join(dir, 'untrusted-maintenance-board.json');
+  const untrustedMaintenanceKeyword = '제주 렌터카 가격비교';
+  fs.writeFileSync(untrustedMaintenanceCacheFile, JSON.stringify({
+    [untrustedMaintenanceKeyword]: {
+      searchVolume: 2400,
+      pcSearchVolume: 480,
+      mobileSearchVolume: 1920,
+      documentCount: 120,
+      category: 'travel_domestic',
+      grade: 'SSS',
+      score: 95,
+      evidence: ['validated-modifier', 'fixture-searchad-volume'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      searchVolumeBindingVersion: 'keyword-keyed-v2',
+      searchVolumeMeasuredAt: now.toISOString(),
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      documentCountQueryMode: 'exact-phrase',
+      documentCountMeasuredAt: now.toISOString(),
+      isDocumentCountEstimated: false,
+    },
+  }), 'utf8');
+  const untrustedMaintenanceDocumentCalls: string[] = [];
+  const untrustedMaintenanceRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    boardFile: untrustedMaintenanceBoardFile,
+    keywordCacheFile: untrustedMaintenanceCacheFile,
+    now: () => now,
+    measureLiveDocumentCount: async (keyword) => {
+      untrustedMaintenanceDocumentCalls.push(keyword);
+      return {
+        dc: 100,
+        source: 'naver-api',
+        confidence: 'high',
+        isEstimated: false,
+        queryKey: naverBlogDocumentCountQueryKey(keyword),
+        measuredAt: now.toISOString(),
+      };
+    },
+  });
+  const untrustedMaintenanceInternal = untrustedMaintenanceRadar as any;
+  const untrustedMaintenanceResult = await untrustedMaintenanceInternal
+    .refreshCanonicalBoardDocumentCounts(12);
+  const untrustedMaintenanceItem = [...untrustedMaintenanceInternal.board.values()]
+    .find((item: any) => item.keyword === untrustedMaintenanceKeyword) as any;
+  assert(
+    'untrusted or query-unbound persistent-cache proof cannot publish or spend canonical document maintenance quota',
+    untrustedMaintenanceResult.attemptedCount === 0
+      && untrustedMaintenanceDocumentCalls.length === 0
+      && (
+        !untrustedMaintenanceItem
+        || !untrustedMaintenanceItem.evidence.includes('validated-modifier')
+      ),
+    {
+      untrustedMaintenanceResult,
+      untrustedMaintenanceDocumentCalls,
+      evidence: untrustedMaintenanceItem?.evidence,
+    },
+  );
+  untrustedMaintenanceRadar.stop();
+
   const legacyBoardOnlyKeyword = '\uBD99\uBC15\uC774\uC7A5 \uC124\uCE58 \uBE44\uC6A9';
   const legacyBoardOnlyRow = {
     id: 'legacy-board-only-exact',
@@ -190,6 +265,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
       'mobile-live-seed-backfill',
       'naver-openapi-exact-phrase',
       'persistent-cache-exact-document-recovery',
+      'validated-modifier',
     ],
     isMeasured: true,
     searchVolumeSource: 'searchad',
@@ -204,6 +280,76 @@ function pendingItem(keyword: string, category: string, index: number): any {
     discoveredAt: now.toISOString(),
     updatedAt: now.toISOString(),
   };
+  const staleDemandBoardFile = path.join(dir, 'stale-demand-board.json');
+  const staleDemandKeyword = '제주 렌터카 가격비교 추천 후기';
+  fs.writeFileSync(staleDemandBoardFile, JSON.stringify({
+    version: 1,
+    boardUpdatedAt: now.toISOString(),
+    items: [{
+      ...legacyBoardOnlyRow,
+      id: 'stale-demand-naturalness-bypass',
+      keyword: staleDemandKeyword,
+      category: 'travel_domestic',
+      evidence: [
+        'mobile-live-seed-backfill',
+        'naver-openapi-exact-phrase',
+        'persistent-cache-exact-document-recovery',
+        'real-demand-extension',
+        'validated-modifier',
+      ],
+    }],
+  }), 'utf8');
+  const staleDemandSearchAdCalls: string[] = [];
+  const staleDemandDocumentCalls: string[] = [];
+  const staleDemandRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    boardFile: staleDemandBoardFile,
+    now: () => now,
+    getCachedSearchAdVolume: () => ({
+      pc: 480,
+      mo: 1920,
+      total: 2400,
+      at: now.getTime() - 60_000,
+      ageMs: 60_000,
+    }),
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      staleDemandSearchAdCalls.push(...keywords);
+      return [];
+    },
+    measureLiveDocumentCount: async (keyword) => {
+      staleDemandDocumentCalls.push(keyword);
+      return {
+        dc: 100,
+        source: 'naver-api',
+        confidence: 'high',
+        isEstimated: false,
+        queryKey: naverBlogDocumentCountQueryKey(keyword),
+        measuredAt: now.toISOString(),
+      };
+    },
+  });
+  const staleDemandInternal = staleDemandRadar as any;
+  staleDemandInternal.searchAdMeasurementBudgetRemaining = 40;
+  const staleDemandMaintenance = await staleDemandInternal.refreshCanonicalBoardDocumentCounts(12);
+  const staleDemandRecovery = await staleDemandInternal.recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'stale-client', clientSecret: 'stale-secret' },
+    24,
+  );
+  assert(
+    'an expired real-demand marker cannot bypass naturalness or spend measurement quota',
+    staleDemandMaintenance.attemptedCount === 0
+      && staleDemandRecovery.attemptedCount === 0
+      && staleDemandSearchAdCalls.length === 0
+      && staleDemandDocumentCalls.length === 0,
+    {
+      staleDemandMaintenance,
+      staleDemandRecovery,
+      staleDemandSearchAdCalls,
+      staleDemandDocumentCalls,
+    },
+  );
+  staleDemandRadar.stop();
+
   const legacyBoardOnlyFile = path.join(dir, 'legacy-board-only.json');
   fs.writeFileSync(legacyBoardOnlyFile, JSON.stringify({
     version: 1,
@@ -262,6 +408,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
         source: 'naver-api',
         confidence: 'high',
         isEstimated: false,
+        queryKey: naverBlogDocumentCountQueryKey(keyword),
         measuredAt: now.toISOString(),
       };
     },
@@ -354,6 +501,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
         source: 'naver-api',
         confidence: 'high',
         isEstimated: false,
+        queryKey: naverBlogDocumentCountQueryKey(keyword),
         measuredAt: retryNow.toISOString(),
       };
     },
@@ -475,6 +623,10 @@ function pendingItem(keyword: string, category: string, index: number): any {
     keywordCacheFile,
     boardTarget: 60,
     now: () => now,
+    realDemandProbe: async (query: string) => ({
+      ok: true,
+      suggestions: [`${query} 후기`],
+    }),
     getCachedSearchAdVolume: (keyword: string) => {
       const total = cachedVolumeByKeyword.get(keyword);
       if (!total) return null;
@@ -514,6 +666,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
         source: 'naver-api',
         confidence: 'high',
         isEstimated: false,
+        queryKey: naverBlogDocumentCountQueryKey(keyword),
         measuredAt: now.toISOString(),
       };
     },
@@ -595,6 +748,115 @@ function pendingItem(keyword: string, category: string, index: number): any {
     third.attemptedCount === 0 && volumeOptions.length === callCountAfterSecondRun,
     { first, second, third, callCountAfterSecondRun, calls: volumeOptions.length },
   );
+  const evidencePressureVerified = (radar.snapshot().verifiedSupply || [])
+    .find((item: any) => item.keyword === '에어컨 청소 비용 비교');
+  assert(
+    'current server-side hidden proof survives merge evidence truncation after quota-bearing recovery',
+    Boolean(evidencePressureVerified)
+      && evidencePressureVerified.evidence.includes('real-demand-extension'),
+    evidencePressureVerified,
+  );
+
+  const rotatingKeywordCacheFile = path.join(dir, 'rotating-proof-keyword-cache.json');
+  const rotatingBoardFile = path.join(dir, 'rotating-proof-board.json');
+  const rotatingCandidates = Array.from({ length: 25 }, (_, index) => (
+    `에어컨 청소 비용 ${index + 1} 비교`
+  ));
+  fs.writeFileSync(rotatingKeywordCacheFile, JSON.stringify(Object.fromEntries(
+    rotatingCandidates.map((keyword) => [keyword, {
+      searchVolume: 2400,
+      documentCount: 900_000,
+      category: 'home_life',
+      source: 'persistent-keyword-cache',
+    }]),
+  )), 'utf8');
+  let rotatingNow = new Date(now);
+  const rotatingProofCalls: string[] = [];
+  const rotatingSearchAdCalls: string[] = [];
+  const rotatingDocumentCalls: string[] = [];
+  const rotatingRadar = new MobileLiveGoldenRadar({
+    runOnStart: false,
+    boardFile: rotatingBoardFile,
+    keywordCacheFile: rotatingKeywordCacheFile,
+    now: () => rotatingNow,
+    realDemandProbe: async (query: string) => {
+      rotatingProofCalls.push(query);
+      return rotatingProofCalls.length <= 24
+        ? { ok: false, suggestions: [] }
+        : { ok: true, suggestions: [`${query} 후기`] };
+    },
+    getCachedSearchAdVolume: () => ({
+      pc: 480,
+      mo: 1920,
+      total: 2400,
+      at: rotatingNow.getTime() - 60_000,
+      ageMs: 60_000,
+    }),
+    getCachedExactDocumentCount: () => null,
+    measureLiveSearchVolumeSeparate: async (_config, keywords) => {
+      rotatingSearchAdCalls.push(...keywords);
+      return keywords.map((keyword) => ({
+        keyword,
+        pcSearchVolume: 480,
+        mobileSearchVolume: 1920,
+        documentCount: null,
+        competition: 'LOW',
+        monthlyAveCpc: 180,
+        searchVolumeSource: 'searchad' as const,
+        searchVolumeConfidence: 'high' as const,
+        searchVolumeBindingVersion: 'keyword-keyed-v2' as const,
+        searchVolumeMeasuredAt: rotatingNow.toISOString(),
+        isSearchVolumeEstimated: false,
+      }));
+    },
+    measureLiveDocumentCount: async (keyword) => {
+      rotatingDocumentCalls.push(keyword);
+      return {
+        dc: 120,
+        source: 'naver-api',
+        confidence: 'high',
+        isEstimated: false,
+        queryKey: naverBlogDocumentCountQueryKey(keyword),
+        measuredAt: rotatingNow.toISOString(),
+      };
+    },
+  });
+  const rotatingInternal = rotatingRadar as any;
+  rotatingInternal.searchAdMeasurementBudgetRemaining = 40;
+  const rotatingFirst = await rotatingInternal.recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'rotating-client', clientSecret: 'rotating-secret' },
+    24,
+  );
+  const firstProofIds = new Set(rotatingProofCalls.map((keyword) => (
+    keyword.replace(/\s+/g, '').toLowerCase()
+  )));
+  rotatingNow = new Date(now.getTime() + 60_000);
+  rotatingInternal.searchAdMeasurementBudgetRemaining = 40;
+  const rotatingSecond = await rotatingInternal.recoverPersistentCacheWithExactDocumentCounts(
+    { clientId: 'rotating-client', clientSecret: 'rotating-secret' },
+    24,
+  );
+  const secondProofCalls = rotatingProofCalls.slice(24);
+  assert(
+    'unknown real-demand probes cool down so the next cycle reaches the unprobed inventory tail',
+    rotatingFirst.attemptedCount === 0
+      && rotatingSecond.attemptedCount === 1
+      && rotatingProofCalls.length === 25
+      && secondProofCalls.length === 1
+      && !firstProofIds.has(secondProofCalls[0].replace(/\s+/g, '').toLowerCase())
+      && rotatingSearchAdCalls.length === 1
+      && rotatingSearchAdCalls[0] === secondProofCalls[0]
+      && rotatingDocumentCalls.length === 1
+      && rotatingDocumentCalls[0] === secondProofCalls[0],
+    {
+      rotatingFirst,
+      rotatingSecond,
+      rotatingProofCalls,
+      rotatingSearchAdCalls,
+      rotatingDocumentCalls,
+    },
+  );
+  rotatingRadar.stop();
 
   const qualityKeywordCacheFile = path.join(dir, 'quality-keyword-cache.json');
   const qualityBoardFile = path.join(dir, 'quality-board.json');
@@ -621,6 +883,8 @@ function pendingItem(keyword: string, category: string, index: number): any {
       documentCount: 900_000,
       category,
       source: 'persistent-keyword-cache',
+      // A discovery file must not be able to mint server-owned hidden proof.
+      evidence: keyword === '근무시간계산기' ? ['validated-modifier'] : undefined,
     }]),
   )), 'utf8');
 
@@ -629,12 +893,28 @@ function pendingItem(keyword: string, category: string, index: number): any {
     row,
   ]));
   const qualityMeasuredKeywords: string[] = [];
+  const qualityDemandProbes: string[] = [];
+  const qualityRealDemandIds = new Set([
+    '농식품바우처자격조건',
+    '붙박이장설치비용',
+    '집청소비용',
+    '브레이크디스크교체시기',
+    '자동차엔진오일교체주기',
+  ]);
   const qualityRadar = new MobileLiveGoldenRadar({
     runOnStart: false,
     boardFile: qualityBoardFile,
     keywordCacheFile: qualityKeywordCacheFile,
     boardTarget: 60,
     now: () => now,
+    realDemandProbe: async (query: string) => {
+      qualityDemandProbes.push(query);
+      const id = query.replace(/\s+/g, '').toLowerCase();
+      return {
+        ok: true,
+        suggestions: qualityRealDemandIds.has(id) ? [`${query} 후기`] : [],
+      };
+    },
     getCachedSearchAdVolume: (keyword: string) => {
       const row = qualityById.get(keyword.replace(/\s+/g, '').toLowerCase());
       if (!row) return null;
@@ -679,6 +959,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
         source: 'naver-api',
         confidence: 'high',
         isEstimated: false,
+        queryKey: naverBlogDocumentCountQueryKey(keyword),
         measuredAt: now.toISOString(),
       };
     },
@@ -717,6 +998,15 @@ function pendingItem(keyword: string, category: string, index: number): any {
     [...qualityVerifiedIds],
   );
   assert(
+    'untrusted cache proof is stripped and unproven candidates spend no SearchAd or document quota',
+    qualityDemandProbes.some((keyword) => keyword.replace(/\s+/g, '') === '근무시간계산기')
+      && !qualityMeasuredKeywords.some((keyword) => keyword.replace(/\s+/g, '') === '근무시간계산기')
+      && qualityMeasuredKeywords.every((keyword) => (
+        qualityRealDemandIds.has(keyword.replace(/\s+/g, '').toLowerCase())
+      )),
+    { qualityDemandProbes, qualityMeasuredKeywords },
+  );
+  assert(
     'discovery-only cache may be older than seven days but publication still uses a fresh SearchAd row',
     qualityMeasuredKeywords.some((keyword) => keyword.replace(/\s+/g, '') === '집청소비용')
       && qualityVerified.find((item: any) => item.keyword.replace(/\s+/g, '') === '집청소비용')
@@ -743,6 +1033,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'exact-phrase',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey('사랑계산기'),
     documentCountMeasuredAt: now.toISOString(),
     isDocumentCountEstimated: false,
     evidence: ['naver-openapi-exact-phrase', 'persistent-cache-exact-document-recovery'],
@@ -763,6 +1054,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
   const ymylExactMetric = {
     ...loveCalculatorMetric,
     keyword: '도수치료 비용',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey('도수치료 비용'),
     category: 'health',
     source: 'mobile-live-golden-radar',
     intent: 'direct-golden-searchad-suggestions',
@@ -788,6 +1080,7 @@ function pendingItem(keyword: string, category: string, index: number): any {
   const exactMergeMetric = {
     ...loveCalculatorMetric,
     keyword: '근무시간계산기',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey('근무시간계산기'),
     category: 'education_jobs',
     source: 'mobile-live-golden-radar',
     intent: 'live-golden-discovery',

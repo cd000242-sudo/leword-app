@@ -1,5 +1,6 @@
 import { createMobilePcEngineExecutor } from '../../mobile/pc-engine-executor';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import type {
   MobileJobEnvelope,
@@ -13,6 +14,7 @@ import {
   isNaverBlogOpenApiQuotaExceededText,
   isNaverBlogOpenApiRateLimitedText,
   markNaverBlogOpenApiQuotaBlocked,
+  naverBlogDocumentCountQueryKey,
   selectNaverBlogOpenApiCredential,
 } from '../naver-blog-api';
 
@@ -63,6 +65,7 @@ function makeSssMetric(index: number, prefix = '모바일 검증 키워드'): Mo
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(`\uBB38\uD654\uB204\uB9AC\uCE74\uB4DC \uC794\uC561\uC870\uD68C ${index}`),
     documentCountMeasuredAt: new Date().toISOString(),
     isDocumentCountEstimated: false,
   };
@@ -112,6 +115,7 @@ async function measureFixtureMetrics(metrics: MobileKeywordMetric[]): Promise<Mo
       documentCountSource: 'naver-api',
       documentCountConfidence: 'high',
       documentCountQueryMode: 'broad',
+      documentCountQueryKey: naverBlogDocumentCountQueryKey(metric.keyword),
       documentCountMeasuredAt: new Date().toISOString(),
       isDocumentCountEstimated: false,
     };
@@ -295,8 +299,8 @@ async function runMindmapExpansionWithPolicySemanticBridge(): Promise<void> {
 }
 
 function runNaverOpenApiKeyPoolGuards(): void {
-  const stateFile = path.join(process.cwd(), 'tmp', 'naver-openapi-key-pool-test.json');
-  fs.rmSync(stateFile, { force: true });
+  const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'naver-openapi-key-pool-'));
+  const stateFile = path.join(stateRoot, 'naver-openapi-quota-state.json');
   const oldStateFile = process.env['LEWORD_NAVER_OPENAPI_QUOTA_STATE_FILE'];
   const oldIdPool = process.env['NAVER_CLIENT_ID_POOL'];
   const oldSecretPool = process.env['NAVER_CLIENT_SECRET_POOL'];
@@ -349,7 +353,7 @@ function runNaverOpenApiKeyPoolGuards(): void {
     else process.env['NAVER_CLIENT_ID'] = oldSingleId;
     if (oldSingleSecret === undefined) delete process.env['NAVER_CLIENT_SECRET'];
     else process.env['NAVER_CLIENT_SECRET'] = oldSingleSecret;
-    fs.rmSync(stateFile, { force: true });
+    fs.rmSync(stateRoot, { recursive: true, force: true });
   }
 }
 
@@ -790,6 +794,7 @@ async function runAgentAssistQualityGate(): Promise<void> {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(metric.keyword),
     documentCountMeasuredAt: new Date().toISOString(),
     isDocumentCountEstimated: false,
   }));
@@ -839,12 +844,13 @@ async function runAgentAssistQualityGate(): Promise<void> {
     (result.summary.agentFiltered || 0) >= 2
       && result.summary.agentQualityProfile === 'measured-need-ratio-intent-gate-v2'
       && result.summary.agentAssist?.provider === 'codex'
-      && result.keywords.every((item) => item.evidence.includes('agent-assist:codex')),
+      && result.summary.agentAssist?.mode === 'readiness-status-only'
+      && result.keywords.every((item) => item.evidence.includes('agent-assist:deterministic')),
     JSON.stringify(result.summary));
   assert('agent assist attaches inferred search reason and expansion contract',
     result.keywords.length > 0
       && result.keywords.every((item) => item.agentInsight
-        && item.agentInsight.generatedBy === 'agent-assist:codex'
+        && item.agentInsight.generatedBy === 'server-semantic-agent'
         && typeof item.agentInsight.searchVolumeReason === 'string'
         && item.agentInsight.searchVolumeReason.length > 10
         && typeof item.agentInsight.combinationIntent === 'string'
@@ -878,6 +884,7 @@ function makeExternalAgentInsightMetric(keyword = '송지호바다하늘길입�
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
     documentCountMeasuredAt: new Date().toISOString(),
     isDocumentCountEstimated: false,
   };
@@ -926,7 +933,7 @@ async function runExternalAgentInsightInference(): Promise<void> {
     const body = JSON.parse(String(init.body || '{}'));
     assert('external agent prompt asks for JSON object response',
       body.response_format?.type === 'json_object');
-    assert('external agent OpenAI response is capped at 4096 tokens', body.max_tokens === 4096, JSON.stringify(body));
+    assert('external agent OpenAI response is capped at 2048 tokens', body.max_tokens === 2048, JSON.stringify(body));
     const userPrompt = JSON.parse(String(body.messages?.find((message: any) => message.role === 'user')?.content || '{}'));
     promptRows = Array.isArray(userPrompt.rows) ? userPrompt.rows.length : 0;
     return externalAgentOpenAiResponse('송지호바다하늘길입장료', [
@@ -977,6 +984,9 @@ async function runExternalAgentInsightInference(): Promise<void> {
         includeAiInference: true,
         forceExternalInference: true,
         externalAi: true,
+        externalAiKeyOwner: 'user-local',
+        externalAiProvider: 'openai',
+        externalAiProviders: ['openai'],
         maxAgentRows: 30,
       },
     }), {
@@ -988,12 +998,16 @@ async function runExternalAgentInsightInference(): Promise<void> {
       agentInsightExternalProvider?: string;
       agentInsightExternalCount?: number;
     };
-    assert('external agent insight overrides rule fallback fields',
+    assert('external agent may add intent prose but cannot replace server-composed metric explanations',
       insight?.generatedBy === 'external-agent:openai'
-        && insight.searchVolumeReason?.includes('강원 고성 송지호 바다하늘길')
+        && !insight.searchVolumeReason?.includes('강원 고성 송지호 바다하늘길')
         && insight.autocompleteKeywords?.includes('송지호 바다하늘길 주차')
+        && insight.warning?.includes('AI 생성 연관어는 미실측')
         && externalSummary.agentInsightExternalProvider === 'openai'
-        && externalSummary.agentInsightExternalCount === 2,
+        && externalSummary.agentInsightExternalCount === 2
+        && result.summary.agentInsightExternalCallCount === 1
+        && result.summary.agentInsightExternalAttemptedProviders?.join(',') === 'openai'
+        && result.summary.agentInsightExternalKeyOwner === 'user-local',
       JSON.stringify({ insight, summary: result.summary }));
     assert('external agent batches at most eight result rows in one call',
       promptRows === 8 && openAiCalls === 1,
@@ -1014,7 +1028,55 @@ async function runExternalAgentInsightInference(): Promise<void> {
   }
 }
 
-async function runExternalAgentInsightProviderFallback(): Promise<void> {
+async function runExternalAgentInsightRequiresExplicitOwnedOptIn(): Promise<void> {
+  const previousFetch = (globalThis as any).fetch;
+  let calls = 0;
+  (globalThis as any).fetch = async () => {
+    calls += 1;
+    throw new Error('external AI must remain disabled without an explicit key owner and provider allow-list');
+  };
+  try {
+    const executor = createMobilePcEngineExecutor({
+      getEnvConfig: () => ({ openaiApiKey: 'sk-test-external-agent' }),
+      runProTraffic: async () => ({
+        keywords: [makeExternalAgentInsightMetric()],
+        summary: {
+          total: 1,
+          sss: 1,
+          measured: 1,
+          elapsedMs: 1,
+          fromCache: false,
+          parityMode: 'pc-engine-plus',
+        },
+      }),
+    });
+    const result = await executor(makeJob('pro-traffic-hunter', {
+      categoryId: 'travel_domestic',
+      targetCount: 1,
+      agentAssist: {
+        enabled: true,
+        provider: 'api',
+        includeAiInference: true,
+        forceExternalInference: true,
+        externalAi: true,
+      },
+    }), {
+      signal: new AbortController().signal,
+      progress: () => {},
+    });
+    assert('external inference requires explicit key ownership and a provider allow-list',
+      calls === 0
+        && result.summary.agentInsightExternalCallCount === undefined
+        && result.summary.agentInsightExternalProvider === undefined
+        && result.keywords[0]?.agentInsight?.generatedBy === 'server-semantic-agent'
+        && !result.keywords[0]?.evidence.includes('external-agent:'),
+      JSON.stringify({ calls, summary: result.summary, keyword: result.keywords[0] }));
+  } finally {
+    (globalThis as any).fetch = previousFetch;
+  }
+}
+
+async function runExternalAgentInsightDoesNotCrossProviderFallback(): Promise<void> {
   const previousFetch = (globalThis as any).fetch;
   const calls: string[] = [];
   (globalThis as any).fetch = async (url: string, init: { body?: string }) => {
@@ -1022,7 +1084,7 @@ async function runExternalAgentInsightProviderFallback(): Promise<void> {
     const body = JSON.parse(String(init.body || '{}'));
     if (target.includes('api.anthropic.com/v1/messages')) {
       calls.push('anthropic');
-      assert('Anthropic output is capped at 4096 tokens', body.max_tokens === 4096, JSON.stringify(body));
+      assert('Anthropic output is capped at 2048 tokens', body.max_tokens === 2048, JSON.stringify(body));
       return {
         ok: false,
         status: 429,
@@ -1032,8 +1094,7 @@ async function runExternalAgentInsightProviderFallback(): Promise<void> {
       };
     }
     calls.push('openai');
-    assert('OpenAI fallback uses a 4096 token cap', body.max_tokens === 4096, JSON.stringify(body));
-    return externalAgentOpenAiResponse();
+    throw new Error(`unexpected cross-provider fallback: ${body.model || 'unknown model'}`);
   };
   try {
     const executor = createMobilePcEngineExecutor({
@@ -1063,22 +1124,27 @@ async function runExternalAgentInsightProviderFallback(): Promise<void> {
         includeAiInference: true,
         forceExternalInference: true,
         externalAi: true,
+        externalAiKeyOwner: 'user-local',
+        externalAiProvider: 'anthropic',
+        externalAiProviders: ['anthropic', 'openai'],
         maxAgentRows: 30,
       },
     }), {
       signal: new AbortController().signal,
       progress: () => {},
     });
-    assert('Anthropic failure falls back once to OpenAI in the same job',
-      calls.join(',') === 'anthropic,openai',
+    assert('Anthropic failure never spends the second OpenAI provider automatically',
+      calls.join(',') === 'anthropic',
       calls.join(','));
-    assert('fallback summary and evidence identify the actual OpenAI provider and recovered error',
-      result.summary.agentInsightExternalProvider === 'openai'
-        && result.summary.agentInsightExternalCount === 1
+    assert('failed single-provider summary reports the one attempted provider and call',
+      result.summary.agentInsightExternalProvider === 'anthropic'
+        && result.summary.agentInsightExternalCount === 0
         && String(result.summary.agentInsightExternalError || '').includes('anthropic failed')
-        && String(result.summary.agentInsightExternalError || '').includes('recovered with openai')
-        && result.keywords[0]?.evidence.includes('external-agent:openai')
-        && result.keywords[0]?.agentInsight?.generatedBy === 'external-agent:openai',
+        && !String(result.summary.agentInsightExternalError || '').includes('openai')
+        && result.summary.agentInsightExternalCallCount === 1
+        && result.summary.agentInsightExternalAttemptedProviders?.join(',') === 'anthropic'
+        && !result.keywords[0]?.evidence.includes('external-agent:openai')
+        && result.keywords[0]?.agentInsight?.generatedBy !== 'external-agent:openai',
       JSON.stringify(result));
   } finally {
     (globalThis as any).fetch = previousFetch;
@@ -1122,6 +1188,9 @@ async function runExternalAgentInsightFailureSummary(): Promise<void> {
         includeAiInference: true,
         forceExternalInference: true,
         externalAi: true,
+        externalAiKeyOwner: 'user-local',
+        externalAiProvider: 'openai',
+        externalAiProviders: ['openai'],
       },
     }), {
       signal: new AbortController().signal,
@@ -1131,6 +1200,8 @@ async function runExternalAgentInsightFailureSummary(): Promise<void> {
       calls === 1
         && result.summary.agentInsightExternalProvider === 'openai'
         && result.summary.agentInsightExternalCount === 0
+        && result.summary.agentInsightExternalCallCount === 1
+        && result.summary.agentInsightExternalAttemptedProviders?.join(',') === 'openai'
         && String(result.summary.agentInsightExternalError || '').includes('openai failed: 500 Server Error')
         && !result.keywords[0]?.evidence.includes('external-agent:openai'),
       JSON.stringify({ calls, summary: result.summary, evidence: result.keywords[0]?.evidence }));
@@ -1528,12 +1599,12 @@ function runFallbackRegressionGuards(): void {
       && naverBlogApiSource.includes('naver-openapi-quota-state.json')
       && naverBlogApiSource.includes('naver-document-count-cache.json'),
     'quota and measured document-count cache must not fall back to container tmp before /data');
-  assert('Naver OpenAPI stale quota cooldown is retried instead of blocking until midnight',
-    naverBlogApiSource.includes('savedAtMs')
-      && naverBlogApiSource.includes('NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS')
-      && naverBlogApiSource.includes('nowMs - savedAtMs > NAVER_BLOG_OPENAPI_QUOTA_COOLDOWN_MS')
+  assert('Naver OpenAPI daily quota state survives restarts until the next KST midnight',
+    naverBlogApiSource.includes('kst.getUTCDate() + 1')
+      && naverBlogApiSource.includes('NAVER_BLOG_OPENAPI_QUOTA_MAX_FUTURE_SKEW_MS')
+      && !naverBlogApiSource.includes('nowMs - savedAtMs >')
       && naverBlogApiSource.includes('saveNaverBlogOpenApiQuotaState()'),
-    'stale persisted quota cooldown should be cleared so recovered OpenAPI keys can measure documents again');
+    'errorCode 010 must remain blocked across process restarts until its explicit KST reset');
   assert('Naver OpenAPI speed limit is not treated as daily quota exhaustion',
     isNaverBlogOpenApiRateLimitedText('{"errorMessage":"Rate limit exceeded. (속도 제한을 초과했습니다.)","errorCode":"012"}')
       && !isNaverBlogOpenApiQuotaExceededText('{"errorMessage":"Rate limit exceeded. (속도 제한을 초과했습니다.)","errorCode":"012"}')
@@ -1566,8 +1637,9 @@ function runFallbackRegressionGuards(): void {
   await runInjectedGoldenQualityBackfill();
   await runInjectedProTraffic();
   await runAgentAssistQualityGate();
+  await runExternalAgentInsightRequiresExplicitOwnedOptIn();
   await runExternalAgentInsightInference();
-  await runExternalAgentInsightProviderFallback();
+  await runExternalAgentInsightDoesNotCrossProviderFallback();
   await runExternalAgentInsightFailureSummary();
   await runHomeBoardDefaultAdapter();
   await runInjectedKinHiddenHoney();

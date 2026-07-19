@@ -1,14 +1,16 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { MobileLiveGoldenRadar } from '../../mobile/live-golden-radar';
 import { MobileNotificationInbox } from '../../mobile/notification-inbox';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
 }
 
-const boardFile = path.join(process.cwd(), 'tmp', 'live-golden-readonly-snapshot-cache.json');
-fs.mkdirSync(path.dirname(boardFile), { recursive: true });
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-readonly-snapshot-'));
+const boardFile = path.join(tmpDir, 'live-golden-readonly-snapshot-cache.json');
 
 function row(keyword: string, category: string): Record<string, unknown> {
   return {
@@ -33,6 +35,7 @@ function row(keyword: string, category: string): Record<string, unknown> {
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
     documentCountMeasuredAt: '2026-07-12T00:00:00.000Z',
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-12T00:00:00.000Z',
@@ -93,7 +96,7 @@ try {
 } finally {
   (mutableFs as any).readFileSync = originalReadFileSync;
   (Date as any).now = originalDateNow;
-  fs.rmSync(boardFile, { force: true });
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 }
 
 console.log('[live-golden-readonly-snapshot-cache.test] passed');

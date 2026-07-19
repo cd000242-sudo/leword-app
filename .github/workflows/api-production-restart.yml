@@ -2,67 +2,168 @@ name: Production API Restart
 
 on:
   workflow_dispatch:
-    inputs:
-      image:
-        description: GHCR API image to deploy
-        required: true
-        default: ghcr.io/cd000242-sudo/leword-mobile-api:latest
-      remote_path:
-        description: Repository path on the production server
-        required: true
-        default: /opt/leword-app
-      compose_file:
-        description: Compose file path relative to remote_path
-        required: true
-        default: apps/api/docker-compose.production.yml
-      bind_port:
-        description: Host-local API bind port used for health checks
-        required: true
-        default: '34983'
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: leword-production-api
+  cancel-in-progress: false
+
+env:
+  IMAGE_REPOSITORY: ghcr.io/cd000242-sudo/leword-mobile-api
+  REMOTE_PATH: /opt/leword-app
+  COMPOSE_FILE: apps/api/docker-compose.production.yml
+  BIND_PORT: '34983'
+  HEALTH_TIMEOUT_SECONDS: '180'
+  ROLLBACK_HEALTH_TIMEOUT_SECONDS: '180'
 
 jobs:
   restart:
-    name: Pull image, restart compose, and check health
+    name: Pull immutable image, restart compose, and verify transaction
+    if: ${{ github.repository == 'cd000242-sudo/leword-app' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
+    environment: production
     steps:
+      - name: Resolve current main and successful API image build
+        id: release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main',
+            });
+            const mainSha = branch.data.commit.sha;
+            if (!/^[0-9a-f]{40}$/.test(mainSha)) {
+              core.setFailed('origin/main did not resolve to a full commit SHA');
+              return;
+            }
+            const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'mobile-release.yml',
+              branch: 'main',
+              status: 'completed',
+              per_page: 100,
+            });
+            let selected = null;
+            for (const run of runs) {
+              if (run.head_sha !== mainSha || run.conclusion !== 'success') continue;
+              const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id,
+                per_page: 100,
+              });
+              const imageJob = jobs.find((job) => (
+                job.name === 'Build and publish production API image'
+                  && job.conclusion === 'success'
+              ));
+              if (!imageJob) continue;
+              const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: run.id,
+                per_page: 100,
+              });
+              const manifests = artifacts.filter((artifact) => (
+                artifact.name === 'mobile-api-image-reference' && !artifact.expired
+              ));
+              if (manifests.length !== 1) continue;
+              selected = { run, artifact: manifests[0] };
+              break;
+            }
+            if (!selected) {
+              core.setFailed(`No successful Build and publish production API image run exists for current main ${mainSha}`);
+              return;
+            }
+            core.setOutput('main_sha', mainSha);
+            core.setOutput('run_id', String(selected.run.id));
+            core.setOutput('artifact_id', String(selected.artifact.id));
+
+      - name: Checkout current main deployment definition
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.main_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Download immutable API image manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-api-image-reference
+          path: .deploy-evidence
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.release.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Validate immutable API image manifest
+        id: image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node scripts/mobile-api-image-manifest.js validate \
+            --file .deploy-evidence/mobile-api-image-manifest.json \
+            --repository "${GITHUB_REPOSITORY}" \
+            --commit-sha "${{ steps.release.outputs.main_sha }}" \
+            --image-repository "${IMAGE_REPOSITORY}" \
+            --workflow-run-id "${{ steps.release.outputs.run_id }}" \
+            --workflow-name "Mobile API and App Release" \
+            --job-name "Build and publish production API image" \
+            --github-output "$GITHUB_OUTPUT"
+
       - name: Check required SSH secrets
         env:
           SSH_HOST: ${{ secrets.LEWORD_PROD_SSH_HOST }}
           SSH_USER: ${{ secrets.LEWORD_PROD_SSH_USER }}
           SSH_KEY: ${{ secrets.LEWORD_PROD_SSH_KEY }}
           SSH_PASSWORD: ${{ secrets.LEWORD_PROD_SSH_PASSWORD }}
+          SSH_KNOWN_HOSTS: ${{ secrets.LEWORD_PROD_SSH_KNOWN_HOSTS }}
+          GHCR_USER: ${{ secrets.LEWORD_GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.LEWORD_GHCR_TOKEN }}
         run: |
           test -n "$SSH_HOST" || { echo "LEWORD_PROD_SSH_HOST secret is required"; exit 1; }
           test -n "$SSH_USER" || { echo "LEWORD_PROD_SSH_USER secret is required"; exit 1; }
           test -n "$SSH_KEY$SSH_PASSWORD" || { echo "LEWORD_PROD_SSH_KEY or LEWORD_PROD_SSH_PASSWORD secret is required"; exit 1; }
+          test -n "$SSH_KNOWN_HOSTS" || { echo "LEWORD_PROD_SSH_KNOWN_HOSTS secret is required"; exit 1; }
+          test -n "$GHCR_USER" || { echo "LEWORD_GHCR_USER secret is required"; exit 1; }
+          test -n "$GHCR_TOKEN" || { echo "LEWORD_GHCR_TOKEN secret is required"; exit 1; }
 
-      - name: Configure SSH
+      - name: Configure pinned SSH trust
         env:
-          SSH_HOST: ${{ secrets.LEWORD_PROD_SSH_HOST }}
           SSH_KEY: ${{ secrets.LEWORD_PROD_SSH_KEY }}
           SSH_PASSWORD: ${{ secrets.LEWORD_PROD_SSH_PASSWORD }}
           SSH_KNOWN_HOSTS: ${{ secrets.LEWORD_PROD_SSH_KNOWN_HOSTS }}
-          SSH_PORT: ${{ secrets.LEWORD_PROD_SSH_PORT }}
         run: |
           set -euo pipefail
-          SSH_PORT="${SSH_PORT:-22}"
           install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           if [ -n "$SSH_KEY" ]; then
             printf '%s\n' "$SSH_KEY" > ~/.ssh/leword_prod
             chmod 600 ~/.ssh/leword_prod
-          fi
-          if [ -z "$SSH_KEY" ] && [ -n "$SSH_PASSWORD" ]; then
+          elif [ -n "$SSH_PASSWORD" ]; then
             sudo apt-get update
             sudo apt-get install -y --no-install-recommends sshpass
           fi
-          if [ -n "$SSH_KNOWN_HOSTS" ]; then
-            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          else
-            ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" > ~/.ssh/known_hosts
-          fi
+
+      - name: Revalidate artifact against current origin main
+        uses: actions/github-script@v7
+        env:
+          EXPECTED_MAIN_SHA: ${{ steps.image.outputs.commit_sha }}
+        with:
+          script: |
+            const branch = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: 'main',
+            });
+            if (branch.data.commit.sha !== process.env.EXPECTED_MAIN_SHA) {
+              core.setFailed('origin/main moved after release evidence selection; build the new main before restart');
+            }
 
       - name: Restart production API
         shell: bash
@@ -74,14 +175,50 @@ jobs:
           SSHPASS: ${{ secrets.LEWORD_PROD_SSH_PASSWORD }}
           GHCR_USER: ${{ secrets.LEWORD_GHCR_USER }}
           GHCR_TOKEN: ${{ secrets.LEWORD_GHCR_TOKEN }}
-          IMAGE: ${{ inputs.image }}
-          REMOTE_PATH: ${{ inputs.remote_path }}
-          COMPOSE_FILE: ${{ inputs.compose_file }}
-          BIND_PORT: ${{ inputs.bind_port }}
+          IMAGE_SHA: ${{ steps.image.outputs.commit_sha }}
+          MANIFEST_DIGEST: ${{ steps.image.outputs.manifest_digest }}
+          SOURCE_BUILD_RUN_ID: ${{ steps.image.outputs.workflow_run_id }}
         run: |
           set -euo pipefail
           SSH_PORT="${SSH_PORT:-22}"
           GHCR_USER="${GHCR_USER:-cd000242-sudo}"
+          EXPECTED_BUILD_SHA="$IMAGE_SHA"
+          if [[ ! "$EXPECTED_BUILD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "release manifest commit must be a full lowercase commit SHA"
+            exit 1
+          fi
+          EXPECTED_MANIFEST_DIGEST="$MANIFEST_DIGEST"
+          if [[ ! "$EXPECTED_MANIFEST_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "release manifest digest must be an immutable sha256 digest"
+            exit 1
+          fi
+          if [[ ! "$SOURCE_BUILD_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "release manifest workflow run id is invalid"
+            exit 1
+          fi
+          if [[ ! "$SSH_PORT" =~ ^[0-9]{1,5}$ ]] || [ "$SSH_PORT" -lt 1 ] || [ "$SSH_PORT" -gt 65535 ]; then
+            echo "LEWORD_PROD_SSH_PORT must be a valid TCP port"
+            exit 1
+          fi
+          if [[ ! "$SSH_HOST" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]]; then
+            echo "LEWORD_PROD_SSH_HOST contains unsafe characters"
+            exit 1
+          fi
+          if [[ ! "$SSH_USER" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]]; then
+            echo "LEWORD_PROD_SSH_USER contains unsafe characters"
+            exit 1
+          fi
+          [ "$IMAGE_REPOSITORY" = "ghcr.io/cd000242-sudo/leword-mobile-api" ]
+          [ "$REMOTE_PATH" = "/opt/leword-app" ]
+          [ "$COMPOSE_FILE" = "apps/api/docker-compose.production.yml" ]
+          [ "$BIND_PORT" = "34983" ]
+          IMAGE="${IMAGE_REPOSITORY}@${EXPECTED_MANIFEST_DIGEST}"
+          transaction_id="${EXPECTED_BUILD_SHA}-${SOURCE_BUILD_RUN_ID}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [[ ! "$transaction_id" =~ ^[0-9a-f]{40}-[0-9]+-[0-9]+-[0-9]+$ ]]; then
+            echo "Unable to construct a safe deployment transaction identifier"
+            exit 1
+          fi
+
           if [ -n "$SSH_KEY" ]; then
             ssh_cmd=(ssh -i ~/.ssh/leword_prod)
             scp_cmd=(scp -i ~/.ssh/leword_prod)
@@ -89,42 +226,565 @@ jobs:
             ssh_cmd=(sshpass -e ssh)
             scp_cmd=(sshpass -e scp)
           fi
-          remote_compose_path="${REMOTE_PATH%/}/${COMPOSE_FILE}"
-          remote_compose_dir="${remote_compose_path%/*}"
-          "${ssh_cmd[@]}" -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-            "mkdir -p ${remote_compose_dir@Q}"
-          "${scp_cmd[@]}" -P "$SSH_PORT" -o StrictHostKeyChecking=yes \
-            "$COMPOSE_FILE" "${SSH_USER}@${SSH_HOST}:${remote_compose_path}.next"
-          "${ssh_cmd[@]}" -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-            "mv ${remote_compose_path@Q}.next ${remote_compose_path@Q}"
-          "${ssh_cmd[@]}" -p "$SSH_PORT" -o StrictHostKeyChecking=yes "${SSH_USER}@${SSH_HOST}" \
-            "REMOTE_PATH=${REMOTE_PATH@Q} COMPOSE_FILE=${COMPOSE_FILE@Q} LEWORD_MOBILE_API_IMAGE=${IMAGE@Q} LEWORD_API_BIND_PORT=${BIND_PORT@Q} GHCR_USER=${GHCR_USER@Q} GHCR_TOKEN=${GHCR_TOKEN@Q} bash -s" <<'REMOTE'
-          set -euo pipefail
+          ssh_target="${SSH_USER}@${SSH_HOST}"
+          ssh_options=(-p "$SSH_PORT" -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$HOME/.ssh/known_hosts")
+          scp_options=(-P "$SSH_PORT" -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$HOME/.ssh/known_hosts")
+
+          remote_transaction_root="${REMOTE_PATH}/.deploy-transactions"
+          transaction_dir="${remote_transaction_root}/${transaction_id}"
+          remote_compose_next="${transaction_dir}/compose.next.yml"
+          remote_docker_config="${transaction_dir}/docker-config"
+          cleanup_registry_credentials() {
+            "${ssh_cmd[@]}" "${ssh_options[@]}" "$ssh_target" \
+              "case ${remote_docker_config@Q} in ${REMOTE_PATH@Q}/.deploy-transactions/*/docker-config) rm -f ${remote_docker_config@Q}/config.json; rmdir ${remote_docker_config@Q} 2>/dev/null || true ;; *) exit 64 ;; esac" \
+              >/dev/null 2>&1 || true
+          }
+          trap cleanup_registry_credentials EXIT
+          trap 'exit 129' HUP
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+          "${ssh_cmd[@]}" "${ssh_options[@]}" "$ssh_target" \
+            "install -m 700 -d ${transaction_dir@Q} ${remote_docker_config@Q}"
+          printf '%s' "$GHCR_TOKEN" | "${ssh_cmd[@]}" "${ssh_options[@]}" "$ssh_target" \
+            "DOCKER_CONFIG=${remote_docker_config@Q} docker login ghcr.io -u ${GHCR_USER@Q} --password-stdin >/dev/null"
+          "${scp_cmd[@]}" "${scp_options[@]}" \
+            "$COMPOSE_FILE" "${ssh_target}:${remote_compose_next}"
+
+          "${ssh_cmd[@]}" "${ssh_options[@]}" "$ssh_target" \
+            "REMOTE_PATH=${REMOTE_PATH@Q} COMPOSE_FILE=${COMPOSE_FILE@Q} TRANSACTION_DIR=${transaction_dir@Q} DOCKER_CONFIG=${remote_docker_config@Q} LEWORD_MOBILE_API_IMAGE=${IMAGE@Q} EXPECTED_BUILD_SHA=${EXPECTED_BUILD_SHA@Q} EXPECTED_MANIFEST_DIGEST=${EXPECTED_MANIFEST_DIGEST@Q} LEWORD_API_BIND_PORT=${BIND_PORT@Q} HEALTH_TIMEOUT_SECONDS=${HEALTH_TIMEOUT_SECONDS@Q} ROLLBACK_HEALTH_TIMEOUT_SECONDS=${ROLLBACK_HEALTH_TIMEOUT_SECONDS@Q} bash -s" <<'REMOTE'
+          set -Eeuo pipefail
           cd "$REMOTE_PATH"
-          if [ -n "${GHCR_TOKEN:-}" ]; then
-            printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          deploy_succeeded=false
+          rollback_required=false
+          compose_backup="$TRANSACTION_DIR/compose.previous.yml"
+          rollback_override="$TRANSACTION_DIR/compose.rollback.yml"
+          rollback_state="$TRANSACTION_DIR/rollback-state.txt"
+          rollback_state_next="$TRANSACTION_DIR/rollback-state.next"
+          deploy_failure_log="$TRANSACTION_DIR/deploy-failure.log"
+          deploy_lock_file="$REMOTE_PATH/.production-api-deploy.lock"
+          remote_transaction_root="$REMOTE_PATH/.deploy-transactions"
+          compose_preflight="$REMOTE_PATH/${COMPOSE_FILE}.preflight.${TRANSACTION_DIR##*/}.tmp"
+          health_url="http://127.0.0.1:${LEWORD_API_BIND_PORT}/health"
+
+          cleanup_compose_preflight() {
+            case "$compose_preflight" in
+              "$REMOTE_PATH"/apps/api/docker-compose.production.yml.preflight.*.tmp)
+                if [ ! -L "$compose_preflight" ]; then rm -f "$compose_preflight"; fi
+                ;;
+              '') ;;
+              *) return 64 ;;
+            esac
+          }
+
+          cleanup_registry_credentials() {
+            case "$DOCKER_CONFIG" in
+              "$REMOTE_PATH"/.deploy-transactions/*/docker-config)
+                rm -f "$DOCKER_CONFIG/config.json"
+                rmdir "$DOCKER_CONFIG" 2>/dev/null || true
+                ;;
+              *)
+                echo "Unsafe transaction-scoped DOCKER_CONFIG" >&2
+                return 64
+                ;;
+            esac
+          }
+
+          on_deploy_exit() {
+            exit_code=$?
+            trap - EXIT
+            # A second cancellation must not interrupt restore/verification.
+            trap '' HUP INT TERM
+            set +e
+            cleanup_registry_credentials || true
+            cleanup_compose_preflight || true
+            if [ "$deploy_succeeded" = "true" ]; then
+              docker image rm "$rollback_api_ref" "$rollback_worker_ref" >/dev/null 2>&1 || true
+              rm -rf "$TRANSACTION_DIR"
+              exit 0
+            fi
+            [ "$exit_code" -ne 0 ] || exit_code=1
+            if [ "$rollback_required" = "true" ]; then
+              if rollback_deploy; then
+                echo "Deployment failed; previous API and worker images were restored and verified"
+                rm -rf "$TRANSACTION_DIR"
+                exit "$exit_code"
+              fi
+              "${compose[@]}" -f "$COMPOSE_FILE" logs --tail=200 leword-api leword-live-golden-worker > "$TRANSACTION_DIR/rollback-failure.log" 2>&1 || true
+              echo "ROLLBACK FAILED; retaining transaction artifacts at $TRANSACTION_DIR" >&2
+              exit 70
+            fi
+            rm -rf "$TRANSACTION_DIR"
+            exit "$exit_code"
+          }
+          trap 'on_deploy_exit' EXIT
+          trap 'exit 129' HUP
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+
+          case "$TRANSACTION_DIR" in
+            "$REMOTE_PATH"/.deploy-transactions/*) ;;
+            *) echo "Unsafe transaction path" >&2; exit 1 ;;
+          esac
+          [ -f "$TRANSACTION_DIR/compose.next.yml" ] || { echo "Uploaded compose transaction is missing" >&2; exit 1; }
+          case "$DOCKER_CONFIG" in
+            "$TRANSACTION_DIR"/docker-config) ;;
+            *) echo "DOCKER_CONFIG is outside the deployment transaction" >&2; exit 1 ;;
+          esac
+          export DOCKER_CONFIG
+          command -v flock >/dev/null 2>&1 || { echo "flock is required for production deployment" >&2; exit 1; }
+          exec 9>"$deploy_lock_file"
+          if ! flock -n 9; then
+            echo "Another production deployment holds the remote lock" >&2
+            exit 73
           fi
+
+          assert_no_prior_rollback_journal() {
+            prior_transaction=''
+            for prior_transaction in "$remote_transaction_root"/*; do
+              if [ "$prior_transaction" = "$TRANSACTION_DIR" ]; then
+                continue
+              fi
+              if [ ! -e "$prior_transaction" ] && [ ! -L "$prior_transaction" ]; then
+                continue
+              fi
+              if [ ! -d "$prior_transaction" ] || [ -L "$prior_transaction" ]; then
+                echo "Unsafe prior deployment transaction entry: $prior_transaction" >&2
+                return 1
+              fi
+              if [ -e "$prior_transaction/rollback-state.txt" ] \
+                || [ -L "$prior_transaction/rollback-state.txt" ] \
+                || [ -e "$prior_transaction/rollback-state.next" ] \
+                || [ -L "$prior_transaction/rollback-state.next" ]; then
+                echo "Unresolved prior rollback journal blocks deployment: $prior_transaction" >&2
+                return 1
+              fi
+            done
+          }
+          assert_no_prior_rollback_journal
+
           if docker compose version >/dev/null 2>&1; then
             compose=(docker compose)
           elif command -v docker-compose >/dev/null 2>&1; then
             compose=(docker-compose)
           else
-            echo "docker compose or docker-compose is required on the production server"
+            echo "docker compose or docker-compose is required on the production server" >&2
             exit 1
           fi
           export LEWORD_MOBILE_API_IMAGE LEWORD_API_BIND_PORT
-          "${compose[@]}" -f "$COMPOSE_FILE" pull leword-api leword-live-golden-worker
-          "${compose[@]}" -f "$COMPOSE_FILE" up -d leword-api leword-live-golden-worker
-          "${compose[@]}" -f "$COMPOSE_FILE" ps leword-api leword-live-golden-worker
-          health_url="http://127.0.0.1:${LEWORD_API_BIND_PORT:-34983}/health"
-          for attempt in $(seq 1 30); do
-            worker_id="$("${compose[@]}" -f "$COMPOSE_FILE" ps -q leword-live-golden-worker)"
-            worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$worker_id" 2>/dev/null || true)"
-            if command -v curl >/dev/null 2>&1 && curl -fsS "$health_url" && [ "$worker_health" = "healthy" ]; then
-              exit 0
+
+          read_health_flags() {
+            container_id="$1"
+            health_json="$2"
+            printf '%s' "$health_json" | docker exec -e LEWORD_DEPLOY_EPOCH_MS="$deploy_epoch_ms" -i "$container_id" node -e '
+              let body = "";
+              process.stdin.setEncoding("utf8");
+              process.stdin.on("data", (chunk) => { body += chunk; });
+              process.stdin.on("end", () => {
+                try {
+                  const health = JSON.parse(body);
+                  const phase2 = health && health.liveGolden && health.liveGolden.phase2Entry;
+                  const validStates = new Set(["building-supply", "pending-human-review", "human-review-failed", "eligible"]);
+                  const runtimeChecks = health && health.runtime && Array.isArray(health.runtime.checks)
+                    ? health.runtime.checks
+                    : [];
+                  const transientRuntimeCodes = new Set(["naver-openapi-document-quota-available"]);
+                  const expectedRequiredCodes = new Set([
+                    "naver-openapi-credentials-configured",
+                    "naver-searchad-credentials-configured",
+                    "production-entitlement-service-configured",
+                    "server-prewarm-scheduler-configured",
+                    "persistent-mobile-result-cache-configured",
+                    "push-delivery-configured",
+                  ]);
+                  const byCode = new Map(runtimeChecks.map((item) => [item && item.code, item]));
+                  const runtimeRequiredReady = [...expectedRequiredCodes].every((code) => (
+                    byCode.get(code) && byCode.get(code).severity === "required" && byCode.get(code).ok === true
+                  )) && runtimeChecks
+                    .filter((item) => item && item.severity === "required" && !transientRuntimeCodes.has(item.code))
+                    .every((item) => item.ok === true);
+                  const reviewStorage = health && health.liveGolden && health.liveGolden.reviewStorage;
+                  const reviewStorageReady = !!reviewStorage
+                    && reviewStorage.configured === true
+                    && reviewStorage.readable === true
+                    && reviewStorage.writable === true;
+                  const reviewAuth = health && health.liveGolden && health.liveGolden.reviewAuth;
+                  const reviewAuthProviderReady = !!reviewAuth
+                    && (reviewAuth.configuredAdmin === true
+                      || reviewAuth.strictProviderConfigured === true);
+                  const reviewAuthReady = health
+                    && health.liveGolden
+                    && health.liveGolden.reviewAuthConfigured === true
+                    && reviewAuth
+                    && reviewAuth.ready === true
+                    && reviewAuth.signingSecretConfigured === true
+                    && reviewAuthProviderReady;
+                  const worker = health && health.liveGolden && health.liveGolden.worker;
+                  const heartbeat = worker && worker.heartbeat;
+                  const workerStartedAt = Date.parse(
+                    heartbeat && heartbeat.startedAt,
+                  );
+                  const workerUpdatedAt = Date.parse(heartbeat && heartbeat.updatedAt);
+                  const nowMs = Date.now();
+                  const workerStartedAfterDeploy = Number.isFinite(workerStartedAt)
+                    && workerStartedAt >= Number(process.env.LEWORD_DEPLOY_EPOCH_MS);
+                  const workerReady = !!worker
+                    && worker.available === true
+                    && worker.healthy === true
+                    && worker.stale === false
+                    && heartbeat
+                    && heartbeat.status === "running"
+                    && Number.isFinite(workerUpdatedAt)
+                    && workerUpdatedAt >= Number(process.env.LEWORD_DEPLOY_EPOCH_MS)
+                    && workerUpdatedAt <= nowMs + 30000
+                    && nowMs - workerUpdatedAt <= 120000;
+                  const phase2Ready = !!phase2
+                    && validStates.has(phase2.state);
+                  process.stdout.write(`${health && health.ok === true}|${runtimeRequiredReady}|${phase2Ready}|${reviewStorageReady}|${reviewAuthReady}|${workerReady}|${workerStartedAfterDeploy}|${Number.isFinite(workerUpdatedAt) ? workerUpdatedAt : 0}`);
+                } catch {
+                  process.stdout.write("false|false|false|false|false|false|false|0");
+                }
+              });
+            ' 2>/dev/null || true
+          }
+
+          verify_new_deployment() {
+            deadline=$(( $(date +%s) + HEALTH_TIMEOUT_SECONDS ))
+            worker_heartbeat_previous_ms=0
+            heartbeat_change_count=0
+            while [ "$(date +%s)" -lt "$deadline" ]; do
+              api_id="$("${compose[@]}" -f "$COMPOSE_FILE" ps -q leword-api 2>/dev/null || true)"
+              worker_id="$("${compose[@]}" -f "$COMPOSE_FILE" ps -q leword-live-golden-worker 2>/dev/null || true)"
+              api_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$api_id" 2>/dev/null || true)"
+              worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$worker_id" 2>/dev/null || true)"
+              health_json="$(curl -fsS "$health_url" 2>/dev/null || true)"
+              health_flags="$(read_health_flags "$api_id" "$health_json")"
+              IFS='|' read -r service_ok runtime_required_ready phase2_ready review_storage_ready review_auth_ready worker_ready worker_started_after_deploy worker_updated_at_ms <<< "$health_flags"
+              if [ "$worker_ready" = "true" ] \
+                && [ "$worker_started_after_deploy" = "true" ] \
+                && [[ "$worker_updated_at_ms" =~ ^[0-9]+$ ]] \
+                && [ "$worker_updated_at_ms" -gt "$worker_heartbeat_previous_ms" ]; then
+                heartbeat_change_count=$(( heartbeat_change_count + 1 ))
+                worker_heartbeat_previous_ms="$worker_updated_at_ms"
+              fi
+              api_image_id="$(docker inspect --format '{{.Image}}' "$api_id" 2>/dev/null || true)"
+              worker_image_id="$(docker inspect --format '{{.Image}}' "$worker_id" 2>/dev/null || true)"
+              if [ "$api_health" = "healthy" ] \
+                && [ "$worker_health" = "healthy" ] \
+                && [ "$service_ok" = "true" ] \
+                && [ "$runtime_required_ready" = "true" ] \
+                && [ "$phase2_ready" = "true" ] \
+                && [ "$review_storage_ready" = "true" ] \
+                && [ "$review_auth_ready" = "true" ] \
+                && [ "$worker_ready" = "true" ] \
+                && [ "$worker_started_after_deploy" = "true" ] \
+                && [ "$heartbeat_change_count" -ge 2 ] \
+                && [ "$api_image_id" = "$expected_image_id" ] \
+                && [ "$worker_image_id" = "$expected_image_id" ]; then
+                return 0
+              fi
+              sleep 2
+            done
+            return 1
+          }
+
+          verify_rollback() {
+            deadline=$(( $(date +%s) + ROLLBACK_HEALTH_TIMEOUT_SECONDS ))
+            rollback_worker_heartbeat_previous_ms=0
+            rollback_heartbeat_change_count=0
+            while [ "$(date +%s)" -lt "$deadline" ]; do
+              rollback_api_id="$("${compose[@]}" -f "$COMPOSE_FILE" -f "$rollback_override" ps -q leword-api 2>/dev/null || true)"
+              rollback_worker_id="$("${compose[@]}" -f "$COMPOSE_FILE" -f "$rollback_override" ps -q leword-live-golden-worker 2>/dev/null || true)"
+              rollback_api_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$rollback_api_id" 2>/dev/null || true)"
+              rollback_worker_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$rollback_worker_id" 2>/dev/null || true)"
+              rollback_health_json="$(curl -fsS "$health_url" 2>/dev/null || true)"
+              rollback_health_flags="$(printf '%s' "$rollback_health_json" | docker exec -e LEWORD_ROLLBACK_EPOCH_MS="$rollback_epoch_ms" -i "$rollback_api_id" node -e '
+                let body = "";
+                process.stdin.setEncoding("utf8");
+                process.stdin.on("data", (chunk) => { body += chunk; });
+                process.stdin.on("end", () => {
+                  try {
+                    const health = JSON.parse(body);
+                    const worker = health && health.liveGolden && health.liveGolden.worker;
+                    const heartbeat = worker && worker.heartbeat;
+                    const workerStartedAt = Date.parse(
+                      heartbeat && heartbeat.startedAt,
+                    );
+                    const workerUpdatedAt = Date.parse(heartbeat && heartbeat.updatedAt);
+                    const nowMs = Date.now();
+                    const workerStartedAfterRestart = Number.isFinite(workerStartedAt)
+                      && workerStartedAt >= Number(process.env.LEWORD_ROLLBACK_EPOCH_MS);
+                    const workerReady = !!worker
+                      && worker.available === true
+                      && worker.healthy === true
+                      && worker.stale === false
+                      && heartbeat
+                      && heartbeat.status === "running"
+                      && Number.isFinite(workerUpdatedAt)
+                      && workerUpdatedAt >= Number(process.env.LEWORD_ROLLBACK_EPOCH_MS)
+                      && workerUpdatedAt <= nowMs + 30000
+                      && nowMs - workerUpdatedAt <= 120000;
+                    process.stdout.write(`${health.ok === true}|${workerReady}|${workerStartedAfterRestart}|${Number.isFinite(workerUpdatedAt) ? workerUpdatedAt : 0}`);
+                  } catch { process.stdout.write("false|false|false|0"); }
+                });
+              ' 2>/dev/null || true)"
+              IFS='|' read -r rollback_service_ok rollback_worker_ready rollback_worker_started_after_restart rollback_worker_updated_at_ms <<< "$rollback_health_flags"
+              if [ "$rollback_worker_ready" = "true" ] \
+                && [ "$rollback_worker_started_after_restart" = "true" ] \
+                && [[ "$rollback_worker_updated_at_ms" =~ ^[0-9]+$ ]] \
+                && [ "$rollback_worker_updated_at_ms" -gt "$rollback_worker_heartbeat_previous_ms" ]; then
+                rollback_heartbeat_change_count=$(( rollback_heartbeat_change_count + 1 ))
+                rollback_worker_heartbeat_previous_ms="$rollback_worker_updated_at_ms"
+              fi
+              rollback_api_image_id="$(docker inspect --format '{{.Image}}' "$rollback_api_id" 2>/dev/null || true)"
+              rollback_worker_image_id="$(docker inspect --format '{{.Image}}' "$rollback_worker_id" 2>/dev/null || true)"
+              if [ "$rollback_api_health" = "healthy" ] \
+                && [ "$rollback_worker_health" = "healthy" ] \
+                && [ "$rollback_service_ok" = "true" ] \
+                && [ "$rollback_worker_ready" = "true" ] \
+                && [ "$rollback_worker_started_after_restart" = "true" ] \
+                && [ "$rollback_heartbeat_change_count" -ge 2 ] \
+                && [ "$rollback_api_image_id" = "$previous_api_image_id" ] \
+                && [ "$rollback_worker_image_id" = "$previous_worker_image_id" ]; then
+                return 0
+              fi
+              sleep 2
+            done
+            return 1
+          }
+
+          journal_value() {
+            key="$1"
+            awk -F= -v key="$key" '$1 == key { print substr($0, length(key) + 2); found = 1 } END { if (!found) exit 1 }' "$rollback_state"
+          }
+
+          validate_rollback_journal() {
+            [ -f "$rollback_state" ] && [ ! -L "$rollback_state" ] || return 1
+            [ -f "$compose_backup" ] && [ ! -L "$compose_backup" ] || return 1
+            [ "$(journal_value schema_version)" = "leword-production-rollback-v1" ] || return 1
+            [ "$(journal_value transaction_id)" = "${TRANSACTION_DIR##*/}" ] || return 1
+            journal_api_image_id="$(journal_value previous_api_image_id)" || return 1
+            journal_worker_image_id="$(journal_value previous_worker_image_id)" || return 1
+            journal_api_ref="$(journal_value rollback_api_ref)" || return 1
+            journal_worker_ref="$(journal_value rollback_worker_ref)" || return 1
+            journal_compose_sha="$(journal_value compose_backup_sha256)" || return 1
+            journal_compose_next_sha="$(journal_value compose_next_sha256)" || return 1
+            [[ "$journal_api_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+            [[ "$journal_worker_image_id" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+            [[ "$journal_api_ref" =~ ^leword-local-rollback-api:[0-9a-f]{40}-[0-9]+-[0-9]+-[0-9]+$ ]] || return 1
+            [[ "$journal_worker_ref" =~ ^leword-local-rollback-worker:[0-9a-f]{40}-[0-9]+-[0-9]+-[0-9]+$ ]] || return 1
+            [[ "$journal_compose_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+            [[ "$journal_compose_next_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+            [ "$journal_api_image_id" = "$previous_api_image_id" ] || return 1
+            [ "$journal_worker_image_id" = "$previous_worker_image_id" ] || return 1
+            [ "$journal_api_ref" = "$rollback_api_ref" ] || return 1
+            [ "$journal_worker_ref" = "$rollback_worker_ref" ] || return 1
+            [ "$(sha256sum "$compose_backup" | awk '{print $1}')" = "$journal_compose_sha" ] || return 1
+            [ "$(sha256sum "$TRANSACTION_DIR/compose.next.yml" | awk '{print $1}')" = "$journal_compose_next_sha" ] || return 1
+            [ "$(docker image inspect --format '{{.Id}}' "$rollback_api_ref" 2>/dev/null)" = "$previous_api_image_id" ] || return 1
+            [ "$(docker image inspect --format '{{.Id}}' "$rollback_worker_ref" 2>/dev/null)" = "$previous_worker_image_id" ] || return 1
+          }
+
+          atomic_restore_compose() {
+            compose_restore_tmp="$REMOTE_PATH/.production-compose.restore.tmp"
+            [ ! -e "$compose_restore_tmp" ] && [ ! -L "$compose_restore_tmp" ] || return 1
+            cp -- "$compose_backup" "$compose_restore_tmp" || return 1
+            [ "$(sha256sum "$compose_restore_tmp" | awk '{print $1}')" = "$(journal_value compose_backup_sha256)" ] || return 1
+            sync "$compose_restore_tmp" 2>/dev/null || sync
+            mv "$compose_restore_tmp" "$COMPOSE_FILE"
+          }
+
+          run_volume_init_if_configured() {
+            if "${compose[@]}" -f "$COMPOSE_FILE" config --services | grep -Fxq leword-volume-init; then
+              "${compose[@]}" -f "$COMPOSE_FILE" run --rm --no-deps leword-volume-init
             fi
-            sleep 2
+          }
+
+          assert_no_running_project_writers() {
+            service=''
+            for service in leword-api leword-live-golden-worker; do
+              running_writer_ids="$(docker ps -q \
+                --filter "label=com.docker.compose.project=${compose_project_name}" \
+                --filter "label=com.docker.compose.service=${service}")" || return 1
+              if [ -n "$running_writer_ids" ]; then
+                echo "Refusing volume migration while ${service} writers are still running: ${running_writer_ids}" >&2
+                return 1
+              fi
+            done
+          }
+
+          # Fail fast before the rollback journal or any production service /
+          # compose mutation. Keeping this copy beside the real compose also
+          # makes relative env_file paths resolve exactly as they will at deploy.
+          [ ! -e "$compose_preflight" ] && [ ! -L "$compose_preflight" ]
+          for required_env_file in \
+            "$REMOTE_PATH/apps/api/.env.production" \
+            "$REMOTE_PATH/apps/api/.env.live-golden-worker.production"; do
+            [ -f "$required_env_file" ] && [ ! -L "$required_env_file" ] && [ -r "$required_env_file" ] || {
+              echo "Required production env file is missing or unsafe: $required_env_file" >&2
+              exit 1
+            }
           done
-          "${compose[@]}" -f "$COMPOSE_FILE" logs --tail=160 leword-api leword-live-golden-worker
-          exit 1
+          worker_env_file="$REMOTE_PATH/apps/api/.env.live-golden-worker.production"
+          unexpected_worker_env_keys="$(
+            sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$worker_env_file" \
+              | grep -Ev '^(NAVER_CLIENT_ID|NAVER_CLIENT_SECRET|NAVER_SEARCH_AD_ACCESS_LICENSE|NAVER_SEARCH_AD_SECRET_KEY|NAVER_SEARCH_AD_CUSTOMER_ID)$' \
+              || true
+          )"
+          if [ -n "$unexpected_worker_env_keys" ]; then
+            echo "Worker env contains non-minimal keys: $unexpected_worker_env_keys" >&2
+            exit 1
+          fi
+          for required_worker_key in \
+            NAVER_CLIENT_ID \
+            NAVER_CLIENT_SECRET \
+            NAVER_SEARCH_AD_ACCESS_LICENSE \
+            NAVER_SEARCH_AD_SECRET_KEY \
+            NAVER_SEARCH_AD_CUSTOMER_ID; do
+            test "$(grep -Ec "^[[:space:]]*(export[[:space:]]+)?${required_worker_key}=" "$worker_env_file")" -eq 1
+            grep -Eq "^[[:space:]]*(export[[:space:]]+)?${required_worker_key}=[^[:space:]].*$" "$worker_env_file"
+          done
+          cp -- "$TRANSACTION_DIR/compose.next.yml" "$compose_preflight"
+          "${compose[@]}" -f "$compose_preflight" config >/dev/null
+          sync "$compose_preflight" 2>/dev/null || sync
+
+          # Registry and digest failures are preflight failures, not production
+          # failures. Pull and prove the immutable image while the old compose
+          # and both running containers are still completely untouched.
+          export LEWORD_MOBILE_API_IMAGE="ghcr.io/cd000242-sudo/leword-mobile-api@${EXPECTED_MANIFEST_DIGEST}"
+          "${compose[@]}" -f "$compose_preflight" pull leword-volume-init leword-api leword-live-golden-worker
+          docker image inspect --format '{{join .RepoDigests "\n"}}' "$LEWORD_MOBILE_API_IMAGE" | grep -Fx "$LEWORD_MOBILE_API_IMAGE"
+          preflight_expected_image_id="$(docker image inspect --format '{{.Id}}' "$LEWORD_MOBILE_API_IMAGE")"
+          [ -n "$preflight_expected_image_id" ]
+          cleanup_registry_credentials
+
+          rollback_deploy() {
+            set +e
+            rollback_failed=0
+            validate_rollback_journal || rollback_failed=1
+            if [ "$rollback_failed" -eq 0 ]; then
+              rollback_active_compose_sha="$(sha256sum "$COMPOSE_FILE" | awk '{print $1}')" || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ] && [ "$rollback_active_compose_sha" = "$journal_compose_next_sha" ]; then
+              quota_bridge_api_container="$("${compose[@]}" -f "$COMPOSE_FILE" ps -q leword-api 2>/dev/null)" || rollback_failed=1
+              quota_bridge_worker_container="$("${compose[@]}" -f "$COMPOSE_FILE" ps -q leword-live-golden-worker 2>/dev/null)" || rollback_failed=1
+              quota_bridge_containers=()
+              [ -z "$quota_bridge_worker_container" ] || quota_bridge_containers+=("$quota_bridge_worker_container")
+              [ -z "$quota_bridge_api_container" ] || quota_bridge_containers+=("$quota_bridge_api_container")
+              if [ "${#quota_bridge_containers[@]}" -gt 0 ]; then
+                docker stop --time 30 "${quota_bridge_containers[@]}" || rollback_failed=1
+              fi
+              if [ "$rollback_failed" -eq 0 ]; then
+                assert_no_running_project_writers || rollback_failed=1
+              fi
+              export LEWORD_MOBILE_API_IMAGE="ghcr.io/cd000242-sudo/leword-mobile-api@${EXPECTED_MANIFEST_DIGEST}"
+              if [ "$rollback_failed" -eq 0 ]; then
+                "${compose[@]}" -f "$COMPOSE_FILE" run --rm --no-deps -e LEWORD_VOLUME_INIT_MODE=rollback leword-volume-init || rollback_failed=1
+              fi
+            elif [ "$rollback_failed" -eq 0 ] && [ "$rollback_active_compose_sha" != "$journal_compose_sha" ]; then
+              rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              atomic_restore_compose || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              docker image tag "$previous_api_image_id" "$rollback_api_ref" || rollback_failed=1
+              docker image tag "$previous_worker_image_id" "$rollback_worker_ref" || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              rollback_override_next="$TRANSACTION_DIR/compose.rollback.next"
+              [ ! -e "$rollback_override_next" ] && [ ! -L "$rollback_override_next" ] || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              printf 'services:\n  leword-api:\n    image: %s\n  leword-live-golden-worker:\n    image: %s\n' \
+                "$rollback_api_ref" "$rollback_worker_ref" > "$rollback_override_next" || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              sync "$rollback_override_next" 2>/dev/null || sync
+              mv "$rollback_override_next" "$rollback_override" || rollback_failed=1
+            fi
+            export LEWORD_MOBILE_API_IMAGE="$rollback_api_ref"
+            if [ "$rollback_failed" -eq 0 ]; then
+              rollback_current_api_container="$("${compose[@]}" -f "$COMPOSE_FILE" -f "$rollback_override" ps -q leword-api 2>/dev/null)" || rollback_failed=1
+              rollback_current_worker_container="$("${compose[@]}" -f "$COMPOSE_FILE" -f "$rollback_override" ps -q leword-live-golden-worker 2>/dev/null)" || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              rollback_current_containers=()
+              [ -z "$rollback_current_worker_container" ] || rollback_current_containers+=("$rollback_current_worker_container")
+              [ -z "$rollback_current_api_container" ] || rollback_current_containers+=("$rollback_current_api_container")
+              if [ "${#rollback_current_containers[@]}" -gt 0 ]; then
+                docker stop --time 30 "${rollback_current_containers[@]}" || rollback_failed=1
+              fi
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              assert_no_running_project_writers || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              run_volume_init_if_configured || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ]; then
+              rollback_epoch_ms="$(( $(date +%s) * 1000 ))"
+              "${compose[@]}" -f "$COMPOSE_FILE" -f "$rollback_override" up -d --force-recreate --no-deps leword-api leword-live-golden-worker || rollback_failed=1
+            fi
+            if [ "$rollback_failed" -eq 0 ] && ! verify_rollback; then
+              rollback_failed=1
+            fi
+            [ "$rollback_failed" -eq 0 ]
+          }
+
+          previous_api_container="$("${compose[@]}" -f "$COMPOSE_FILE" ps -q leword-api 2>/dev/null || true)"
+          previous_worker_container="$("${compose[@]}" -f "$COMPOSE_FILE" ps -q leword-live-golden-worker 2>/dev/null || true)"
+          previous_api_image_id="$(docker inspect --format '{{.Image}}' "$previous_api_container" 2>/dev/null || true)"
+          previous_worker_image_id="$(docker inspect --format '{{.Image}}' "$previous_worker_container" 2>/dev/null || true)"
+          if [ -z "$previous_api_image_id" ] || [ -z "$previous_worker_image_id" ]; then
+            echo "Both production services must be running before a rollback-safe restart" >&2
+            exit 1
+          fi
+          compose_project_name="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$previous_api_container")"
+          worker_compose_project_name="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$previous_worker_container")"
+          [[ "$compose_project_name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]
+          [ "$worker_compose_project_name" = "$compose_project_name" ]
+          rollback_tag="${TRANSACTION_DIR##*/}"
+          rollback_api_ref="leword-local-rollback-api:${rollback_tag}"
+          rollback_worker_ref="leword-local-rollback-worker:${rollback_tag}"
+          docker image tag "$previous_api_image_id" "$rollback_api_ref"
+          docker image tag "$previous_worker_image_id" "$rollback_worker_ref"
+          [ "$(docker image inspect --format '{{.Id}}' "$rollback_api_ref")" = "$previous_api_image_id" ]
+          [ "$(docker image inspect --format '{{.Id}}' "$rollback_worker_ref")" = "$previous_worker_image_id" ]
+          [ -f "$COMPOSE_FILE" ] && [ ! -L "$COMPOSE_FILE" ]
+          cp -- "$COMPOSE_FILE" "$compose_backup"
+          compose_backup_sha256="$(sha256sum "$compose_backup" | awk '{print $1}')"
+          compose_next_sha256="$(sha256sum "$TRANSACTION_DIR/compose.next.yml" | awk '{print $1}')"
+          umask 077
+          [ ! -e "$rollback_state_next" ] && [ ! -L "$rollback_state_next" ]
+          printf 'schema_version=leword-production-rollback-v1\ntransaction_id=%s\nprevious_api_image_id=%s\nprevious_worker_image_id=%s\nrollback_api_ref=%s\nrollback_worker_ref=%s\ncompose_backup_sha256=%s\ncompose_next_sha256=%s\n' \
+            "${TRANSACTION_DIR##*/}" "$previous_api_image_id" "$previous_worker_image_id" "$rollback_api_ref" "$rollback_worker_ref" "$compose_backup_sha256" "$compose_next_sha256" > "$rollback_state_next"
+          sync "$rollback_state_next" 2>/dev/null || sync
+          mv "$rollback_state_next" "$rollback_state"
+          validate_rollback_journal
+          rollback_required=true
+
+          export LEWORD_MOBILE_API_IMAGE
+          mv "$compose_preflight" "$COMPOSE_FILE"
+          compose_preflight=''
+          export LEWORD_MOBILE_API_IMAGE="ghcr.io/cd000242-sudo/leword-mobile-api@${EXPECTED_MANIFEST_DIGEST}"
+          docker image inspect --format '{{join .RepoDigests "\n"}}' "$LEWORD_MOBILE_API_IMAGE" | grep -Fx "$LEWORD_MOBILE_API_IMAGE"
+          deploy_expected_image_id="$(docker image inspect --format '{{.Id}}' "$LEWORD_MOBILE_API_IMAGE")"
+          [ "$deploy_expected_image_id" = "$preflight_expected_image_id" ]
+          expected_image_id="$deploy_expected_image_id"
+          docker stop --time 30 "$previous_worker_container" "$previous_api_container"
+          assert_no_running_project_writers
+          run_volume_init_if_configured
+          deploy_epoch_ms="$(( $(date +%s) * 1000 ))"
+          "${compose[@]}" -f "$COMPOSE_FILE" up -d --force-recreate --no-deps leword-api leword-live-golden-worker
+          "${compose[@]}" -f "$COMPOSE_FILE" ps leword-api leword-live-golden-worker
+          if ! verify_new_deployment; then
+            "${compose[@]}" -f "$COMPOSE_FILE" logs --tail=200 leword-api leword-live-golden-worker > "$deploy_failure_log" 2>&1 || true
+            echo "Production readiness verification failed" >&2
+            exit 1
+          fi
+
+          deploy_succeeded=true
+          echo "Verified production API and worker image ${expected_image_id} for ${EXPECTED_BUILD_SHA}"
           REMOTE
+          cleanup_registry_credentials
+          trap - EXIT HUP INT TERM

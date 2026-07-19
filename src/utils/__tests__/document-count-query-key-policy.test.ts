@@ -66,7 +66,9 @@ assert('board overlay syncs canonical documents only for the same broad query',
   serverSource.includes('serverDocumentCountBroadQueryKey(current.keyword)')
     && serverSource.includes('serverDocumentCountBroadQueryKey(board.keyword)')
     && serverSource.includes('serverDocumentCountBroadQueryKey(seed)')
-    && serverSource.includes('serverDocumentCountBroadQueryKey(canonicalMetric.keyword)'));
+    && serverSource.includes('serverDocumentCountBroadQueryKey(metric.keyword)')
+    && serverSource.includes('bindKeywordAnalysisMetricToRequestedSeed(requestedMetric, seed)')
+    && /bindKeywordAnalysisMetricToRequestedSeed[\s\S]{0,900}documentCount:\s*null[\s\S]{0,300}documentCountSource:\s*'none'/.test(serverSource));
 
 const proSource = fs.readFileSync(
   path.join(__dirname, '..', 'pro-traffic-keyword-hunter.ts'),
@@ -80,6 +82,35 @@ assert('PRO terminal premium and verified gates bind canonical documents to the 
   String(keywordBoundPublishGates.length));
 assert('PRO persistent seed promotion binds exported documents to entry.keyword',
   /getCanonicalPersistentDocumentCount\(\s*entry,\s*Date\.now\(\),\s*entry\.keyword/.test(proSource));
+
+const premiumHandlerSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'main', 'handlers', 'premium-hunting.ts'),
+  'utf8',
+);
+const premiumSharedDocumentCalls = premiumHandlerSource.match(
+  /getNaverBlogDocumentCount\(normalizeNaverBlogBroadQuery\((?:keyword|kw)\),/g,
+) || [];
+assert('premium hunting document totals use the shared normalized broad client in both user-facing paths',
+  premiumSharedDocumentCalls.length >= 2
+    && premiumHandlerSource.includes("from '../../utils/naver-blog-api'")
+    && !premiumHandlerSource.includes('forceFresh: true')
+    && !premiumHandlerSource.includes('query: `"${kw}"`')
+    && !premiumHandlerSource.includes('const rawTotal = (docData as any)?.total'),
+  String(premiumSharedDocumentCalls.length));
+
+const discoveryHandlerSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'main', 'handlers', 'keyword-discovery.ts'),
+  'utf8',
+);
+const discoverySharedDocumentCalls = discoveryHandlerSource.match(
+  /getNaverBlogDocumentCount\(normalizeNaverBlogBroadQuery\(keyword\),/g,
+) || [];
+assert('keyword discovery realtime fallbacks use the same broad document-count SSoT',
+  discoverySharedDocumentCalls.length >= 2
+    && discoveryHandlerSource.includes("from '../../utils/naver-blog-api'")
+    && !discoveryHandlerSource.includes('forceFresh: true')
+    && !discoveryHandlerSource.includes('openapi.naver.com/v1/search/blog.json'),
+  String(discoverySharedDocumentCalls.length));
 
 console.log('[document-count-query-key-policy.test] passed');
 process.exit(0);

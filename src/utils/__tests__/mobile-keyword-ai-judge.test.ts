@@ -1,8 +1,10 @@
 import assert from 'assert';
 import {
   applyKeywordAiJudge,
+  hasTrustedDocumentCountMeasurement,
   isUltimateGoldenKeywordCandidate,
 } from '../../mobile/keyword-ai-judge';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function measuredMetric(keyword: string, category: string, pc: number, mobile: number, documentCount: number) {
   const totalSearchVolume = pc + mobile;
@@ -30,12 +32,30 @@ function measuredMetric(keyword: string, category: string, pc: number, mobile: n
     documentCountSource: 'naver-api' as const,
     documentCountConfidence: 'high' as const,
     documentCountQueryMode: 'broad' as const,
+    documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
     documentCountMeasuredAt: now.toISOString(),
     isDocumentCountEstimated: false,
   };
 }
 
 const now = new Date('2026-06-22T09:00:00+09:00');
+
+const queryBoundMetric = measuredMetric(
+  '\uC81C\uC8FC \uB80C\uD130\uCE74 \uBCF4\uD5D8 \uBE44\uAD50',
+  'travel_domestic',
+  800,
+  3_200,
+  400,
+);
+assert.strictEqual(hasTrustedDocumentCountMeasurement(queryBoundMetric), true);
+assert.strictEqual(hasTrustedDocumentCountMeasurement({
+  ...queryBoundMetric,
+  documentCountQueryKey: undefined,
+}), false);
+assert.strictEqual(hasTrustedDocumentCountMeasurement({
+  ...queryBoundMetric,
+  documentCountQueryKey: naverBlogDocumentCountQueryKey('\uC81C\uC8FC\uB80C\uD130\uCE74 \uBCF4\uD5D8 \uBE44\uAD50'),
+}), false);
 
 const calculatorNeed = applyKeywordAiJudge(
   measuredMetric('주휴수당계산기', 'policy', 16500, 71100, 12230),

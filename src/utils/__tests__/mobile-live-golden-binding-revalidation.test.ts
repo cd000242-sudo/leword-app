@@ -1,11 +1,13 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { naverBlogDocumentCountQueryKey } from '../naver-blog-api';
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ''}`);
 }
 
-const tmpDir = path.join(process.cwd(), 'tmp');
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-binding-revalidation-'));
 const boardFile = path.join(tmpDir, 'mobile-live-golden-binding-revalidation-board.json');
 const cacheFile = path.join(tmpDir, 'mobile-live-golden-binding-revalidation-cache.json');
 const fixedNow = new Date('2026-07-15T01:00:00.000Z');
@@ -52,7 +54,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     category: 'home_life',
     source: 'mobile-live-golden-radar',
     intent: 'Commercial',
-    evidence: ['mobile-live-seed-backfill', 'naver-openapi-broad'],
+    evidence: ['validated-modifier', 'mobile-live-seed-backfill', 'naver-openapi-broad'],
     isMeasured: true,
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
@@ -60,6 +62,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey('원룸 청소 업체 가격'),
     documentCountMeasuredAt: fixedNow.toISOString(),
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-14T20:00:00.000Z',
@@ -84,7 +87,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     category: 'home_life',
     source: 'mobile-live-golden-radar',
     intent: 'Commercial',
-    evidence: ['mobile-live-seed-backfill', 'naver-openapi-broad'],
+    evidence: ['validated-modifier', 'mobile-live-seed-backfill', 'naver-openapi-broad'],
     isMeasured: true,
     searchVolumeSource: 'searchad',
     searchVolumeConfidence: 'high',
@@ -92,6 +95,7 @@ fs.writeFileSync(boardFile, JSON.stringify({
     documentCountSource: 'naver-api',
     documentCountConfidence: 'high',
     documentCountQueryMode: 'broad',
+    documentCountQueryKey: naverBlogDocumentCountQueryKey('에어컨 청소 비용'),
     documentCountMeasuredAt: fixedNow.toISOString(),
     isDocumentCountEstimated: false,
     discoveredAt: '2026-07-14T20:00:00.000Z',
@@ -173,8 +177,7 @@ run()
   .then(() => console.log('[mobile-live-golden-binding-revalidation.test] passed'))
   .finally(() => {
     delete process.env['LEWORD_SEARCHAD_VOLUME_CACHE_FILE'];
-    fs.rmSync(boardFile, { force: true });
-    fs.rmSync(cacheFile, { force: true });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   })
   .then(
     () => process.exit(0),

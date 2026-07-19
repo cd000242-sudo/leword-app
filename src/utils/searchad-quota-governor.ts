@@ -18,13 +18,31 @@ import * as path from 'path';
 import * as os from 'os';
 import { createHash } from 'crypto';
 
-const DAILY_LIMIT = Number(process.env['LEWORD_SEARCHAD_DAILY_LIMIT']) || 25000;
+const ABSOLUTE_PHYSICAL_DAILY_LIMIT = 25_000;
+const DEFAULT_SOFT_CEILING = 22_000;
+
+function configuredCeiling(value: unknown, fallback: number): number {
+  const parsed = Math.floor(Number(value));
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+const DAILY_LIMIT = Math.min(
+  configuredCeiling(process.env['LEWORD_SEARCHAD_DAILY_LIMIT'], ABSOLUTE_PHYSICAL_DAILY_LIMIT),
+  ABSOLUTE_PHYSICAL_DAILY_LIMIT,
+);
 // 소프트 상한: 배경 소비자는 여기서 멈춘다 (25k 계정 한도까지 3k 여유 = 온디맨드/레이스 버퍼)
-const SOFT_CEILING = Number(process.env['LEWORD_SEARCHAD_SOFT_CEILING']) || 22000;
+const SOFT_CEILING = Math.min(
+  configuredCeiling(process.env['LEWORD_SEARCHAD_SOFT_CEILING'], DEFAULT_SOFT_CEILING),
+  DAILY_LIMIT,
+  ABSOLUTE_PHYSICAL_DAILY_LIMIT,
+);
 const SCHEMA = 'searchad-quota-v1';
-const QUOTA_LOCK_STALE_MS = 5_000;
-const QUOTA_LOCK_WAIT_MS = 10_000;
-const QUOTA_LOCK_RETRY_MS = 5;
+const QUOTA_STATE_MAX_BYTES = 1024 * 1024;
+const QUOTA_LOCK_WAIT_MS = Math.max(
+  100,
+  Number(process.env['LEWORD_SEARCHAD_QUOTA_LOCK_WAIT_MS']) || 30_000,
+);
+const QUOTA_LOCK_RETRY_MS = 2;
 
 interface DayState {
   date: string; // KST YYYY-MM-DD
@@ -55,25 +73,22 @@ function withQuotaFileLock<T>(action: () => T): T {
   const lockFile = `${file}.lock`;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const startedAt = Date.now();
-  let lockFd: number | null = null;
-  while (lockFd === null) {
+  let lockHeld = false;
+  while (!lockHeld) {
     try {
-      lockFd = fs.openSync(lockFile, 'wx');
+      fs.mkdirSync(lockFile, { mode: 0o700 });
+      lockHeld = true;
     } catch (error: any) {
       const code = String(error?.code || '');
       if (!['EEXIST', 'EPERM', 'EBUSY', 'EACCES'].includes(code)) throw error;
-      if (code === 'EEXIST') {
-        try {
-          const ageMs = Date.now() - fs.statSync(lockFile).mtimeMs;
-          if (ageMs > QUOTA_LOCK_STALE_MS) {
-            fs.unlinkSync(lockFile);
-            continue;
-          }
-        } catch (statError: any) {
-          if (!['ENOENT', 'EPERM', 'EBUSY', 'EACCES'].includes(String(statError?.code || ''))) {
-            throw statError;
-          }
+      try {
+        const lockStat = fs.lstatSync(lockFile);
+        if (lockStat.isSymbolicLink() || !lockStat.isDirectory()) {
+          throw new Error(`unsafe SearchAd quota lock directory: ${lockFile}`);
         }
+      } catch (statError: any) {
+        if (statError?.code === 'ENOENT') continue;
+        if (!['EPERM', 'EBUSY', 'EACCES'].includes(String(statError?.code || ''))) throw statError;
       }
       if (Date.now() - startedAt >= QUOTA_LOCK_WAIT_MS) {
         throw new Error('SearchAd quota lock timeout');
@@ -84,8 +99,10 @@ function withQuotaFileLock<T>(action: () => T): T {
   try {
     return action();
   } finally {
-    try { fs.closeSync(lockFd); } catch { /* already closed */ }
-    try { fs.unlinkSync(lockFile); } catch { /* stale cleanup handles leftovers */ }
+    try { fs.rmdirSync(lockFile); } catch { /* a retained lock forces later calls to time out closed */ }
+    // A tiny handoff window prevents one hot process from immediately
+    // reacquiring the file lock and starving the other runtime process.
+    sleepSync(1);
   }
 }
 
@@ -135,13 +152,40 @@ function readDisk(): DayState | null {
   try {
     const file = stateFile();
     if (!fs.existsSync(file)) return null;
+    const stat = fs.lstatSync(file);
+    if (stat.isSymbolicLink() || !stat.isFile()) {
+      throw new Error(`unsafe SearchAd quota state file: ${file}`);
+    }
+    if (stat.size > QUOTA_STATE_MAX_BYTES) {
+      throw new Error(`SearchAd quota state exceeds size limit: ${file}`);
+    }
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (parsed?.schemaVersion !== SCHEMA) return null;
-    if (parsed?.date !== kstDate()) return null; // 날짜 바뀜 → 무효(리셋)
-    if (!parsed?.byAccount || typeof parsed.byAccount !== 'object') return null;
-    return { date: parsed.date, byAccount: { ...parsed.byAccount } };
-  } catch {
-    return null; // 쿼터 상태는 최적화용 — 실패해도 런타임 정상
+    if (parsed?.schemaVersion !== SCHEMA) {
+      throw new Error(`unsupported SearchAd quota state schema: ${file}`);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(parsed.date || ''))) {
+      throw new Error(`invalid SearchAd quota state date: ${file}`);
+    }
+    const today = kstDate();
+    if (parsed.date > today) {
+      throw new Error(`future SearchAd quota state date: ${file}`);
+    }
+    if (parsed.date < today) return null; // A prior KST day is the only valid reset.
+    if (!parsed?.byAccount || typeof parsed.byAccount !== 'object' || Array.isArray(parsed.byAccount)) {
+      throw new Error(`invalid SearchAd quota account map: ${file}`);
+    }
+    const byAccount: Record<string, number> = {};
+    for (const [accountId, rawCalls] of Object.entries(parsed.byAccount)) {
+      const calls = Number(rawCalls);
+      if (!accountId || !Number.isSafeInteger(calls) || calls < 0) {
+        throw new Error(`invalid SearchAd quota count for account ${accountId || '<empty>'}: ${file}`);
+      }
+      byAccount[accountId] = calls;
+    }
+    return { date: parsed.date, byAccount };
+  } catch (error: any) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
   }
 }
 
@@ -166,6 +210,12 @@ function mergeLatestDiskState(current: DayState): DayState {
   return current;
 }
 
+export function searchAdEffectiveCeiling(value: unknown): number {
+  const parsed = Math.floor(Number(value));
+  if (!Number.isSafeInteger(parsed) || parsed < 0) return 0;
+  return Math.min(parsed, DAILY_LIMIT, ABSOLUTE_PHYSICAL_DAILY_LIMIT);
+}
+
 function save(): void {
   if (!state) return;
   const file = stateFile();
@@ -186,22 +236,43 @@ export function searchAdCallsToday(accountId = 'default'): number {
 
 /** 소프트 상한까지 남은 호출 수 */
 export function searchAdRemaining(accountId = 'default', ceiling = SOFT_CEILING): number {
-  return Math.max(0, ceiling - searchAdCallsToday(accountId));
+  return Math.max(0, searchAdEffectiveCeiling(ceiling) - searchAdCallsToday(accountId));
 }
 
 /** 소프트 상한 도달 여부 — true면 호출을 멈춰야 함 */
 export function searchAdExhausted(accountId = 'default', ceiling = SOFT_CEILING): boolean {
-  return searchAdCallsToday(accountId) >= ceiling;
+  return searchAdCallsToday(accountId) >= searchAdEffectiveCeiling(ceiling);
 }
 
 /** 호출 1회(이상) 기록. 공유 파일 잠금 안에서 최신값을 더해 크로스-프로세스 유실을 막는다. */
 export function recordSearchAdCall(accountId = 'default', n = 1): void {
+  const requested = Math.max(1, Math.floor(Number(n) || 1));
   withQuotaFileLock(() => {
-    const today = kstDate();
-    const disk = readDisk();
-    state = disk && disk.date === today ? disk : { date: today, byAccount: {} };
-    state.byAccount[accountId] = (state.byAccount[accountId] || 0) + Math.max(1, n);
+    state = mergeLatestDiskState(ensure());
+    state.byAccount[accountId] = (state.byAccount[accountId] || 0) + requested;
     save();
+  });
+}
+
+/**
+ * Atomically check the physical-call ceiling and reserve usage before an HTTP
+ * attempt. Reservations are deliberately never refunded: a timeout, abort, or
+ * process crash may happen after Naver accepted the request.
+ */
+export function reserveSearchAdCall(
+  accountId = 'default',
+  n = 1,
+  ceiling = SOFT_CEILING,
+): boolean {
+  const requested = Math.max(1, Math.floor(Number(n) || 1));
+  const safeCeiling = searchAdEffectiveCeiling(ceiling);
+  return withQuotaFileLock(() => {
+    state = mergeLatestDiskState(ensure());
+    const used = Math.max(0, Number(state.byAccount[accountId] || 0));
+    if (used + requested > safeCeiling) return false;
+    state.byAccount[accountId] = used + requested;
+    save();
+    return true;
   });
 }
 

@@ -5,6 +5,7 @@
 
 import { browserPool } from './puppeteer-pool';
 import { setupStealthPage } from './stealth-browser';
+import { getNaverBlogDocumentCount } from './naver-blog-api';
 
 export interface NaverApiConfig {
   clientId: string;
@@ -582,31 +583,13 @@ export async function analyzeSmartBlockKeywordsWithMetrics(
 
     for (const kw of targetKeywords) {
       try {
-        const blogApiUrl = 'https://openapi.naver.com/v1/search/blog.json';
-        const params = new URLSearchParams({ query: kw, display: '1' });
-
-        // Rate Limit 조절
-        const now = Date.now();
-        lastOpenApiRequestAt = Math.max(now, lastOpenApiRequestAt + OPEN_API_INTERVAL);
-        const waitMs = lastOpenApiRequestAt - now;
-        if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
-
-        const response = await fetch(`${blogApiUrl}?${params}`, {
-          headers: {
-            'X-Naver-Client-Id': config.clientId,
-            'X-Naver-Client-Secret': config.clientSecret
-          }
+        const documentCount = await getNaverBlogDocumentCount(kw, {
+          config: {
+            clientId: config.clientId,
+            clientSecret: config.clientSecret,
+          },
         });
-
-        if (response.ok) {
-          const data = await response.json();
-          documentCounts.set(kw, data.total || 0);
-        } else {
-          documentCounts.set(kw, null);
-        }
-
-        // API 호출 간격 조절
-        await new Promise(resolve => setTimeout(resolve, 100));
+        documentCounts.set(kw, documentCount);
       } catch {
         documentCounts.set(kw, null);
       }
