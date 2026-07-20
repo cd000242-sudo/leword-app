@@ -4,11 +4,12 @@
  * 배경(2026-07-20): 브라우저 환경설정에 죽은 네이버 API 키가 저장되면 사용자 키가
  * 서버의 살아있는 키를 통째로 덮어써 문서수 401 전멸 → 키워드 분석기가 빈 결과.
  *
- * 고정하는 계약:
+ * 고정하는 계약 (차원 단위 rescue):
  * 1. 사용자 네이버 키 오버라이드 없음 → 병합 어댑터 그대로 (서버 키 어댑터 호출 0회)
- * 2. 사용자 키 실측이 1건이라도 성공 → 구조 실측 안 함
- * 3. 사용자 키 실측 전량 실패(전 행 무신호) → 서버 키 어댑터로 1회 재실측 + 증거 태그
- * 4. lt10 구간 플래그도 "측정 성공"으로 인정 (재실측 낭비 금지)
+ * 2. 검색량·문서수 두 차원 모두 1건 이상 실측 → 구조 실측 안 함 (사용자 쿼터 존중)
+ * 3. 문서수 차원 전멸(죽은 OpenAPI 키 401 시나리오) → 서버 키 재실측 + 증거 태그
+ * 4. 검색량 차원 전멸 → 서버 키 재실측
+ * 5. lt10 구간 플래그는 검색량 실측 신호로 인정 (재실측 낭비 금지)
  */
 
 import { createUserKeyRescueMetricsAdapter } from '../../mobile/pc-engine-executor';
@@ -66,26 +67,26 @@ async function run(): Promise<void> {
     ok('no override keeps merged result untouched', out === mergedRows && baseCalls === 0);
   }
 
-  // 2. 사용자 키 실측 일부 성공 → 구조 실측 안 함
+  // 2. 두 차원 모두 어딘가에서 실측 성공 → 구조 실측 안 함
   {
     let baseCalls = 0;
     const adapter = createUserKeyRescueMetricsAdapter(
       async () => [
-        metric({ keyword: '성공', totalSearchVolume: 570, documentCount: null }),
-        metric({ keyword: '실패', totalSearchVolume: null, documentCount: null }),
+        metric({ keyword: '검색량만', totalSearchVolume: 570, documentCount: null }),
+        metric({ keyword: '문서수만', totalSearchVolume: null, documentCount: 42 }),
       ],
       async (rows) => { baseCalls += 1; return rows; },
       true,
     );
     const out = await adapter([metric({})], context);
-    ok('partial user-key measurement skips rescue', baseCalls === 0 && out.length === 2);
+    ok('both dimensions measured somewhere skips rescue', baseCalls === 0 && out.length === 2);
   }
 
-  // 3. 전량 실패 → 서버 키 재실측 + 증거 태그
+  // 3. 문서수 차원 전멸 (죽은 OpenAPI 키 401 시나리오 — 검색량은 정상)
   {
     let baseCalls = 0;
     const adapter = createUserKeyRescueMetricsAdapter(
-      async (rows) => rows.map((row) => ({ ...row, totalSearchVolume: null, documentCount: null })),
+      async (rows) => rows.map((row) => ({ ...row, totalSearchVolume: 570, documentCount: null })),
       async (rows) => {
         baseCalls += 1;
         return rows.map((row) => ({ ...row, totalSearchVolume: 570, documentCount: 123 }));
@@ -93,22 +94,34 @@ async function run(): Promise<void> {
       true,
     );
     const out = await adapter([metric({ keyword: '메가 라이츄 졸업스킬' })], context);
-    ok('zero user-key measurement triggers server-key rescue',
+    ok('document-dimension blackout triggers server-key rescue',
       baseCalls === 1 && out[0].totalSearchVolume === 570 && out[0].documentCount === 123);
     ok('rescued rows carry the rescue evidence tag',
       (out[0].evidence || []).includes('server-key-rescue-after-user-key-zero-measurement'));
   }
 
-  // 4. lt10 플래그만 있어도 측정 성공으로 간주
+  // 4. 검색량 차원 전멸 → 재실측
   {
     let baseCalls = 0;
     const adapter = createUserKeyRescueMetricsAdapter(
-      async (rows) => rows.map((row) => ({ ...row, pcSearchVolumeLt10: true, mobileSearchVolumeLt10: true })),
+      async (rows) => rows.map((row) => ({ ...row, totalSearchVolume: null, documentCount: 42 })),
       async (rows) => { baseCalls += 1; return rows; },
       true,
     );
     await adapter([metric({})], context);
-    ok('lt10-range flags count as a measured signal', baseCalls === 0);
+    ok('volume-dimension blackout triggers server-key rescue', baseCalls === 1);
+  }
+
+  // 5. lt10 플래그는 검색량 실측 신호 (문서수도 실측되어 있으면 재실측 안 함)
+  {
+    let baseCalls = 0;
+    const adapter = createUserKeyRescueMetricsAdapter(
+      async (rows) => rows.map((row) => ({ ...row, pcSearchVolumeLt10: true, mobileSearchVolumeLt10: true, documentCount: 7 })),
+      async (rows) => { baseCalls += 1; return rows; },
+      true,
+    );
+    await adapter([metric({})], context);
+    ok('lt10-range flags count as a volume signal', baseCalls === 0);
   }
 
   console.log(`[pc-executor-user-key-rescue.test] passed: ${passed} / failed: 0`);

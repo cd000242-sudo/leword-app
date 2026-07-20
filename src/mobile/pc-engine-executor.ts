@@ -4905,19 +4905,24 @@ export function hasUserNaverCredentialOverride(params: unknown): boolean {
   return USER_NAVER_MEASUREMENT_CREDENTIAL_KEYS.some((key) => Boolean(credentials[key]));
 }
 
-function hasAnyMeasuredSignal(metric: MobileKeywordMetric): boolean {
+function hasVolumeMeasurementSignal(metric: MobileKeywordMetric): boolean {
   return finiteNumber(metric.totalSearchVolume) !== null
     || finiteNumber(metric.pcSearchVolume) !== null
     || finiteNumber(metric.mobileSearchVolume) !== null
-    || finiteNumber(metric.documentCount) !== null
     || metric.pcSearchVolumeLt10 === true
     || metric.mobileSearchVolumeLt10 === true;
 }
 
+function hasDocumentMeasurementSignal(metric: MobileKeywordMetric): boolean {
+  return finiteNumber(metric.documentCount) !== null;
+}
+
 /**
- * 사용자 API 키가 죽어 있으면(401 등) 병합 실측이 전량 무신호가 된다.
- * 서버 키는 살아있는데도 빈 결과를 돌려주는 것을 막기 위해 서버 키로 1회 재실측한다.
- * 사용자 키가 1건이라도 실측에 성공하면 사용자 쿼터를 존중해 재실측하지 않는다.
+ * 사용자 API 키가 죽어 있으면(401 등) 해당 차원 실측이 전멸한다 — 예: 죽은
+ * OpenAPI 키는 검색량은 정상인데 문서수만 전 행 null 로 만든다.  서버 키는
+ * 살아있는데도 반쪽/빈 결과를 돌려주는 것을 막기 위해, 검색량·문서수 중 한
+ * 차원이라도 전멸하면 서버 키로 1회 재실측한다.  두 차원 모두 1건 이상
+ * 실측되면 사용자 쿼터를 존중해 재실측하지 않는다.
  */
 export function createUserKeyRescueMetricsAdapter(
   mergedAdapter: MobileKeywordMetricsAdapter,
@@ -4927,8 +4932,11 @@ export function createUserKeyRescueMetricsAdapter(
   if (!userNaverCredentialOverride) return mergedAdapter;
   return async (metrics, context) => {
     const measured = await mergedAdapter(metrics, context);
-    if (measured.length === 0 || measured.some(hasAnyMeasuredSignal)) return measured;
-    console.warn('[PC-EXECUTOR] 사용자 API 키 실측 0건 — 서버 키로 구조 실측을 수행합니다.');
+    if (measured.length === 0) return measured;
+    const volumeBlackout = !measured.some(hasVolumeMeasurementSignal);
+    const documentBlackout = !measured.some(hasDocumentMeasurementSignal);
+    if (!volumeBlackout && !documentBlackout) return measured;
+    console.warn(`[PC-EXECUTOR] 사용자 API 키 실측 차원 전멸(volume=${volumeBlackout}, document=${documentBlackout}) — 서버 키로 구조 실측을 수행합니다.`);
     const rescued = await baseAdapter(metrics, context);
     return rescued.map((item) => ({
       ...item,
