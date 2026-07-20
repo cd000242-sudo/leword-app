@@ -378,7 +378,7 @@ assert('production restart synchronizes compose and restarts both API and live g
   'a new API image is not deployed until both runtime services and compose health policy are active');
 
 const embeddedHealthParsers = [
-  ...restartWorkflow.matchAll(/node -e '\n([\s\S]*?)\n\s*' 2>\/dev\/null/g),
+  ...restartWorkflow.matchAll(/node -e '\r?\n([\s\S]*?)\r?\n\s*' 2>\/dev\/null/g),
 ].map((match: RegExpMatchArray) => match[1]);
 assert('production transaction embeds both deploy and rollback health parsers', embeddedHealthParsers.length === 2);
 

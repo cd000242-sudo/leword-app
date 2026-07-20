@@ -13208,7 +13208,8 @@ export class MobileLiveGoldenRadar {
       try {
         const probe = await this.autocompleteEchoProbe(step);
         const suggestions = probe && probe.ok === true && Array.isArray(probe.suggestions) ? probe.suggestions : [];
-        if (suggestions.length >= 3) return { head: step, suggestions };
+        // 자동완성이 응답했다면(제안 1건 이상) 그 단계가 실사용 검색 형태 — 0건 단계만 계속 축약.
+        if (suggestions.length >= 1) return { head: step, suggestions };
       } catch {
         // 다음 단계 시도
       }
