@@ -206,7 +206,10 @@ const LIVE_REAL_DEMAND_BUDGET_PER_CYCLE = 30;
 // 않는 별도 상품 — 최소 브랜드세이프티 + 실측 + 신선도(48h) + 기회지수 하한만 요구한다.
 const TRAFFIC_SURGE_LANE = 'traffic-surge';
 const SURGE_MAX_AGE_MS = 48 * 60 * 60 * 1000;
-const SURGE_MIN_VOLUME = 3000;
+// 당일 급등 키워드는 SearchAd 월간 집계가 아직 작다(경쟁 툴 실물 최저 sv 340 관측) —
+// 수요 하한은 낮추고 기회지수(비율)와 자동완성 실수요가 본 게이트 역할을 한다.
+const SURGE_MIN_VOLUME = 300;
+const SURGE_HEAD_PROBE_LADDER = 3;
 const SURGE_MAX_DOCUMENTS = 30_000;
 const SURGE_MIN_RATIO = 10;
 const SURGE_HEADS_PER_CYCLE = 8;
@@ -9254,8 +9257,14 @@ export class MobileLiveGoldenRadar {
   private async collectLiveSeeds(categoryId: string): Promise<string[]> {
     try {
       if (this.liveSeedProvider) {
-        const normalized = normalizeLiveSeeds(await this.liveSeedProvider(categoryId), 140);
-        this.lastRawLiveSeeds = normalized;
+        const providedSeeds = (await this.liveSeedProvider(categoryId)) || [];
+        // 급등 레인용 원시 헤드는 정보형 필터(expandLiveSeedKeyword 의 저가치/프로필 차단) 이전
+        // 원문이어야 한다 — 헤드라인형('…시청률 폭발 이유')도 정제 사다리가 살릴 수 있다.
+        this.lastRawLiveSeeds = uniqueKeywords(
+          providedSeeds.map((seed) => normalizeKeyword(seed)).filter(Boolean),
+          120,
+        );
+        const normalized = normalizeLiveSeeds(providedSeeds, 140);
         return normalized.filter(isStrongLiveIssueSeed);
       }
       const fallbackSeeds = getDiscoveryCategorySeeds(categoryId, 60);
@@ -9288,6 +9297,11 @@ export class MobileLiveGoldenRadar {
         ...(policyRows as Array<{ keyword?: string; title?: string }>).map((row) => ({ keyword: row.keyword || row.title, categoryId: 'policy' })),
         ...(issueRows as Array<{ title?: string; category?: string }>).map((row) => ({ keyword: row.title, categoryId: row.category || 'celeb' })),
       ];
+      // 급등 레인용 원시 헤드: 소스 신호 원문(shouldUse… 정보형 게이트 이전).
+      this.lastRawLiveSeeds = uniqueKeywords(
+        allSignals.map((signal) => normalizeKeyword(signal.keyword)).filter(Boolean),
+        120,
+      );
       const matched: string[] = [];
       const fallback: string[] = [];
       const needMatched: string[] = [];
@@ -9308,7 +9322,6 @@ export class MobileLiveGoldenRadar {
           needFallback.push(...needCandidates);
         }
       }
-      this.lastRawLiveSeeds = uniqueKeywords([...matched, ...fallback], 120);
       return uniqueKeywords([
         ...needMatched,
         ...this.cacheDerivedLiveSeeds,
@@ -13172,6 +13185,37 @@ export class MobileLiveGoldenRadar {
     }
   }
 
+  // 뉴스 헤드라인형 시드('쿠팡 물류센터 화재 3일째')는 자동완성이 반응하지 않는다(깔때기
+  // 진단으로 실증: 6헤드 중 5개 제안 0). 토큰 프리픽스 사다리(원문 → 앞 2토큰 → 앞 1토큰)를
+  // 자동완성에 대보고 제안이 살아나는 첫 단계를 "사람이 검색창에 치는 형태"로 채택한다.
+  private async refineSurgeHead(rawHead: string): Promise<{ head: string; suggestions: string[] } | null> {
+    if (!this.autocompleteEchoProbe) return null;
+    const clean = normalizeKeyword(rawHead).replace(/["'“”‘’()\[\]]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!clean) return null;
+    const tokens = clean.split(' ').filter(Boolean);
+    const ladder: string[] = [];
+    const pushStep = (step: string) => {
+      const value = step.trim();
+      if (value && value.replace(/\s+/g, '').length >= 2 && !ladder.includes(value)) ladder.push(value);
+    };
+    pushStep(clean);
+    pushStep(tokens.slice(0, 2).join(' '));
+    pushStep(tokens[0] || '');
+    let probes = 0;
+    for (const step of ladder) {
+      if (probes >= SURGE_HEAD_PROBE_LADDER) break;
+      probes += 1;
+      try {
+        const probe = await this.autocompleteEchoProbe(step);
+        const suggestions = probe && probe.ok === true && Array.isArray(probe.suggestions) ? probe.suggestions : [];
+        if (suggestions.length >= 3) return { head: step, suggestions };
+      } catch {
+        // 다음 단계 시도
+      }
+    }
+    return null;
+  }
+
   // 실시간 급등 레인 헌터(승인 2026-07-09): 이번 사이클의 실시간 시드(트렌딩 헤드)를 자동완성으로
   // 확장해 "사람이 실제로 치는 형태"의 후보만 만들고(제조 조합 금지), SearchAd+문서수 실측 후
   // 기회지수 게이트(isTrafficSurgeBoardMetric)를 통과한 행을 lane 태그로 board 에 얹는다.
@@ -13192,6 +13236,12 @@ export class MobileLiveGoldenRadar {
       : uniqueKeywords(liveSeeds || [], SURGE_HEADS_PER_CYCLE * 3)
       .map((seed) => normalizeKeyword(seed))
       .filter((seed) => seed && !isMalformedLiveKeyword(seed) && !SURGE_UNSAFE_RE.test(seed))
+      // 짧은 엔티티형 헤드('결혼의 완성')가 문장형 뉴스 제목보다 확장 성공률이 높다 — 예산 우선 배정.
+      .sort((a, b) => {
+        const tokenDiff = a.split(' ').length - b.split(' ').length;
+        if (tokenDiff !== 0) return tokenDiff;
+        return a.replace(/\s+/g, '').length - b.replace(/\s+/g, '').length;
+      })
       .slice(0, SURGE_HEADS_PER_CYCLE);
     if (heads.length === 0 && directSeeds.length === 0) return 0;
     const candidates = new Map<string, string>();
@@ -13243,9 +13293,29 @@ export class MobileLiveGoldenRadar {
         // 헤드 하나의 확장 실패는 무시 — 급등 레인 실패가 발굴을 막으면 안 된다.
       }
     };
+    const absorbSuggestions = (suggestions: string[]): void => {
+      for (const suggestion of suggestions) {
+        const clean = normalizeKeyword(suggestion);
+        const compact = clean.toLowerCase().replace(/\s+/g, '');
+        if (!clean || compact.length < 4) continue;
+        if (isMalformedLiveKeyword(clean) || SURGE_UNSAFE_RE.test(clean)) continue;
+        observedSuggestions.push(clean);
+        if (!candidates.has(compact) && candidates.size < SURGE_CANDIDATES_PER_CYCLE) {
+          candidates.set(compact, clean);
+        }
+      }
+    };
+    // 검토 승인된 홈 브리핑 시드는 자동완성에 직접 대본다 — 띄어쓰기 정규화(compact 동일 echo 시
+    // 정확 표기 채택)와 확장 제안 수확이 여기서 일어난다(rebase 시 소실됐던 루프 복원).
+    if (includeAutocomplete && this.autocompleteEchoProbe) {
+      for (const seed of directSeeds) {
+        await collectFrom(seed);
+      }
+    }
     for (const head of heads) {
       if (candidates.size >= SURGE_CANDIDATES_PER_CYCLE) break;
-      await collectFrom(head);
+      const refined = await this.refineSurgeHead(head);
+      if (refined) absorbSuggestions(refined.suggestions);
     }
     // Phase 2: 자동완성 신규 진입 감지 — 이전 스냅샷에 없던 제안어(fresh)를 우선 측정하고,
     // 신규 진입 상위 몇 개는 2차 확장해 경쟁 툴 리스트에 오르기 전 롱테일을 선점한다.

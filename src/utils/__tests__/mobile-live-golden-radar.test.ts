@@ -932,6 +932,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
         isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
         ...trafficSurgeGateProvenance,
       }), new Date())
+      && __liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric(bindTrustedDocumentFixture({
+        keyword: '온글잎 애옹글 아이폰', lane: 'traffic-surge',
+        totalSearchVolume: 340, documentCount: 14,
+        isSearchVolumeEstimated: false, isDocumentCountEstimated: false,
+        ...trafficSurgeGateProvenance,
+      }), new Date())
       && !__liveGoldenRadarTestInternals.isTrafficSurgeBoardMetric({
         keyword: '기회지수 미달 키워드', lane: 'traffic-surge',
         totalSearchVolume: 24000, documentCount: 12000,
@@ -1125,6 +1131,8 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     ['김부장 방송일정', { pc: 4000, mobile: 16000, dc: 100 }],
     ['김부장 결말 해석', { pc: 24000, mobile: 96000, dc: 640 }],
     ['김부장 결말 해석 원작 차이', { pc: 3000, mobile: 12000, dc: 55 }],
+    ['결혼의 완성 부방장', { pc: 8000, mobile: 34000, dc: 210 }],
+    ['결혼의 완성 몇부작', { pc: 2000, mobile: 9000, dc: 800 }],
   ]);
   const surgeDocumentMeasuredAt = new Date().toISOString();
   const surgeRadar = new MobileLiveGoldenRadar({
@@ -1136,7 +1144,7 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
     boardFile: surgeBoardFile,
     categories: ['policy'],
     getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
-    liveSeedProvider: async () => ['김부장'],
+    liveSeedProvider: async () => ['김부장', '결혼의 완성 시청률 폭발 이유'],
     enableBackfill: false,
     discover: async () => [],
     realDemandProbe: async (query: string) => {
@@ -1148,6 +1156,12 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       }
       if (query === '김부장 결말 해석') {
         return { ok: true, suggestions: ['김부장 결말 해석 원작 차이'] };
+      }
+      if (query === '결혼의 완성 시청률 폭발 이유') {
+        return { ok: true, suggestions: [] };
+      }
+      if (query === '결혼의 완성') {
+        return { ok: true, suggestions: ['결혼의 완성 부방장', '결혼의 완성 몇부작', '결혼의 완성 등장인물'] };
       }
       return { ok: true, suggestions: [query] };
     },
@@ -1206,6 +1220,11 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
       queryMode: item.documentCountQueryMode,
       measuredAt: item.documentCountMeasuredAt,
     }))));
+  // 헤드 정제 사다리: 문장형 뉴스 헤드('…시청률 폭발 이유')는 자동완성 0건 → 앞 2토큰
+  // '결혼의 완성'으로 축약해 확장 성공 → '부방장'급 실사용 문형이 board 에 도달해야 한다.
+  assert('headline-shaped heads are trimmed until autocomplete responds (부방장 class reachable)',
+    surgeRows.some((item) => item.keyword === '결혼의 완성 부방장' && item.lane === 'traffic-surge'),
+    JSON.stringify(surgeRows.map((item) => item.keyword)));
   // 콜드스타트: 첫 사이클은 기준선 수집만 — 신규 진입 태그가 없어야 한다.
   assert('surge cold-start cycle records a baseline without new-entry tags',
     surgeRows.every((item) => item.surgeNewEntry !== true),
