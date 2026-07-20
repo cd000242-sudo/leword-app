@@ -587,6 +587,8 @@ North Star:
 
 **감량 설계 원칙(관찰 후 /plan에 반영):** 프로브 제조 중단 → 공급 3원화(브리핑은 공급원이 아니라 벤치마크·제외셋·확장시드! / 자동완성 실수요 확장 / 데스크톱 ingest) → 게이트 4개(실측·실수요·비율·안전)로 통합 → 죽은 정규식 가드 삭제 → 라다 파일 분해. Codex와 영역 분담 필수(동시 수술 금지).
 
+**동결 예외 수리(2026-07-20, 사용자 버그신고): d4a2bd20 + 143e29f4.** ①분석기 빈 결과 근본원인 = 브라우저 저장 사용자 네이버 API 키 사망(401)이 서버 키를 통째 덮어씀 → 차원 단위 rescue(검색량/문서수 중 한 차원 전멸 시 서버 키 재실측, evidence `server-key-rescue-after-user-key-zero-measurement`) 배포·실검증 완료. ②데이터랩 30일 상대 추이 그래프(`/v1/keywords/trend`, 6h 캐시, 생략일 0채움, 상대값 명시) 서버+웹+leaderspro 반영. **감량 항목 추가**: `git ls-files 'src/**/*.js'` 잔재 25개(api-cache, environment-manager, error-handler 등) — 컨테이너는 Dockerfile 27행이 빌드 때 삭제하므로 무해하나, 로컬 ts-node(dev/테스트)는 stale .js 를 로드함. naver-datalab-api.js 는 이번에 제거. 잔여 25개 일괄 제거 + .gitignore 처리.
+
 ## 다음 착수
 1. ~~배포~~ ✅ (2026-07-09 Codex 완료): Vultr 재배포(f2602954) + ingest 토큰 설정 + 검증 a~f 전부 통과. 운영자 PC `%APPDATA%\blogger-gpt-cli\.env` 에 ingest URL/TOKEN 설정 완료(`https://141.164.59.17.sslip.io/v1/live-golden/ingest`), 이 PC→서버 인증 왕복 200 ok 확인. **주의**: EnvironmentManager 는 .env 를 process.env 로 주입하지 않아 ingest 2키 화이트리스트 주입 추가. **함정 기록**: `src/utils/*.js` 에 2025-11 낡은 in-place 컴파일 산출물이 남아 있어 ts-node require 시 .ts 대신 stale .js 가 로드될 수 있음(environment-manager 에서 실제 발생, dist 는 정상) — 정리 후보.
    - **남은 마지막 단계**: 데스크톱 앱을 이 레포에서 `npm run start` 로 실행(설치본엔 업로더 코드 없음) → 황금키워드 발굴 1회 → `[LIVE-BOARD-UPLOAD] N개 전송, 서버 수용 M개` 로그 확인 → 웹 보드 채움 확인.
