@@ -1271,6 +1271,92 @@ function thinProfileCount(items: Array<{ keyword: string }>): number {
   fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-realdemand.json', { force: true });
   fs.rmSync(surgeBoardFile.replace(/\.json$/, '') + '-surge-seen.json', { force: true });
 
+  // 급등 예약석 회귀: 보드 정원이 기존 고점수 행으로 가득 차도 기회지수 상위 급등 행은
+  // 선별에서 밀리지 않는다(추가→선별탈락→재추가 순환의 재발 방지).
+  const surgeCapBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-surge-cap-test.json');
+  for (const suffix of ['', '-ingest', '-realdemand', '-surge-seen']) {
+    fs.rmSync(surgeCapBoardFile.replace(/\.json$/, '') + suffix + '.json', { force: true });
+  }
+  const surgeCapStamp = new Date().toISOString();
+  fs.writeFileSync(surgeCapBoardFile, JSON.stringify({
+    boardUpdatedAt: surgeCapStamp,
+    items: Array.from({ length: 6 }, (_, index) => bindTrustedDocumentFixture({
+      keyword: `청년미래적금 ${300 + index}차 신청 대상`,
+      grade: 'SSS',
+      score: 95 - index,
+      totalSearchVolume: 5200 + index * 40,
+      pcSearchVolume: 1040 + index * 8,
+      mobileSearchVolume: 4160 + index * 32,
+      documentCount: 180 + index * 5,
+      goldenRatio: 27,
+      category: 'policy',
+      source: 'fixture-measured',
+      intent: 'fixture-measured',
+      evidence: ['fixture-searchad-volume', 'fixture-naver-openapi-document-count'],
+      searchVolumeSource: 'searchad',
+      searchVolumeConfidence: 'high',
+      isSearchVolumeEstimated: false,
+      documentCountSource: 'naver-api',
+      documentCountConfidence: 'high',
+      isDocumentCountEstimated: false,
+      updatedAt: surgeCapStamp,
+      discoveredAt: surgeCapStamp,
+      isMeasured: true,
+    })),
+  }), 'utf8');
+  const surgeCapMeasured = new Map([
+    ['달빛조각사 리메이크 출시일', { pc: 900, mobile: 3600, dc: 60 }],
+  ]);
+  const surgeCapRadar = new MobileLiveGoldenRadar({
+    notificationInbox: inbox,
+    runOnStart: false,
+    cycleLimit: 1,
+    boardTarget: 6,
+    maxCandidates: 60,
+    boardFile: surgeCapBoardFile,
+    categories: ['policy'],
+    getEnvConfig: () => ({ naverClientId: 'client', naverClientSecret: 'secret' }),
+    liveSeedProvider: async () => ['달빛조각사'],
+    enableBackfill: false,
+    discover: async () => [],
+    realDemandProbe: async (query: string) => (
+      query === '달빛조각사'
+        ? { ok: true, suggestions: ['달빛조각사 리메이크 출시일'] }
+        : { ok: true, suggestions: [query] }
+    ),
+    measureLiveSearchVolumeSeparate: (async (_config: unknown, keywords: string[]) => (
+      keywords
+        .filter((keyword) => surgeCapMeasured.has(keyword))
+        .map((keyword) => {
+          const m = surgeCapMeasured.get(keyword)!;
+          return {
+            keyword,
+            pcSearchVolume: m.pc,
+            mobileSearchVolume: m.mobile,
+            documentCount: m.dc,
+            competition: null,
+            monthlyAveCpc: null,
+            searchVolumeBindingVersion: 'keyword-keyed-v2',
+            searchVolumeMeasuredAt: new Date().toISOString(),
+            documentCountSource: 'naver-api',
+            documentCountConfidence: 'high',
+            documentCountQueryMode: 'broad',
+            documentCountQueryKey: naverBlogDocumentCountQueryKey(keyword),
+            documentCountMeasuredAt: new Date().toISOString(),
+            isDocumentCountEstimated: false,
+          };
+        })
+    )) as never,
+  });
+  const surgeCapSnapshot = await surgeCapRadar.runOnce();
+  assert('reserved surge slots survive a board full of stronger legacy rows',
+    surgeCapSnapshot.board.some((item) => item.keyword === '달빛조각사 리메이크 출시일' && item.lane === 'traffic-surge')
+      && surgeCapSnapshot.board.length <= 6,
+    JSON.stringify(surgeCapSnapshot.board.map((item) => `${item.keyword}:${item.lane || ''}:${item.score}`)));
+  for (const suffix of ['', '-ingest', '-realdemand', '-surge-seen']) {
+    fs.rmSync(surgeCapBoardFile.replace(/\.json$/, '') + suffix + '.json', { force: true });
+  }
+
   // ingest 경로 회귀: 데스크톱 push → inbox 파일(쓰기 소유 분리) → read-only 스냅샷 병합.
   // 추정 플래그 행은 거부, 미지의(추정치성) 필드는 부활 금지, board 파일은 워커 소유라 미작성.
   const ingestBoardFile = path.join(process.cwd(), 'tmp', 'mobile-live-golden-ingest-board-test.json');

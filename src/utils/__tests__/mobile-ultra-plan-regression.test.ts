@@ -708,7 +708,8 @@ assert('api server keeps PRO traffic supplements SSS-only and measured',
 assert('live golden board display is SSS-first with trusted publishable fallback fill',
   /function selectLiveBoardItems[\s\S]*const measuredSssReady = sorted[\s\S]*isMeasuredSssBoardCandidate/.test(liveGoldenRadar)
     && /if \(item\.grade !== 'SSS'\) return false;/.test(liveGoldenRadar)
-    && /return appendMeasuredPublishableFallbackItems\(sssSelected, sorted, target, now\)/.test(liveGoldenRadar)
+    && /const withFallback = appendMeasuredPublishableFallbackItems\(sssSelected, sorted, target, now\)/.test(liveGoldenRadar)
+    && /SURGE_BOARD_RESERVED_SLOTS/.test(liveGoldenRadar)
     && /function selectMeasuredPublishableFallbackItems[\s\S]*hasTrustedSearchVolumeMeasurement\(item\)[\s\S]*hasTrustedDocumentCountMeasurement\(item\)/.test(liveGoldenRadar)
     && !/appendMeasuredExactDisplayFallbackItems/.test(liveGoldenRadar),
   'LIVE board display must keep SSS first but fill paid boards only with trusted measured publishable rows');
@@ -1057,7 +1058,8 @@ assert('mobile live golden board displays measured SSS winners first and measure
     && /function isNearUltimateLiveBoardItem/.test(liveGoldenRadar)
     && /const measuredSssReady = sorted[\s\S]{0,120}isMeasuredSssBoardCandidate\(item, now\)/.test(liveGoldenRadar)
     && /const sssSelected = selectLiveBoardItemsFromPool\(/.test(liveGoldenRadar)
-    && /return appendMeasuredPublishableFallbackItems\(sssSelected, sorted, target, now\)/.test(liveGoldenRadar)
+    && /const withFallback = appendMeasuredPublishableFallbackItems\(sssSelected, sorted, target, now\)/.test(liveGoldenRadar)
+    && /SURGE_BOARD_RESERVED_SLOTS/.test(liveGoldenRadar)
     && /if \(item\.grade !== 'SSS'\) return false;/.test(liveGoldenRadar)
     && !/const strictReady = sorted[\s\S]{0,160}\.filter\(isStrictReadyLiveBoardItem\)/.test(liveGoldenRadar)
     && /function isPublicPreviewCandidate[\s\S]{0,220}isStrictReadyLiveBoardItem/.test(liveGoldenRadar));

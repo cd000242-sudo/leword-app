@@ -215,6 +215,9 @@ const SURGE_MIN_RATIO = 10;
 const SURGE_HEADS_PER_CYCLE = 8;
 const SURGE_CANDIDATES_PER_CYCLE = 40;
 const SURGE_SECOND_LEVEL_PROBES = 3;
+// 보드 정원 경쟁에서 급등 신생 행(검색량 소형)이 기존 고점수 행에 밀려 저장 전에 탈락하는 것을
+// 막는 예약석 — 기회지수 상위 급등 행은 target 안에서 이 수만큼 우선 확보한다.
+const SURGE_BOARD_RESERVED_SLOTS = 15;
 const SURGE_UNSAFE_RE = /(?:사망|숨진|숨져|자살|극단적\s*선택|부고|별세|살인|살해|성폭행|성추행|성범죄|마약|음란|야동|시신|참사|유서|시체)/u;
 const HOME_KEYWORD_BRIEFING_SOURCE = 'home-keyword-briefing-reviewed';
 const HOME_KEYWORD_BRIEFING_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -2634,6 +2637,12 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
   now: Date = new Date(),
 ): T[] {
   const target = Math.max(1, Math.floor(boardTarget));
+  // 급등 레인 예약석: 기회지수(실측 sv/dc) 상위 급등 행을 먼저 확보 — 이 행들은 시의성이
+  // 생명이라 기존 보드의 누적 점수와 경쟁시키면 항상 진다(추가→선별탈락→재추가 순환 방지).
+  const reservedSurge = sorted
+    .filter((item) => isTrafficSurgeBoardMetric(item, now))
+    .sort((a, b) => (finiteNumber(b.goldenRatio) || 0) - (finiteNumber(a.goldenRatio) || 0))
+    .slice(0, Math.min(SURGE_BOARD_RESERVED_SLOTS, target));
   const measuredSssReady = sorted
     .filter((item) => isMeasuredSssBoardCandidate(item, now));
   const sssSelected = selectLiveBoardItemsFromPool(
@@ -2641,7 +2650,26 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
     target,
     (item) => isMeasuredSssBoardCandidate(item, now),
   );
-  return appendMeasuredPublishableFallbackItems(sssSelected, sorted, target, now);
+  const withFallback = appendMeasuredPublishableFallbackItems(sssSelected, sorted, target, now);
+  if (reservedSurge.length === 0) return withFallback;
+  const selectedIds = new Set(withFallback.map((item) => item.id));
+  const missingSurge = reservedSurge.filter((item) => !selectedIds.has(item.id));
+  if (missingSurge.length === 0) return withFallback;
+  // 예약석 삽입: target 초과분은 비예약 꼬리(급등 아님)부터 양보시킨다.
+  const combined = [...withFallback, ...missingSurge];
+  if (combined.length <= target) return combined;
+  const surgeIds = new Set(reservedSurge.map((item) => item.id));
+  const keep: T[] = [];
+  let overflow = combined.length - target;
+  for (let i = combined.length - 1; i >= 0; i -= 1) {
+    const item = combined[i];
+    if (overflow > 0 && !surgeIds.has(item.id)) {
+      overflow -= 1;
+      continue;
+    }
+    keep.push(item);
+  }
+  return keep.reverse();
 }
 
 function selectMeasuredPublishableFallbackItems<T extends MobileLiveGoldenBoardItem>(
