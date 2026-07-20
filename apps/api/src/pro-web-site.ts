@@ -5462,6 +5462,7 @@ export function renderLewordProWeb(): string {
     function keywordActionHtml(keyword) {
       const safe = escapeAttr(keyword || '');
       return '<div class="result-actions">'
+        + '<button class="tiny-btn" type="button" data-board-action="copy" data-keyword="' + safe + '">복사</button>'
         + '<button class="tiny-btn" type="button" data-board-action="naver" data-keyword="' + safe + '">네이버</button>'
         + '<button class="tiny-btn" type="button" data-board-action="daum" data-keyword="' + safe + '">다음</button>'
         + '<button class="tiny-btn" type="button" data-board-action="nate" data-keyword="' + safe + '">네이트</button>'
@@ -8689,6 +8690,7 @@ export function renderLewordProWeb(): string {
       if (goldenCategoryFilter && !counts.has(goldenCategoryFilter)) goldenCategoryFilter = '';
       tabs.style.display = 'flex';
       tabs.innerHTML = [
+        '<button class="golden-cat-tab" type="button" data-golden-copy-all="1">📋 목록 복사</button>',
         '<button class="golden-cat-tab' + (goldenCategoryFilter ? '' : ' active') + '" type="button" data-golden-category="">전체<small>' + fmt(rows.length) + '</small></button>',
       ].concat(ordered.map(function(entry) {
         const active = goldenCategoryFilter === entry[0] ? ' active' : '';
@@ -8696,6 +8698,36 @@ export function renderLewordProWeb(): string {
           + escapeHtml(goldenCategoryLabelOf(entry[0])) + '<small>' + fmt(entry[1]) + '</small></button>';
       })).join('');
     }
+    // 클립보드 복사(HTTPS clipboard API + 구형 폴백) — 파이프라인 무접촉 표시 편의 기능.
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function(resolve, reject) {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.left = '-9999px';
+        document.body.appendChild(area);
+        area.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch (err) { ok = false; }
+        document.body.removeChild(area);
+        if (ok) resolve(); else reject(new Error('clipboard unavailable'));
+      });
+    }
+    function flashCopyFeedback(button, ok) {
+      if (!button) return;
+      const original = button.textContent;
+      button.textContent = ok ? '복사됨 ✓' : '복사 실패';
+      button.disabled = true;
+      setTimeout(function() {
+        button.textContent = original;
+        button.disabled = false;
+      }, 1200);
+    }
+    let lastRenderedGoldenKeywords = [];
     function goldenMeasuredFlagsHtml(item, exact) {
       if (!exact || !item) return '';
       const flags = [];
@@ -8744,6 +8776,7 @@ export function renderLewordProWeb(): string {
         });
       }
       const rows = filteredRows.slice(0, limit);
+      lastRenderedGoldenKeywords = rows.map(function(item) { return normalizeText(item && item.keyword); }).filter(Boolean);
       if (!rows.length) {
         qs('goldenBoardList').innerHTML = '';
         qs('goldenNotice').textContent = freshRows.length
@@ -9994,6 +10027,17 @@ export function renderLewordProWeb(): string {
       runCatalogItem(target.getAttribute('data-catalog-run'));
     });
     document.addEventListener('click', function(event) {
+      const copyAll = event.target.closest('[data-golden-copy-all]');
+      if (!copyAll) return;
+      const list = lastRenderedGoldenKeywords.join('\\n');
+      if (!list) { flashCopyFeedback(copyAll, false); return; }
+      copyTextToClipboard(list).then(function() {
+        flashCopyFeedback(copyAll, true);
+      }).catch(function() {
+        flashCopyFeedback(copyAll, false);
+      });
+    });
+    document.addEventListener('click', function(event) {
       const tab = event.target.closest('[data-golden-category]');
       if (!tab) return;
       goldenCategoryFilter = tab.getAttribute('data-golden-category') || '';
@@ -10007,6 +10051,14 @@ export function renderLewordProWeb(): string {
       const keyword = target.getAttribute('data-keyword') || '';
       const action = target.getAttribute('data-board-action');
       if (!keyword) return;
+      if (action === 'copy') {
+        copyTextToClipboard(keyword).then(function() {
+          flashCopyFeedback(target, true);
+        }).catch(function() {
+          flashCopyFeedback(target, false);
+        });
+        return;
+      }
       if (action === 'naver') {
         window.open('https://search.naver.com/search.naver?query=' + encodeURIComponent(keyword), '_blank', 'noopener');
         return;
