@@ -4892,6 +4892,51 @@ function createDefaultKeywordMetricsAdapter(
   };
 }
 
+const USER_NAVER_MEASUREMENT_CREDENTIAL_KEYS: JobApiCredentialKey[] = [
+  'naverClientId',
+  'naverClientSecret',
+  'naverSearchAdAccessLicense',
+  'naverSearchAdSecretKey',
+  'naverSearchAdCustomerId',
+];
+
+export function hasUserNaverCredentialOverride(params: unknown): boolean {
+  const credentials = extractJobApiCredentials(params);
+  return USER_NAVER_MEASUREMENT_CREDENTIAL_KEYS.some((key) => Boolean(credentials[key]));
+}
+
+function hasAnyMeasuredSignal(metric: MobileKeywordMetric): boolean {
+  return finiteNumber(metric.totalSearchVolume) !== null
+    || finiteNumber(metric.pcSearchVolume) !== null
+    || finiteNumber(metric.mobileSearchVolume) !== null
+    || finiteNumber(metric.documentCount) !== null
+    || metric.pcSearchVolumeLt10 === true
+    || metric.mobileSearchVolumeLt10 === true;
+}
+
+/**
+ * 사용자 API 키가 죽어 있으면(401 등) 병합 실측이 전량 무신호가 된다.
+ * 서버 키는 살아있는데도 빈 결과를 돌려주는 것을 막기 위해 서버 키로 1회 재실측한다.
+ * 사용자 키가 1건이라도 실측에 성공하면 사용자 쿼터를 존중해 재실측하지 않는다.
+ */
+export function createUserKeyRescueMetricsAdapter(
+  mergedAdapter: MobileKeywordMetricsAdapter,
+  baseAdapter: MobileKeywordMetricsAdapter,
+  userNaverCredentialOverride: boolean,
+): MobileKeywordMetricsAdapter {
+  if (!userNaverCredentialOverride) return mergedAdapter;
+  return async (metrics, context) => {
+    const measured = await mergedAdapter(metrics, context);
+    if (measured.length === 0 || measured.some(hasAnyMeasuredSignal)) return measured;
+    console.warn('[PC-EXECUTOR] 사용자 API 키 실측 0건 — 서버 키로 구조 실측을 수행합니다.');
+    const rescued = await baseAdapter(metrics, context);
+    return rescued.map((item) => ({
+      ...item,
+      evidence: addEvidence(item.evidence, 'server-key-rescue-after-user-key-zero-measurement'),
+    }));
+  };
+}
+
 function requireNaverOpenApiConfig(
   env: Partial<EnvConfig>,
   product: MobileKeywordProduct,
@@ -6237,9 +6282,16 @@ export function createMobilePcEngineExecutor(
     ensureNotAborted(context);
     const getJobEnvConfig = () => mergeJobApiCredentials(baseGetEnvConfig(), job.params);
     const jobMeasureKeywordMetrics = options.measureKeywordMetrics
-      || createDefaultKeywordMetricsAdapter(
-        getJobEnvConfig,
-        job.product === 'keyword-analysis',
+      || createUserKeyRescueMetricsAdapter(
+        createDefaultKeywordMetricsAdapter(
+          getJobEnvConfig,
+          job.product === 'keyword-analysis',
+        ),
+        createDefaultKeywordMetricsAdapter(
+          baseGetEnvConfig,
+          job.product === 'keyword-analysis',
+        ),
+        hasUserNaverCredentialOverride(job.params),
       );
 
     switch (job.product) {

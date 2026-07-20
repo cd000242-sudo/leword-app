@@ -138,6 +138,7 @@ import {
   EnvironmentManager,
   type EnvConfig,
 } from '../../../src/utils/environment-manager';
+import { getKeywordDailyTrend30d } from '../../../src/utils/naver-datalab-api';
 import { buildMobilePcFeatureCatalog } from '../../../src/mobile/pc-feature-catalog';
 import { buildMobileKeywordExportArtifact } from '../../../src/mobile/export-share';
 import { buildMobileApiStatusSnapshot } from '../../../src/mobile/api-status';
@@ -5662,6 +5663,31 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
       json(res, 200, payload, {
         'Cache-Control': 'no-store',
       });
+      return;
+    }
+
+    if (req.method === 'GET' && url.pathname === '/v1/keywords/trend') {
+      const keyword = String(url.searchParams.get('keyword') || '').trim().slice(0, 60);
+      if (!keyword) {
+        json(res, 400, { ok: false, message: 'keyword is required' });
+        return;
+      }
+      try {
+        const envConfig = EnvironmentManager.getInstance().getConfig();
+        const trend = await getKeywordDailyTrend30d({
+          clientId: String(envConfig.naverClientId || process.env['NAVER_CLIENT_ID'] || ''),
+          clientSecret: String(envConfig.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || ''),
+        }, keyword);
+        json(res, 200, {
+          ok: true,
+          keyword,
+          source: 'naver-datalab',
+          unit: 'relative-ratio-max-100',
+          trend,
+        }, { 'Cache-Control': 'public, max-age=1800' });
+      } catch (error) {
+        json(res, 500, { ok: false, message: (error as Error)?.message || 'trend lookup failed' });
+      }
       return;
     }
 

@@ -119,6 +119,8 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'content-brief-enricher.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-board-uploader.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'real-demand-verifier.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'pc-executor-user-key-rescue.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'keyword-daily-trend.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'surge-emergence-tracker.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-worker-health.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'searchad-account-pool.test.ts'),

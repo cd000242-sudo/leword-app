@@ -195,6 +195,90 @@ function setKwRecency(r: KeywordRecency): void {
   }
 }
 
+export interface KeywordDailyTrendPoint {
+  period: string;
+  ratio: number;
+}
+
+export interface KeywordDailyTrend {
+  keyword: string;
+  startDate: string;
+  endDate: string;
+  series: KeywordDailyTrendPoint[];
+}
+
+/**
+ * 최근 30일 일별 상대 검색 추이 (네이버 데이터랩 실측).
+ * ratio 는 기간 내 최고점=100 기준 상대값이며 절대 검색량이 아니다 — 절대량 환산 표시는 금지.
+ * endDate 는 어제까지 — 당일 데이터는 미집계라 마지막 지점이 가짜 0 으로 보인다.
+ */
+export async function getKeywordDailyTrend30d(
+  config: NaverDatalabConfig,
+  keyword: string,
+): Promise<KeywordDailyTrend | null> {
+  const clean = String(keyword || '').trim();
+  if (!config.clientId || !config.clientSecret || !clean) return null;
+
+  const endDate = getDateDaysAgo(1);
+  const startDate = getDateDaysAgo(30);
+  const cacheKey = apiCache.generateKey('naver-daily-trend', { kw: clean, startDate, endDate });
+
+  return cachedApiCall(
+    cacheKey,
+    async () => {
+      try {
+        const res = await ErrorHandler.withTimeout(
+          async () => fetch('https://openapi.naver.com/v1/datalab/search', {
+            method: 'POST',
+            headers: {
+              'X-Naver-Client-Id': config.clientId,
+              'X-Naver-Client-Secret': config.clientSecret,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              startDate,
+              endDate,
+              timeUnit: 'date',
+              keywordGroups: [{ groupName: clean, keywords: [clean] }],
+            }),
+          }),
+          15000,
+          '네이버 데이터랩 일별 추이 timeout',
+        );
+        if (!res.ok) {
+          console.warn('[DATALAB-TREND] HTTP', res.status);
+          return null;
+        }
+        const data: any = await res.json().catch(() => ({}));
+        const group = Array.isArray(data.results) ? data.results[0] : null;
+        const measured: KeywordDailyTrendPoint[] = (Array.isArray(group?.data) ? group.data : [])
+          .map((point: any) => ({
+            period: String(point?.period || ''),
+            ratio: Number(point?.ratio) || 0,
+          }))
+          .filter((point: KeywordDailyTrendPoint) => Boolean(point.period));
+        if (measured.length === 0) return null;
+        // 데이터랩은 집계 미달 일자를 생략해 돌려준다 — 30일 축을 유지해야
+        // "빈 기간 → 급등" 모양이 왜곡 없이 보이므로 생략 일자를 0으로 채운다.
+        const byPeriod = new Map(measured.map((point) => [point.period, point.ratio]));
+        const startMs = new Date(`${startDate}T00:00:00`).getTime();
+        const series: KeywordDailyTrendPoint[] = [];
+        for (let i = 0; i < 60; i++) {
+          const day = new Date(startMs + i * 86400000);
+          const period = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+          series.push({ period, ratio: byPeriod.get(period) ?? 0 });
+          if (period === endDate) break;
+        }
+        return { keyword: clean, startDate, endDate, series };
+      } catch (e: any) {
+        console.warn('[DATALAB-TREND] error:', e?.message);
+        return null;
+      }
+    },
+    6 * 60 * 60 * 1000, // 6시간 캐시 — 일 단위 데이터라 충분, 쿼터(1000/일) 보호
+  );
+}
+
 export async function checkKeywordsRecency(
   config: NaverDatalabConfig,
   keywords: string[],
