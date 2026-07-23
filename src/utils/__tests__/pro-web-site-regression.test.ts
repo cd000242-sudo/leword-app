@@ -1227,6 +1227,17 @@ assert('traffic-surge rows render lane and new-entry fact badges',
 assert('search-volume reason is keyword-semantic, not category boilerplate only',
   proWebHtml.includes('function keywordSemanticMeaning')
     && proWebHtml.includes('KEYWORD_NEED_TOKENS')
-    && /const semantic = \['policy', 'issue', 'need'\]\.indexOf\(guide\.kind\) >= 0 \? keywordSemanticMeaning\(row\) : '';/.test(proWebHtml));
+    // 정보형(policy/issue/need)에만 걸던 조건을 없애고 모든 카드에 키워드 해석을 적용한다.
+    // 해석할 니즈 토큰이 없으면 keywordSemanticMeaning 이 ''를 돌려주어 기존 문구로 되돌아간다.
+    && /const semantic = keywordSemanticMeaning\(row\);/.test(proWebHtml)
+    && !/\['policy', 'issue', 'need'\]\.indexOf\(guide\.kind\) >= 0 \? keywordSemanticMeaning/.test(proWebHtml));
+assert('card copy never leaks internal pipeline slugs or judge enums',
+  proWebHtml.includes('INTENT_SOURCE_LABELS')
+    && proWebHtml.includes('AI_JUDGE_REASON_LABELS')
+    && proWebHtml.includes('function aiJudgeReasonLabel')
+    // 원시 evidence 덤프와 원시 카테고리 ID 출력을 되살리지 못하게 고정한다.
+    && !proWebHtml.includes("pieces.push('분류 ' + category)")
+    && !proWebHtml.includes("pieces.push(evidence.join(' · '))"),
+  'source/category/judge reasons must pass through Korean label maps; unmapped tokens stay hidden');
 
 console.log('[pro-web-site-regression] passed');
