@@ -5930,7 +5930,7 @@ export function renderLewordProWeb(): string {
         : '외부 AI 꺼짐 · provider 시도 0개 · 호출 0회 · 규칙 보조';
       const topRows = rows.slice(0, 5).map(function(row) {
         return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong>'
-          + '<span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 황금비 ' + fmt(row.goldenRatio) + '</span>'
+          + '<span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 비율 ' + fmt(row.goldenRatio) + '</span>'
           + keywordIntentGuideHtml(row)
           + publishDecisionInline(row)
           + keywordActionHtml(row.keyword || '')
@@ -6009,7 +6009,7 @@ export function renderLewordProWeb(): string {
         const rows = result.keywords;
         const summary = result.summary || {};
         const topRows = rows.slice(0, 12).map(function(row) {
-          return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong><span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 황금비 ' + fmt(row.goldenRatio) + '</span>' + keywordIntentGuideHtml(row) + publishDecisionInline(row) + keywordActionHtml(row.keyword || '') + '</li>';
+          return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong><span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 비율 ' + fmt(row.goldenRatio) + '</span>' + keywordIntentGuideHtml(row) + publishDecisionInline(row) + keywordActionHtml(row.keyword || '') + '</li>';
         });
         const publishReady = rows.filter(function(row) {
           const decision = publishDecisionFor(row);
