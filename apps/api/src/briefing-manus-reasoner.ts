@@ -19,6 +19,10 @@
 
 const MANUS_API_BASE = 'https://api.manus.ai/v2';
 const MANUS_AGENT_PROFILE = 'manus-1.6';
+// Claude 를 1순위로 쓴다. 짧은 키워드 100개/일 배치라 Haiku 가 비용·품질 모두 최적이다
+// (Manus 보다 저렴하고 더 정확). 값은 LEWORD_BRIEFING_REASON_MODEL 로 덮어쓸 수 있다.
+const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_MODEL = (process.env['LEWORD_BRIEFING_REASON_MODEL'] || 'claude-haiku-4-5').trim();
 const CREATE_TIMEOUT_MS = 20_000;
 const POLL_TIMEOUT_MS = 90_000; // 배치라 넉넉히. 그래도 못 받으면 폴백.
 const POLL_INTERVAL_MS = 4_000;
@@ -39,9 +43,54 @@ export interface BriefingReasonResult {
   detail?: string;
 }
 
-function apiKeyFromEnv(): string | null {
+function manusKeyFromEnv(): string | null {
   const key = (process.env['MANUS_API_KEY'] || '').trim();
   return key || null;
+}
+
+function anthropicKeyFromEnv(): string | null {
+  const key = (process.env['ANTHROPIC_API_KEY'] || '').trim();
+  return key && key.startsWith('sk-ant-') ? key : null;
+}
+
+/**
+ * Claude 로 검색 이유를 추론한다. 절대 throw 하지 않는다 — 실패하면 빈 객체를 반환해
+ * 상위에서 Manus·사전 폴백으로 넘어가게 한다.
+ */
+async function callClaude(apiKey: string, rows: BriefingReasonRow[]): Promise<Record<string, string>> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CREATE_TIMEOUT_MS);
+  try {
+    const resp = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: buildPrompt(rows) }],
+      }),
+      signal: ctrl.signal,
+    });
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => '');
+      const e = new Error(`claude-${resp.status}: ${txt.slice(0, 160)}`);
+      // 401/403 키 문제, 402/429 크레딧 문제 → 상위에서 Manus 로 폴백.
+      (e as any).code = (resp.status === 401 || resp.status === 403) ? 'no-key'
+        : (resp.status === 402 || resp.status === 429) ? 'no-credit' : 'error';
+      throw e;
+    }
+    const data: any = await resp.json();
+    const texts = Array.isArray(data?.content)
+      ? data.content.filter((b: any) => b?.type === 'text').map((b: any) => String(b.text || ''))
+      : [];
+    return parseReasons(texts, rows);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function buildPrompt(rows: BriefingReasonRow[]): string {
@@ -159,21 +208,37 @@ export async function inferBriefingSearchReasons(rows: BriefingReasonRow[]): Pro
   const clean = rows.filter((r) => r && typeof r.keyword === 'string' && r.keyword.trim());
   if (!clean.length) return { reasons: {}, status: 'ok' };
 
-  const apiKey = apiKeyFromEnv();
-  if (!apiKey) return { reasons: {}, status: 'no-key' };
-
-  try {
-    const taskId = await createTask(apiKey, buildPrompt(clean));
-    const texts = await pollTask(apiKey, taskId);
-    const reasons = parseReasons(texts, clean);
+  const finalize = (reasons: Record<string, string>): BriefingReasonResult => {
     if (!Object.keys(reasons).length) return { reasons: {}, status: 'timeout', detail: 'no parseable reasons' };
-    const status = Object.keys(reasons).length >= clean.length ? 'ok' : 'partial';
-    return { reasons, status };
-  } catch (error: any) {
-    const code = error?.code;
-    if (code === 'no-key' || code === 'no-credit') {
-      return { reasons: {}, status: code, detail: error?.message };
+    return { reasons, status: Object.keys(reasons).length >= clean.length ? 'ok' : 'partial' };
+  };
+
+  // 1순위 Claude — 짧은 키워드 배치에 품질·비용 모두 유리.
+  const claudeKey = anthropicKeyFromEnv();
+  if (claudeKey) {
+    try {
+      const reasons = await callClaude(claudeKey, clean);
+      if (Object.keys(reasons).length) return finalize(reasons);
+    } catch (error: any) {
+      // 키·크레딧 문제가 아니면 로그만 남기고 Manus 로 폴백.
+      console.warn('[briefing-reason] Claude 실패 → Manus 폴백:', String(error?.message || error).slice(0, 160));
     }
-    return { reasons: {}, status: 'error', detail: String(error?.message || error).slice(0, 200) };
   }
+
+  // 2순위 Manus.
+  const manusKey = manusKeyFromEnv();
+  if (manusKey) {
+    try {
+      const taskId = await createTask(manusKey, buildPrompt(clean));
+      const texts = await pollTask(manusKey, taskId);
+      return finalize(parseReasons(texts, clean));
+    } catch (error: any) {
+      const code = error?.code;
+      if (code === 'no-key' || code === 'no-credit') return { reasons: {}, status: code, detail: error?.message };
+      return { reasons: {}, status: 'error', detail: String(error?.message || error).slice(0, 200) };
+    }
+  }
+
+  // 둘 다 없으면 사전 폴백(브라우저가 처리).
+  return { reasons: {}, status: 'no-key' };
 }
