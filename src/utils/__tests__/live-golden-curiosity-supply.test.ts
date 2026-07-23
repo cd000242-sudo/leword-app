@@ -21,11 +21,16 @@ const {
   hasLiveCuriosityIntent,
   isStrongLiveIssueSeed,
   isLiveRadarUsableKeyword,
+  normalizeLiveMetricGrade,
 } = __liveGoldenRadarTestInternals as unknown as {
   hasLiveCuriosityIntent: (kw: string) => boolean;
   isStrongLiveIssueSeed: (kw: string) => boolean;
   isLiveRadarUsableKeyword: (kw: string, vol: number | null, docs: number | null, now?: Date) => boolean;
+  normalizeLiveMetricGrade: (kw: string, cur: unknown, sc: number | null, vol: number, docs: number, ratio: number) => string;
 };
+
+const gradeOf = (kw: string, vol: number, docs: number, ratio: number) =>
+  normalizeLiveMetricGrade(kw, null, null, vol, docs, ratio);
 
 function assert(name: string, condition: boolean, detail?: string): void {
   if (!condition) {
@@ -66,6 +71,27 @@ ok('low-competition curiosity long-tail passes the usable gate',
   isLiveRadarUsableKeyword('꺼먹살이 뜻', 800, 300));
 ok('curiosity with saturated docs still rejected (economics, not shape)',
   !isLiveRadarUsableKeyword('사랑 뜻', 500, 900000));
+
+// 5. 등급 캘리브레이션 — "골고루 많이": 경제성 좋은 호기심 황금키워드가 SSS 유지
+//    (예전엔 need-intent 없다고 SS로 강등돼 SSS-only 보드에서 빠졌다)
+ok('curiosity SSS-economics keeps SSS (이창섭 사주 프롬프트, ratio 102)',
+  gradeOf('이창섭 사주 프롬프트', 1020, 10, 102) === 'SSS');
+ok('curiosity 뜻 keeps SSS (배그부부 뜻, ratio 49)',
+  gradeOf('배그부부 뜻', 34490, 700, 49) === 'SSS');
+ok('curiosity 가사 keeps SSS (만찬가 가사, ratio 27)',
+  gradeOf('만찬가 가사', 39650, 1432, 27) === 'SSS');
+ok('curiosity 실화 keeps SSS with classic economics',
+  gradeOf('그 드라마 실화', 5200, 240, 21) === 'SSS');
+
+// 6. 그러나 경제성이 약하면(문서수 폭탄/저비율) 여전히 SSS 아님 — 지표 게이트 불변
+ok('weak-economics curiosity is NOT SSS (docs bomb)',
+  gradeOf('사랑 뜻', 500, 900000, 0.0006) !== 'SSS');
+ok('mid-ratio curiosity below classic floor is NOT SSS',
+  gradeOf('무슨 영화 뜻', 900, 7000, 0.13) !== 'SSS');
+
+// 7. 상용 황금키워드는 그대로 SSS (회귀 없음)
+ok('commercial golden keyword still SSS',
+  gradeOf('근로장려금 신청 방법', 8200, 300, 27) === 'SSS');
 
 console.log(`[live-golden-curiosity-supply.test] passed: ${passed} / failed: 0`);
 process.exit(0); // 무거운 radar 모듈 임포트가 남기는 핸들 때문에 명시 종료

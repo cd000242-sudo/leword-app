@@ -6143,7 +6143,8 @@ function liveUltimateOpportunityScore(keyword: string, volume: number, docs: num
     || hasHighValueNeedIntent(clean)
     || hasSssReadyNeedIntent(clean)
     || hasRobustActionableIntent(clean)
-    || isActionableGoldenKeyword(clean);
+    || isActionableGoldenKeyword(clean)
+    || hasLiveCuriosityIntent(clean); // 정보성 호기심(뜻/가사/사주)도 블로그 글감으로 인정
   if (!actionable) return 0;
   let score = liveMetricScore(volume, docs, ratio, actionable);
   if (volume >= 1_000 && docs <= 300 && ratio >= 10) score = Math.max(score, 98);
@@ -6676,6 +6677,7 @@ function normalizeLiveMetricGrade(
     || hasSssReadyNeedIntent(keyword)
     || hasRobustActionableIntent(keyword)
     || isActionableGoldenKeyword(keyword)
+    || hasLiveCuriosityIntent(keyword) // 정보성 호기심도 글감 의도로 인정
     || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
   const computedScore = liveMetricScore(volume, docs, ratio, actionable);
   const opportunityScore = liveUltimateOpportunityScore(keyword, volume, docs, ratio);
@@ -6862,6 +6864,7 @@ function capGradeForAdsenseIntent(grade: MobileResultGrade, keyword: string): Mo
     && !hasAdsenseNeedIntent(clean)
     && !hasHighValueNeedIntent(clean)
     && !hasSssReadyNeedIntent(clean)
+    && !hasLiveCuriosityIntent(clean) // 정보성 호기심 황금키워드는 SSS 유지
   ) return 'SS';
   return grade;
 }
@@ -6892,7 +6895,7 @@ function capSssForNeedIntent(grade: MobileResultGrade, keyword: string): MobileR
   const clean = normalizeKeyword(keyword);
   if (!clean) return grade;
   if (isBroadHeadSssKeyword(clean)) return 'SS';
-  if (hasHighValueNeedIntent(clean) || hasAdsenseNeedIntent(clean) || hasSssReadyNeedIntent(clean)) return grade;
+  if (hasHighValueNeedIntent(clean) || hasAdsenseNeedIntent(clean) || hasSssReadyNeedIntent(clean) || hasLiveCuriosityIntent(clean)) return grade;
   if (LOW_CONVERSION_LOOKUP_INTENT_RE.test(clean)) return 'SS';
   return capGradeForAdsenseIntent('SS', clean);
 }
