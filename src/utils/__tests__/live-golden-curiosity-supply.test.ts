@@ -93,5 +93,15 @@ ok('mid-ratio curiosity below classic floor is NOT SSS',
 ok('commercial golden keyword still SSS',
   gradeOf('근로장려금 신청 방법', 8200, 300, 27) === 'SSS');
 
+// 8. "골고루" — 상용/호기심 문구가 전혀 없어도 실측 경제성이 증명되면 SSS
+//    (실측 수요 + 실측 저경쟁이 곧 황금의 정의. 문구 정규식이 아니라 숫자가 판정)
+ok('proven economics alone reaches SSS without any intent wording (ratio 210)',
+  gradeOf('장윤기 큰아버지 계급', 8610, 41, 210) === 'SSS');
+ok('proven economics alone reaches SSS (news-ish, ratio 68)',
+  gradeOf('미쉐린 2스타 디저트 징역 구형', 21690, 320, 67.78) === 'SSS');
+// 그러나 경제성 미달(문서수 상한 초과)은 승격되지 않는다
+ok('high volume but heavy docs does NOT get the economics bypass',
+  gradeOf('임의 이벤트 키워드', 50000, 40000, 1.25) !== 'SSS');
+
 console.log(`[live-golden-curiosity-supply.test] passed: ${passed} / failed: 0`);
 process.exit(0); // 무거운 radar 모듈 임포트가 남기는 핸들 때문에 명시 종료

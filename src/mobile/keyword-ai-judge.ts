@@ -96,6 +96,8 @@ const SSS_READY_NEED_INTENT_RE = /(?:\uACC4\uC0B0\uAE30|\uACF5\uD734\uC77C|\uC78
 const COMMERCE_RE = /(가격|비교|추천|후기|할인|쿠폰|구매|최저가|가성비|제품|상품|쇼핑|렌탈|보험|카드|대출|청약|예매|예약)/u;
 const EVERGREEN_RE = /(방법|조건|자격|서류|준비물|사용법|설정|해결|비교|추천|후기|조회|신청|발급|지급일|환급|주차|입장료|비용|검사|FAQ|체크리스트)/iu;
 const THIN_LOOKUP_RE = /(프로필|나이|키|고향|학력|인스타|출연진|몇부작|방송시간|다시보기|공식영상|하이라이트|인물관계도|결말|쿠키영상|재방송|등장인물|줄거리만|근황)/u;
+// 정보성 호기심 의도 — 설명형 글감(뜻/유래/가사/사주/프롬프트). 뉴스 이벤트와 구분한다.
+const CURIOSITY_INTENT_RE = /(?:뜻|의미|유래|어원|가사|발음|실화|정체|프롬프트|나무위키|사주|관상|궁합|해몽|신조어|유행어|밈)/u;
 const NEWS_ONLY_RE = /(사과|논란|해명|구속|체포|압수수색|사망|별세|결별|열애|폭로|혐의|고소|기자회견|입장문|불륜|도박|마약|음주운전)/u;
 const UNSAFE_RE = /(성인|불법|해킹|도박|마약|폭행|성범죄|자살|살인|테러|혐오|개인정보유출)/u;
 const GENERIC_SINGLE_RE = /^(맛집|여행|패션|프로필|뉴스|이슈|추천|후기|가격|정보|일정|예매)$/u;
@@ -730,12 +732,35 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
         && (commerce || /shopping|commerce|electronics|home|life|living|travel|food|youtube|shorts|video/i.test(runtimeIntentText))
       )
     );
-  const actionable = !lowValueLookup
-    && !broadLowValueEvent
+  // 실측으로 증명된 황금 경제성 — 수요와 저경쟁이 모두 실측되면 키워드 "문구"가
+  // 상용/정책 의도 정규식에 없어도(정보성·호기심·이슈형) 쓸 가치가 증명된 것으로 본다.
+  // 포화 키워드(redOcean, 비율<1)는 이 조건을 절대 만족하지 못한다.
+  // 정보성 호기심(뜻/유래/가사/사주…) — 설명형 글감. 뉴스 이벤트('…사퇴')와 달리
+  // 상시 검색되는 저경쟁 롱테일이라 광의 이벤트 차단에서만 예외로 둔다.
+  const curiosityIntent = CURIOSITY_INTENT_RE.test(keyword) || CURIOSITY_INTENT_RE.test(compactText(keyword));
+  const provenGoldenEconomics = status === 'measured'
+    // 판정 우회는 '정보성 호기심'(뜻/유래/가사/사주) 키워드에만 적용한다.
+    // 뉴스·스포츠 이벤트 헤드('홍명보 감독 사퇴')는 문서수가 적어도 기존 로직 그대로 배제.
+    && curiosityIntent
+    // 구조적으로 깨진 키워드(합성 의도 체인·도메인 충돌·무효과 합성)는 문서수가
+    // 적어도 "기회"가 아니라 아무도 쓰지 않는 조합일 뿐이다. 경제성 우회 금지.
+    && !overExpandedIntentChain
     && !crossDomainNonsense
     && !syntheticNoEffect
-    && (ACTIONABLE_NEED_RE.test(keyword) || trafficCaptureNeed || highValueNeed || sssReadyNeed || videoBridgeNeed || shoppingConnectNeed || beginnerHiddenNeed)
-    && (!lowValueCategory || highValueNeed || sssReadyNeed || ultimateCommerce || eventUtility || videoBridgeNeed || trafficCaptureNeed || beginnerHiddenNeed);
+    && !articleTitleLike
+    && total !== null
+    && total >= 1000
+    && documents !== null
+    && documents > 0
+    && documents <= 3000
+    && ratio !== null
+    && ratio >= 10;
+  const actionable = (!lowValueLookup || provenGoldenEconomics)
+    && (!broadLowValueEvent || (provenGoldenEconomics && curiosityIntent))
+    && !crossDomainNonsense
+    && !syntheticNoEffect
+    && (ACTIONABLE_NEED_RE.test(keyword) || trafficCaptureNeed || highValueNeed || sssReadyNeed || videoBridgeNeed || shoppingConnectNeed || beginnerHiddenNeed || provenGoldenEconomics)
+    && (!lowValueCategory || highValueNeed || sssReadyNeed || ultimateCommerce || eventUtility || videoBridgeNeed || trafficCaptureNeed || beginnerHiddenNeed || provenGoldenEconomics);
   const thin = lowValueLookup || GENERIC_SINGLE_RE.test(keyword);
   const newsOnly = NEWS_ONLY_RE.test(keyword);
   const unsafe = UNSAFE_RE.test(keyword);
@@ -817,7 +842,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     rejectReason ||= 'article-title-not-keyword';
     reasons.push('article-title-not-keyword');
   }
-  if (thin) {
+  if (thin && !provenGoldenEconomics) {
     score -= lowValueLookup ? 52 : 30;
     rejectReason ||= overExpandedIntentChain ? 'over-expanded-intent-chain' : lowValueLookup ? 'low-value-lookup-intent' : 'thin-lookup-or-profile-intent';
   }
@@ -825,11 +850,11 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     score -= 26;
     rejectReason ||= 'news-headline-only-risk';
   }
-  if (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed && !trafficCaptureNeed && !beginnerHiddenNeed) {
+  if (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed && !trafficCaptureNeed && !beginnerHiddenNeed && !provenGoldenEconomics) {
     score -= 24;
     rejectReason ||= 'low-value-entertainment-or-sports-intent';
   }
-  if (broadLowValueEvent) {
+  if (broadLowValueEvent && !(provenGoldenEconomics && curiosityIntent)) {
     score -= 34;
     rejectReason ||= 'too-broad-entertainment-event-intent';
   }
@@ -920,8 +945,8 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
       : 'low';
 
   const verdict: MobileKeywordAiJudge['verdict'] = unsafe
-    || lowValueLookup
-    || broadLowValueEvent
+    || (lowValueLookup && !provenGoldenEconomics)
+    || (broadLowValueEvent && !(provenGoldenEconomics && curiosityIntent))
     || crossDomainNonsense
     || syntheticNoEffect
     || redOceanMeasured
@@ -929,7 +954,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     || score < 45
     || (thin && !actionable)
     || (newsOnly && !ultimateCommerce)
-    || (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed && !trafficCaptureNeed && !beginnerHiddenNeed)
+    || (lowValueCategory && !highValueNeed && !ultimateCommerce && !eventUtility && !videoBridgeNeed && !trafficCaptureNeed && !beginnerHiddenNeed && !provenGoldenEconomics)
     ? 'exclude'
     : score >= 72 && status === 'measured' && needIntent !== 'weak'
       ? 'publish'

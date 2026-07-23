@@ -2913,7 +2913,9 @@ function isApexWriterReadyBoardMetric(item: Partial<MobileKeywordMetric> & { key
   const docs = finiteNumber(item.documentCount) || 0;
   const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
   if (isBroadHeadSssKeyword(keyword)) return false;
-  if (!hasWriterReadySpecificity(keyword)) {
+  // 실측 경제성이 증명된 키워드는 "고볼륨=광의 헤드" 휴리스틱에서 면제한다.
+  // (배그부부 뜻: 검색 34,490 / 문서 700 → 광의 헤드가 아니라 저경쟁 롱테일)
+  if (!hasWriterReadySpecificity(keyword) && !qualifiesForEconomicsBypass(keyword, volume, docs, ratio)) {
     if (volume >= 10_000) return false;
     if (docs >= 5_000 && ratio < 8) return false;
   }
@@ -2928,6 +2930,10 @@ function isOverbroadNoEffectBoardKeyword(item: Partial<MobileKeywordMetric> & { 
   const longTail = keywordLongTailScore(keyword);
   const intentFragments = ultimateIntentFragmentCount(keyword);
   if (isBroadHeadSssKeyword(keyword)) return true;
+  // 실측 저경쟁이 증명되면 "고볼륨=광의 헤드" 휴리스틱을 적용하지 않는다.
+  // (배그부부 뜻: 검색 34,490인데 문서 700 — 광의가 아니라 바이럴 저경쟁)
+  const provenRatio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  if (qualifiesForEconomicsBypass(keyword, volume, docs, provenRatio)) return false;
   if (volume >= 30_000 && longTail <= 18 && intentFragments < 2 && !hasWriterReadySpecificity(keyword)) return true;
   if (volume >= 20_000 && intentFragments < 2 && !hasWriterReadySpecificity(keyword)) return true;
   if (volume >= 10_000 && docs > 5_000 && longTail < 14 && intentFragments < 2) return true;
@@ -2939,9 +2945,43 @@ function isBlogActionableBoardMetric(item: Partial<MobileKeywordMetric> & { keyw
   if (isOverbroadNoEffectBoardKeyword(item)) return false;
   const keyword = normalizeKeyword(item.keyword);
   if (!isApexWriterReadyBoardMetric(item)) return false;
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
   return ultimateIntentFragmentCount(keyword) >= 2
     || keywordLongTailScore(keyword) >= 18
-    || SSS_SPECIFIC_MODIFIER_RE.test(keyword);
+    || SSS_SPECIFIC_MODIFIER_RE.test(keyword)
+    // 롱테일 길이는 "쓸 수 있는가"의 대리지표일 뿐 — 실측 문서수가 이미 저경쟁을
+    // 증명하면(배그부부 뜻: 문서 700) 짧아도 쓸 수 있는 황금키워드다.
+    || hasProvenGoldenEconomics(volume, docs, ratio);
+}
+
+/** 진단용 — isMeasuredSssBoardCandidate 가 어느 관문에서 탈락하는지 첫 사유를 돌려준다. */
+function debugMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date): string {
+  const keyword = normalizeKeyword(item.keyword);
+  const volume = finiteNumber(item.totalSearchVolume) || 0;
+  const docs = finiteNumber(item.documentCount) || 0;
+  const ratio = finiteNumber(item.goldenRatio) || (volume > 0 && docs > 0 ? volume / docs : 0);
+  if (!keyword) return 'no-keyword';
+  if (!hasCompleteLiveGoldenMetrics(item)) return 'incomplete-metrics';
+  if (item.grade !== 'SSS') return `grade-not-sss(${item.grade})`;
+  if (!hasTrustedSearchVolumeMeasurement(item)) return 'untrusted-search-volume';
+  if (!hasTrustedDocumentCountMeasurement(item)) return 'untrusted-document-count';
+  if (!isLiveRadarUsableMetric(item, now) && !isMeasuredProExactKeywordMetric(item, now)) return 'not-usable-metric';
+  if (isLottoLookupKeyword(keyword)) return 'lotto-lookup';
+  if (isLowAdsenseLookupKeyword(keyword)) return 'low-adsense-lookup';
+  if (isBrandSafetyNewsKeyword(keyword)) return 'brand-safety-news';
+  if (!isGoldenSssMetrics(volume, docs, ratio)) return 'not-golden-sss-metrics';
+  if (isBroadHeadSssKeyword(keyword)) return 'broad-head-sss';
+  if (!isApexWriterReadyBoardMetric(item)) return 'not-apex-writer-ready';
+  if (!isBlogActionableBoardMetric(item)) return 'not-blog-actionable';
+  if (!hasWriterReadyOpportunityIntent(keyword)) return 'no-writer-ready-opportunity-intent';
+  const judged = applyKeywordAiJudge(item, { now, downgradeExcluded: false });
+  const ai = judged.aiJudge;
+  if (!ai) return 'no-ai-judge';
+  if (ai.verdict === 'exclude') return `ai-exclude(${ai.rejectReason || ''}|score=${ai.score}|need=${ai.needIntent}|spam=${ai.spamRisk})`;
+  if (ai.spamRisk === 'high') return 'ai-spam-high';
+  return 'pass';
 }
 
 function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date): boolean {
@@ -3850,6 +3890,26 @@ function hasLiveUltimateNeedIntent(keyword: string): boolean {
 // 레인이 경제성만으로 이런 키워드를 성공시키는 것을 코어 발굴에도 열어준다.
 // 품질 보증은 여전히 하류의 비율/문서수 게이트가 한다(포화 헤드는 계속 탈락).
 const LIVE_CURIOSITY_INTENT_RE = /(?:뜻|무슨\s*뜻|의미|유래|어원|가사|발음|실화|정체|프롬프트|나무위키|사주|관상|궁합|해몽|신조어|유행어|밈|한국어\s*발음|가사\s*해석)/u;
+
+/**
+ * 실측으로 증명된 황금 경제성 — 수요(검색량)와 저경쟁(문서수·비율)이 모두 실측된 상태.
+ * 이 조건을 만족하면 키워드 "문구"가 상용/정책 의도 정규식에 없어도 황금키워드다.
+ * (급등 레인이 경제성만으로 성공하는 원리를 코어 등급·보드 경로에도 적용)
+ * 포화 헤드(비율<1)는 절대 통과하지 못한다.
+ */
+function hasProvenGoldenEconomics(volume: number, docs: number, ratio: number): boolean {
+  return volume >= 1000 && docs > 0 && docs <= 3000 && ratio >= 10;
+}
+
+/**
+ * 경제성 우회 자격 — 상용/정책 need-intent가 "없는" 정보성 키워드만 해당한다.
+ * 상용·정책 헤드('청년미래적금 신청')는 문서수가 적어도 기존 광의 휴리스틱을 그대로
+ * 적용해야 롱테일('…프리랜서 신청 대상')이 헤드에 밀리지 않는다.
+ */
+function qualifiesForEconomicsBypass(keyword: string, volume: number, docs: number, ratio: number): boolean {
+  if (!hasProvenGoldenEconomics(volume, docs, ratio)) return false;
+  return !hasHighValueNeedIntent(normalizeKeyword(keyword));
+}
 
 function hasLiveCuriosityIntent(keyword: string): boolean {
   const clean = normalizeKeyword(keyword);
@@ -6144,7 +6204,8 @@ function liveUltimateOpportunityScore(keyword: string, volume: number, docs: num
     || hasSssReadyNeedIntent(clean)
     || hasRobustActionableIntent(clean)
     || isActionableGoldenKeyword(clean)
-    || hasLiveCuriosityIntent(clean); // 정보성 호기심(뜻/가사/사주)도 블로그 글감으로 인정
+    || hasLiveCuriosityIntent(clean) // 정보성 호기심(뜻/가사/사주)도 블로그 글감으로 인정
+    || hasProvenGoldenEconomics(volume, docs, ratio); // 실측 경제성이 증명되면 문구 불문
   if (!actionable) return 0;
   let score = liveMetricScore(volume, docs, ratio, actionable);
   if (volume >= 1_000 && docs <= 300 && ratio >= 10) score = Math.max(score, 98);
@@ -6662,6 +6723,12 @@ function isMeasuredCacheSearchAdSplitCandidate(keyword: string, categoryId: stri
 function liveGradeFromMetrics(score: number, volume: number, docs: number, ratio: number, keyword = ''): MobileResultGrade {
   const classified = classifyGrade({ score, volume, docs, ratio });
   const grade: MobileResultGrade = classified === 'D' ? 'C' : classified;
+  // 실측 경제성이 증명된 황금키워드는 상용 의도 문구가 없어도 SSS를 유지한다.
+  // 단 광의 헤드(누구나 노리는 대표 키워드)는 문서수가 적어도 여전히 SS로 캡한다 —
+  // 롱테일이 헤드에 밀리면 안 된다.
+  if (grade === 'SSS'
+    && hasProvenGoldenEconomics(volume, docs, ratio)
+    && !isBroadHeadSssKeyword(normalizeKeyword(keyword))) return grade;
   return capSssForNeedIntent(grade, keyword);
 }
 
@@ -6678,6 +6745,7 @@ function normalizeLiveMetricGrade(
     || hasRobustActionableIntent(keyword)
     || isActionableGoldenKeyword(keyword)
     || hasLiveCuriosityIntent(keyword) // 정보성 호기심도 글감 의도로 인정
+    || hasProvenGoldenEconomics(volume, docs, ratio) // 실측 경제성 증명 시 문구 불문
     || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(keyword);
   const computedScore = liveMetricScore(volume, docs, ratio, actionable);
   const opportunityScore = liveUltimateOpportunityScore(keyword, volume, docs, ratio);
@@ -7385,6 +7453,11 @@ function applyVerifiedSupplyReviewHold(
 export const __liveGoldenRadarTestInternals = {
   hasLiveCuriosityIntent,
   hasLiveUltimateNeedIntent,
+  hasWriterReadyOpportunityIntent,
+  hasWriterReadySpecificity,
+  isApexWriterReadyBoardMetric,
+  isMeasuredSssBoardCandidate,
+  debugMeasuredSssBoardCandidate,
   isStrongLiveIssueSeed,
   buildBackfillCandidates,
   buildCacheDerivedCompoundNeedSeeds,
