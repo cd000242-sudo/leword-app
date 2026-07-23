@@ -147,6 +147,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-document-maintenance.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-radar.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-curiosity-supply.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'live-golden-board-capacity.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-binding-revalidation.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-binding-budget.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mobile-live-golden-stale-binding-revalidation.test.ts'),

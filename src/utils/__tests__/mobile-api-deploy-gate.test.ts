@@ -131,10 +131,10 @@ assert('volume initializer safely migrates legacy review artifacts once',
     && /audit artifact conflict/.test(volumeInitializer)
     && /fs\.linkSync\(temporary, target\)/.test(volumeInitializer),
   'legacy files and failed-review tombstones are copied atomically; broken links and stale temps fail closed while a valid target wins reruns');
-assert('production review board defaults to a broad-document-maintainable 64 rows',
-  (productionCompose.match(/LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:-64\}/g) || []).length === 2
-    && !/LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:-120\}/.test(productionCompose),
-  'API and worker must preserve the operator override while defaulting below the 15-minute freshness capacity');
+assert('production review board defaults to a broad-document-maintainable 240 rows',
+  (productionCompose.match(/LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:-240\}/g) || []).length === 2
+    && !/LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:\s*\$\{LEWORD_MOBILE_LIVE_GOLDEN_BOARD_TARGET:-64\}/.test(productionCompose),
+  'API and worker must preserve the operator override while defaulting below the 6-hour freshness capacity (worker 12min x 40 measurements = 1200 refreshes per window)');
 assert('live golden worker has a real shared-volume heartbeat healthcheck',
   /leword-live-golden-worker:[\s\S]*LEWORD_MOBILE_LIVE_GOLDEN_HEARTBEAT_FILE:\s*\/golden\/live-golden-worker-heartbeat\.json/.test(productionCompose)
     && /leword-live-golden-worker:[\s\S]*healthcheck:[\s\S]*live-golden-worker-heartbeat\.json/.test(productionCompose)

@@ -4762,7 +4762,7 @@ export function renderLewordProWeb(): string {
         error: error && error.message ? error.message : String(error || ''),
         failureReason: clientGoldenFailureReason(error),
         updatedAt: new Date().toISOString(),
-        boardTarget: 120,
+        boardTarget: 240,
         boardCount: 0,
         lockedCount: 0,
         publicPreviewCount: 0,
@@ -8643,7 +8643,7 @@ export function renderLewordProWeb(): string {
       renderKeywordAnalysisInsight(result, rows);
     }
     function setGoldenSummary(boardCount, boardTarget, visibleCount, lockedCount, running, updatedAt, policy) {
-      const target = boardTarget || 120;
+      const target = boardTarget || 240;
       const count = boardCount || 0;
       const pct = Math.min(100, Math.round((count / Math.max(1, target)) * 100));
       qs('goldenBoardCount').textContent = count + '/' + target;
@@ -8798,7 +8798,7 @@ export function renderLewordProWeb(): string {
     }
     function renderGoldenRows(items, exact, target) {
       lastGoldenRowsArgs = { items: items, exact: exact, target: target };
-      const limit = exact ? Math.max(60, Math.min(120, Number(target) || 120)) : 5;
+      const limit = exact ? Math.max(60, Math.min(400, Number(target) || 240)) : 5;
       const freshRows = filterFreshGoldenItems(items || []);
       const sourceRows = exact ? (Array.isArray(items) ? items : []) : filterDisplayGoldenItems(items || []);
       renderGoldenCategoryTabs(sourceRows, exact);
@@ -8903,14 +8903,14 @@ export function renderLewordProWeb(): string {
       // 브라우저 휴리스틱으로 다시 필터/재정렬하면 boardCount와 실제 표시가 달라지므로
       // 서버 순서와 서버 등급을 그대로 사용한다.
       const raw = (snapshot && (snapshot.board || snapshot.items || snapshot.keywords || snapshot.publicPreview)) || [];
-      const target = Number(snapshot && snapshot.boardTarget) || 120;
+      const target = Number(snapshot && snapshot.boardTarget) || 240;
       return (Array.isArray(raw) ? raw : []).slice(0, target);
     }
     function renderProGoldenBoard(snapshot) {
       const items = proGoldenBoardItems(snapshot);
       setGoldenSummary(
         snapshot.boardCount || items.length,
-        snapshot.boardTarget || 120,
+        snapshot.boardTarget || 240,
         items.length,
         0,
         snapshot.running,

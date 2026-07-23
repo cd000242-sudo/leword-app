@@ -60,7 +60,7 @@ function redactPublicPreviewItem(item: MobileLiveGoldenBoardItem): PublicLiveGol
 
 export function buildPublicLiveGoldenPayload(snapshot: MobileLiveGoldenRadarSnapshot | null): PublicLiveGoldenPayload {
   const publicPreview = snapshot?.publicPreview || [];
-  const boardTarget = snapshot?.boardTarget || 120;
+  const boardTarget = snapshot?.boardTarget || 240;
   const boardCount = snapshot?.boardCount || 0;
   const previewPolicy: PublicPreviewPolicy = boardCount > publicPreview.length ? 'lower-five' : 'building-board';
   return {

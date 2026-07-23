@@ -225,6 +225,9 @@ const SURGE_SECOND_LEVEL_PROBES = 3;
 // 보드 정원 경쟁에서 급등 신생 행(검색량 소형)이 기존 고점수 행에 밀려 저장 전에 탈락하는 것을
 // 막는 예약석 — 기회지수 상위 급등 행은 target 안에서 이 수만큼 우선 확보한다.
 const SURGE_BOARD_RESERVED_SLOTS = 15;
+// 비-SSS 보충 레인의 절대 상한. boardTarget 을 키워도 이 레인은 따라 커지지 않는다 —
+// 보드 정원 확대가 SS/S/A 다층 노출로 새지 않게 막는 방벽(등급 정책 SSoT 는 grade.ts).
+const LIVE_BOARD_FALLBACK_LANE_CAP = 64;
 const SURGE_UNSAFE_RE = /(?:사망|숨진|숨져|자살|극단적\s*선택|부고|별세|살인|살해|성폭행|성추행|성범죄|마약|음란|야동|시신|참사|유서|시체)/u;
 const HOME_KEYWORD_BRIEFING_SOURCE = 'home-keyword-briefing-reviewed';
 const HOME_KEYWORD_BRIEFING_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -2657,7 +2660,11 @@ function selectLiveBoardItems<T extends MobileLiveGoldenBoardItem>(
     target,
     (item) => isMeasuredSssBoardCandidate(item, now),
   );
-  const withFallback = appendMeasuredPublishableFallbackItems(sssSelected, sorted, target, now);
+  // SSS 레인만 boardTarget 을 따라 넓어진다. 비-SSS fallback 레인은 절대 상한(LIVE_BOARD_FALLBACK_LANE_CAP)
+  // 에 묶어 둔다 — 보드 정원을 키운 것이 "SSS가 모자랄 때 SS/S/A 를 대신 채우는" 다층 노출로
+  // 번지면 안 되기 때문. SSS 공급이 상한보다 많으면 fallback 은 아예 돌지 않는다.
+  const fallbackTarget = Math.min(target, Math.max(sssSelected.length, LIVE_BOARD_FALLBACK_LANE_CAP));
+  const withFallback = appendMeasuredPublishableFallbackItems(sssSelected, sorted, fallbackTarget, now);
   if (reservedSurge.length === 0) return withFallback;
   const selectedIds = new Set(withFallback.map((item) => item.id));
   const missingSurge = reservedSurge.filter((item) => !selectedIds.has(item.id));
@@ -2982,7 +2989,8 @@ function debugMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Da
   if (isBroadHeadSssKeyword(keyword)) return 'broad-head-sss';
   if (!isApexWriterReadyBoardMetric(item)) return 'not-apex-writer-ready';
   if (!isBlogActionableBoardMetric(item)) return 'not-blog-actionable';
-  if (!hasWriterReadyOpportunityIntent(keyword)) return 'no-writer-ready-opportunity-intent';
+  if (!hasWriterReadyOpportunityIntent(keyword)
+    && !qualifiesForEconomicsBypass(keyword, volume, docs, ratio)) return 'no-writer-ready-opportunity-intent';
   const judged = applyKeywordAiJudge(item, { now, downgradeExcluded: false });
   const ai = judged.aiJudge;
   if (!ai) return 'no-ai-judge';
@@ -3006,7 +3014,11 @@ function isMeasuredSssBoardCandidate(item: MobileLiveGoldenBoardItem, now: Date)
   if (isBroadHeadSssKeyword(keyword)) return false;
   if (!isApexWriterReadyBoardMetric(item)) return false;
   if (!isBlogActionableBoardMetric(item)) return false;
-  if (!hasWriterReadyOpportunityIntent(keyword)) return false;
+  // 문구에 상용 기회 인텐트가 없어도, 실측으로 증명된 황금 경제성(검색량≥1000·문서수≤3000·비율≥10)
+  // 을 갖췄으면 표시 자격을 인정한다 — 숫자가 이미 증명한 기회를 문구 패턴이 되돌리지 않게.
+  // 광의 헤드 차단(위)과 AI 판정(아래)은 그대로라 뉴스·이벤트·무의미 조합은 계속 걸러진다.
+  if (!hasWriterReadyOpportunityIntent(keyword)
+    && !qualifiesForEconomicsBypass(keyword, volume, docs, ratio)) return false;
   const judged = applyKeywordAiJudge(item, { now, downgradeExcluded: false });
   const ai = judged.aiJudge;
   if (!ai || ai.verdict === 'exclude' || ai.spamRisk === 'high') return false;
@@ -7468,6 +7480,7 @@ export const __liveGoldenRadarTestInternals = {
   isApexWriterReadyBoardMetric,
   isMeasuredSssBoardCandidate,
   debugMeasuredSssBoardCandidate,
+  selectLiveBoardItems,
   isStrongLiveIssueSeed,
   buildBackfillCandidates,
   buildCacheDerivedCompoundNeedSeeds,
@@ -7658,7 +7671,10 @@ export class MobileLiveGoldenRadar {
     this.cycleLimit = Math.max(8, Math.min(15, Math.floor(
       options.cycleLimit || MOBILE_PC_PARITY_SLA.workerBudgets.liveGoldenCycleLimit,
     )));
-    this.boardTarget = Math.max(10, Math.min(120, Math.floor(
+    // 표시 상한 400: 보드는 "자격을 갖춘 만큼 전부" 보여준다. 유지보수 처리량 근거 —
+    // 워커 12분 주기 × run당 실측 예산 40 = 표시 신선도 창(6시간) 안에 1,200회.
+    // 즉 400행 전부를 창 안에 유지하고도 3배 여유가 있다. 등급 게이트(SSS-only)는 불변.
+    this.boardTarget = Math.max(10, Math.min(400, Math.floor(
       options.boardTarget || MOBILE_PC_PARITY_SLA.qualityFloors.goldenBulkSss,
     )));
     this.publicPreviewCount = Math.max(1, Math.min(10, Math.floor(options.publicPreviewCount || 5)));

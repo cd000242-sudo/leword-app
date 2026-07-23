@@ -744,6 +744,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
   const provenGoldenEconomics = status === 'measured'
     // 판정 우회는 '정보성 호기심'(뜻/유래/가사/사주) 키워드에만 적용한다.
     // 뉴스·스포츠 이벤트 헤드('홍명보 감독 사퇴')는 문서수가 적어도 기존 로직 그대로 배제.
+    // (카테고리 오분류로 막히는 제품 키워드는 분류기에서 고쳐야 할 별도 문제다.)
     && curiosityIntent
     // 구조적으로 깨진 키워드(합성 의도 체인·도메인 충돌·무효과 합성)는 문서수가
     // 적어도 "기회"가 아니라 아무도 쓰지 않는 조합일 뿐이다. 경제성 우회 금지.
