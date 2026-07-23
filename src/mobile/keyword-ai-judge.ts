@@ -449,7 +449,10 @@ const ULTIMATE_EVENT_UTILITY_RE = new RegExp([
   '\uC900\uBE44\uBB3C',
 ].join('|'), 'iu');
 
-const ULTIMATE_LOW_VALUE_CATEGORY_RE = /(?:celeb|drama|broadcast|movie|music|sports|issue|entertainment)/i;
+// 'issue' 제외: live_issue 는 주제가 아니라 '실시간 트렌드에서 발굴됨'이라는 경로 라벨이다.
+// 이걸 저가치 주제로 취급하면 제품('더에셀 바디솔트')·정책·생활 키워드까지 연예 가십과
+// 같이 배제된다. 실제 연예/스포츠 주제는 celeb·drama·movie·music·sports 로 계속 걸린다.
+const ULTIMATE_LOW_VALUE_CATEGORY_RE = /(?:celeb|drama|broadcast|movie|music|sports|entertainment)/i;
 
 const GRADE_ORDER: MobileResultGrade[] = ['C', 'B', 'A', 'S', 'SS', 'SSS'];
 
