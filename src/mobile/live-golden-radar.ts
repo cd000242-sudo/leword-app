@@ -198,6 +198,13 @@ const LIVE_BACKFILL_TIMEOUT_MS = 105_000;
 const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * 보드 표시·공급 자격용 문서수 신선도 창(6시간).
+ * 재측정 캐시 TTL(15분)과 분리한다 — 캐시 TTL은 "언제 다시 잴까"를 정하는 값이고,
+ * 이 값은 "이미 잰 값이 아직 쓸 만한가"를 정한다. 블로그 문서수는 분 단위로 변하지
+ * 않으므로 15분 창을 표시 자격에 그대로 쓰면 보드가 재측정 속도에 묶여 굶는다.
+ */
+const LIVE_BOARD_DOCUMENT_FRESHNESS_MS = 6 * 60 * 60 * 1000;
 const LIVE_BOARD_FILE_REFRESH_MS = 30_000;
 const LIVE_INGEST_MAX_ROWS = 360;
 const LIVE_REAL_DEMAND_BUDGET_PER_CYCLE = 30;
@@ -12550,7 +12557,11 @@ export class MobileLiveGoldenRadar {
       .filter((item) => ageMsFrom(item.updatedAt, nowMs) <= LIVE_BOARD_MAX_AGE_MS)
       .filter((item) => !hasRecentCacheZeroSplitProbe(item, nowMs))
       .filter(hasCompleteLiveGoldenMetrics)
-      .filter((item) => hasFreshCanonicalDocumentCountMeasurement(item, now))
+      // 표시/공급 자격은 "문서수 값이 아직 유효한가"만 물으면 된다. 재측정 캐시
+      // TTL(15분)을 그대로 쓰면 보드 전체를 15분마다 재측정할 수 없어 보드가
+      // 3~64개로 요동치고 공급 코호트도 굶는다. 문서수는 시간 단위로 안정적이라
+      // 표시 창은 6시간으로 둔다(급등 레인의 시의성 게이트는 15분 그대로).
+      .filter((item) => hasFreshCanonicalDocumentCountMeasurement(item, now, LIVE_BOARD_DOCUMENT_FRESHNESS_MS))
       // Core supply requires an explicitly scoped trusted Naver document count.
       // Legacy exact-phrase rows remain readable only during broad-count migration.
       // Traffic-surge is a separate product lane with its own strict gate below,

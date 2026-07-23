@@ -53,13 +53,16 @@ export function hasCanonicalDocumentCountMeasurement(metric: MobileKeywordMetric
 export function hasFreshCanonicalDocumentCountMeasurement(
   metric: MobileKeywordMetric,
   now: Date = new Date(),
+  // 기본값은 재측정 캐시 TTL(15분). 표시/공급 자격 판정처럼 "값이 아직 유효한가"만
+  // 물으면 되는 곳은 더 긴 창을 넘겨 쓴다 — 블로그 문서수는 분 단위로 변하지 않는다.
+  maxAgeMs: number = NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS,
 ): boolean {
   if (!hasCanonicalDocumentCountMeasurement(metric)) return false;
   const measuredAtMs = Date.parse(String(metric.documentCountMeasuredAt || ''));
   const nowMs = now.getTime();
   return Number.isFinite(measuredAtMs)
     && measuredAtMs <= nowMs + 5 * 60 * 1000
-    && nowMs - measuredAtMs <= NAVER_BLOG_DOCUMENT_COUNT_CACHE_TTL_MS;
+    && nowMs - measuredAtMs <= maxAgeMs;
 }
 
 export function hasTrustedSearchVolumeMeasurement(metric: MobileKeywordMetric): boolean {
