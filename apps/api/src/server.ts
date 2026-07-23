@@ -109,7 +109,9 @@ import {
   publishHomeKeywordBriefing,
   readHomeKeywordBriefing,
   resolveHomeKeywordBriefingFile,
+  type HomeKeywordBriefingSnapshot,
 } from '../../../src/mobile/home-keyword-briefing';
+import { inferBriefingSearchReasons } from './briefing-manus-reasoner';
 import {
   HomeNoticesRevisionConflictError,
   HomeNoticesStorageError,
@@ -2380,6 +2382,47 @@ function handleBodyError(res: http.ServerResponse, err: unknown, maxBodyBytes: n
     return;
   }
   json(res, 400, { ok: false, message: 'invalid json body' } satisfies MobileJobErrorResponse);
+}
+
+// 발행 직후 백그라운드로 실행되는 Manus 검색-이유 보강.
+// 발행 응답은 이미 나갔으므로 여기서 throw 해도 사용자에겐 영향이 없다(호출부가 catch).
+// 이유가 없는 행만 골라 추론하고, 하나라도 붙으면 같은 리비전 위에 재저장한다.
+let briefingReasonEnrichmentBusy = false;
+async function enrichBriefingSearchReasons(published: HomeKeywordBriefingSnapshot): Promise<void> {
+  if (briefingReasonEnrichmentBusy) return; // 동시 발행 시 겹치지 않게
+  const missing = published.rows.filter((row) => !row.searchReason || !row.searchReason.trim());
+  if (!missing.length) return;
+  briefingReasonEnrichmentBusy = true;
+  try {
+    const result = await inferBriefingSearchReasons(
+      missing.map((row) => ({ keyword: row.keyword, searchVolume: row.searchVolume, documentCount: row.documentCount })),
+    );
+    const reasons = result.reasons;
+    if (!Object.keys(reasons).length) {
+      console.log(`[briefing-manus] 보강 없음(status=${result.status}${result.detail ? ', ' + result.detail : ''})`);
+      return;
+    }
+    // 최신 저장본 위에 병합한다(발행 후 다른 저장이 있었을 수 있음).
+    const latest = readHomeKeywordBriefing();
+    if (!latest) return;
+    const mergedRows = latest.rows.map((row) => {
+      const why = reasons[row.keyword];
+      if (why && (!row.searchReason || !row.searchReason.trim())) {
+        return { ...row, searchReason: why };
+      }
+      return row;
+    });
+    const enrichedCount = mergedRows.filter((row, i) => row.searchReason && !latest.rows[i].searchReason).length;
+    if (!enrichedCount) return;
+    publishHomeKeywordBriefing({
+      value: { ...latest, rows: mergedRows },
+      expectedRevision: latest.revision,
+      updatedBy: 'manus-search-reason-enricher',
+    });
+    console.log(`[briefing-manus] 검색 이유 ${enrichedCount}건 보강 완료(status=${result.status}).`);
+  } finally {
+    briefingReasonEnrichmentBusy = false;
+  }
 }
 
 function homeKeywordBriefingStorageUnavailable(
@@ -6411,6 +6454,11 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
           currentRevision: briefing.revision,
           storage: resolveHomeKeywordBriefingFile(),
         }, { 'Cache-Control': 'no-store' });
+        // 발행은 이미 끝났다. 검색 이유는 발행을 막지 않도록 응답 뒤에 백그라운드로 채운다.
+        // Manus 키/크레딧이 없으면 조용히 폴백(아무 변화 없음). 채워지면 다음 리비전에 반영.
+        void enrichBriefingSearchReasons(briefing).catch((error) => {
+          console.warn('[briefing-manus] 검색 이유 보강 건너뜀:', String(error?.message || error));
+        });
       } catch (err) {
         if (err instanceof HomeKeywordBriefingRevisionConflictError) {
           json(res, 409, {

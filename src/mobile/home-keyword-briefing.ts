@@ -17,6 +17,11 @@ export interface HomeKeywordBriefingRow {
   documentCount: number;
   opportunity: number;
   ocrConfidence?: number;
+  /**
+   * Manus 가 발행 시점에 추론한 "이 키워드를 왜 검색하는지" 한 문장.
+   * 없으면(크레딧 없음·미충전) 브라우저가 사전·규칙으로 폴백한다.
+   */
+  searchReason?: string;
 }
 
 export interface HomeKeywordBriefingSourceImage {
@@ -148,6 +153,9 @@ function sanitizeRows(value: unknown): HomeKeywordBriefingRow[] {
     )) {
       throw new HomeKeywordBriefingValidationError(`home keyword briefing row ${index + 1} ocrConfidence is invalid`);
     }
+    // Manus 추론 문구(선택). 없거나 형식이 이상하면 조용히 버린다 — 폴백이 처리한다.
+    const rawReason = typeof raw.searchReason === 'string' ? raw.searchReason.trim() : '';
+    const searchReason = rawReason ? rawReason.slice(0, 400) : '';
     rows.push({
       keyword,
       searchVolume,
@@ -156,6 +164,7 @@ function sanitizeRows(value: unknown): HomeKeywordBriefingRow[] {
       ...(typeof confidence === 'number'
         ? { ocrConfidence: Math.round(confidence * 100) / 100 }
         : {}),
+      ...(searchReason ? { searchReason } : {}),
     });
   }
   return rows;
