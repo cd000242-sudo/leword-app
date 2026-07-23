@@ -50,6 +50,19 @@ export function hasCanonicalDocumentCountMeasurement(metric: MobileKeywordMetric
   return Number.isFinite(measuredAtMs);
 }
 
+/**
+ * 표시·발행 자격에서 쓰는 문서수 유효 창(SSoT).
+ *
+ * 재측정 캐시 TTL(15분)과 반드시 구분한다 — TTL 은 "언제 다시 잴까"이고 이 값은
+ * "이미 잰 값이 아직 쓸 만한가"다. 같은 혼동이 세 곳(급등 레인 게이트·보드 후보 필터·
+ * 발행 판정)에서 각각 발생해 보드가 67에서 멈췄다. 그래서 상수를 한 곳에 둔다.
+ *
+ * 12시간 근거: 운영 풀 229행의 문서수 나이 분포가 p50=6.1시간이라 6시간 창은 절반을
+ * 경계에서 탈락시킨다. 창별 표시 자격은 6h=64 / 12h=96 / 24h=97 / 72h=101 로
+ * 12시간 이후로는 이득 없이 낡음만 늘어난다.
+ */
+export const BOARD_DISPLAY_DOCUMENT_FRESHNESS_MS = 12 * 60 * 60 * 1000;
+
 export function hasFreshCanonicalDocumentCountMeasurement(
   metric: MobileKeywordMetric,
   now: Date = new Date(),

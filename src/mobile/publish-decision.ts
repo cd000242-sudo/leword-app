@@ -118,6 +118,9 @@ export function evaluatePublishDecision(
     && metric.documentCountConfidence === 'high'
     && metric.documentCountQueryMode === 'broad'
     && metric.isDocumentCountEstimated === false
+    // 발행 판정은 의도적으로 재측정 TTL(15분) 창을 유지한다 — publish-decision-document-count-policy
+    // 테스트가 "캐시 창보다 오래된 문서수로는 발행 추천 불가"를 정책으로 고정한다.
+    // 보드 표시 창(12시간)과는 다른 기준이며, 보드 표시 개수에는 영향이 없다(실측 확인).
     && hasFreshCanonicalDocumentCountMeasurement(metric, now);
   const hasCanonicalMeasurement = metric.isMeasured === true
     && hasCanonicalSearchVolume

@@ -69,6 +69,7 @@ import {
 } from '../utils/naver-blog-api';
 import { evaluatePublishDecision } from './publish-decision';
 import {
+  BOARD_DISPLAY_DOCUMENT_FRESHNESS_MS,
   applyKeywordAiJudge,
   hasFreshCanonicalDocumentCountMeasurement,
   hasTrustedDocumentCountMeasurement,
@@ -198,16 +199,9 @@ const LIVE_BACKFILL_TIMEOUT_MS = 105_000;
 const LIVE_SPLIT_ENRICHMENT_TIMEOUT_MS = 25_000;
 const PUBLIC_PREVIEW_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-/**
- * 보드 표시·공급 자격용 문서수 신선도 창(6시간).
- * 재측정 캐시 TTL(15분)과 분리한다 — 캐시 TTL은 "언제 다시 잴까"를 정하는 값이고,
- * 이 값은 "이미 잰 값이 아직 쓸 만한가"를 정한다. 블로그 문서수는 분 단위로 변하지
- * 않으므로 15분 창을 표시 자격에 그대로 쓰면 보드가 재측정 속도에 묶여 굶는다.
- */
-// 12시간: 운영 풀 228행의 문서수 나이 실측 분포가 p50=6.1시간이라 6시간 창은 절반을
-// 매번 탈락시킨다(표시 자격 64). 12시간이면 96까지 회복되고, 그 이상(24/48/72시간)은
-// 97/98/101로 이득이 없어 불필요한 낡음만 떠안는다. 블로그 문서수는 반나절 단위로 안정적.
-const LIVE_BOARD_DOCUMENT_FRESHNESS_MS = 12 * 60 * 60 * 1000;
+// 보드 표시·공급 자격용 문서수 유효 창. 값과 근거는 keyword-ai-judge 의 SSoT 에 있다 —
+// 같은 창을 파일마다 따로 두면 한 곳만 고쳤을 때 다른 곳이 15분으로 되돌려 버린다(실제로 발생).
+const LIVE_BOARD_DOCUMENT_FRESHNESS_MS = BOARD_DISPLAY_DOCUMENT_FRESHNESS_MS;
 const LIVE_BOARD_FILE_REFRESH_MS = 30_000;
 const LIVE_INGEST_MAX_ROWS = 360;
 const LIVE_REAL_DEMAND_BUDGET_PER_CYCLE = 30;
@@ -292,7 +286,10 @@ function isTrafficSurgeBoardMetric(
   if (item.isSearchVolumeEstimated === true || item.isDocumentCountEstimated === true) return false;
   if (!hasFreshCurrentSearchAdKeywordBinding(item as MobileKeywordMetric, now)) return false;
   if (!hasTrustedSearchVolumeMeasurement(item as MobileKeywordMetric)) return false;
-  if (!hasFreshCanonicalDocumentCountMeasurement(item as MobileKeywordMetric, now)) return false;
+  // 문서수는 "잰 값이 아직 유효한가"만 물으므로 표시 창(12시간)을 쓴다. 인자를 생략하면
+  // 재측정 캐시 TTL(15분)이 적용돼, 보드 표시 창을 12시간으로 넓혀도 이 줄에서 다시 잘린다.
+  // 급등 레인의 시의성은 아래 SURGE_MAX_AGE_MS(updatedAt 기준)가 따로 지킨다.
+  if (!hasFreshCanonicalDocumentCountMeasurement(item as MobileKeywordMetric, now, LIVE_BOARD_DOCUMENT_FRESHNESS_MS)) return false;
   const volume = finiteNumber(item.totalSearchVolume) || 0;
   const docs = finiteNumber(item.documentCount);
   if (volume < SURGE_MIN_VOLUME || docs === null || docs <= 0 || docs > SURGE_MAX_DOCUMENTS) return false;
