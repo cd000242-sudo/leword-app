@@ -204,7 +204,10 @@ const LIVE_BOARD_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
  * 이 값은 "이미 잰 값이 아직 쓸 만한가"를 정한다. 블로그 문서수는 분 단위로 변하지
  * 않으므로 15분 창을 표시 자격에 그대로 쓰면 보드가 재측정 속도에 묶여 굶는다.
  */
-const LIVE_BOARD_DOCUMENT_FRESHNESS_MS = 6 * 60 * 60 * 1000;
+// 12시간: 운영 풀 228행의 문서수 나이 실측 분포가 p50=6.1시간이라 6시간 창은 절반을
+// 매번 탈락시킨다(표시 자격 64). 12시간이면 96까지 회복되고, 그 이상(24/48/72시간)은
+// 97/98/101로 이득이 없어 불필요한 낡음만 떠안는다. 블로그 문서수는 반나절 단위로 안정적.
+const LIVE_BOARD_DOCUMENT_FRESHNESS_MS = 12 * 60 * 60 * 1000;
 const LIVE_BOARD_FILE_REFRESH_MS = 30_000;
 const LIVE_INGEST_MAX_ROWS = 360;
 const LIVE_REAL_DEMAND_BUDGET_PER_CYCLE = 30;
