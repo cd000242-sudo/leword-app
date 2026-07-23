@@ -1,0 +1,71 @@
+/**
+ * live-golden-curiosity-supply — 근본길: 저경쟁 호기심 롱테일 공급 (2026-07-23).
+ *
+ * 배경: 코어 발굴이 "글감 의도(상용/정책) 정규식"으로 씨앗·후보를 걸러서
+ * '꺼먹살이 뜻'·'이창섭 사주' 같은 저경쟁 호기심 롱테일을 측정 전에 버렸다.
+ * 급등 레인은 이 정규식 게이트 없이 경제성(비율·문서수)만 봐서 이런 키워드로
+ * 성공한다. 이 계약은 코어 경로도 호기심·정보성 의도를 수용하되, 품질 보증은
+ * 여전히 비율/문서수 게이트가 하도록 고정한다.
+ *
+ * 고정 계약:
+ * 1. hasLiveCuriosityIntent: 뜻/유래/사주/프롬프트/가사/실화 등 정보성 의도 인식
+ * 2. isStrongLiveIssueSeed: 호기심 롱테일 씨앗을 이제 통과시킨다(측정까지 도달)
+ * 3. 그러나 포화 헤드('보일러 교체 비용' 등 문서수 폭탄)는 비율/문서수 게이트에서
+ *    여전히 탈락한다(품질 게이트 불변) — 게이트를 풀어서가 아니라 공급으로 해결
+ * 4. 경제성이 좋은 호기심 롱테일(문서수 ≪ 검색량)은 게이트를 통과한다
+ */
+
+import { __liveGoldenRadarTestInternals } from '../../mobile/live-golden-radar';
+
+const {
+  hasLiveCuriosityIntent,
+  isStrongLiveIssueSeed,
+  isLiveRadarUsableKeyword,
+} = __liveGoldenRadarTestInternals as unknown as {
+  hasLiveCuriosityIntent: (kw: string) => boolean;
+  isStrongLiveIssueSeed: (kw: string) => boolean;
+  isLiveRadarUsableKeyword: (kw: string, vol: number | null, docs: number | null, now?: Date) => boolean;
+};
+
+function assert(name: string, condition: boolean, detail?: string): void {
+  if (!condition) {
+    console.error(`[live-golden-curiosity-supply.test] failed: ${name}${detail ? ` - ${detail}` : ''}`);
+    process.exit(1);
+  }
+}
+
+let passed = 0;
+const ok = (name: string, condition: boolean, detail?: string) => {
+  assert(name, condition, detail);
+  passed += 1;
+};
+
+// 1. 호기심·정보성 의도 인식
+ok('뜻 recognized as curiosity intent', hasLiveCuriosityIntent('꺼먹살이 뜻'));
+ok('사주 recognized', hasLiveCuriosityIntent('이창섭 사주'));
+ok('프롬프트 recognized', hasLiveCuriosityIntent('이창섭 사주 프롬프트'));
+ok('가사 recognized', hasLiveCuriosityIntent('만찬가 가사'));
+ok('유래 recognized', hasLiveCuriosityIntent('아프리카 tv 별풍선 유래'));
+ok('실화 recognized', hasLiveCuriosityIntent('그 영화 실화'));
+ok('plain commercial head is not curiosity', !hasLiveCuriosityIntent('보일러 교체 비용'));
+ok('empty is not curiosity', !hasLiveCuriosityIntent(''));
+
+// 2. 호기심 롱테일 씨앗이 이제 강한 이슈 씨앗으로 통과 (측정까지 도달)
+ok('curiosity 뜻 seed now passes the seed gate', isStrongLiveIssueSeed('꺼먹살이 뜻'));
+ok('curiosity 사주 seed passes', isStrongLiveIssueSeed('이창섭 사주'));
+ok('curiosity 배그부부 뜻 seed passes', isStrongLiveIssueSeed('배그부부 뜻'));
+
+// 3. 포화 헤드는 여전히 비율/문서수 게이트에서 탈락 (품질 게이트 불변)
+ok('saturated head stays rejected by doc ceiling (보일러 교체 비용)',
+  !isLiveRadarUsableKeyword('보일러 교체 비용', 3540, 315006));
+ok('saturated head stays rejected (입주청소 비용)',
+  !isLiveRadarUsableKeyword('입주청소 비용', 14440, 1040851));
+
+// 4. 경제성 좋은 호기심 롱테일(문서수 ≪ 검색량)은 통과
+ok('low-competition curiosity long-tail passes the usable gate',
+  isLiveRadarUsableKeyword('꺼먹살이 뜻', 800, 300));
+ok('curiosity with saturated docs still rejected (economics, not shape)',
+  !isLiveRadarUsableKeyword('사랑 뜻', 500, 900000));
+
+console.log(`[live-golden-curiosity-supply.test] passed: ${passed} / failed: 0`);
+process.exit(0); // 무거운 radar 모듈 임포트가 남기는 핸들 때문에 명시 종료

@@ -3149,6 +3149,7 @@ function isStrongLiveIssueSeed(seed: string): boolean {
   if (!clean || isNoisyLiveSeed(clean) || isThinProfileIntentKeyword(clean)) return false;
   if (isLowValueLiveCandidate(clean)) return false;
   if (hasLiveUltimateNeedIntent(clean)) return true;
+  if (hasLiveCuriosityIntent(clean)) return true;
   return LIVE_POLICY_SIGNAL_RE.test(clean)
     || LIVE_FINANCE_SIGNAL_RE.test(clean)
     || isActionableLiveKeyword(clean)
@@ -3842,6 +3843,20 @@ function hasLiveUltimateNeedIntent(keyword: string): boolean {
   if (LIVE_ULTIMATE_NEED_INTENT_RE.test(clean)) return true;
   const compact = clean.replace(/\s+/g, '');
   return compact !== clean && LIVE_ULTIMATE_NEED_INTENT_RE.test(compact);
+}
+
+// 정보성·호기심 의도 — "뜻/유래/가사/사주/프롬프트" 류 설명형 글감. 상용/정책
+// 의도 정규식에는 없지만 실제로 블로그 트래픽이 나오는 저경쟁 롱테일이다. 급등
+// 레인이 경제성만으로 이런 키워드를 성공시키는 것을 코어 발굴에도 열어준다.
+// 품질 보증은 여전히 하류의 비율/문서수 게이트가 한다(포화 헤드는 계속 탈락).
+const LIVE_CURIOSITY_INTENT_RE = /(?:뜻|무슨\s*뜻|의미|유래|어원|가사|발음|실화|정체|프롬프트|나무위키|사주|관상|궁합|해몽|신조어|유행어|밈|한국어\s*발음|가사\s*해석)/u;
+
+function hasLiveCuriosityIntent(keyword: string): boolean {
+  const clean = normalizeKeyword(keyword);
+  if (!clean) return false;
+  if (LIVE_CURIOSITY_INTENT_RE.test(clean)) return true;
+  const compact = clean.replace(/\s+/g, '');
+  return compact !== clean && LIVE_CURIOSITY_INTENT_RE.test(compact);
 }
 
 const POLICY_ONLY_INTENT_RE = /(?:신청|대상|자격|지급일|환급|서류|마감|사용처|금액\s*조회|지원\s*대상|혜택)/u;
@@ -7365,6 +7380,9 @@ function applyVerifiedSupplyReviewHold(
 }
 
 export const __liveGoldenRadarTestInternals = {
+  hasLiveCuriosityIntent,
+  hasLiveUltimateNeedIntent,
+  isStrongLiveIssueSeed,
   buildBackfillCandidates,
   buildCacheDerivedCompoundNeedSeeds,
   buildDateAwareLiveSeedCandidates,
@@ -9722,15 +9740,18 @@ export class MobileLiveGoldenRadar {
       if (!knownPolicyNeed && isNoisyLiveSeed(clean)) return;
       if (!knownPolicyNeed && !isLiveRadarUsableKeyword(clean, null, null, now)) return;
       const inferred = inferLiveCategory(clean, fallbackCategory || categoryId);
+      const curiosity = hasLiveCuriosityIntent(clean);
       if (
         categoryId !== 'all'
         && inferred !== categoryId
         && fallbackCategory !== categoryId
         && !(knownPolicyNeed && normalizeKeyword(categoryId) === 'policy')
+        && !curiosity // 호기심 롱테일은 카테고리 횡단 상록 공급 — 추론된 카테고리로 편입
       ) return;
       const hasNeed = knownPolicyNeed
         || hasLiveUltimateNeedIntent(clean)
         || isActionableLiveKeyword(clean)
+        || curiosity
         || SPECIFIC_LIVE_KEYWORD_HINT_RE.test(clean);
       if (!hasNeed) return;
       const compact = keywordCompactId(clean);
@@ -10151,7 +10172,11 @@ export class MobileLiveGoldenRadar {
       : await this.discoverAutocompleteBackfillCandidates(
         config,
         categoryId,
-        liveSeeds,
+        // 급등 레인과 같은 원문 트렌딩 헤드도 공급 — 맨 엔티티('배그부부')의
+        // 자동완성이 저경쟁 호기심 롱테일('배그부부 뜻')을 생성하게 한다.
+        this.lastRawLiveSeeds.length > 0
+          ? uniqueKeywords([...liveSeeds, ...this.lastRawLiveSeeds], 200)
+          : liveSeeds,
         autocompleteTargetLimit,
       );
     // Category recovery must not fan out into the SearchAd suggestion lane.
