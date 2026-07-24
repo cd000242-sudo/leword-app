@@ -5787,7 +5787,10 @@ async function runShoppingConnectWithPcEngine(
       params.targetCount,
     );
   }
-  return resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');
+  // 등급 규범(C/D 결과 제외) 적용 — 단 결과 0건 곤란 원칙에 따라 플로어 미달 시 원본 유지
+  const gradeFloored = finalMetrics.filter((metric) => metric.grade !== 'C');
+  const flooredFinal = gradeFloored.length >= Math.min(5, params.targetCount) ? gradeFloored : finalMetrics;
+  return resultFromMetrics(flooredFinal, startedAt, 'pc-engine-plus');
 }
 
 async function runYoutubeGoldenWithPcEngine(
