@@ -2331,10 +2331,12 @@ export function renderLewordProWeb(): string {
     const youtubeFeature = { id: 'youtube', group: 'youtube', title: '유튜브 황금키워드 및 쇼츠분석', status: 'ready', route: endpoints.youtubeGolden, desc: 'YouTube 급상승/쇼츠 영상 신호를 수집하고 네이버 수요와 교차검증합니다.', defaultTargetCount: 50, payload: (_q, options) => ({ maxResults: options.targetCount || 50, categoryId: options.categoryId && options.categoryId !== 'all' ? options.categoryId : undefined, crossReferenceNaver: options.crossReferenceNaver !== false, includeShortsSignals: options.includeShortsSignals !== false, includeAiInference: options.includeAiInference === true }) };
 
     const features = [
-      { id: 'pro-traffic', group: 'keyword', title: 'PRO 트래픽 폭발키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '서버가 24시간 prewarm한 PRO 트래픽 후보를 먼저 보여주고, 필요하면 실시간 job으로 보강합니다.', defaultTargetCount: 60, payload: (q, options) => ({ categoryId: options.categoryId || 'all', seedKeyword: q || undefined, targetCount: options.targetCount || 60, includeSeasonal: options.includeSeasonal !== false, includeEvergreen: options.includeEvergreen !== false, includeFreshIssue: options.includeFreshIssue !== false, autoDiscovery: true, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 180), includeAiInference: options.includeAiInference === true }) },
+      // v2.49.72: pro-traffic 을 배열 끝으로 — 코드 전반의 "|| features[0]" 폴백이
+      // 숨긴 기능을 되살리던 탈출구를 구조적으로 봉쇄(폴백 = naver-mate).
       { id: 'naver-mate', group: 'keyword', title: '네이버 메이트 황금키워드 헌터', status: 'ready', route: endpoints.naverMate, desc: '네이버 자동완성/연관어를 실측 검색량과 연결해 네이버 친화 롱테일 후보를 확장합니다.', requiresKeyword: false, defaultTargetCount: 50, payload: (q, options) => ({ seedKeyword: q || options.autoSeedKeyword || '오늘 실시간 이슈', targetCount: options.targetCount || 50, includeAutocomplete: true, includeRelated: true, includeVolumeMetrics: options.includeVolumeMetrics !== false, autoDiscovery: !q, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference === true }) },
       { id: 'shopping', group: 'keyword', title: '쇼핑커넥트 황금제품키워드', status: 'ready', route: endpoints.shoppingConnect, desc: '지금 이슈가 있거나 구매 전환 가능성이 있는 상품 신호를 블로그 진입형 제품 키워드로 변환합니다.', requiresKeyword: false, defaultTargetCount: 30, payload: (q, options) => ({ keyword: q || '', targetCount: options.targetCount || 30, autoDiscoveryLimit: options.targetCount || 30, sort: options.sort || 'sim', requireSellableIntent: true, autoDiscovery: !q, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference === true }) },
-      { id: 'kin', group: 'keyword', title: '지식인 황금키워드', status: 'ready', route: endpoints.kin, desc: '지식인 질문 신호에서 답변 수요가 높고 문서 경쟁이 낮은 정보형 키워드를 발굴합니다.', defaultTargetCount: 30, payload: (_q, options) => ({ tabType: ['rising', 'full'].includes(options.sort) ? options.sort : 'trending', targetCount: options.targetCount || 30, isPremiumRequest: true, contextKeywords: buildLookupContextKeywords(options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference === true }) }
+      { id: 'kin', group: 'keyword', title: '지식인 황금키워드', status: 'ready', route: endpoints.kin, desc: '지식인 질문 신호에서 답변 수요가 높고 문서 경쟁이 낮은 정보형 키워드를 발굴합니다.', defaultTargetCount: 30, payload: (_q, options) => ({ tabType: ['rising', 'full'].includes(options.sort) ? options.sort : 'trending', targetCount: options.targetCount || 30, isPremiumRequest: true, contextKeywords: buildLookupContextKeywords(options.autoSeedKeyword || '', 120), includeAiInference: options.includeAiInference === true }) },
+      { id: 'pro-traffic', group: 'keyword', title: 'PRO 트래픽 폭발키워드 헌터', status: 'ready', route: endpoints.proTraffic, desc: '서버가 24시간 prewarm한 PRO 트래픽 후보를 먼저 보여주고, 필요하면 실시간 job으로 보강합니다.', defaultTargetCount: 60, payload: (q, options) => ({ categoryId: options.categoryId || 'all', seedKeyword: q || undefined, targetCount: options.targetCount || 60, includeSeasonal: options.includeSeasonal !== false, includeEvergreen: options.includeEvergreen !== false, includeFreshIssue: options.includeFreshIssue !== false, autoDiscovery: true, contextKeywords: buildLookupContextKeywords(q || options.autoSeedKeyword || '', 180), includeAiInference: options.includeAiInference === true }) }
     ];
 
     let session = null;
@@ -9265,8 +9267,10 @@ export function renderLewordProWeb(): string {
       selectTool(selectedToolId);
     }
     function renderToolTabs() {
+      // v2.49.72: 화이트리스트 전용 — 어떤 상태 꼬임으로 selectedToolId 가 숨긴 기능이 돼도
+      // 탭은 절대 되살아나지 않는다.
       const visibleRows = currentGroupFeatures().filter(function(feature) {
-        return toolTabFeatureIds.indexOf(feature.id) >= 0 || feature.id === selectedToolId;
+        return toolTabFeatureIds.indexOf(feature.id) >= 0;
       });
       qs('toolTabs').innerHTML = visibleRows.map(function(feature) {
         const active = feature.id === selectedToolId ? ' active' : '';
@@ -9346,7 +9350,9 @@ export function renderLewordProWeb(): string {
       return latestSourceKeywordForCategory(categoryId) || categoryAutoSeed(categoryId);
     }
     function selectTool(id) {
-      const feature = features.find(function(row) { return row.id === id; }) || features[0];
+      // v2.49.72: 숨긴 기능(화이트리스트 밖)은 선택 자체를 첫 번째 보이는 탭으로 강제 우회.
+      const safeId = toolTabFeatureIds.indexOf(id) >= 0 ? id : toolTabFeatureIds[0];
+      const feature = features.find(function(row) { return row.id === safeId; }) || features[0];
       selectedToolId = feature.id;
       selectedToolGroupId = feature.group || selectedToolGroupId;
       qs('toolTargetCount').value = String(feature.defaultTargetCount || 30);
