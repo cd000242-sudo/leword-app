@@ -1153,6 +1153,31 @@ function verifyAdminSettingsPassword(password: string): { ok: boolean; configure
   };
 }
 
+// v2.49.72: 오너 계정 판별 — 오너 세션만 서버 API 키(=오너 본인 키)를 사용하고,
+// 다른 사용자는 각자 환경설정 키만 쓴다("내 키를 남이 쓰는" 상황 차단, 사용자 지시).
+const OWNER_MOBILE_USER_IDS = new Set(
+  String(process.env['LEWORD_OWNER_USER_IDS'] || 'cd00242,cd000242,cd000242@gmail.com,tjdgus24280,tjdgus24280@naver.com')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+async function isOwnerMobileSession(
+  req: http.IncomingMessage,
+  verifier: MobileEntitlementVerifier | null,
+): Promise<boolean> {
+  try {
+    if (!verifier) return false;
+    const token = getBearerToken(req);
+    if (!token) return false;
+    const verification = await verifier(token);
+    const subject = String(verification?.entitlement?.subjectId || '').trim().toLowerCase();
+    return !!subject && OWNER_MOBILE_USER_IDS.has(subject);
+  } catch {
+    return false;
+  }
+}
+
 async function authorizeMobileRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -4347,10 +4372,20 @@ async function createJob(
   resultCache: InMemoryMobileResultCache | null,
   liveGoldenRadar: MobileLiveGoldenRadar | null,
   maxBodyBytes: number,
+  ownerSession: boolean = false,
 ): Promise<void> {
   try {
     const params = await parseBody(req, maxBodyBytes);
-    const splitParams = splitSensitiveJobParams(params, decodeUserApiCredentialsHeader(req));
+    // v2.49.72: 오너 세션은 브라우저가 보낸 사용자 키 헤더를 무시하고 서버 키(=오너 키)를 쓴다.
+    // 오너 브라우저에 죽은 키가 저장돼 있어도(실측: 401 폭풍 → 결과 0개) 실행이 오염되지 않는다.
+    const suppliedCredentials = ownerSession ? {} : decodeUserApiCredentialsHeader(req);
+    if (ownerSession) {
+      const ignored = Object.keys(decodeUserApiCredentialsHeader(req));
+      if (ignored.length > 0) {
+        console.log(`[MOBILE-API] owner session: ignoring browser-supplied credentials (${ignored.join(',')})`);
+      }
+    }
+    const splitParams = splitSensitiveJobParams(params, suppliedCredentials);
     const normalizedCacheParams = normalizeMobileJobCacheParams(endpoint.product, splitParams.cacheParams);
     const cachedResult = resultCache?.get(endpoint.product, normalizedCacheParams);
     let cachedSyncedResult: MobileKeywordResult | null = null;
@@ -7215,7 +7250,8 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
     }
 
     if (!await authorizeMobileRequest(req, res, sessionAwareEntitlementVerifier, getMinimumMobileEntitlementTier(endpoint.product))) return;
-    void createJob(res, endpoint, req, store, pcWorkerExecutor, resultCache, liveGoldenRadar, maxBodyBytes);
+    const ownerSession = await isOwnerMobileSession(req, sessionAwareEntitlementVerifier);
+    void createJob(res, endpoint, req, store, pcWorkerExecutor, resultCache, liveGoldenRadar, maxBodyBytes, ownerSession);
     })().catch((err: any) => {
       json(res, 500, { ok: false, message: err?.message || 'mobile API internal error' } satisfies MobileJobErrorResponse);
     });
