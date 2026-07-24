@@ -56,6 +56,15 @@ assert('앞머리 연결어 "및" 제거',
 assert('"누구나" 포함 기사 헤드라인은 키워드에서 배제',
   compactPolicyKeywordPhrase('학생은 누구나 사전신청') === '',
   compactPolicyKeywordPhrase('학생은 누구나 사전신청'));
+
+// v2.49.72 배포 실측 회귀: 문장 조각·의료 통계 용어가 정책 키워드로 새던 사례
+assert('동사 연결형(~한다든지) 문장 조각 배제',
+  compactPolicyKeywordPhrase('취약계층에게 일자리를 제공한다든지') === '',
+  compactPolicyKeywordPhrase('취약계층에게 일자리를 제공한다든지'));
+assert('의료 기사 조각(악화되지 않고/생존기간) 배제',
+  compactPolicyKeywordPhrase('암이 악화되지 않고 유지되는 기간') === ''
+    && compactPolicyKeywordPhrase('무진행 생존기간') === '',
+  `${compactPolicyKeywordPhrase('암이 악화되지 않고 유지되는 기간')} / ${compactPolicyKeywordPhrase('무진행 생존기간')}`);
 assert('정상 정책 키워드는 그대로 보존(과교정 방지)',
   compactPolicyKeywordPhrase('청년 월세 지원금 신청') === '청년 월세 지원금 신청'
     && compactPolicyKeywordPhrase('소상공인 정책자금 신청') === '소상공인 정책자금 신청',
