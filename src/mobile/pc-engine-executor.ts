@@ -5664,6 +5664,21 @@ async function runShoppingConnectWithPcEngine(
     metrics.push(metric);
   }
   for (const item of rankedItems) {
+    // v2.49.72: 상품명 자체(브랜드+제품)를 1순위 후보로 — 접미사 조합("X 추천/순위/가격")은
+    // 실검색량이 월 20~30건에 그쳐 실측 게이트(sv>=30·pc/mo split)에서 정당 탈락했고
+    // 그 결과 후보 0건(실측 재현: "스니커즈 순위" pc<10·mo 20). 실제 수요는 상품명에 붙는다.
+    const productKeyword = normalizeKeyword(item.simplifiedTitle || item.cleanTitle || '');
+    if (productKeyword && productKeyword.length >= 2 && productKeyword.length <= 30) {
+      const productKey = compactKeyword(productKeyword);
+      if (productKey && !seen.has(productKey)) {
+        seen.add(productKey);
+        metrics.push(metricFromShoppingSeed(
+          { keyword: productKeyword, relation: 'same-product', reason: '상품명 실수요 후보(브랜드+제품)' },
+          item,
+          item.discoveryQuery || shoppingRootKeyword,
+        ));
+      }
+    }
     const seeds = shopping.buildProductLeWordSeeds(item, item.discoveryQuery || shoppingRootKeyword, 10);
     if (seeds.length === 0) {
       seeds.push({
