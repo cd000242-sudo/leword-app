@@ -45,6 +45,7 @@ import {
     getHaniCultureKeywords, getSbsEntertainmentKeywords, getMohwKeywords, getMoelKeywords,
     getEnvKeywords, getMafraKeywords, getDigitalDailyKeywords, getHeraldLifeKeywords,
     getBabyNewsKeywords, getWomenTimesKeywords, getPetTimesKeywords, getLiveNewsRssKeywords,
+    getPpomppuCouponKeywords,
 } from './extra-rss-collectors';
 
 let bootstrapped = false;
@@ -454,6 +455,8 @@ export function bootstrapSources(): void {
         { id: 'sbs-ent', label: 'SBS 연예/문화', tier: 'pro', domain: 'news.sbs.co.kr', description: '드라마/예능/아이돌', fetch: getSbsEntertainmentKeywords },
         // v2.49.72: 죽은 정부 RSS 대체 — 생존 검증된 종합 뉴스(JTBC/동아/경향/한경)
         { id: 'live-news', label: '종합 뉴스 실시간', tier: 'pro', domain: 'news', description: 'JTBC/동아/경향/한경 실시간 이슈', fetch: getLiveNewsRssKeywords },
+        // v2.49.72: 뽐뿌 쿠폰/딜 — 쇼핑커넥트·제휴 시드(상품/브랜드 딜 신호)
+        { id: 'ppomppu-coupon', label: '뽐뿌 쿠폰/딜', tier: 'pro', domain: 'www.ppomppu.co.kr', description: '쿠폰·할인 딜 상품 키워드', fetch: getPpomppuCouponKeywords },
         { id: 'mohw', label: '보건복지부', tier: 'pro', domain: 'www.mohw.go.kr', description: '복지/의료/돌봄 정책', fetch: getMohwKeywords },
         { id: 'moel', label: '고용노동부', tier: 'pro', domain: 'www.work.go.kr', description: '취업/실업급여/일자리', fetch: getMoelKeywords },
         { id: 'env-kr', label: '환경부', tier: 'pro', domain: 'www.korea.kr', description: '에너지바우처/탄소중립/환경', fetch: getEnvKeywords },

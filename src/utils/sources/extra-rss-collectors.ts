@@ -187,3 +187,12 @@ export async function getLiveNewsRssKeywords() {
         ]),
     );
 }
+
+// === 17. 뽐뿌 쿠폰/딜 (v2.49.72: 생존 검증 200/유효XML) ===
+//   쿠폰·할인 딜 제목에서 상품/브랜드 키워드 추출 — 쇼핑커넥트·제휴 시드 풀 강화.
+export async function getPpomppuCouponKeywords() {
+    return buildKeywords(
+        await fetchRssTitles(['https://www.ppomppu.co.kr/rss.php?id=coupon']),
+        ['쿠폰', '할인', '적립', '무료배송', '특가']
+    );
+}

@@ -21,6 +21,7 @@ import {
   type ShoppingConnectMobileParams,
   type YoutubeGoldenMobileParams,
 } from './contracts';
+import * as fs from 'fs';
 import {
   type MobileJobExecutor,
   type MobileJobExecutorContext,
@@ -5913,6 +5914,30 @@ async function runYoutubeGoldenWithPcEngine(
   return resultFromMetrics(measuredFallback, startedAt, 'pc-engine-plus');
 }
 
+// v2.49.72: 라이브 황금보드(공유 볼륨 JSON)의 현재 키워드 집합.
+//   네이버 메이트가 보드와 겹치는 키워드를 강등해 "보드에 없는 새 트래픽 후보"를 먼저 보여주기 위함.
+//   파일/환경 미설정·파싱 실패 시 빈 집합 → 기능 자동 비활성(결과를 깎지 않는 fail-soft).
+let liveGoldenBoardKeySetCache: { atMs: number; keys: Set<string> } | null = null;
+function loadLiveGoldenBoardKeywordSet(): Set<string> {
+  const nowMs = Date.now();
+  if (liveGoldenBoardKeySetCache && nowMs - liveGoldenBoardKeySetCache.atMs < 60_000) {
+    return liveGoldenBoardKeySetCache.keys;
+  }
+  const keys = new Set<string>();
+  try {
+    const file = String(process.env['LEWORD_MOBILE_LIVE_GOLDEN_BOARD_FILE'] || '').trim();
+    if (file && fs.existsSync(file)) {
+      const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as { items?: Array<{ keyword?: unknown }> };
+      for (const item of Array.isArray(parsed?.items) ? parsed.items : []) {
+        const key = compactKeyword(String(item?.keyword || ''));
+        if (key) keys.add(key);
+      }
+    }
+  } catch { /* fail-soft: 보드 파일 문제로 메이트 결과가 깎이면 안 됨 */ }
+  liveGoldenBoardKeySetCache = { atMs: nowMs, keys };
+  return keys;
+}
+
 async function runNaverMateWithPcEngine(
   params: NaverMateMobileParams,
   context: MobileJobExecutorContext,
@@ -6169,6 +6194,24 @@ async function runNaverMateWithPcEngine(
     );
     measuredMetrics = [...measuredMetrics, ...sourceFallback];
     finalMetrics = prioritizeNaverMateMeasuredMetrics(measuredMetrics, params.targetCount, 50000);
+  }
+  // v2.49.72: 황금보드 중복 강등 — 보드가 이미 보여주는 키워드는 뒤로 미뤄
+  //   "보드에 없는 새 트래픽 후보"가 먼저 보이게 한다. 제거가 아니라 재정렬이라 0건 위험 없음.
+  const boardKeys = loadLiveGoldenBoardKeywordSet();
+  if (boardKeys.size > 0 && finalMetrics.length > 0) {
+    const fresh: MobileKeywordMetric[] = [];
+    const boardDup: MobileKeywordMetric[] = [];
+    for (const metric of finalMetrics) {
+      if (boardKeys.has(compactKeyword(metric.keyword))) {
+        boardDup.push({ ...metric, evidence: [...metric.evidence, 'live-golden-board-duplicate'] });
+      } else {
+        fresh.push(metric);
+      }
+    }
+    if (boardDup.length > 0) {
+      context.progress(88, `Naver Mate board-duplicate demoted: ${boardDup.length}/${finalMetrics.length}`);
+      finalMetrics = [...fresh, ...boardDup];
+    }
   }
   const displayMetrics = params.includeVolumeMetrics
     ? finalMetrics.filter(isNaverMateDisplayQualityMetric)
