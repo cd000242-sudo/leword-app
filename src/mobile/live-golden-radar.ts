@@ -401,10 +401,13 @@ const NEWS_HEADLINE_FRAGMENT_RE = /(?:\uBD80\uCE5C\uC0C1|\uC0AC\uACFC|\uAD6C\uC1
 
 function formatKstRetryAt(untilMs: number | null): string {
   if (!untilMs) return '';
+  // KST(+9h) 시프트 후 라벨 교체 — ms 가 .000 이 아니어도 'Z' 가 남지 않게 정규식으로
+  // 치환한다(기존 '.000Z' 리터럴 치환은 실제 타임스탬프에서 실패해 KST 시각이 UTC 로
+  // 오독되는 모니터링 결함이 있었다).
   const kst = new Date(untilMs + 9 * 60 * 60 * 1000)
     .toISOString()
     .replace('T', ' ')
-    .replace('.000Z', ' KST');
+    .replace(/\.\d{3}Z$/, ' KST');
   return `; retry after ${kst}`;
 }
 
@@ -9686,13 +9689,32 @@ export class MobileLiveGoldenRadar {
       const normalized = normalizeLiveGoldenReviewCandidate(item);
       return frozenSemanticHashes.has(liveGoldenReviewSemanticHash(normalized));
     };
+    // 급등 레인 유지보수 포함(보드 정체 67 근본수정): 보드 재직 중인 급등 행은 급등
+    // 측정 경로가 매 런 재실측하지만, 보드에서 밀려난 행은 어디서도 문서수가 갱신되지
+    // 않아 12h 표시창을 영구 이탈했다(자기강화 평형). 급등 시의성(48h) 안이고 급등
+    // 수치 게이트(sv/docs/ratio)를 최근 실측값 기준 통과하는 행만 재측정해 복귀 기회를
+    // 준다. 시의성이 끝난 행의 자연 탈락은 유지(의도된 설계).
+    const isSurgeMaintenanceCandidate = (item: MobileLiveGoldenBoardItem): boolean => {
+      if (normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE) return false;
+      const age = ageMsFrom(item.updatedAt, nowMs);
+      if (!Number.isFinite(age) || age > SURGE_MAX_AGE_MS) return false;
+      const volume = finiteNumber(item.totalSearchVolume) || 0;
+      const docs = finiteNumber(item.documentCount);
+      return volume >= SURGE_MIN_VOLUME
+        && docs !== null && docs > 0 && docs <= SURGE_MAX_DOCUMENTS
+        && volume / docs >= SURGE_MIN_RATIO;
+    };
     const maintenancePool = [...this.board.values()]
-      .filter((item) => normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE)
+      .filter((item) => normalizeKeyword(item.lane) !== TRAFFIC_SURGE_LANE
+        || isSurgeMaintenanceCandidate(item))
       .filter((item) => (finiteNumber(item.totalSearchVolume) || 0) > 0)
       // Document maintenance is quota-bearing. Persistent discovery rows and
       // stale real-demand assertions must prove hidden-known eligibility before
       // they can consume a canonical broad OpenAPI lookup.
       .filter((item) => {
+        // 급등 레인은 정보형 품질 게이트(lookup·프로필·광고가치) 미적용이 제품 정의 —
+        // 위 급등 수치 게이트가 품질 바 역할을 한다.
+        if (normalizeKeyword(item.lane) === TRAFFIC_SURGE_LANE) return true;
         const verdict = this.realDemandVerifier.verdictFor(item.keyword);
         const currentEvidence = evidenceBoundToCurrentRealDemandVerdict(item.evidence, verdict);
         const currentCandidate = { ...item, evidence: currentEvidence };
