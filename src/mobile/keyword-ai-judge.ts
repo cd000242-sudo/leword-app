@@ -791,6 +791,14 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     && documents > 0
     && ratio !== null
     && ratio < 1;
+  // 쇼핑 커넥트 레인의 커머스 니즈 키워드는 문서수가 원래 커서(비율<1 상시)
+  // 블로그용 레드오션 룰을 그대로 적용하면 전 후보가 사형된다. 쇼핑 문맥 +
+  // 커머스 니즈 + 문서수 상한(15만, 쇼핑 2차 게이트와 동일) 안에서는 감점만 하고
+  // exclude 는 하지 않는다. 블로그 보드(SSS SSoT)는 별도 수치 게이트라 영향 없음.
+  const commerceRedOceanTolerated = redOceanMeasured
+    && shoppingConnectNeed
+    && documents !== null
+    && documents <= 150_000;
 
   let score = 46;
   const reasons: string[] = [];
@@ -893,9 +901,14 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     reasons.push('synthetic-no-effect-keyword-combo');
   }
   if (redOceanMeasured) {
-    score -= 30;
-    reasons.push('document-count-exceeds-search-demand');
-    rejectReason ||= 'document-count-exceeds-search-demand';
+    if (commerceRedOceanTolerated) {
+      score -= 8;
+      reasons.push('commerce-doc-heavy-tolerated');
+    } else {
+      score -= 30;
+      reasons.push('document-count-exceeds-search-demand');
+      rejectReason ||= 'document-count-exceeds-search-demand';
+    }
   }
   if (keyword.length < 3 || keyword.length > 36) {
     score -= 10;
@@ -969,7 +982,7 @@ export function judgeKeywordMetric(metric: MobileKeywordMetric, now: Date = new 
     || (broadLowValueEvent && !(provenGoldenEconomics && curiosityIntent))
     || crossDomainNonsense
     || syntheticNoEffect
-    || redOceanMeasured
+    || (redOceanMeasured && !commerceRedOceanTolerated)
     || status === 'synthetic-blocked'
     || score < 45
     || (thin && !actionable)

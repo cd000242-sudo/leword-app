@@ -981,6 +981,13 @@ function isAgentBeginnerMonetizableNeed(metric: MobileKeywordMetric, product: Mo
   const keyword = normalizeKeyword(metric.keyword);
   if (!keyword || AGENT_NOISE_CHAIN_RE.test(compactKeyword(keyword))) return false;
   if (isUltimateLowValueLookupKeyword(keyword)) return false;
+  // 쇼핑 커넥트: 커머스 니즈(추천/순위/후기/비교/가격…)는 그 자체가 수익화 니즈다.
+  // 정보성 니즈 정규식(NEED_MODIFIER)에 '추천/순위'가 없어 상품 키워드가 전량
+  // 탈락하던 결함 차단. 시드가 쇼핑 레인 한정이라 주제성은 레인이 보장한다.
+  if (product === 'shopping-connect'
+    && /(추천|순위|비교|후기|리뷰|내돈내산|가격|최저가|할인|세일|사용법|장단점|구매|어디서)/u.test(keyword)) {
+    return true;
+  }
   const text = metricTextForAgent(metric);
   const hasNeed = AGENT_NEED_MODIFIER_RE.test(keyword) || AGENT_HIDDEN_MONETIZABLE_NEED_RE.test(keyword);
   const hiddenLongtail = AGENT_HIDDEN_MONETIZABLE_NEED_RE.test(keyword)
@@ -1041,7 +1048,10 @@ function agentRejectReasonForMetric(
   const docs = finiteNumber(metric.documentCount);
   const ratio = finiteNumber(metric.goldenRatio)
     ?? (total !== null && docs !== null && docs > 0 ? total / docs : null);
-  if (total !== null && docs !== null && total > 0 && docs > total * 20 && (ratio === null || ratio < 1)) {
+  // 쇼핑 커넥트는 상류(strict/픽 게이트)에서 문서수 상한(5만/15만)을 이미 강제했고,
+  // 커머스 키워드는 문서수가 원래 커서 20배 룰이 전 후보를 사형시킨다 — 쇼핑 레인 제외.
+  if (product !== 'shopping-connect'
+    && total !== null && docs !== null && total > 0 && docs > total * 20 && (ratio === null || ratio < 1)) {
     return 'document-count-overwhelms-demand';
   }
   return null;
