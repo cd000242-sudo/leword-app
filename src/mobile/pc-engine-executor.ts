@@ -535,6 +535,7 @@ function metricFromKinQuestion(question: any): MobileKeywordMetric {
       typeof question?.url === 'string' && question.url ? `kin-url ${question.url}` : '',
       question?.isAdopted === true ? 'kin-adopted' : '',
       typeof question?.daysAgo === 'number' ? `kin-days-ago ${question.daysAgo}` : '',
+      question?.__hiddenGem === true ? 'kin-hidden-gem' : '',
     ].filter(Boolean),
     isMeasured: false,
   };
@@ -5355,27 +5356,47 @@ async function runKinHiddenHoneyWithPcHunter(
   ensureNotAborted(context);
 
   const kin = await import('../utils/naver-kin-golden-hunter-v3');
-  let result: any;
-  try {
-    if (params.tabType === 'trending') {
-      result = await kin.getTrendingHiddenQuestions();
-    } else if (params.tabType === 'hidden') {
-      result = await kin.fullHunt();
-    } else if (params.tabType === 'latest') {
-      result = await kin.getRisingQuestions();
-    } else {
-      result = await kin.getPopularQnA();
+  // v2.49.72: 2레인 병행 수집 — 선택 레인 + 숨은 꿀질문(hidden=fullHunt) 상시 병합.
+  //   사용자 목적: 많이 본 QnA(검증 수요) 중에서도 "많이 본에 못 올라온 숨은 꿀질문"을
+  //   최대한 확보해 하루 1글 외부유입 소재로 고를 수 있게 한다. 숨은 꿀 우선 정렬 + 배지.
+  const runKinLane = async (lane: string): Promise<{ lane: string; questions: any[] }> => {
+    try {
+      const laneResult = lane === 'trending'
+        ? await kin.getTrendingHiddenQuestions()
+        : lane === 'hidden'
+          ? await kin.fullHunt()
+          : lane === 'latest'
+            ? await kin.getRisingQuestions()
+            : await kin.getPopularQnA();
+      return { lane, questions: Array.isArray(laneResult?.goldenQuestions) ? laneResult.goldenQuestions : [] };
+    } catch (err: any) {
+      // 스크래퍼 실패(서버 브라우저 등)해도 다른 레인/OpenAPI 폴백으로 계속
+      context.progress(30, `PC KIN ${lane} lane failed: ${err?.message || err}`);
+      return { lane, questions: [] };
     }
-  } catch (err: any) {
-    // v2.49.72: 스크래퍼 자체가 죽어도(서버 브라우저 실패 등) 폴백 경로로 계속
-    context.progress(30, `PC KIN scraper failed: ${err?.message || err} — OpenAPI 폴백 시도`);
-    result = { goldenQuestions: [] };
-  }
+  };
+  const lanes = params.tabType === 'hidden' ? ['hidden', 'trending'] : [params.tabType, 'hidden'];
+  const laneRows = await Promise.all(lanes.map(runKinLane));
   ensureNotAborted(context);
 
-  context.progress(88, `PC KIN hunter returned ${result?.goldenQuestions?.length || 0}/${params.targetCount}`);
-  let metrics = (result?.goldenQuestions || [])
-    .slice(0, params.targetCount)
+  const mergedQuestions: any[] = [];
+  const seenQuestions = new Set<string>();
+  for (const row of laneRows) {
+    for (const question of row.questions) {
+      const key = String(question?.questionId || '').trim() || compactKeyword(String(question?.title || ''));
+      if (!key || seenQuestions.has(key)) continue;
+      seenQuestions.add(key);
+      mergedQuestions.push(row.lane === 'hidden' ? { ...question, __hiddenGem: true } : question);
+    }
+  }
+  // 숨은 꿀 먼저, 그 안에서는 honeyPot(조회수·답변공백) 점수 순
+  mergedQuestions.sort((a, b) =>
+    (Number(b?.__hiddenGem === true) - Number(a?.__hiddenGem === true))
+    || ((Number(b?.honeyPotScore ?? b?.goldenScore) || 0) - (Number(a?.honeyPotScore ?? a?.goldenScore) || 0)));
+
+  context.progress(88, `PC KIN lanes returned ${mergedQuestions.length} (hidden ${mergedQuestions.filter((q) => q.__hiddenGem).length})/${params.targetCount}`);
+  let metrics = mergedQuestions
+    .slice(0, params.targetCount * 2)
     .map(metricFromKinQuestion)
     .filter((item: MobileKeywordMetric) => item.keyword);
 
