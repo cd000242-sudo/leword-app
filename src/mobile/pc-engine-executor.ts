@@ -1981,6 +1981,7 @@ function prioritizeMeasuredDecisionMetrics(
     minTotalSearchVolume?: number;
     maxDocumentCount?: number;
     minGoldenRatio?: number;
+    allowCommerceRedOceanRescue?: boolean;
   } = {},
 ): MobileKeywordMetric[] {
   const seen = new Set<string>();
@@ -1990,7 +1991,11 @@ function prioritizeMeasuredDecisionMetrics(
       if (!key || seen.has(key)) return false;
       seen.add(key);
       if (!isFullyMeasuredKeyword(metric)) return false;
-      if (metric.aiJudge?.verdict === 'exclude') return false;
+      if (metric.aiJudge?.verdict === 'exclude') {
+        // 쇼핑 커머스 레인: 커머스 키워드는 문서수가 원래 커서(비율<1) 블로그용
+        // 레드오션 룰이 전량 사형시킨다. 레드오션 '단독' 사유 + 발행판정 publish 면 살린다.
+        if (!isCommerceRedOceanRescuedMetric(metric, options.allowCommerceRedOceanRescue === true)) return false;
+      }
       if (metric.publishDecision?.verdict === 'exclude') return false;
       if (options.publishOnly && metric.aiJudge?.verdict !== 'publish') return false;
       if (options.requirePcMobileSplit) {
@@ -2010,6 +2015,17 @@ function prioritizeMeasuredDecisionMetrics(
     .slice(0, targetCount);
 }
 
+/**
+ * 실측 레드오션(문서수>검색량) '단독' 사유로 AI판정이 exclude 한 커머스 키워드 구제 판정.
+ * 발행판정(publishDecision)이 publish 로 독립 검증한 경우에만 살린다 —
+ * thin/뉴스성/저가치 등 다른 결함이 섞였으면 발행판정이 publish 를 주지 않는다.
+ */
+function isCommerceRedOceanRescuedMetric(metric: MobileKeywordMetric, rescueEnabled: boolean): boolean {
+  return rescueEnabled
+    && metric.aiJudge?.rejectReason === 'document-count-exceeds-search-demand'
+    && metric.publishDecision?.verdict === 'publish';
+}
+
 function prioritizeShoppingProductPickMetrics(
   metrics: MobileKeywordMetric[],
   targetCount: number,
@@ -2022,7 +2038,10 @@ function prioritizeShoppingProductPickMetrics(
       seen.add(key);
       if (!metric.shoppingProductPick) return false;
       if (!isFullyMeasuredKeyword(metric)) return false;
-      if (metric.aiJudge?.verdict === 'exclude') return false;
+      if (metric.aiJudge?.verdict === 'exclude') {
+        // 쇼핑 전용 레인이므로 커머스 레드오션 구제 상시 적용
+        if (!isCommerceRedOceanRescuedMetric(metric, true)) return false;
+      }
       if (metric.publishDecision?.verdict === 'exclude') return false;
       const pc = finiteNumber(metric.pcSearchVolume);
       const mobile = finiteNumber(metric.mobileSearchVolume);
@@ -5713,6 +5732,7 @@ async function runShoppingConnectWithPcEngine(
       requirePcMobileSplit: true,
       minTotalSearchVolume: 30,
       maxDocumentCount: 50000,
+      allowCommerceRedOceanRescue: true,
     },
   );
   let finalMetrics = mergePrioritizedKeywordMetrics(
@@ -5749,6 +5769,7 @@ async function runShoppingConnectWithPcEngine(
         requirePcMobileSplit: true,
         minTotalSearchVolume: 30,
         maxDocumentCount: 150000,
+        allowCommerceRedOceanRescue: true,
       },
     );
     finalMetrics = mergePrioritizedKeywordMetrics(
