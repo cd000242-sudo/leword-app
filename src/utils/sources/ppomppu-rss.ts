@@ -120,3 +120,60 @@ export async function getHotProductFrequency(): Promise<Array<{ product: string;
         .sort((a, b) => b.count - a.count)
         .slice(0, 100);
 }
+
+// ============================================================
+// v2.49.72: 뽐뿌 핫딜 → 쇼핑커넥트 시드
+//   쿠팡 파트너스 API 키(실적 15만원 조건) 없이도 "지금 팔리는 상품" 신호를 얻는 경로.
+//   [쿠팡] 딜은 최우선(딥링크·수익화 직결), 타 몰 딜도 상품 수요 자체는 몰 무관이라 시드로 유효
+//   (글에서는 쿠팡 검색 링크로 연결해 수익화). 공개 RSS — 키·차단 이슈 없음.
+// ============================================================
+
+export interface PpomppuDealSeed {
+    keyword: string;
+    reason: string;
+    shop: string;
+    isCoupang: boolean;
+}
+
+const DEAL_SEED_CACHE_TTL_MS = 30 * 60 * 1000;
+let dealSeedCache: { atMs: number; seeds: PpomppuDealSeed[] } | null = null;
+
+export async function getPpomppuDealSeeds(limit: number = 40): Promise<PpomppuDealSeed[]> {
+    const nowMs = Date.now();
+    if (dealSeedCache && nowMs - dealSeedCache.atMs < DEAL_SEED_CACHE_TTL_MS) {
+        return dealSeedCache.seeds.slice(0, limit);
+    }
+    let deals: PpomppuHotdeal[] = [];
+    try {
+        deals = await fetchPpomppuHotdeals('domestic');
+    } catch {
+        deals = [];
+    }
+    const { simplifyTitleForCoupangSearch } = await import('../coupang-partners');
+    const seeds: PpomppuDealSeed[] = [];
+    const seen = new Set<string>();
+    for (const deal of deals) {
+        if (!deal.productName || !deal.shop) continue;
+        const keyword = simplifyTitleForCoupangSearch(deal.productName);
+        if (!keyword || keyword.length < 2 || keyword.length > 35) continue;
+        // 상품권/포인트/퀴즈류 비상품 딜 제외
+        if (/(상품권|포인트|캐시|적립|쿠폰만|퀴즈|정답|추첨|이벤트 응모)/.test(deal.title)) continue;
+        const key = keyword.replace(/\s+/g, '').toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const isCoupang = /쿠팡|coupang/i.test(deal.shop);
+        seeds.push({
+            keyword,
+            reason: `뽐뿌 핫딜 [${deal.shop}]${deal.price ? ` ${deal.price}` : ''} — 실구매 수요 신호`,
+            shop: deal.shop,
+            isCoupang,
+        });
+    }
+    // 쿠팡 딜 먼저
+    seeds.sort((a, b) => Number(b.isCoupang) - Number(a.isCoupang));
+    dealSeedCache = { atMs: nowMs, seeds };
+    if (seeds.length > 0) {
+        console.log(`[ppomppu-rss] 딜 시드 ${seeds.length}개 (쿠팡 ${seeds.filter((s) => s.isCoupang).length})`);
+    }
+    return seeds.slice(0, limit);
+}

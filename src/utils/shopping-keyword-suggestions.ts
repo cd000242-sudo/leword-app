@@ -218,7 +218,7 @@ export interface VerifiedKeyword {
   goldenRatio: number;
 }
 
-export type ShoppingDiscoverySeedSource = 'verified' | 'coupang-hot' | 'dynamic' | 'static';
+export type ShoppingDiscoverySeedSource = 'verified' | 'coupang-hot' | 'deal-hot' | 'dynamic' | 'static';
 
 export interface ShoppingDiscoverySeed {
   keyword: string;
@@ -336,6 +336,7 @@ function selectBalancedShoppingDiscoverySeeds(
 export function buildShoppingDiscoverySeeds(input: {
   verified?: VerifiedKeyword[];
   coupangHot?: Array<{ keyword: string; reason: string }>;
+  dealHot?: Array<{ keyword: string; reason: string }>;
   dynamic?: string[];
   staticGroups?: SuggestionGroup[];
   limit?: number;
@@ -382,6 +383,16 @@ export function buildShoppingDiscoverySeeds(input: {
       source: 'coupang-hot',
       reason: hot.reason || '쿠팡 핫상품',
       priorityScore: 74 - index * 0.6,
+    });
+  });
+
+  // v2.49.72: 뽐뿌 핫딜(쿠팡 우선) — API 키 없이 얻는 실구매 수요 신호
+  (input.dealHot || []).forEach((deal, index) => {
+    add({
+      keyword: deal.keyword,
+      source: 'deal-hot',
+      reason: deal.reason || '핫딜 실구매 수요',
+      priorityScore: 71 - index * 0.6,
     });
   });
 
@@ -433,9 +444,24 @@ export async function getShoppingDiscoverySeeds(limit: number = SHOPPING_AUTO_DI
     coupangHot = [];
   }
 
+  // v2.49.72: 뽐뿌 핫딜 시드 — 파트너스 API 키(실적 조건) 없이도 실구매 수요 확보.
+  //   [쿠팡] 딜은 coupangHot 레인으로 승격(수익화 직결), 타 몰 딜은 deal-hot 레인.
+  let dealHot: Array<{ keyword: string; reason: string }> = [];
+  try {
+    const { getPpomppuDealSeeds } = await import('./sources/ppomppu-rss');
+    const deals = await getPpomppuDealSeeds(Math.max(24, Math.ceil(limit / 2)));
+    for (const deal of deals) {
+      if (deal.isCoupang) coupangHot.push({ keyword: deal.keyword, reason: deal.reason });
+      else dealHot.push({ keyword: deal.keyword, reason: deal.reason });
+    }
+  } catch {
+    dealHot = [];
+  }
+
   return buildShoppingDiscoverySeeds({
     verified,
     coupangHot,
+    dealHot,
     dynamic: getDynamicSuggestionsFromRichFeed(),
     staticGroups: getStaticShoppingSuggestions(6),
     limit,
