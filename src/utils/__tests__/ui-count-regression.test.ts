@@ -409,7 +409,8 @@ assert('shopping connect no-keyword discovery requests 30 seeds',
     && /getShoppingAutoDiscoverySearchLimit\(discoverySeeds\.length,\s*autoDiscoveryLimit\)/.test(configUtility)
     && /balanceDiscovery:\s*true/.test(configUtility)
     && /maxPerDiscoveryQuery:\s*3/.test(configUtility)
-    && /opportunityRanked\.slice\(0,\s*recommendationLimit\)/.test(configUtility)
+    // v2.49.72: 최종 추천은 실측 황금비 우선 재랭킹으로 산출(옛 opportunityRanked.slice 대체) — 여전히 recommendationLimit 개
+    && /rankByProductGolden\(goldenPool,\s*recommendationLimit\)/.test(configUtility)
     && /autoSeeds\.slice\(0,\s*30\)/.test(html),
   'shopping auto discovery is not using/showing 30 diversified seeds and final recommendations');
 

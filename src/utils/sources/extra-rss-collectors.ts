@@ -174,3 +174,16 @@ export async function getPetTimesKeywords() {
         ['강아지', '고양이', '반려동물', '사료', '간식', '용품', '훈련']
     );
 }
+
+// === 16. 종합 뉴스 실시간 (v2.49.72: 생존 검증 완료 200/유효XML) ===
+//   JTBC 속보 + 동아 종합 + 경향 종합 + 한경 경제 — 죽은 정부 RSS 대체용 살아있는 이슈 소스.
+export async function getLiveNewsRssKeywords() {
+    return buildKeywords(
+        await fetchRssTitles([
+            'https://fs.jtbc.co.kr/RSS/newsflash.xml',
+            'https://rss.donga.com/total.xml',
+            'http://www.khan.co.kr/rss/rssdata/total_news.xml',
+            'https://www.hankyung.com/feed/economy',
+        ]),
+    );
+}

@@ -44,7 +44,7 @@ import {
     getZdnetKeywords, getDigitalTimesKeywords, getMkRealestateKeywords, getMtIndustryKeywords,
     getHaniCultureKeywords, getSbsEntertainmentKeywords, getMohwKeywords, getMoelKeywords,
     getEnvKeywords, getMafraKeywords, getDigitalDailyKeywords, getHeraldLifeKeywords,
-    getBabyNewsKeywords, getWomenTimesKeywords, getPetTimesKeywords,
+    getBabyNewsKeywords, getWomenTimesKeywords, getPetTimesKeywords, getLiveNewsRssKeywords,
 } from './extra-rss-collectors';
 
 let bootstrapped = false;
@@ -62,12 +62,16 @@ const DISABLED_SOURCES = new Set([
     'rakuten',              // App ID 미설정
     'fmkorea',              // 0건
     'bigkinds',             // timeout
-    'digital-times',        // 0건
+    'digital-times',        // 0건 (dt.co.kr RSS 404)
     'mt-industry',          // 0건
     'mohw',                 // 0건 (RSS URL 무효)
     'ddaily',               // 0건
     'herald-life',          // 0건
     'pettimes',             // 0건
+    // v2.49.72: 정부 RSS 사망 확인(404) — 계속 호출해 낭비되던 것 차단
+    'moel',                 // work.go.kr/rss/wr_news.xml 404
+    'env-kr',               // korea.kr/rss/dept_me.xml 404
+    'mafra',                // korea.kr/rss/dept_mafra.xml 404
 ]);
 
 const _origRegister = registerSource;
@@ -448,6 +452,8 @@ export function bootstrapSources(): void {
         { id: 'mt-industry', label: '머투 산업', tier: 'pro', domain: 'rss.mt.co.kr', description: '창업/소상공인 동향', fetch: getMtIndustryKeywords },
         { id: 'hani-culture', label: '한겨레 문화', tier: 'pro', domain: 'www.hani.co.kr', description: '문화/공연/전시', fetch: getHaniCultureKeywords },
         { id: 'sbs-ent', label: 'SBS 연예/문화', tier: 'pro', domain: 'news.sbs.co.kr', description: '드라마/예능/아이돌', fetch: getSbsEntertainmentKeywords },
+        // v2.49.72: 죽은 정부 RSS 대체 — 생존 검증된 종합 뉴스(JTBC/동아/경향/한경)
+        { id: 'live-news', label: '종합 뉴스 실시간', tier: 'pro', domain: 'news', description: 'JTBC/동아/경향/한경 실시간 이슈', fetch: getLiveNewsRssKeywords },
         { id: 'mohw', label: '보건복지부', tier: 'pro', domain: 'www.mohw.go.kr', description: '복지/의료/돌봄 정책', fetch: getMohwKeywords },
         { id: 'moel', label: '고용노동부', tier: 'pro', domain: 'www.work.go.kr', description: '취업/실업급여/일자리', fetch: getMoelKeywords },
         { id: 'env-kr', label: '환경부', tier: 'pro', domain: 'www.korea.kr', description: '에너지바우처/탄소중립/환경', fetch: getEnvKeywords },

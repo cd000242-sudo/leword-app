@@ -893,7 +893,9 @@ export function setupConfigUtilityHandlers(): void {
           deriveShoppingExpansionQueries,
           buildProductLeWordSeeds,
           scoreLeWordEntryKeyword,
+          rankByProductGolden,
         } = await import('../../utils/naver-shopping-api');
+        const { buildPurchaseDesireAngles } = await import('../../utils/shopping-purchase-angle');
         const { analyzeShoppingKeywords, expandWithIntentSuffixes } = await import('../../utils/shopping-keyword-analyzer');
         const { buildCoupangSearchUrl, simplifyTitleForCoupangSearch, convertToPartnersLinks, getCoupangPartnersConfig, coupangProductSearch, pickBestCoupangMatch } = await import('../../utils/coupang-partners');
         const { getNaverAutocompleteKeywords } = await import('../../utils/naver-autocomplete');
@@ -1185,29 +1187,42 @@ export function setupConfigUtilityHandlers(): void {
           crossSourceSeeds,
           recency,
         };
+        // v2.49.72: 골든 재랭킹용 후보 풀 — 최종 표시 수보다 약간 크게 잡아
+        //   기회점수로는 밀렸지만 실측 저경쟁·고검색인 상품을 끌어올릴 여지를 만든다.
+        const candidatePoolSize = Math.min(60, recommendationLimit + 12);
         const opportunityRanked = rankShoppingOpportunities(
           result.items,
           opportunityContext,
-          Math.max(30, recommendationLimit),
+          Math.max(30, candidatePoolSize),
           autoDiscovery ? { balanceDiscovery: true, maxPerDiscoveryQuery: 3 } : undefined
         );
-        if (opportunityRanked.length > 0) {
-          recommended = opportunityRanked.slice(0, recommendationLimit);
-        }
-        await hydrateCoupangPartnerLinks(recommended);
+        const goldenPool = opportunityRanked.length > 0 ? opportunityRanked : recommended;
 
-        // v2.49.44: 각 추천 상품을 LEWORD 진입판단 후보로 변환.
+        // v2.49.44: 각 후보 상품을 LEWORD 진입판단 후보로 변환.
         // 제품명 그대로만 보지 않고 같은 계열 대체 브랜드/카테고리 구매 키워드까지 제시한다.
-        const lewordSeedRows: Array<{ item: any; seed: any }> = [];
-        for (const item of recommended) {
-          const seeds = buildProductLeWordSeeds(item, item.discoveryQuery || keyword, 6);
-          item.lewordEntryKeywords = seeds;
-          for (const seed of seeds) lewordSeedRows.push({ item, seed });
+        for (const item of goldenPool) {
+          item.lewordEntryKeywords = buildProductLeWordSeeds(item, item.discoveryQuery || keyword, 6);
         }
-        if (lewordSeedRows.length > 0 && naverCfg.clientId && naverCfg.clientSecret) {
+
+        // v2.49.72: 측정 커버리지 수정 — 상품마다 대표 구매어(상위 2개)를 우선 실측해
+        //   모든 후보 상품이 최소 1개 실측 골든값을 갖게 한다(40개 상한에 굶주려
+        //   대부분 상품이 "실측 대기"로 남던 결함 해소). 총 측정 60개로 상한.
+        let goldenMeasuredRealCount = 0;  // 실측(추정 아님) 성공한 진입어 수 — UI 실측 연동 표시용
+        const goldenMeasurementAttempted = !!(naverCfg.clientId && naverCfg.clientSecret);
+        if (goldenPool.length > 0 && naverCfg.clientId && naverCfg.clientSecret) {
           try {
-            const uniqueSeeds = Array.from(new Set(lewordSeedRows.map(row => row.seed.keyword))).slice(0, 40);
-            const metricMap = new Map<string, { searchVolume: number; documentCount: number }>();
+            const MEASURE_CAP = 60;
+            const primarySeeds: string[] = [];
+            const secondarySeeds: string[] = [];
+            for (const item of goldenPool as any[]) {
+              const seeds = (item.lewordEntryKeywords || []) as any[];
+              seeds.forEach((s, idx) => (idx < 2 ? primarySeeds : secondarySeeds).push(s.keyword));
+            }
+            // 대표어(primary) 먼저 채우고 남는 예산을 보조어로 — 상품별 최소 1건 실측 보장
+            const uniqueSeeds = Array.from(new Set([...primarySeeds, ...secondarySeeds])).slice(0, MEASURE_CAP);
+            // v2.49.72: 실측-only 게이트 — svEstimated(휴리스틱 추정)·검색량0·문서수0 은
+            //   "미측정"으로 취급해 골든 판정/UI 노출에서 제외한다. 추정치를 실측인 척 보여주지 않는다.
+            const metricMap = new Map<string, { searchVolume: number; documentCount: number; real: boolean }>();
             for (let i = 0; i < uniqueSeeds.length; i += 20) {
               const batch = uniqueSeeds.slice(i, i + 20);
               try {
@@ -1215,48 +1230,115 @@ export function setupConfigUtilityHandlers(): void {
                 for (let j = 0; j < batch.length; j++) {
                   const sig = sigs?.[j];
                   if (!sig) continue;
-                  metricMap.set(batch[j], {
-                    searchVolume: (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0),
-                    documentCount: sig.documentCount || 0,
-                  });
+                  const sv = (sig.pcSearchVolume || 0) + (sig.mobileSearchVolume || 0);
+                  const dc = sig.documentCount || 0;
+                  // 실측 = 추정 아님 + 검색량>0 + 문서수>0 (황금비는 둘 다 실측돼야 성립)
+                  const real = sig.svEstimated !== true && sv > 0 && dc > 0;
+                  metricMap.set(batch[j], { searchVolume: sv, documentCount: dc, real });
                 }
               } catch (e: any) {
-                console.warn('[SHOPPING-CONNECT] LEWORD 후보 metric batch 실패:', e?.message);
+                console.warn('[SHOPPING-CONNECT] 상품 골든 measure batch 실패:', e?.message);
               }
             }
-            for (const item of recommended as any[]) {
+            for (const item of goldenPool as any[]) {
               item.lewordEntryKeywords = (item.lewordEntryKeywords || [])
                 .map((seed: any) => {
                   const m = metricMap.get(seed.keyword);
-                  return m ? scoreLeWordEntryKeyword(seed, m.searchVolume, m.documentCount) : seed;
+                  // 실측된 것만 점수화(골든 성립). 추정/미측정은 '데이터필요' 원본 유지.
+                  if (m && m.real) {
+                    goldenMeasuredRealCount++;
+                    return scoreLeWordEntryKeyword(seed, m.searchVolume, m.documentCount);
+                  }
+                  return seed;
                 })
                 .sort((a: any, b: any) => (b.entryScore || 0) - (a.entryScore || 0));
             }
           } catch (e: any) {
-            console.warn('[SHOPPING-CONNECT] LEWORD 후보 진입판단 실패:', e?.message);
+            console.warn('[SHOPPING-CONNECT] 상품 골든 측정 실패:', e?.message);
           }
+        }
+
+        // v2.49.72: 실측 황금비 우선 + 판매성 보조로 상품 재랭킹 (저경쟁·고검색 상품이 위로).
+        //   실측이 하나도 없으면(네이버 키 없음) 모두 golden=0 → 판매성 순으로 우아하게 폴백.
+        recommended = rankByProductGolden(goldenPool, recommendationLimit);
+
+        // 쿠팡 딥링크는 최종 노출 상품에만 부착 (골든 탈락 상품에 Coupang API 낭비 방지)
+        await hydrateCoupangPartnerLinks(recommended);
+
+        // v2.49.72: 수익화 우선노출 — "저경쟁(골든)+수익화(쿠팡딥링크)" 상품을 최상단으로.
+        //   필터가 아니라 티어 정렬이라 결과가 절대 비지 않는다(세게 걸되 0건 방지).
+        //   Tier3: 저경쟁 AND 수익화 / Tier2: 둘 중 하나 / Tier1: 없음. 티어 내부는 골든 랭크 유지(안정 정렬).
+        const monetizeTier = (it: any): number => {
+          const winnable = (it.productGoldenScore || 0) >= 45; // 진입가능/검토
+          const monetizable = !!it.coupangMatchedName;         // 쿠팡 정확매칭 딥링크
+          if (winnable && monetizable) return 3;
+          if (winnable || monetizable) return 2;
+          return 0;
+        };
+        recommended = (recommended as any[]).slice().sort((a, b) => {
+          const t = monetizeTier(b) - monetizeTier(a);
+          if (t !== 0) return t;
+          return (b.productRankScore || 0) - (a.productRankScore || 0);
+        });
+
+        // 구매·사용 욕구 자극 문구 (규칙 기반, 비용 0) — 쇼츠·블로그 소재로 바로 사용
+        for (const item of recommended as any[]) {
+          item.purchaseAngles = buildPurchaseDesireAngles(item, item.discoveryQuery || keyword);
         }
 
         const topOpportunity = recommended[0] as any;
         const hotCount = recommended.filter((item: any) => (item.opportunityScore || 0) >= 75).length;
+        // v2.49.72: 골든(저경쟁·고검색)을 최상위 신호로 — 진입가능(≥70) 상품 개수/최적 구매어 요약
+        const goldenCount = recommended.filter((item: any) => (item.productGoldenScore || 0) >= 70).length;
+        // v2.49.72: 수익화 가시성 — 쿠팡 정확 매칭(딥링크로 커미션 가능) 상품 수
+        const monetizableCount = recommended.filter((item: any) => !!item.coupangMatchedName).length;
+        const topGolden = topOpportunity?.productGoldenScore || 0;
+        const topEntry = topOpportunity?.bestEntryKeyword || null;
+        const topEntrySummary = topEntry ? {
+          keyword: topEntry.keyword,
+          searchVolume: topEntry.searchVolume || 0,
+          documentCount: topEntry.documentCount || 0,
+          goldenRatio: topEntry.goldenRatio || 0,
+          verdict: topEntry.verdict || '데이터필요',
+        } : null;
         const opportunitySummary = topOpportunity ? {
           topScore: topOpportunity.opportunityScore || 0,
+          topGolden,                    // v2.49.72: 최상위 상품의 실측 골든 점수
+          goldenCount,                  // v2.49.72: 저경쟁 진입가능 상품 수
+          topEntryKeyword: topEntrySummary, // v2.49.72: 최상위 상품을 노릴 저경쟁 구매어(실측)
+          // v2.49.72: 실측 프로버넌스 — 검색광고 API 실측이 실제로 됐는지(추정/미측정 구분)
+          goldenMeasured: goldenMeasuredRealCount > 0,
+          goldenMeasuredRealCount,
+          goldenMeasurementAttempted,
+          monetizableCount,             // v2.49.72: 쿠팡 딥링크로 수익화 가능한 상품 수
+          partnersEnabled,
+          topMonetizable: !!topOpportunity?.coupangMatchedName,
           hotCount,
-          verdict: topOpportunity.opportunityScore >= 75
-            ? 'write-now'
-            : topOpportunity.opportunityScore >= 62
-              ? 'candidate'
-              : topOpportunity.opportunityScore >= 48
-                ? 'watch'
-                : 'weak',
-          title: topOpportunity.opportunityScore >= 75
-            ? '🔥 지금 작성 우선'
-            : topOpportunity.opportunityScore >= 62
-              ? '✅ 작성 후보'
-              : topOpportunity.opportunityScore >= 48
-                ? '🟡 검토 필요'
-                : '⚪ 전환 근거 약함',
-          reason: topOpportunity.writeRecommendation || '',
+          verdict: topGolden >= 70
+            ? 'golden'
+            : topGolden >= 45
+              ? 'golden-watch'
+              : topOpportunity.opportunityScore >= 75
+                ? 'write-now'
+                : topOpportunity.opportunityScore >= 62
+                  ? 'candidate'
+                  : topOpportunity.opportunityScore >= 48
+                    ? 'watch'
+                    : 'weak',
+          title: topGolden >= 70
+            ? '💎 저경쟁 진입가능 상품'
+            : topGolden >= 45
+              ? '💎 진입 검토 상품'
+              : topOpportunity.opportunityScore >= 75
+                ? '🔥 지금 작성 우선'
+                : topOpportunity.opportunityScore >= 62
+                  ? '✅ 작성 후보'
+                  : topOpportunity.opportunityScore >= 48
+                    ? '🟡 검토 필요'
+                    : '⚪ 전환 근거 약함',
+          reason: topEntrySummary
+            ? `"${topEntrySummary.keyword}" — 검색 ${topEntrySummary.searchVolume.toLocaleString()} · 블로그 문서 ${topEntrySummary.documentCount.toLocaleString()}${topEntrySummary.goldenRatio ? ` · 비율 ×${topEntrySummary.goldenRatio}` : ''} (${topEntrySummary.verdict})`
+            : (topOpportunity.writeRecommendation || ''),
           topProduct: topOpportunity.title || '',
           topReasons: topOpportunity.opportunityReasons || [],
           demandSignals: {
@@ -1297,6 +1379,63 @@ export function setupConfigUtilityHandlers(): void {
       }
     });
     console.log('[KEYWORD-MASTER] ✅ shopping-connect-search 핸들러 등록 완료');
+  }
+
+  // 🤖 쇼핑 커넥트 — 구매·사용 욕구 문구 AI 강화 (버튼 클릭 시에만, 비용 그때만)
+  //   규칙 문구를 시드로 주고 Claude가 더 자연스럽게 다듬는다.
+  //   키 미설정/AI 실패 시 규칙 문구를 그대로 돌려줘 항상 결과가 있게 한다.
+  if (!ipcMain.listenerCount('shopping-connect-ai-angle')) {
+    ipcMain.handle('shopping-connect-ai-angle', async (_event, payload: any) => {
+      try {
+        const product = payload?.product || {};
+        const keyword = String(payload?.keyword ?? '').trim();
+        const { buildPurchaseDesireAngles, buildAiAnglePrompt } = await import('../../utils/shopping-purchase-angle');
+        const ruleAngles = buildPurchaseDesireAngles(product, keyword);
+
+        const { callAI, RuleFallbackRequired, getAIMode } = await import('../../utils/pro-hunter-v12/ai-client');
+        const { hasClaudeKey } = await getAIMode();
+        if (!hasClaudeKey) {
+          return { success: false, needsKey: true, source: 'rule', angles: ruleAngles,
+            message: 'AI 키(ANTHROPIC_API_KEY) 미설정 — 환경설정에서 등록하면 AI 강화가 가능합니다. 지금은 규칙 문구를 유지합니다.' };
+        }
+
+        const prompt = buildAiAnglePrompt(product, keyword, ruleAngles);
+        try {
+          const { text, source } = await callAI(prompt, {
+            maxTokens: 512,
+            temperature: 0.8,
+            system: '너는 쇼츠·블로그 판매 카피라이터다. 과장/허위광고 없이 실제 상품 속성에 근거한 짧은 후킹 문구만 만든다.',
+          });
+          // JSON 배열 파싱 (앞뒤 잡텍스트 방어)
+          const match = text.match(/\[[\s\S]*\]/);
+          let aiAngles: Array<{ text: string; kind: string; basis: string }> = [];
+          if (match) {
+            try {
+              const parsed = JSON.parse(match[0]);
+              if (Array.isArray(parsed)) {
+                aiAngles = parsed
+                  .filter((a: any) => a && typeof a.text === 'string' && a.text.trim())
+                  .map((a: any) => ({ text: String(a.text).trim().slice(0, 40), kind: String(a.kind || '구매욕구'), basis: 'AI 생성' }))
+                  .slice(0, 3);
+              }
+            } catch { /* fall through to rule */ }
+          }
+          if (aiAngles.length === 0) {
+            return { success: false, source: 'rule', angles: ruleAngles, message: 'AI 응답 파싱 실패 — 규칙 문구 유지' };
+          }
+          return { success: true, source, angles: aiAngles };
+        } catch (err: any) {
+          if (err instanceof RuleFallbackRequired) {
+            return { success: false, source: 'rule', angles: ruleAngles, message: 'AI 사용 불가 — 규칙 문구 유지' };
+          }
+          throw err;
+        }
+      } catch (err: any) {
+        console.error('[SHOPPING-CONNECT] AI 앵글 오류:', err?.message ?? err);
+        return { success: false, source: 'rule', angles: [], error: err?.message ?? 'AI 앵글 생성 실패' };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ shopping-connect-ai-angle 핸들러 등록 완료');
   }
 
   // 🛒 쇼핑 커넥트 — 추천 키워드 (모달 열자마자 노출)

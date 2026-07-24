@@ -640,7 +640,8 @@ assert('noisy duplicate and non-discovery tool tabs are removed from Pro feature
     && html.includes("data-board-action=\"mindmap\""));
 
 assert('additional feature subtabs are limited to the requested keyword-discovery set',
-  html.includes("const toolTabFeatureIds = ['pro-traffic', 'naver-mate', 'shopping', 'kin']")
+  // v2.49.72: PRO 트래픽은 메뉴에서 숨김(황금키워드와 중복) — 기능 정의/라우트는 features 배열에 보존
+  html.includes("const toolTabFeatureIds = ['naver-mate', 'shopping', 'kin']")
     && html.includes("id: 'youtube'")
     && !html.includes("id: 'niche'")
     && !html.includes("id: 'golden-discovery'")

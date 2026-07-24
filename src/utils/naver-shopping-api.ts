@@ -40,6 +40,11 @@ export interface ShoppingItem {
   opportunityBadges?: string[];
   writeRecommendation?: string;
   contentAngles?: string[];
+  // v2.49.72: 실측 황금비를 상품 랭킹 1차 신호로 승격 (저경쟁+고검색 상품 우선)
+  productGoldenScore?: number;       // 이 상품의 최고 진입 후보 골든 점수 (실측 기반)
+  productRankScore?: number;         // 황금비 우선 + 판매성 보조 최종 정렬 점수
+  bestEntryKeyword?: ShoppingLeWordKeyword; // 이 상품을 노릴 최적 저경쟁 구매어 (실측)
+  purchaseAngles?: Array<{ text: string; kind: string; basis: string }>; // 구매·사용 욕구 자극 문구
   discoveryQuery?: string;
   discoverySource?: 'direct' | 'category-peer' | 'autocomplete-demand' | 'trend-seed' | 'auto-discovery';
   discoveryReason?: string;
@@ -813,6 +818,65 @@ export function scoreLeWordEntryKeyword(seed: ShoppingLeWordKeyword, searchVolum
     entryScore: score,
     verdict,
   };
+}
+
+/**
+ * v2.49.72: 실측된 진입 후보 키워드 중 "실제로 측정된" 것만 골라 최고 골든 점수를 반환.
+ * searchVolume/documentCount 가 붙은(=실측 완료) 후보만 인정 — 미측정(데이터필요) 제외.
+ */
+export function bestMeasuredEntryKeyword(item: ShoppingItem): ShoppingLeWordKeyword | null {
+  // 황금비(검색량÷문서수)는 둘 다 실측돼야 성립 — 하나라도 0/미측정이면 제외.
+  // 추정치/미측정을 "검색량 0"으로 노출하지 않기 위한 정확도 게이트.
+  const measured = (item.lewordEntryKeywords || []).filter(
+    (s) => Number(s.searchVolume || 0) > 0 && Number(s.documentCount || 0) > 0 && typeof s.entryScore === 'number'
+  );
+  if (measured.length === 0) return null;
+  return measured.slice().sort((a, b) => (b.entryScore || 0) - (a.entryScore || 0))[0];
+}
+
+/**
+ * 상품의 골든 점수 = 최고 실측 진입 후보의 entryScore (없으면 0).
+ * 저경쟁(문서수 적음) + 고검색(검색량 있음)일수록 높다.
+ */
+export function computeProductGoldenScore(item: ShoppingItem): number {
+  const best = bestMeasuredEntryKeyword(item);
+  return best ? Math.max(0, Math.min(100, best.entryScore || 0)) : 0;
+}
+
+/**
+ * 최종 상품 정렬 점수 — "황금비 우선 + 판매성 보조".
+ *   - 골든 점수(0~100)가 주도 (저경쟁+고검색 상품이 위로)
+ *   - 판매성(기회점수)은 0.3 가중으로 보조, 전환성은 0.1 로 미세 보정
+ *   → 골든이 비슷한 상품끼리는 "실제로 팔릴" 상품이 위로 온다.
+ */
+export function computeProductRankScore(item: ShoppingItem): number {
+  const golden = computeProductGoldenScore(item);
+  const sell = Math.min(100, Math.max(0, item.opportunityScore || 0));
+  const conv = Math.min(100, Math.max(0, item.conversionScore || 0));
+  return Math.round((golden + sell * 0.3 + conv * 0.1) * 10) / 10;
+}
+
+/**
+ * 상품 목록을 "황금비 우선 + 판매성 보조"로 재랭킹.
+ * 각 상품에 productGoldenScore/productRankScore/bestEntryKeyword 를 부착한 뒤 정렬한다.
+ * 실측 데이터가 전혀 없으면(네이버 키 없음 등) 모두 golden=0 → 판매성 순으로 우아하게 폴백.
+ */
+export function rankByProductGolden(items: ShoppingItem[], limit: number): ShoppingItem[] {
+  const safe = Array.isArray(items) ? items : [];
+  for (const item of safe) {
+    const best = bestMeasuredEntryKeyword(item);
+    item.productGoldenScore = computeProductGoldenScore(item);
+    item.productRankScore = computeProductRankScore(item);
+    if (best) item.bestEntryKeyword = best;
+  }
+  const ranked = safe.slice().sort((a, b) => {
+    const diff = (b.productRankScore || 0) - (a.productRankScore || 0);
+    if (diff !== 0) return diff;
+    const gd = (b.productGoldenScore || 0) - (a.productGoldenScore || 0);
+    if (gd !== 0) return gd;
+    return (a.lprice || 0) - (b.lprice || 0);
+  });
+  return limit > 0 ? ranked.slice(0, limit) : ranked;
 }
 
 export function attachShoppingOpportunityScore(

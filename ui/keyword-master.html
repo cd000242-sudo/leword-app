@@ -3962,7 +3962,9 @@
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 12px;">
 
           <!-- 🏆 PRO 트래픽 폭발 키워드 헌터 -->
+          <!-- v2.49.72 메뉴에서 숨김: 황금키워드와 목적 중복(사용자 요청). 코드는 보존 — 되돌리려면 아래 style 의 'display:none;' 만 삭제 -->
           <button onclick="openProTrafficModal()" style="
+            display: none;
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
             border: none;
             border-radius: 16px;
@@ -15291,6 +15293,11 @@
                     <input type="checkbox" id="scExcludeSmartStore" style="accent-color:#fb7185;" />
                     <span>🚫 개인 스마트스토어 제외</span>
                   </label>
+                  <span style="color:rgba(255,255,255,0.35);">|</span>
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;" title="쿠팡 딥링크로 커미션 가능한 상품만 — 너무 적으면 자동으로 전체 표시">
+                    <input type="checkbox" id="scMonetizableOnly" style="accent-color:#ff8a65;" onchange="if(window.__scLastResult){runShoppingConnect(false);}" />
+                    <span>💰 수익화 가능만</span>
+                  </label>
                 </div>
                 <div id="scCompareBar" style="display:none;position:sticky;top:0;z-index:10;background:linear-gradient(135deg,#064e3b,#065f46);border:1px solid #10b981;border-radius:12px;padding:12px 16px;margin-bottom:14px;align-items:center;gap:12px;">
                   <span style="font-size:13px;color:white;font-weight:700;">📋 <span class="sc-cmp-count" style="color:#34d399;">0</span>개 선택됨</span>
@@ -15532,7 +15539,18 @@
             window.__scPaging.hasMore = !!res.hasMore;
 
             let items = filter(window.__scPaging.items);
-            const reco = filter(res.recommended);
+            let reco = filter(res.recommended);
+            // v2.49.72: 💰 수익화 가능만 — 쿠팡 딥링크 매칭 상품만. 단 3개 미만이면 전체 유지(0건 방지).
+            const monetizableOnly = !!document.getElementById('scMonetizableOnly')?.checked;
+            let scMonetizeNote = '';
+            if (monetizableOnly) {
+              const onlyMon = reco.filter(it => it.coupangMatchedName);
+              if (onlyMon.length >= 3) {
+                reco = onlyMon;
+              } else {
+                scMonetizeNote = `💰 수익화 가능 상품이 ${onlyMon.length}개뿐이라 안전하게 전체 추천을 표시합니다`;
+              }
+            }
 
             // 전환 점수순 정렬 (UI 옵션)
             if (sort === 'conv') {
@@ -15599,6 +15617,15 @@
                 level = 'bad';
                 title = '🛑 추세 사망 — 비추천';
                 reason = '최근 30일 검색량이 사실상 0 — 글 작성해도 유입 거의 없음';
+              } else if (opp && opp.verdict === 'golden') {
+                // v2.49.72: 실측 저경쟁·고검색이 최우선 신호
+                level = 'good';
+                title = opp.title || '💎 저경쟁 진입가능 상품';
+                reason = `${opp.goldenCount || 0}개 상품이 저경쟁·고검색 진입 가능${opp.monetizableCount ? ` · 💰 ${opp.monetizableCount}개 쿠팡 수익화 가능` : ''}${opp.reason ? ` · 최적: ${opp.reason}` : ''}`;
+              } else if (opp && opp.verdict === 'golden-watch') {
+                level = 'good';
+                title = opp.title || '💎 진입 검토 상품';
+                reason = `${opp.reason || '진입 검토 가능한 저경쟁 구매어가 있습니다.'}${opp.monetizableCount ? ` · 💰 ${opp.monetizableCount}개 쿠팡 수익화 가능` : ''}`;
               } else if (opp && opp.verdict === 'write-now') {
                 level = 'good';
                 title = opp.title || '🔥 지금 작성 우선';
@@ -15652,6 +15679,16 @@
                 level = 'warn';
                 title = '🟡 보통';
                 reason = `추천 ${recoLen}개 — 가능하지만 더 좋은 키워드도 검토해보세요`;
+              }
+
+              // v2.49.72: 실측 프로버넌스 — 추정/미측정을 숨기지 않고 정직하게 표시.
+              //   경고는 "키 없음"으로 단정하지 않는다(초저검색 키워드/쿼터/Customer ID 등 원인 다양).
+              if (opp) {
+                if (opp.goldenMeasurementAttempted && !opp.goldenMeasured) {
+                  reason += ' · ⚠️ 이번 후보는 실측 검색량이 안 잡혔습니다(검색광고 키·Customer ID·쿼터 또는 초저검색 키워드) — 지금 순위는 판매성 기준';
+                } else if (!opp.goldenMeasurementAttempted) {
+                  reason += ' · ⚠️ 네이버 OpenAPI 미설정 — 실측 저경쟁 판정 꺼짐';
+                }
               }
 
               const palette = level === 'good'
@@ -15835,8 +15872,8 @@
               const partnersBadge = res.partnersEnabled
                 ? `<span style="margin-left:8px;padding:3px 8px;background:rgba(255,87,34,0.25);color:#ff8a65;border-radius:6px;font-size:10px;font-weight:700;">🛒 쿠팡파트너스${matchCount > 0 ? ` · 정확 매칭 ${matchCount}건` : ''}</span>`
                 : '<span style="margin-left:8px;padding:3px 8px;background:rgba(251,146,60,0.18);color:#fb923c;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;" onclick="closeShoppingConnectModal();openSettings();">⚠️ 쿠팡 파트너스 키 없음 — 클릭해 등록</span>';
-              const banner = `🔥 <b>작성 우선 상품 ${reco.length}개</b> — 수요·상승성·구매의도·전환성을 함께 본 추천입니다${partnersBadge}`;
-              html += `<div class="sc-reco-banner" style="margin-bottom:14px;">${banner}</div><div class="sc-grid" style="margin-bottom:24px;">${reco.map(renderShoppingCard).join('')}</div>`;
+              const banner = `💎 <b>발굴 상품 ${reco.length}개</b> — 실측 저경쟁·고검색 우선 + 💰 수익화 가능 상품을 위로${partnersBadge}`;
+              html += `<div class="sc-reco-banner" style="margin-bottom:14px;">${banner}${scMonetizeNote ? `<div style="margin-top:6px;font-size:11px;color:#fb923c;">${scMonetizeNote}</div>` : ''}</div><div class="sc-grid" style="margin-bottom:24px;">${reco.map(renderShoppingCard).join('')}</div>`;
             }
 
             html += `<div style="font-size:13px;color:rgba(255,255,255,0.6);margin:24px 0 10px;font-weight:700;">📋 전체 검색 결과 ${items.length}개</div>`;
@@ -16108,7 +16145,11 @@
                 oppBd.penalty < 0 ? `감점 ${oppBd.penalty}` : null,
               ].filter(Boolean).join(' · ')
             : tooltip;
-          const scoreBadge = typeof oppScore === 'number' && oppScore > 0
+          // v2.49.72: 상단 배지 최우선 = 실측 황금비(저경쟁·고검색). 없으면 기회점수/전환점수로 폴백.
+          const golden = typeof item.productGoldenScore === 'number' ? item.productGoldenScore : 0;
+          const scoreBadge = golden >= 45
+            ? `<span title="실측 저경쟁·고검색 골든 점수 (검색량÷블로그 문서수)" style="position:absolute;top:8px;right:8px;padding:3px 8px;background:${golden >= 70 ? 'rgba(16,185,129,0.95)' : 'rgba(251,191,36,0.9)'};color:white;border-radius:6px;font-size:10px;font-weight:800;cursor:help;">💎 ${golden >= 70 ? '진입가능' : '검토'} ${golden}</span>`
+            : typeof oppScore === 'number' && oppScore > 0
             ? `<span title="${esc(oppTooltip)}" style="position:absolute;top:8px;right:8px;padding:3px 8px;background:${oppScore >= 75 ? 'rgba(239,68,68,0.9)' : oppScore >= 62 ? 'rgba(52,211,153,0.88)' : 'rgba(251,191,36,0.88)'};color:white;border-radius:6px;font-size:10px;font-weight:800;cursor:help;">🔥 작성 ${oppScore}점</span>`
             : typeof score === 'number' && score > 0
             ? `<span title="${tooltip.replace(/"/g, '&quot;')}" style="position:absolute;top:8px;right:8px;padding:3px 8px;background:rgba(52,211,153,0.85);color:white;border-radius:6px;font-size:10px;font-weight:700;cursor:help;">🎯 ${score}점</span>`
@@ -16135,9 +16176,6 @@
                 <b style="color:#fbbf24;">작성 판단</b> ${esc(item.writeRecommendation)}
                 ${oppReasons.length ? `<div style="margin-top:4px;color:rgba(255,255,255,0.55);">근거: ${oppReasons.slice(0, 2).map(esc).join(' · ')}</div>` : ''}
               </div>`
-            : '';
-          const angleHtml = Array.isArray(item.contentAngles) && item.contentAngles.length > 0
-            ? `<div style="margin-top:4px;font-size:10px;color:#93c5fd;line-height:1.35;">✍️ ${esc(item.contentAngles[0])}</div>`
             : '';
           const sourceLabelMap = {
             direct: '직접검색',
@@ -16192,9 +16230,45 @@
               </div>`
             : '';
 
+          // v2.49.72: 🎯 이 상품 노릴 저경쟁 구매어 (실측 검색량·문서수) — 헤드라인 블록
+          const bestEntry = item.bestEntryKeyword && (item.bestEntryKeyword.searchVolume || item.bestEntryKeyword.documentCount)
+            ? item.bestEntryKeyword : null;
+          const goldenHeadlineHtml = bestEntry
+            ? `<div style="margin-top:6px;padding:9px 10px;background:rgba(16,185,129,0.09);border:1px solid rgba(16,185,129,0.3);border-radius:9px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
+                  <b style="color:#6ee7b7;font-size:11px;">🎯 이 상품 노릴 키워드</b>
+                  <span style="padding:2px 7px;border-radius:6px;background:${(verdictColor[bestEntry.verdict] || '#94a3b8')}22;color:${verdictColor[bestEntry.verdict] || '#94a3b8'};font-size:9.5px;font-weight:800;white-space:nowrap;">${esc(bestEntry.verdict || '데이터필요')}</span>
+                </div>
+                <button onclick="event.stopPropagation(); searchKeyword('${js(bestEntry.keyword)}', true);" title="LEWORD 분석" style="background:transparent;border:none;color:#eafff5;font-size:13px;font-weight:800;text-align:left;cursor:pointer;padding:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(bestEntry.keyword)}</button>
+                <div style="margin-top:3px;color:rgba(255,255,255,0.62);font-size:10px;">검색량 <b style="color:#a7f3d0;">${Number(bestEntry.searchVolume || 0).toLocaleString()}</b> · 블로그 문서 <b style="color:#a7f3d0;">${Number(bestEntry.documentCount || 0).toLocaleString()}</b>${bestEntry.goldenRatio ? ` · 비율 <b style="color:#a7f3d0;">×${bestEntry.goldenRatio}</b>` : ''}</div>
+              </div>`
+            : '';
+
+          // v2.49.72: 💬 구매·사용 욕구 자극 문구 + AI 강화 버튼 (버튼 클릭 시에만 Claude 호출)
+          const angleKindColor = { '구매욕구': '#fca5a5', '사용욕구': '#93c5fd', '신뢰': '#fbbf24' };
+          const purchaseAngles = Array.isArray(item.purchaseAngles) ? item.purchaseAngles : [];
+          const purchaseAnglesHtml = purchaseAngles.length
+            ? `<div class="sc-angles" data-pid="${esc(item.productId)}" style="margin-top:6px;padding:8px 9px;background:rgba(168,85,247,0.07);border:1px solid rgba(168,85,247,0.2);border-radius:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                  <b style="color:#c4b5fd;font-size:10.5px;">💬 구매·사용 욕구 자극 문구</b>
+                  <button onclick="event.stopPropagation(); scEnhanceAngle('${js(item.productId)}', this);" title="Claude로 더 자연스럽게 다듬기" style="padding:2px 8px;border-radius:6px;border:1px solid rgba(168,85,247,0.4);background:rgba(168,85,247,0.15);color:#c4b5fd;font-size:9.5px;font-weight:700;cursor:pointer;white-space:nowrap;">✨ AI로 강화</button>
+                </div>
+                <div class="sc-angle-list" style="display:flex;flex-direction:column;gap:4px;">
+                  ${purchaseAngles.map(a => `<div style="display:flex;gap:6px;align-items:flex-start;font-size:10.5px;line-height:1.4;">
+                    <span style="flex-shrink:0;padding:1px 5px;border-radius:4px;background:${(angleKindColor[a.kind] || '#94a3b8')}22;color:${angleKindColor[a.kind] || '#94a3b8'};font-size:9px;font-weight:800;">${esc(a.kind)}</span>
+                    <span style="color:rgba(255,255,255,0.85);">${esc(a.text)}</span>
+                  </div>`).join('')}
+                </div>
+              </div>`
+            : '';
+
           const isCoupang = /쿠팡|coupang/i.test(mall);
           const coupangBadge = isCoupang ? '<span style="padding:2px 7px;background:#ff5722;color:white;border-radius:5px;font-size:9px;font-weight:700;margin-right:4px;">쿠팡</span>' : '';
           const brandBadge = item.brand ? `<span style="padding:2px 6px;background:rgba(251,191,36,0.2);color:#fbbf24;border-radius:5px;font-size:9px;">${item.brand}</span>` : '';
+          // v2.49.72: 수익화 신호 — 쿠팡 정확 매칭(딥링크 커미션 가능)이면 표시
+          const monetizableBadge = item.coupangMatchedName
+            ? `<span title="쿠팡 정확 매칭 — 파트너스 딥링크로 커미션 가능${item.coupangMatchedPrice ? ` (${Number(item.coupangMatchedPrice).toLocaleString()}원)` : ''}" style="padding:2px 7px;background:rgba(255,87,34,0.18);color:#ff8a65;border:1px solid rgba(255,87,34,0.4);border-radius:6px;font-size:9px;font-weight:800;">💰 쿠팡 수익화</span>`
+            : '';
 
           const selectBtnStyle = isSelected
             ? 'background:rgba(52,211,153,0.2);color:#34d399;'
@@ -16213,12 +16287,14 @@
               <div class="sc-meta">
                 <span class="sc-mall">${coupangBadge}${mall}</span>
                 ${brandBadge}
+                ${monetizableBadge}
               </div>
               ${reasonBadge}
+              ${goldenHeadlineHtml}
+              ${purchaseAnglesHtml}
               ${oppBadgeHtml}
               ${writeReasonHtml}
               ${lewordHtml}
-              ${angleHtml}
               ${cat ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);">${cat}</div>` : ''}
               <div class="sc-btns">
                 <button class="sc-mini-btn sc-mini-btn-primary" onclick="window.electronAPI?.invoke('open-external-url', '${safeLink}');">🔗 네이버</button>
@@ -16230,6 +16306,47 @@
               </div>
             </div>
           `;
+        }
+
+        // v2.49.72: 구매·사용 욕구 문구 AI 강화 — 버튼 클릭 시에만 Claude 호출(비용 그때만).
+        //   키 미설정/실패 시 규칙 문구를 그대로 유지한다.
+        async function scEnhanceAngle(productId, btn) {
+          try {
+            const res = window.__scLastResult || {};
+            const pool = [...(res.recommended || []), ...(res.items || [])];
+            const item = pool.find(p => String(p.productId) === String(productId));
+            if (!item) return;
+            const box = btn.closest('.sc-angles');
+            const list = box ? box.querySelector('.sc-angle-list') : null;
+            const originalLabel = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⏳ 생성 중…';
+            const product = {
+              title: item.title, cleanTitle: item.cleanTitle, simplifiedTitle: item.simplifiedTitle,
+              brand: item.brand, maker: item.maker,
+              category1: item.category1, category2: item.category2, category3: item.category3,
+              lprice: item.lprice, reviewCount: item.reviewCount, rating: item.rating,
+            };
+            const keyword = item.discoveryQuery || res.keyword || '';
+            const r = await window.electronAPI.invoke('shopping-connect-ai-angle', { product, keyword });
+            const escA = (v) => String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const kindColor = { '구매욕구': '#fca5a5', '사용욕구': '#93c5fd', '신뢰': '#fbbf24' };
+            if (r && Array.isArray(r.angles) && r.angles.length && list) {
+              item.purchaseAngles = r.angles; // 다음 렌더에도 유지
+              list.innerHTML = r.angles.map(a => `<div style="display:flex;gap:6px;align-items:flex-start;font-size:10.5px;line-height:1.4;">
+                <span style="flex-shrink:0;padding:1px 5px;border-radius:4px;background:${(kindColor[a.kind] || '#94a3b8')}22;color:${kindColor[a.kind] || '#94a3b8'};font-size:9px;font-weight:800;">${escA(a.kind)}</span>
+                <span style="color:rgba(255,255,255,0.9);">${escA(a.text)}</span>
+              </div>`).join('') + (r.success ? `<div style="margin-top:3px;color:#c4b5fd;font-size:9px;">✨ AI(Claude) 생성</div>` : (r.message ? `<div style="margin-top:3px;color:rgba(255,255,255,0.45);font-size:9px;">${escA(r.message)}</div>` : ''));
+            } else if (r && r.message) {
+              alert(r.message);
+            }
+            btn.disabled = false;
+            btn.textContent = (r && r.success) ? '✅ AI 완료' : originalLabel;
+          } catch (e) {
+            btn.disabled = false;
+            btn.textContent = '✨ AI로 강화';
+            console.warn('[shopping-connect] AI 앵글 실패:', e);
+          }
         }
 
         // ========================================

@@ -17,6 +17,7 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'sanity-gate.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'sanity-environment-isolation.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'shopping-opportunity.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'shopping-purchase-angle.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'policy-briefing.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'updater-autostart-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'browser-process-regression.test.ts'),

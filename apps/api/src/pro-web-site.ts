@@ -2294,7 +2294,7 @@ export function renderLewordProWeb(): string {
     let liveGoldenReviewSession = null;
     let liveGoldenReviewPacket = null;
     let pcCatalog = null;
-    let selectedToolId = 'pro-traffic';
+    let selectedToolId = 'naver-mate'; // v2.49.72 PRO 트래픽 메뉴 숨김 → 기본 선택을 네이버 메이트로
     let selectedToolGroupId = 'keyword';
     let lastKeywordResult = null;
     let activeViewId = 'golden';
@@ -2313,7 +2313,9 @@ export function renderLewordProWeb(): string {
     const analyticsSessionStorageKey = 'leword.analytics.session.v1';
     const analyticsExcludeStorageKey = 'leword.analytics.exclude.v1';
     let recentLoginCredentialValues = [];
-    const toolTabFeatureIds = ['pro-traffic', 'naver-mate', 'shopping', 'kin'];
+    // v2.49.72: PRO 트래픽은 황금키워드와 목적 중복 → 메뉴에서 숨김(기능 정의/라우트는 features 배열에 보존).
+    //   되돌리려면 아래 배열 맨 앞에 'pro-traffic' 을 다시 추가.
+    const toolTabFeatureIds = ['naver-mate', 'shopping', 'kin'];
     const viewIds = ['golden', 'lookup', 'features', 'youtube', 'settings', 'downloads', 'commerce'];
     let pendingViewAfterLogin = null;
     const catalogTabs = [

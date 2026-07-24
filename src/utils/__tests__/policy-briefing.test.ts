@@ -43,6 +43,24 @@ assert('정책 키워드는 조회·기간·서류형 의도를 보존',
   compactPolicyKeywordPhrase('청년 월세 지원금 신청 기간과 준비서류를 확인하세요') === '청년 월세 지원금 신청',
   compactPolicyKeywordPhrase('청년 월세 지원금 신청 기간과 준비서류를 확인하세요'));
 
+// v2.49.72 회귀: korea.kr RSS 중단(404) → HTML 스크래핑 잔재가 "등 …" 조각/문장으로 새던 결함
+{
+  const cut = compactPolicyKeywordPhrase('등 피해에 대한 재난지원금 지급');
+  assert('앞머리 "등" 조각 + "○○에 대한" 수식절 제거',
+    !cut.startsWith('등') && !/피해에 대한/.test(cut) && /재난지원금/.test(cut),
+    cut);
+}
+assert('앞머리 연결어 "및" 제거',
+  !compactPolicyKeywordPhrase('및 소상공인 지원 대상').startsWith('및'),
+  compactPolicyKeywordPhrase('및 소상공인 지원 대상'));
+assert('"누구나" 포함 기사 헤드라인은 키워드에서 배제',
+  compactPolicyKeywordPhrase('학생은 누구나 사전신청') === '',
+  compactPolicyKeywordPhrase('학생은 누구나 사전신청'));
+assert('정상 정책 키워드는 그대로 보존(과교정 방지)',
+  compactPolicyKeywordPhrase('청년 월세 지원금 신청') === '청년 월세 지원금 신청'
+    && compactPolicyKeywordPhrase('소상공인 정책자금 신청') === '소상공인 정책자금 신청',
+  `${compactPolicyKeywordPhrase('청년 월세 지원금 신청')} / ${compactPolicyKeywordPhrase('소상공인 정책자금 신청')}`);
+
 assert('지원금 fallback은 빈 소스 상황에서도 30개 이상 제공',
   getPolicyFallbackKeywords(36).length >= 36,
   `${getPolicyFallbackKeywords(36).length}`);

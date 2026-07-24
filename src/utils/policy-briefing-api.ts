@@ -78,7 +78,7 @@ const POLICY_DISCOVERY_INTENTS = [
 
 const POLICY_GENERIC_SINGLE_TOKEN_RE = /^(지원금|보조금|수당|급여|바우처|쿠폰|환급|장려금|대출|융자|감면|공제|신청|지급|대상|자격|조건|조회|기간|마감|서류|청년|소상공인|복지|주거|육아|출산|의료|교육|창업|민생)$/;
 const POLICY_ACTIONABLE_INTENT_RE = /(신청|대상|자격|조건|기간|준비서류|서류|조회|지급일|금액|마감|온라인|방법|변경사항|사용처|사용|접수|모집|수급자격)/;
-const POLICY_LOW_VALUE_SENTENCE_RE = /(어디에|무엇|누가|왜|어떻게|계신가요|인가요|할까요|했나요|하세요|알려주세요|드립니다|앞당기고)/;
+const POLICY_LOW_VALUE_SENTENCE_RE = /(어디에|무엇|누가|누구나|왜|어떻게|계신가요|인가요|할까요|했나요|하세요|알려주세요|드립니다|앞당기고)/;
 const POLICY_LOW_VALUE_NEWS_RE = /(이란|호르무즈|전쟁|공습|봉쇄|재봉쇄|위기|핵|미사일|사망|별세|투병|혐의|조사|구속|체포|파업)/;
 const POLICY_LOW_VALUE_FRAGMENT_RE = /(원가정\s*복귀|일시보호기간|인구감소지역\s*소상공인|소상공인과\s*인구감소지역|사랑을\s*처방해|광복절\s*대체공휴일\s*신청)/;
 
@@ -147,6 +147,11 @@ export function compactPolicyDisplayTitle(title: string, fallbackKeyword: string
 function normalizeKeywordPhrase(text: string): string {
   return cleanText(text)
     .replace(/^(차관동정|장관동정|보도자료|설명자료|참고자료)\s*/g, '')
+    // v2.49.72: 기사 제목 스크래핑 잔재 정리 —
+    //   앞머리 연결어("○○ 등 피해에…"의 '등')와 "○○에 대한/따른/관한" 수식절을 제거해
+    //   "등 피해에 대한 재난지원금 지급" → "재난지원금 지급" 처럼 실검색 가능한 키워드로 만든다.
+    .replace(/^(등|및|과|와|또는|그리고|등의|또한|이런|해당)\s+/, '')
+    .replace(/^[가-힣]{1,12}에\s*(대한|따른|관한)\s+/, '')
     .replace(/\b\d{1,2}일부터\s*/g, '')
     .replace(/\b\d{1,2}월\s*\d{1,2}일부터\s*/g, '')
     .replace(/\b\d{4}년\s*/g, '')

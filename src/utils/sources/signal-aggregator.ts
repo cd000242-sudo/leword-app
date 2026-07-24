@@ -23,6 +23,7 @@ import { fetchOliveyoungBest, extractOliveyoungKeywords } from './oliveyoung-ran
 import { fetchMusinsaRanking, extractMusinsaKeywords } from './musinsa-ranking';
 // v2.43.37: "30+ 소스" 거짓 fix — 실제 미호출이던 8개 collector 추가
 import { getBigkindsSeedKeywords } from './bigkinds-wrapper';
+import { getGoogleTrendsKrKeywords } from './google-trends-kr-collector';
 import { getInvenKeywords } from './inven-collector';
 import { getNatepannKeywords } from './natepann-collector';
 import { getFmkoreaKeywords } from './fmkorea-collector';
@@ -196,6 +197,9 @@ export async function pullAllSeedKeywords(options: { lite?: boolean } = {}): Pro
 
     // v2.43.37: 미호출이던 8개 커뮤니티/뉴스 source 추가 (실제 30+ 달성)
     const COMMUNITY_COLLECTORS: Array<{ name: string; ttl: number; fn: () => Promise<Array<{ keyword: string; frequency?: number }>> }> = [
+        // v2.49.72: 구글 트렌드 KR — 실검 폐지 이후 "지금 뜨는 검색어"를 얻는 살아있는 공개 소스
+        //   (korea.kr 등 정부 RSS 는 전부 404 로 사망). <item><title> 이 곧 검색어.
+        { name: 'google-trends-kr', ttl: TTL.HOURLY, fn: getGoogleTrendsKrKeywords },
         { name: 'bigkinds',   ttl: TTL.HOURLY, fn: async () => (await getBigkindsSeedKeywords()).map(k => ({ keyword: k })) },
         { name: 'inven',      ttl: TTL.HOURLY, fn: getInvenKeywords },
         { name: 'natepann',   ttl: TTL.HOURLY, fn: getNatepannKeywords },
