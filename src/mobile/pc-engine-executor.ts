@@ -3143,6 +3143,24 @@ function prioritizeNaverMateUtilityMeasuredMetrics(
     .slice(0, targetCount);
 }
 
+// v2.49.72: 어순 순열("청주시의원 최영중"/"최영중 청주시의원") 1칸 수렴 + 네이버 유래 우선.
+//   네이버 메이트의 정체성 = 자동완성·연관어(실제 네이버 수요)가 먼저, 이슈/컨텍스트 유래는 뒤.
+function isNaverOriginMateMetric(metric: MobileKeywordMetric): boolean {
+  const text = [metric.source, ...(metric.evidence || [])].join(' ');
+  return /(autocomplete|relkwd|related)/i.test(text);
+}
+function dedupeMatePermutations(metrics: MobileKeywordMetric[]): MobileKeywordMetric[] {
+  const seenCharMultiset = new Set<string>();
+  const out: MobileKeywordMetric[] = [];
+  for (const metric of metrics) {
+    const key = compactKeyword(metric.keyword);
+    const charKey = key.length >= 6 ? [...key].sort().join('') : key;
+    if (charKey && seenCharMultiset.has(charKey)) continue;
+    if (charKey) seenCharMultiset.add(charKey);
+    out.push(metric);
+  }
+  return out;
+}
 function prioritizeNaverMateMeasuredMetrics(
   metrics: MobileKeywordMetric[],
   targetCount: number,
@@ -3155,7 +3173,13 @@ function prioritizeNaverMateMeasuredMetrics(
   }).filter(isNaverMateDisplayQualityMetric);
   const utility = prioritizeNaverMateUtilityMeasuredMetrics(metrics, targetCount, maxDocumentCount);
   const recovered = recoverNaverMateMeasuredMetrics(metrics, targetCount);
-  return mergePrioritizedKeywordMetrics([strict, utility, recovered], targetCount);
+  const merged = mergePrioritizedKeywordMetrics([strict, utility, recovered], targetCount * 2);
+  // 네이버 유래(자동완성·연관어) 먼저, 그 안에서 기존 순위 유지 → 순열 중복 수렴 → 상한.
+  const naverFirst = [
+    ...merged.filter(isNaverOriginMateMetric),
+    ...merged.filter((metric) => !isNaverOriginMateMetric(metric)),
+  ];
+  return dedupeMatePermutations(naverFirst).slice(0, targetCount);
 }
 
 function keywordAlreadyHasIntentSuffix(keyword: string, intent: string): boolean {

@@ -5417,10 +5417,29 @@ export function renderLewordProWeb(): string {
       }
       return naturalMindmapTailBranches(seed, keyword, 6);
     }
+    // v2.49.72: 실데이터 우선 칩 — 결과셋에 실제로 잡힌(자동완성·연관어 유래·실측) 자식 행을
+    // 1순위로 쓰고, 템플릿 조합은 부족할 때만 채움. "이유/방법/비교" 뻔한 조합 도배 해소.
+    let currentMindmapAllRows = [];
+    function realChildBranchesFromRows(rowKeyword, limit) {
+      const baseKey = compactKeywordText(rowKeyword);
+      if (!baseKey || baseKey.length < 2) return [];
+      const out = [];
+      for (let i = 0; i < currentMindmapAllRows.length; i++) {
+        const sibling = normalizeText(currentMindmapAllRows[i] && currentMindmapAllRows[i].keyword || '');
+        if (!sibling) continue;
+        const siblingKey = compactKeywordText(sibling);
+        if (!siblingKey || siblingKey === baseKey) continue;
+        if (siblingKey.indexOf(baseKey) < 0) continue; // 진짜 자식(원 키워드를 포함하는 롱테일)만
+        out.push(sibling);
+        if (out.length >= (limit || 4)) break;
+      }
+      return out;
+    }
     function mindmapExpansionBranches(seed, row) {
       const keyword = normalizeText(row && row.keyword || seed);
       const guide = keywordIntentGuide(row || { keyword: keyword });
       return uniqueIntentBranches([].concat(
+        realChildBranchesFromRows(keyword, 4),
         naverAutocompleteLikeBranches(keyword),
         guide && guide.branches ? guide.branches : [],
         naturalMindmapTailBranches(seed, keyword, 8),
@@ -5533,10 +5552,18 @@ export function renderLewordProWeb(): string {
         return Number(b && b.totalSearchVolume || 0) - Number(a && a.totalSearchVolume || 0);
       }).slice(0, 40);
       const measured = rows.filter(hasMeasuredKeywordMetrics).length;
+      // v2.49.72: 칩의 실데이터 소스 — 이 결과셋 전체(실측 자동완성·연관어 확장 행)
+      currentMindmapAllRows = rows;
       const questionRows = rows.filter(function(row) {
         return mindmapIssueLongtailBranches(seedLabel, row).length > 0;
       }).slice(0, 20);
-      const expansionRows = rows.slice(0, 30);
+      // v2.49.72: 두 섹션에 같은 행이 중복 표시되던 결함 — 의문형 섹션에 이미 나온 행은
+      // 확장 섹션에서 제외해 각 행이 한 번만 보이게 한다.
+      const questionKeySet = {};
+      questionRows.forEach(function(row) { questionKeySet[compactKeywordText(row && row.keyword || '')] = true; });
+      const expansionRows = rows.filter(function(row) {
+        return !questionKeySet[compactKeywordText(row && row.keyword || '')];
+      }).slice(0, 30);
       target.hidden = false;
       target.innerHTML = '<h3>마인드맵 확장</h3>'
         + '<p>원 키워드에서 실제 글감으로 이어지는 후속 의문형, 이슈 롱테일, 자동완성 확장을 분리했습니다. 검색량/문서수/경쟁비는 실측된 값만 숫자로 표시합니다.</p>'

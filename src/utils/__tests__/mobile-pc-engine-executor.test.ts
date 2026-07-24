@@ -1575,7 +1575,8 @@ function runFallbackRegressionGuards(): void {
       && source.includes("docs <= 8000 && total >= 50 && ratio >= 3 && metric.grade === 'SSS'")
       && source.includes('maxDocumentCount = 8000')
       && source.includes("return metric.grade === 'SSS'")
-      && source.includes('mergePrioritizedKeywordMetrics([strict, utility, recovered], targetCount)')
+      && source.includes('mergePrioritizedKeywordMetrics([strict, utility, recovered], targetCount * 2)')
+      && source.includes('dedupeMatePermutations(naverFirst).slice(0, targetCount)')
       && source.includes('pc-naver-mate-live-source-fallback')
       && source.includes('Naver Mate measured pool low')
       && source.includes("key === compactKeyword('\\uC790\\uB3D9 \\uBC1C\\uAD74')"),
