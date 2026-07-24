@@ -354,7 +354,9 @@ const LIVE_STARTUP_CATCH_UP_ATTEMPT_MAX = 24;
 // A large persistent queue is a canary, not the discovery engine. Reserve most
 // of the fixed per-run ceiling for unseen category-deficit candidates so old
 // misses cannot starve supply recovery indefinitely.
-const LIVE_PROBE_QUEUE_MEASUREMENT_BUDGET_PER_RUN = 12;
+// v2.49.72: 12 → 24. 실측 프로덕션에서 큐 1,000+ 적체 시 12/run 으론 이틀 넘게 걸려
+// 보드가 69/240 에 정체했다. SearchAd 쿼터는 4계정 8.4만/일 여유 — 병목은 예산이었다.
+const LIVE_PROBE_QUEUE_MEASUREMENT_BUDGET_PER_RUN = 24;
 const LIVE_HEAVY_DIRECT_MIN_REMAINING_BUDGET = 12;
 const LIVE_PROBE_QUEUE_FILE_NAME = 'live-golden-probe-queue.json';
 const LIVE_PROBE_QUEUE_MAX_ITEMS = 5000;

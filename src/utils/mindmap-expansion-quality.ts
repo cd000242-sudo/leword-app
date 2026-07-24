@@ -169,6 +169,10 @@ export function rankMindmapExpansionCandidates(
 ): RankedRelatedKeyword[] {
   const safeLimit = Math.max(1, Math.floor(Number(limit) || 1));
   const seen = new Set<string>();
+  // v2.49.72: 어순 순열 중복 제거 — "청주시의원 최영중"/"최영중 청주시의원"/"청주 최영중 시의원"은
+  // 같은 검색의도의 순열이라 한 칸만 차지해야 한다(문자 멀티셋 키). 확장 목록이 순열로 도배되면
+  // 실데이터(자동완성·연관어)의 다른 가지가 밀려나 마인드맵이 빈약해진다.
+  const seenCharMultiset = new Set<string>();
   const normalized: MindmapExpansionCandidate[] = [];
 
   for (const candidate of candidates || []) {
@@ -177,7 +181,10 @@ export function rankMindmapExpansionCandidates(
     if (!keyword || !key || seen.has(key)) continue;
     if (!isMindmapExpansionKeywordCandidate(keyword)) continue;
     if (hasDuplicatedIntentChain(seed, keyword)) continue;
+    const charKey = key.length >= 6 ? [...key].sort().join('') : '';
+    if (charKey && seenCharMultiset.has(charKey)) continue;
     seen.add(key);
+    if (charKey) seenCharMultiset.add(charKey);
     normalized.push({ ...candidate, keyword });
   }
 

@@ -717,7 +717,7 @@ assert('live golden board display is SSS-first with trusted publishable fallback
   'LIVE board display must keep SSS first but fill paid boards only with trusted measured publishable rows');
 assert('live golden heavy discovery cannot outlive a cycle or spend an unbounded SearchAd budget',
   /const LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN = 40/.test(liveGoldenRadar)
-    && /const LIVE_PROBE_QUEUE_MEASUREMENT_BUDGET_PER_RUN = 12/.test(liveGoldenRadar)
+    && /const LIVE_PROBE_QUEUE_MEASUREMENT_BUDGET_PER_RUN = 24/.test(liveGoldenRadar)
     && /const LIVE_HEAVY_DIRECT_MIN_REMAINING_BUDGET = 12/.test(liveGoldenRadar)
     && /const directMaxCandidates = Math\.min\(\s*LIVE_SEARCHAD_MEASUREMENT_BUDGET_PER_RUN,\s*directCandidateBudget/.test(liveGoldenRadar)
     && /searchAdMeasurementBudgetRemaining - batch\.length/.test(liveGoldenRadar)

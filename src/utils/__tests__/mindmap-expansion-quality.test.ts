@@ -172,6 +172,21 @@ assert('mindmap ranks semantic policy intent branches and rejects article copy',
     && !semanticPolicyBridge.some(keyword => /\uD655\uC778\uD560 3\uAC00\uC9C0/.test(keyword)),
   semanticPolicyBridge.join(', '));
 
+// v2.49.72 회귀: 어순 순열("청주시의원 최영중"/"최영중 청주시의원"/"청주 최영중 시의원")은
+// 같은 의도라 1칸만 — 순열 도배가 실데이터 다른 가지를 밀어내던 결함.
+const permutationRanked = rankMindmapExpansionCandidates('최영중 시의원', [
+  { keyword: '청주시의원 최영중', sources: ['autocomplete'] },
+  { keyword: '최영중 청주시의원', sources: ['autocomplete'] },
+  { keyword: '청주 최영중 시의원', sources: ['autocomplete'] },
+  { keyword: '최영중 시의원 프로필', sources: ['autocomplete'] },
+  { keyword: '라민 야말 동생', sources: ['related'] },
+], 10).map(item => item.keyword);
+const permutationVariants = permutationRanked.filter(keyword =>
+  ['청주시의원 최영중', '최영중 청주시의원', '청주 최영중 시의원'].includes(keyword));
+assert('word-order permutations collapse to a single mindmap slot',
+  permutationVariants.length <= 1,
+  permutationRanked.join(', '));
+
 console.log(`\n[mindmap-expansion-quality.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach(f => console.error('  ' + f));
