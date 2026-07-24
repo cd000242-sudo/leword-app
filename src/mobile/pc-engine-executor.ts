@@ -5406,7 +5406,7 @@ async function runKinHiddenHoneyWithPcHunter(
   const measuredKinMetrics = metrics.length > 0
     ? await measureKeywordMetrics(metrics, context)
     : [];
-  let finalMetrics = prioritizeMeasuredDecisionMetrics(
+  const strictMetrics = prioritizeMeasuredDecisionMetrics(
     measuredKinMetrics.filter(isKinAnswerDemandMetric),
     params.targetCount,
     {
@@ -5415,6 +5415,15 @@ async function runKinHiddenHoneyWithPcHunter(
       maxDocumentCount: 150000,
     },
   );
+  // v2.49.72: 질문 자체가 결과 — 지식인의 수요 증거는 SearchAd 검색량이 아니라
+  // 조회수·답변 공백이다. 질문 제목의 검색량은 0에 수렴해 sv 게이트가 진짜 질문을
+  // 전멸시키고 쇼핑 컨텍스트가 빈자리를 채우던 결함(실측: 144초에 후보 1개=쇼핑 키워드).
+  // 많이 본 QnA(trending/popular)와 숨은 꿀질문(hidden)이 honeyPot 랭킹 그대로 결과에 남는다.
+  const questionSource = measuredKinMetrics.length > 0 ? measuredKinMetrics : metrics;
+  const questionRows = questionSource
+    .filter((metric: MobileKeywordMetric) => /kin/i.test(String(metric.source || '')))
+    .slice(0, params.targetCount * 2);
+  let finalMetrics = mergePrioritizedKeywordMetrics([strictMetrics, questionRows], params.targetCount);
   if (finalMetrics.length < params.targetCount) {
     const kinContextKeywords = (params.contextKeywords || []).filter((item) => isKinAnswerDemandKeyword(item.keyword));
     const contextTopUp = await buildMeasuredContextKeywordMetrics(
@@ -5438,11 +5447,6 @@ async function runKinHiddenHoneyWithPcHunter(
       }
     }
   }
-  finalMetrics = prioritizeMeasuredDecisionMetrics(finalMetrics, params.targetCount, {
-    requirePcMobileSplit: true,
-    minTotalSearchVolume: 30,
-    maxDocumentCount: 50000,
-  });
   if (finalMetrics.length < params.targetCount) {
     const fallback = await buildSourceSignalMetrics(
       'all',
@@ -5452,11 +5456,12 @@ async function runKinHiddenHoneyWithPcHunter(
       'kin-question-source-gap',
       measureKeywordMetrics,
     );
-    finalMetrics = prioritizeMeasuredDecisionMetrics([...finalMetrics, ...fallback].filter(isKinAnswerDemandMetric), params.targetCount, {
+    const gatedFallback = prioritizeMeasuredDecisionMetrics(fallback.filter(isKinAnswerDemandMetric), params.targetCount, {
       requirePcMobileSplit: true,
       minTotalSearchVolume: 30,
       maxDocumentCount: 50000,
     });
+    finalMetrics = mergePrioritizedKeywordMetrics([finalMetrics, gatedFallback], params.targetCount);
   }
   return resultFromMetrics(finalMetrics, startedAt, 'pc-engine-plus');
 }
