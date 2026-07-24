@@ -918,6 +918,53 @@ export function renderLewordProWeb(): string {
     .result-list strong { font-size: 13px; overflow-wrap: anywhere; }
     .result-list span { color: var(--muted); overflow-wrap: anywhere; }
     .result-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    /* v2.49.72: 지식인 질문 메타(앱 파리티) */
+    .kin-question-meta {
+      display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 5px 10px; border-radius: 8px;
+      background: rgba(14,165,233,.07); border: 1px solid rgba(14,165,233,.22);
+      color: var(--text-2) !important; font-size: 11.5px; width: fit-content;
+    }
+    .kin-adopted-badge {
+      font-style: normal; font-weight: 800; font-size: 10px;
+      padding: 2px 7px; border-radius: 999px;
+      background: rgba(16,185,129,.14); color: #0d9668; border: 1px solid rgba(16,185,129,.35);
+    }
+    /* ===== v2.49.72 디자인 폴리시 레이어 — 입체감·호버·타이포 리듬 (캐스케이드 오버라이드) ===== */
+    body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+    .panel {
+      box-shadow: 0 1px 2px rgba(19,36,26,.04), 0 8px 24px -18px rgba(19,36,26,.18);
+      border-radius: 14px;
+      transition: box-shadow .18s ease;
+    }
+    .panel:hover { box-shadow: 0 2px 4px rgba(19,36,26,.05), 0 14px 34px -18px rgba(19,36,26,.22); }
+    .tool-tab {
+      border-radius: 12px;
+      transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+    }
+    .tool-tab:hover { transform: translateY(-2px); box-shadow: 0 10px 22px -14px rgba(19,36,26,.28); }
+    .tool-tab.active {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff; border-color: transparent;
+      box-shadow: 0 10px 26px -12px rgba(16,185,129,.55);
+    }
+    .tool-tab.active strong, .tool-tab.active span, .tool-tab.active em { color: #fff; }
+    button, .tiny-btn, .side-link, .intent-branch { transition: transform .12s ease, box-shadow .12s ease, background .12s ease; }
+    .tiny-btn:hover, .intent-branch:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -8px rgba(19,36,26,.3); }
+    .side-link { border-radius: 10px; }
+    .side-link:hover { transform: translateX(2px); }
+    table tbody tr { transition: background .12s ease; }
+    table tbody tr:hover { background: rgba(16,185,129,.05); }
+    .grade.SSS {
+      background: linear-gradient(135deg, #f43f5e, #e11d48);
+      color: #fff; border: none; font-weight: 800;
+      box-shadow: 0 4px 12px -6px rgba(225,29,72,.55);
+    }
+    .result-list li { border-top-color: var(--line-soft); }
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-thumb { background: rgba(86,106,93,.32); border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(86,106,93,.5); }
+    ::-webkit-scrollbar-track { background: transparent; }
     .mindmap-view { display: grid; gap: 12px; margin-top: 12px; }
     .mindmap-root {
       border: 1px solid rgba(14,165,233,.42);
@@ -5498,6 +5545,7 @@ export function renderLewordProWeb(): string {
         qs('keywordRows').innerHTML = '<tr><td colspan="12" class="muted">마인드맵 후보가 비어 있습니다. API 키 상태 또는 검색어를 확인하세요.</td></tr>';
         return;
       }
+      currentMindmapAllRows = rows; // v2.49.72: 리스트 칩도 결과셋 실측 자식 행을 1순위로
       qs('keywordRows').innerHTML = rows.map(function(row) {
         const displayGrade = hasMeasuredKeywordMetrics(row) ? displayGradeForRow(row) : '측정 필요';
         const branches = mindmapExpansionBranches(seed, row).slice(0, 5);
@@ -6092,13 +6140,37 @@ export function renderLewordProWeb(): string {
         { label: '시간', value: new Date().toLocaleTimeString('ko-KR') },
       ], []);
     }
+    // v2.49.72: 지식인 파리티 — 데스크톱 앱처럼 질문 상세(조회·답변·채택·경과일·원문 링크)를
+    // evidence 의 kin-* 파리티 필드에서 읽어 웹에도 표시한다. kin 데이터 없으면 빈 문자열.
+    function kinQuestionMetaHtml(row) {
+      const evidence = row && Array.isArray(row.evidence) ? row.evidence : [];
+      let viewCount = null; let answerCount = null; let daysAgo = null; let url = ''; let adopted = false;
+      evidence.forEach(function(item) {
+        const textItem = String(item || '');
+        let m = textItem.match(/^kin-view-count (\d+)/); if (m) viewCount = Number(m[1]);
+        m = textItem.match(/^kin-answer-count (\d+)/); if (m) answerCount = Number(m[1]);
+        m = textItem.match(/^kin-days-ago (\d+)/); if (m) daysAgo = Number(m[1]);
+        m = textItem.match(/^kin-url (\S+)/); if (m) url = m[1];
+        if (textItem === 'kin-adopted') adopted = true;
+      });
+      if (viewCount === null && answerCount === null && !url) return '';
+      const parts = [];
+      if (viewCount !== null) parts.push('조회 ' + fmt(viewCount));
+      if (answerCount !== null) parts.push('답변 ' + fmt(answerCount));
+      if (daysAgo !== null) parts.push(daysAgo + '일 전');
+      if (adopted) parts.push('<em class="kin-adopted-badge">채택완료</em>');
+      const linkBtn = url && /^https?:\/\/(kin\.naver\.com|m\.kin\.naver\.com)\//.test(url)
+        ? ' <a class="tiny-btn" href="' + escapeAttr(url) + '" target="_blank" rel="noopener">지식인 원문</a>'
+        : '';
+      return '<span class="kin-question-meta">🙋 ' + parts.join(' · ') + linkBtn + '</span>';
+    }
     function renderToolFeatureResult(feature, result) {
       if (!feature || !feature.id) return;
       if (result && Array.isArray(result.keywords)) {
         const rows = result.keywords;
         const summary = result.summary || {};
         const topRows = rows.slice(0, 12).map(function(row) {
-          return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong><span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 비율 ' + fmt(row.goldenRatio) + '</span>' + keywordIntentGuideHtml(row) + publishDecisionInline(row) + keywordActionHtml(row.keyword || '') + '</li>';
+          return '<li><strong>' + escapeHtml(row.keyword || '-') + '</strong><span>등급 ' + escapeHtml(row.grade || '-') + ' · 전체 ' + fmt(row.totalSearchVolume) + ' · PC ' + fmt(row.pcSearchVolume) + ' · 모바일 ' + fmt(row.mobileSearchVolume) + ' · 문서 ' + fmt(row.documentCount) + ' · 비율 ' + fmt(row.goldenRatio) + '</span>' + kinQuestionMetaHtml(row) + keywordIntentGuideHtml(row) + publishDecisionInline(row) + keywordActionHtml(row.keyword || '') + '</li>';
         });
         const publishReady = rows.filter(function(row) {
           const decision = publishDecisionFor(row);

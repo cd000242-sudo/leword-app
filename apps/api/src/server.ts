@@ -1,6 +1,7 @@
 import http from 'http';
 import crypto from 'crypto';
 import fs from 'fs';
+import zlib from 'zlib';
 import { isIP } from 'net';
 import path from 'path';
 import { execFile } from 'child_process';
@@ -267,20 +268,45 @@ export interface LewordApiServerOptions {
   proBlueprintServices?: MobileProBlueprintServices;
 }
 
+// v2.49.72: gzip 압축 — 랜딩 HTML 562KB 가 무압축으로 나가 첫 로드가 느렸다.
+// 요청 핸들러가 res 에 수용 여부를 스탬프하고, 전체-바디 응답 헬퍼만 압축한다(SSE 무관).
+const GZIP_MIN_BYTES = 1024;
+function endMaybeGzip(
+  res: http.ServerResponse,
+  statusCode: number,
+  baseHeaders: Record<string, string | number>,
+  body: string,
+): void {
+  const acceptsGzip = (res as { __acceptsGzip?: boolean }).__acceptsGzip === true;
+  const raw = Buffer.from(body, 'utf8');
+  if (acceptsGzip && raw.length >= GZIP_MIN_BYTES) {
+    const compressed = zlib.gzipSync(raw);
+    res.writeHead(statusCode, {
+      ...baseHeaders,
+      'Content-Encoding': 'gzip',
+      'Vary': 'Accept-Encoding',
+      'Content-Length': compressed.length,
+    });
+    res.end(compressed);
+    return;
+  }
+  res.writeHead(statusCode, baseHeaders);
+  res.end(raw);
+}
+
 function json(
   res: http.ServerResponse,
   statusCode: number,
   body: unknown,
   headers: Record<string, string | number> = {},
 ): void {
-  res.writeHead(statusCode, {
+  endMaybeGzip(res, statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With, X-Leword-User-Api-Credentials, X-LeadersPro-Admin-Token, X-Leword-Admin-Token',
     ...headers,
-  });
-  res.end(JSON.stringify(body));
+  }, JSON.stringify(body));
 }
 
 function html(
@@ -289,14 +315,13 @@ function html(
   body: string,
   headers: Record<string, string | number> = {},
 ): void {
-  res.writeHead(statusCode, {
+  endMaybeGzip(res, statusCode, {
     'Content-Type': 'text/html; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Requested-With, X-Leword-User-Api-Credentials, X-LeadersPro-Admin-Token, X-Leword-Admin-Token',
     ...headers,
-  });
-  res.end(body);
+  }, body);
 }
 
 function text(
@@ -5604,6 +5629,9 @@ export function createLewordApiServer(options: LewordApiServerOptions = {}): htt
   const server = http.createServer((req, res) => {
     void (async () => {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    // v2.49.72: gzip 수용 스탬프 — 전체-바디 응답 헬퍼(json/html)만 이 플래그로 압축.
+    (res as { __acceptsGzip?: boolean }).__acceptsGzip =
+      /\bgzip\b/i.test(String(req.headers['accept-encoding'] || ''));
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {

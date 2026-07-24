@@ -531,6 +531,10 @@ function metricFromKinQuestion(question: any): MobileKeywordMetric {
       normalizeKeyword(question?.blogBridgeTitle),
       viewCount !== null ? `kin-view-count ${viewCount}` : '',
       answerCount !== null ? `kin-answer-count ${answerCount}` : '',
+      // v2.49.72: 웹에서 앱과 동일한 질문 상세(원문 링크·채택 여부)를 보여주기 위한 파리티 필드
+      typeof question?.url === 'string' && question.url ? `kin-url ${question.url}` : '',
+      question?.isAdopted === true ? 'kin-adopted' : '',
+      typeof question?.daysAgo === 'number' ? `kin-days-ago ${question.daysAgo}` : '',
     ].filter(Boolean),
     isMeasured: false,
   };
