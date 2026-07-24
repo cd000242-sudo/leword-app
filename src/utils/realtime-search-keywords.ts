@@ -644,6 +644,8 @@ export async function getGoogleRealtimeKeywords(limit: number = 20): Promise<Rea
       console.log('[GOOGLE-REALTIME] 방법 1: Google Trends RSS 피드 시도 (일일 트렌드 10개)');
       try {
         const rssUrls = [
+          // v2.49.72: 2026 신 URL — 구 daily/rss 경로는 404 로 사망(생존 검증 완료). 신 URL 을 1순위로.
+          'https://trends.google.com/trending/rss?geo=KR',
           'https://trends.google.com/trends/trendingsearches/daily/rss?geo=KR&hl=ko',
           'https://trends.google.com/trends/trendingsearches/daily/rss?geo=KR'
         ];

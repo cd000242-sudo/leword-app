@@ -5255,10 +5255,71 @@ async function runHomeBoardWithPcPlanner(
   return resultFromMetrics(measuredMetrics, startedAt, 'pc-engine-plus');
 }
 
+// v2.49.72: 지식인 스크래퍼 0건 대비 HTTP 폴백 — 네이버 지식인 OpenAPI(kin.json).
+//   서버에서 브라우저 스크래핑이 죽어도 "실제 지식인 질문" 풀을 유지한다.
+//   실측 게이트(prioritizeMeasuredDecisionMetrics)는 그대로 통과시킨다 — 풀 확장이지 게이트 완화가 아님.
+async function fetchKinOpenApiFallbackQuestions(
+  env: Partial<EnvConfig>,
+  roots: string[],
+  limit: number,
+): Promise<Array<{ title: string; honeyPotScore: number; honeyPotReason: string; category: string }>> {
+  let config: { clientId: string; clientSecret: string };
+  try {
+    config = requireNaverOpenApiConfig(env, 'kin-hidden-honey');
+  } catch {
+    return []; // 키 없으면 폴백 불가 — 호출자는 context topup 으로 계속 진행
+  }
+  const queryRoots = Array.from(new Set(
+    roots.map((keyword) => normalizeKeyword(keyword)).filter((keyword) => keyword.length >= 2)
+  )).slice(0, 6);
+  if (queryRoots.length === 0) return [];
+
+  const axios = (await import('axios')).default;
+  const out: Array<{ title: string; honeyPotScore: number; honeyPotReason: string; category: string }> = [];
+  const seen = new Set<string>();
+  const settled = await Promise.allSettled(queryRoots.map((root) =>
+    axios.get('https://openapi.naver.com/v1/search/kin.json', {
+      params: { query: root, display: 20, sort: 'point' },
+      headers: {
+        'X-Naver-Client-Id': config.clientId,
+        'X-Naver-Client-Secret': config.clientSecret,
+      },
+      timeout: 8000,
+      validateStatus: (s: number) => s < 500,
+    }).then((res) => ({ root, items: Array.isArray(res.data?.items) ? res.data.items : [] }))
+  ));
+  for (const row of settled) {
+    if (row.status !== 'fulfilled') continue;
+    for (const [index, item] of (row.value.items as Array<{ title?: string }>).entries()) {
+      const title = String(item?.title || '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;|&apos;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 100);
+      if (!title || title.length < 4) continue;
+      const key = compactKeyword(title);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        title,
+        honeyPotScore: Math.max(40, 62 - index * 1.2),
+        honeyPotReason: `지식인 OpenAPI 폴백 (질문 검색: ${row.value.root})`,
+        category: 'naver-kin',
+      });
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
+
 async function runKinHiddenHoneyWithPcHunter(
   params: KinHiddenHoneyMobileParams,
   context: MobileJobExecutorContext,
   measureKeywordMetrics: MobileKeywordMetricsAdapter,
+  getEnvConfig?: () => Partial<EnvConfig>,
 ): Promise<MobileKeywordResult> {
   const startedAt = Date.now();
   context.progress(10, `starting PC KIN hunter: ${params.tabType}`);
@@ -5266,22 +5327,53 @@ async function runKinHiddenHoneyWithPcHunter(
 
   const kin = await import('../utils/naver-kin-golden-hunter-v3');
   let result: any;
-  if (params.tabType === 'trending') {
-    result = await kin.getTrendingHiddenQuestions();
-  } else if (params.tabType === 'hidden') {
-    result = await kin.fullHunt();
-  } else if (params.tabType === 'latest') {
-    result = await kin.getRisingQuestions();
-  } else {
-    result = await kin.getPopularQnA();
+  try {
+    if (params.tabType === 'trending') {
+      result = await kin.getTrendingHiddenQuestions();
+    } else if (params.tabType === 'hidden') {
+      result = await kin.fullHunt();
+    } else if (params.tabType === 'latest') {
+      result = await kin.getRisingQuestions();
+    } else {
+      result = await kin.getPopularQnA();
+    }
+  } catch (err: any) {
+    // v2.49.72: 스크래퍼 자체가 죽어도(서버 브라우저 실패 등) 폴백 경로로 계속
+    context.progress(30, `PC KIN scraper failed: ${err?.message || err} — OpenAPI 폴백 시도`);
+    result = { goldenQuestions: [] };
   }
   ensureNotAborted(context);
 
   context.progress(88, `PC KIN hunter returned ${result?.goldenQuestions?.length || 0}/${params.targetCount}`);
-  const metrics = (result?.goldenQuestions || [])
+  let metrics = (result?.goldenQuestions || [])
     .slice(0, params.targetCount)
     .map(metricFromKinQuestion)
     .filter((item: MobileKeywordMetric) => item.keyword);
+
+  // v2.49.72: 스크래퍼 0건 → kin.json 폴백으로 실제 질문 풀 재확보 (동일 실측 게이트 통과)
+  if (metrics.length === 0 && getEnvConfig) {
+    const fallbackRoots = (params.contextKeywords || [])
+      .map((item) => item.keyword)
+      .filter((keyword) => isKinAnswerDemandKeyword(keyword));
+    let roots = fallbackRoots;
+    if (roots.length === 0) {
+      try {
+        const snapshot = await buildMobileSourceSignalSnapshot({ lane: 'all', limit: 24 });
+        if (!snapshot.fallbackUsed) roots = balancedSourceSignalRoots(snapshot, 12);
+      } catch { /* 소스 신호 실패 시 폴백 루트 없음 */ }
+    }
+    const fallbackQuestions = await fetchKinOpenApiFallbackQuestions(
+      getEnvConfig(),
+      roots,
+      Math.max(params.targetCount * 2, 40),
+    );
+    if (fallbackQuestions.length > 0) {
+      context.progress(90, `KIN OpenAPI 폴백 질문 ${fallbackQuestions.length}건 확보`);
+      metrics = fallbackQuestions
+        .map(metricFromKinQuestion)
+        .filter((item: MobileKeywordMetric) => item.keyword);
+    }
+  }
   const measuredKinMetrics = metrics.length > 0
     ? await measureKeywordMetrics(metrics, context)
     : [];
@@ -6338,7 +6430,7 @@ export function createMobilePcEngineExecutor(
         const params = asKinHiddenHoneyParams(job.params);
         const result = options.runKinHiddenHoney
           ? await options.runKinHiddenHoney(params, context)
-          : await runKinHiddenHoneyWithPcHunter(params, context, jobMeasureKeywordMetrics);
+          : await runKinHiddenHoneyWithPcHunter(params, context, jobMeasureKeywordMetrics, getJobEnvConfig);
         return await withAgentAssistSummary(result, params, job.product, getJobEnvConfig());
       }
       case 'shopping-connect': {
