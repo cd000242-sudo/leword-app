@@ -276,6 +276,119 @@ export async function coupangProductSearch(
   return results;
 }
 
+// ============================================================
+// v2.49.72: 쿠팡 핫상품 피드 — 골드박스(오늘의 특가) + 베스트 카테고리
+//   공식 파트너스 OpenAPI(GET+HMAC, product search 와 동일 서명)라 안티봇/차단 이슈 없음.
+//   키 미설정 시 호출부에서 빈 배열 fail-soft — 기능 자동 비활성.
+// ============================================================
+
+export interface CoupangHotProduct {
+  productId: number;
+  productName: string;
+  productPrice: number;
+  productImage: string;
+  productUrl: string;
+  categoryName?: string;
+  isRocket: boolean;
+  rank: number;
+  source: 'goldbox' | 'best-category';
+}
+
+const HOT_PRODUCT_CACHE_TTL_MS = 60 * 60 * 1000; // 골드박스는 하루 단위 갱신 — 1h 캐시로 충분
+const HOT_PRODUCT_TIMEOUT_MS = 10_000;
+const hotProductCache = new Map<string, { result: CoupangHotProduct[]; expiresAt: number }>();
+
+async function fetchCoupangPartnersGet(
+  path: string,
+  config: CoupangPartnersConfig,
+): Promise<any> {
+  const accessKey = (config.accessKey || '').trim();
+  const secretKey = (config.secretKey || '').trim();
+  if (!accessKey || !secretKey) {
+    throw new Error('쿠팡파트너스 키 필요');
+  }
+  const method = 'GET';
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const datetime = `${String(now.getUTCFullYear()).slice(2)}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+  const message = `${datetime}${method}${path.split('?')[0]}${(path.split('?')[1] || '')}`;
+  const signature = crypto.createHmac('sha256', secretKey).update(message).digest('hex');
+  const authorization = `CEA algorithm=HmacSHA256, access-key=${accessKey}, signed-date=${datetime}, signature=${signature}`;
+
+  const ctrl = new AbortController();
+  const killer = setTimeout(() => ctrl.abort(), HOT_PRODUCT_TIMEOUT_MS);
+  try {
+    const res = await fetch(`https://api-gateway.coupang.com${path}`, {
+      method,
+      headers: { 'Authorization': authorization },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`쿠팡 파트너스 GET ${res.status}: ${txt.slice(0, 200)}`);
+    }
+    return await res.json();
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error('쿠팡 파트너스 GET timeout (10s)');
+    throw e;
+  } finally {
+    clearTimeout(killer);
+  }
+}
+
+function mapHotProducts(data: any[], source: CoupangHotProduct['source']): CoupangHotProduct[] {
+  return (Array.isArray(data) ? data : []).map((d: any, index: number) => ({
+    productId: Number(d.productId) || 0,
+    productName: String(d.productName || ''),
+    productPrice: Number(d.productPrice) || 0,
+    productImage: String(d.productImage || ''),
+    productUrl: String(d.productUrl || ''),
+    categoryName: d.categoryName ? String(d.categoryName) : undefined,
+    isRocket: !!d.isRocket,
+    rank: Number(d.rank) || index + 1,
+    source,
+  })).filter((p) => p.productName);
+}
+
+/** 골드박스 — 쿠팡 오늘의 특가 상품 목록 (매일 갱신) */
+export async function fetchCoupangGoldbox(
+  config: CoupangPartnersConfig,
+  options: { limit?: number } = {},
+): Promise<CoupangHotProduct[]> {
+  const limit = Math.min(Math.max(options.limit ?? 30, 1), 100);
+  const cacheKey = `goldbox|${limit}`;
+  const hit = hotProductCache.get(cacheKey);
+  if (hit && hit.expiresAt > Date.now()) return hit.result;
+  const json = await fetchCoupangPartnersGet(
+    `/v2/providers/affiliate_open_api/apis/openapi/v1/products/goldbox?limit=${limit}${config.subId ? `&subId=${encodeURIComponent(config.subId)}` : ''}`,
+    config,
+  );
+  const result = mapHotProducts(json?.data, 'goldbox').slice(0, limit);
+  hotProductCache.set(cacheKey, { result, expiresAt: Date.now() + HOT_PRODUCT_CACHE_TTL_MS });
+  return result;
+}
+
+/** 베스트 카테고리 — 카테고리별 인기 상품 (예: 1012 가전, 1016 스포츠 등) */
+export async function fetchCoupangBestCategory(
+  categoryId: string | number,
+  config: CoupangPartnersConfig,
+  options: { limit?: number } = {},
+): Promise<CoupangHotProduct[]> {
+  const cid = String(categoryId || '').trim();
+  if (!/^\d+$/.test(cid)) return [];
+  const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
+  const cacheKey = `best|${cid}|${limit}`;
+  const hit = hotProductCache.get(cacheKey);
+  if (hit && hit.expiresAt > Date.now()) return hit.result;
+  const json = await fetchCoupangPartnersGet(
+    `/v2/providers/affiliate_open_api/apis/openapi/v1/products/bestcategories/${cid}?limit=${limit}${config.subId ? `&subId=${encodeURIComponent(config.subId)}` : ''}`,
+    config,
+  );
+  const result = mapHotProducts(json?.data, 'best-category').slice(0, limit);
+  hotProductCache.set(cacheKey, { result, expiresAt: Date.now() + HOT_PRODUCT_CACHE_TTL_MS });
+  return result;
+}
+
 /**
  * 가장 잘 맞는 쿠팡 상품 1건 — 매칭 점수 휴리스틱
  *   1. 모델코드 매칭 (영문+숫자 토큰) 일치 시 큰 가중

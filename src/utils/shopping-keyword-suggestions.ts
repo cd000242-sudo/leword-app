@@ -218,7 +218,7 @@ export interface VerifiedKeyword {
   goldenRatio: number;
 }
 
-export type ShoppingDiscoverySeedSource = 'verified' | 'dynamic' | 'static';
+export type ShoppingDiscoverySeedSource = 'verified' | 'coupang-hot' | 'dynamic' | 'static';
 
 export interface ShoppingDiscoverySeed {
   keyword: string;
@@ -335,6 +335,7 @@ function selectBalancedShoppingDiscoverySeeds(
 
 export function buildShoppingDiscoverySeeds(input: {
   verified?: VerifiedKeyword[];
+  coupangHot?: Array<{ keyword: string; reason: string }>;
   dynamic?: string[];
   staticGroups?: SuggestionGroup[];
   limit?: number;
@@ -372,6 +373,17 @@ export function buildShoppingDiscoverySeeds(input: {
       priorityScore: 78 + ratioBoost + svBoost,
     });
   }
+
+  // v2.49.72: 쿠팡 핫상품(골드박스·베스트) — 이미 쿠팡에서 팔리는 상품이라
+  // 딥링크 매칭·수익화 직결. verified 다음, dynamic 앞 우선순위.
+  (input.coupangHot || []).forEach((hot, index) => {
+    add({
+      keyword: hot.keyword,
+      source: 'coupang-hot',
+      reason: hot.reason || '쿠팡 핫상품',
+      priorityScore: 74 - index * 0.6,
+    });
+  });
 
   (input.dynamic || []).forEach((keyword, index) => {
     add({
@@ -412,8 +424,18 @@ export async function getShoppingDiscoverySeeds(limit: number = SHOPPING_AUTO_DI
     }
   }
 
+  // v2.49.72: 쿠팡 골드박스·베스트 핫상품 시드 (키 없으면 빈 배열 fail-soft)
+  let coupangHot: Array<{ keyword: string; reason: string }> = [];
+  try {
+    const { getCoupangHotProductSeeds } = await import('./sources/coupang-hot-products');
+    coupangHot = await getCoupangHotProductSeeds(Math.max(20, Math.ceil(limit / 2)));
+  } catch {
+    coupangHot = [];
+  }
+
   return buildShoppingDiscoverySeeds({
     verified,
+    coupangHot,
     dynamic: getDynamicSuggestionsFromRichFeed(),
     staticGroups: getStaticShoppingSuggestions(6),
     limit,
