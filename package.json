@@ -92,7 +92,9 @@
     "dist:mac:unsigned": "node scripts/build-mac.js --arch both --unsigned",
     "dist:mac:arm64:unsigned": "node scripts/build-mac.js --arch arm64 --unsigned",
     "dist:mac:universal:unsigned": "node scripts/build-mac.js --arch universal --unsigned",
-    "release:mac:unsigned": "node scripts/build-mac.js --arch both --unsigned --publish"
+    "release:mac:unsigned": "node scripts/build-mac.js --arch both --unsigned --publish",
+    "health:harness": "node scripts/harness-health.js",
+    "health:harness:save": "node scripts/harness-health.js --json=.codex-build-cache/harness-health.json"
   },
   "keywords": [
     "keyword",
