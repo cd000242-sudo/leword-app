@@ -465,10 +465,51 @@ async function fetchHtmlItems(): Promise<PolicyBriefingKeyword[]> {
   return out;
 }
 
+/**
+ * 복지서비스 공공데이터 API 를 정책 레인의 1순위 공급원으로 쓴다.
+ *
+ * korea.kr 스크래핑은 기사 제목을 문장 조각으로 잘라 뱉는 구조적 결함이 있다
+ * ("53개 기관이 신청"). 저가치 정규식 블랙리스트로는 새 기사 형태를 못 막으므로,
+ * 애초에 **제도명**을 주는 소스를 앞에 세우고 스크래핑은 보조로 내린다.
+ * 키가 없으면 빈 배열이 와서 기존 동작 그대로 폴백된다.
+ */
+async function fetchWelfareServiceItems(limit: number): Promise<PolicyBriefingKeyword[]> {
+  try {
+    const { getCentralWelfareServices, getLocalWelfareServices } = await import('./sources/welfare-service-api');
+    const [central, local] = await Promise.all([
+      getCentralWelfareServices(Math.max(120, limit)).catch(() => []),
+      getLocalWelfareServices(Math.max(240, limit * 2)).catch(() => []),
+    ]);
+    const rows = [...central, ...local].sort((a, b) => b.views - a.views);
+    const now = new Date().toISOString();
+    return rows.map((row, index) => ({
+      rank: index + 1,
+      keyword: row.keyword,
+      title: row.keyword,
+      source: row.scope === 'local' ? '지자체 복지서비스' : '중앙부처 복지서비스',
+      timestamp: now,
+      category: row.theme || '복지서비스',
+      url: row.detailUrl,
+    }));
+  } catch (error) {
+    console.warn('[POLICY-BRIEFING] 복지서비스 API 건너뜀:', (error as Error).message);
+    return [];
+  }
+}
+
 export async function getPolicyBriefingKeywords(limit: number = 30): Promise<PolicyBriefingKeyword[]> {
-  console.log('[POLICY-BRIEFING] collecting korea.kr policy/support signals');
+  console.log('[POLICY-BRIEFING] collecting welfare-service API + korea.kr policy signals');
   const merged: PolicyBriefingKeyword[] = [];
   const seen = new Set<string>();
+
+  // 제도명 기반 공급이 먼저 자리를 잡고, 남는 자리만 스크래핑이 채운다.
+  const welfare = await fetchWelfareServiceItems(limit);
+  for (const item of welfare) {
+    addCandidate(merged, seen, item.keyword, item.category || '복지서비스', item.url, item.publishedAt, item.title || item.keyword);
+  }
+  if (merged.length >= limit) {
+    return merged.slice(0, limit).map((item, idx) => ({ ...item, rank: idx + 1 }));
+  }
 
   const [rss, html] = await Promise.allSettled([fetchRssItems(), fetchHtmlItems()]);
   for (const list of [rss, html]) {
