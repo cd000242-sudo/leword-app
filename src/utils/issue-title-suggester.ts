@@ -159,6 +159,52 @@ function pickAction(facts: string[]): string {
   return actions.find((a) => joined.includes(a)) || '';
 }
 
+/**
+ * 제목 마무리 어구를 내용 유형에 따라 고른다.
+ *
+ * 전부 "총정리 / 무슨 일인가" 로 끝내면 블로그에 같은 모양 제목이 열 개 쌓인다.
+ * 검색하는 사람이 실제로 알고 싶은 것도 유형마다 다르다 — 경기는 결과를,
+ * 지원금은 신청 방법을, 지표는 언제까지 이럴지를 찾는다. 그래서 유형별로 가른다.
+ *
+ * 무작위로 섞지 않는다. 같은 이슈는 언제 돌려도 같은 제목이 나와야
+ * 사용자가 봤던 걸 다시 찾을 수 있다.
+ */
+const TITLE_FRAMES: Array<{ re: RegExp; seoTail: string; homeTail: string }> = [
+  // 경기·대회 결과
+  { re: /(경기|대회|리그|라운드|타점|안타|골|승리|패배|우승|선두|버디|결승)/,
+    seoTail: '경기 결과 정리', homeTail: '결과 어떻게 됐나' },
+  // 지원금·정책·제도
+  { re: /(지원금|보조금|신청|접수|지급|대상자|혜택|바우처|정책|제도)/,
+    seoTail: '신청 방법 대상 정리', homeTail: '나도 받을 수 있나' },
+  // 가격·지표
+  { re: /(가격|기름값|유가|물가|환율|금리|주가|증시|하락|상승|인상|인하)/,
+    seoTail: '얼마나 달라졌나 정리', homeTail: '언제까지 이럴까' },
+  // 수사·재판·처벌
+  { re: /(구형|선고|재판|수사|압수수색|기소|고소|혐의|처벌|법원|검찰)/,
+    seoTail: '혐의 쟁점 정리', homeTail: '어떻게 되나' },
+  // 날씨·재난
+  { re: /(폭염|무더위|한파|장마|태풍|호우|가뭄|지진|산불|미세먼지)/,
+    seoTail: '언제까지 이어지나 정리', homeTail: '이번 주 어떻게 되나' },
+  // 인물 근황·활동
+  { re: /(복귀|은퇴|활동 중단|열애|결혼|이혼|근황|출연|합류|이적|영입)/,
+    seoTail: '근황 이유 정리', homeTail: '왜 그런 걸까' },
+  // 선출·인사
+  { re: /(선출|임명|취임|사퇴|경질|후보|당선|전당대회)/,
+    seoTail: '배경 향후 일정 정리', homeTail: '앞으로 어떻게 되나' },
+  // 출시·업데이트
+  { re: /(출시|공개|런칭|업데이트|신제품|오픈|개봉)/,
+    seoTail: '주요 내용 정리', homeTail: '뭐가 달라졌나' },
+];
+
+function pickTitleFrame(keyword: string, facts: string[]): { seoTail: string; homeTail: string } {
+  // 키워드 우선 — 기사 본문에는 곁가지가 섞인다.
+  for (const source of [keyword, `${keyword} ${facts.join(' ')}`]) {
+    const hit = TITLE_FRAMES.find((frame) => frame.re.test(source));
+    if (hit) return { seoTail: hit.seoTail, homeTail: hit.homeTail };
+  }
+  return { seoTail: '총정리', homeTail: '지금 무슨 일인가' };
+}
+
 function trimTitle(value: string, max: number): string {
   const clean = value.replace(/\s{2,}/g, ' ').trim();
   return clean.length <= max ? clean : `${clean.slice(0, max - 1).trim()}…`;
@@ -189,11 +235,15 @@ export function suggestTitles(
   const seoDetail = [detail, action && !detail.includes(action) ? action : '']
     .filter(Boolean)
     .join(' ');
-  const seoTitle = trimTitle(seoDetail ? `${key} ${seoDetail} 총정리` : `${key} 총정리`, 40);
+  const frame = pickTitleFrame(key, facts);
+  const seoTitle = trimTitle(
+    seoDetail ? `${key} ${seoDetail} ${frame.seoTail}` : `${key} ${frame.seoTail}`,
+    40,
+  );
 
   // 홈판 — 검색어보다 "왜 봐야 하는가" 가 앞선다.
   const homeTitle = trimTitle(
-    detail ? `${key}, ${detail} 무슨 일인가` : `${key}, 지금 무슨 일인가`,
+    detail ? `${key}, ${detail} ${frame.homeTail}` : `${key}, ${frame.homeTail}`,
     40,
   );
 

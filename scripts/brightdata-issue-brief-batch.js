@@ -35,6 +35,7 @@ const { brightDataFetch } = require('../src/utils/brightdata-client');
 const { extractIssueBrief } = require('../src/utils/issue-brief-extractor');
 const { toReadableFacts } = require('../src/utils/issue-brief-readable');
 const { suggestTitles } = require('../src/utils/issue-title-suggester');
+const { writeTitles } = require('../src/utils/llm-title-writer');
 const { brightDataQuotaSnapshot } = require('../src/utils/brightdata-quota-governor');
 
 const FEATURE = 'mindmap';
@@ -55,17 +56,25 @@ function newsUrl(keyword) {
 }
 
 /** 브리프를 클라이언트가 쓸 모양으로 줄인다. 스냅샷이 무한정 커지지 않게. */
-function toInsight(brief) {
+async function toInsight(brief) {
   const facts = toReadableFacts(brief.facts, 4);
   if (facts.length === 0) return null;
   const headlines = brief.articles.map((a) => a.title).filter(Boolean).slice(0, 6);
   // 제목·주제는 여기서 계산해 스냅샷에 담는다. SPA 는 읽기만 한다
   // (추출기는 leword-app, SPA 는 naver 레포라 런타임에 못 부른다).
   const suggestion = suggestTitles(brief.keyword, facts.map((f) => f.text), headlines);
+  // 로컬 LLM 이 있으면 더 자연스러운 제목을 쓰고, 없거나 환각이 잡히면
+  // 위 규칙 기반 결과가 그대로 폴백으로 나간다.
+  const written = await writeTitles(
+    brief.keyword,
+    facts.map((f) => f.text),
+    { seoTitle: suggestion.seoTitle, homeTitle: suggestion.homeTitle },
+  );
   return {
     titles: {
-      seo: suggestion.seoTitle,
-      home: suggestion.homeTitle,
+      seo: written.seoTitle,
+      home: written.homeTitle,
+      writer: written.source,
       topic: suggestion.topic ? suggestion.topic.label : '',
       topicGroup: suggestion.topic ? suggestion.topic.group : '',
     },
@@ -140,7 +149,7 @@ async function main() {
       if (res.quotaBlocked) { console.log('  쿼터 한도 도달 — 중단합니다.'); break; }
       continue;
     }
-    const insight = toInsight(extractIssueBrief(res.body, keyword));
+    const insight = await toInsight(extractIssueBrief(res.body, keyword));
     if (!insight) {
       empty += 1;
       console.log(`  -- ${keyword.padEnd(24)} 쓸만한 사실 없음(기사 부족)`);
