@@ -12,7 +12,12 @@
  *
  * 사용:
  *   node scripts/brightdata-budget-model.js
- *   node scripts/brightdata-budget-model.js --runsPerWeek=2 --passRate=0.25
+ *   node scripts/brightdata-budget-model.js --runsPerWeek=2
+ *   node scripts/brightdata-budget-model.js --budget=30    월 $30 까지 쓸 수 있을 때
+ *
+ * 유료 구간까지 본다:
+ *   무료 한도를 넘겨도 되는 상황이면 "얼마 더 내고 얼마나 더 정확해지는가"가
+ *   진짜 질문이다. 서버 $52 와 같은 자를 대고 비교할 수 있어야 판단이 선다.
  *
  * 한계(정직하게):
  *   퍼널 통과율(passRate)은 아직 실측값이 아니다. 그래서 단일 숫자를 뱉지 않고
@@ -49,6 +54,12 @@ function freeCeiling() {
 
 const cfg = readIngestConfig();
 const CEILING = freeCeiling();
+/** Bright Data 유료 단가. 거버너 주석 기준 $3 / 1,000 요청. */
+const PAID_PER_1K = argNumber('paidPer1k', 3);
+/** 월 지출 상한(USD). 0 이면 무료 안에서만. */
+const BUDGET_USD = Number(
+  (process.argv.find((a) => a.startsWith('--budget=')) || '').slice(9) || 0,
+);
 const runsPerWeek = argNumber('runsPerWeek', 2);
 // 월 환산은 4.345주(=365/7/12). "월 8회"로 어림하면 12% 과소평가된다.
 const runsPerMonth = runsPerWeek * (365 / 7 / 12);
@@ -75,13 +86,19 @@ const scenarios = [
     note: '탈락분 5% 를 표본 감사해 오탈락률을 추적한다' },
 ];
 
-console.log('시나리오별 월 사용량');
+/** 무료를 넘긴 만큼의 월 비용(USD). */
+function paidCost(monthly) {
+  return Math.max(0, monthly - CEILING) * (PAID_PER_1K / 1000);
+}
+
+console.log('시나리오별 월 사용량 / 비용');
 console.log('─'.repeat(72));
 for (const s of scenarios) {
   const monthly = Math.round(s.perRun * runsPerMonth);
   const pct = (monthly / CEILING) * 100;
-  const verdict = monthly <= CEILING ? `OK  (한도의 ${pct.toFixed(0)}%)` : `초과 (한도의 ${pct.toFixed(0)}%)`;
-  console.log(`${s.name.padEnd(24)} 회당 ${String(s.perRun).padStart(5)}  월 ${String(monthly).padStart(6)}  ${verdict}`);
+  const cost = paidCost(monthly);
+  const money = cost === 0 ? '무료' : `$${cost.toFixed(2)}/월`;
+  console.log(`${s.name.padEnd(24)} 회당 ${String(s.perRun).padStart(5)}  월 ${String(monthly).padStart(6)}  한도의 ${String(pct.toFixed(0)).padStart(3)}%  ${money}`);
   console.log(`${''.padEnd(24)} ${s.note}`);
 }
 
@@ -96,6 +113,32 @@ for (const rate of [0.05, 0.1, 0.15, 0.2, 0.3, 0.5, 1.0]) {
   const monthly = Math.round(candidatesPerRun * rate * runsPerMonth);
   const mark = monthly <= CEILING ? 'OK ' : '초과';
   console.log(`  ${String(Math.round(rate * 100)).padStart(3)}%  월 ${String(monthly).padStart(6)}회  ${mark}`);
+}
+
+// ── 유료 구간 ───────────────────────────────────────────────────────
+console.log('\n예산을 쓰면 어디까지 가는가');
+console.log('─'.repeat(72));
+for (const usd of [0, 5, 10, 20, 30, 52]) {
+  const affordable = CEILING + Math.floor((usd / PAID_PER_1K) * 1000);
+  const perRun = Math.floor(affordable / runsPerMonth);
+  const coverage = Math.min(100, (perRun / candidatesPerRun) * 100);
+  const label = usd === 0 ? '무료만' : `$${usd}/월`;
+  const note = usd === 52 ? '  ← 지금 서버와 동액' : '';
+  console.log(
+    `  ${label.padEnd(8)} 월 ${String(affordable).padStart(6)}회  회당 ${String(perRun).padStart(4)}건  `
+    + `후보 커버리지 ${coverage.toFixed(0)}%${note}`,
+  );
+}
+const fullCoverageCost = paidCost(Math.round(candidatesPerRun * runsPerMonth));
+console.log(`\n  후보 전량(회당 ${candidatesPerRun}건) 커버 비용: $${fullCoverageCost.toFixed(2)}/월`);
+
+if (BUDGET_USD > 0) {
+  const affordable = CEILING + Math.floor((BUDGET_USD / PAID_PER_1K) * 1000);
+  const perRun = Math.floor(affordable / runsPerMonth);
+  console.log(`\n지정 예산 $${BUDGET_USD}/월 기준`);
+  console.log(`  월 ${affordable}회 · 회당 ${perRun}건 까지 가능`);
+  console.log(`  거버너 설정: LEWORD_BRIGHTDATA_PAID_OVERAGE=${affordable - CEILING}`);
+  console.log('  ⚠️ 이 값을 열기 전까지는 무료 한도에서 자동으로 멈춘다(기본 0).');
 }
 
 console.log('\n다음에 확정해야 할 것');
