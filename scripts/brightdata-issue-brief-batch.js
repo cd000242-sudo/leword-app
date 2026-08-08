@@ -34,6 +34,7 @@ const path = require('path');
 const { brightDataFetch } = require('../src/utils/brightdata-client');
 const { extractIssueBrief } = require('../src/utils/issue-brief-extractor');
 const { toReadableFacts } = require('../src/utils/issue-brief-readable');
+const { suggestTitles } = require('../src/utils/issue-title-suggester');
 const { brightDataQuotaSnapshot } = require('../src/utils/brightdata-quota-governor');
 
 const FEATURE = 'mindmap';
@@ -57,7 +58,17 @@ function newsUrl(keyword) {
 function toInsight(brief) {
   const facts = toReadableFacts(brief.facts, 4);
   if (facts.length === 0) return null;
+  const headlines = brief.articles.map((a) => a.title).filter(Boolean).slice(0, 6);
+  // 제목·주제는 여기서 계산해 스냅샷에 담는다. SPA 는 읽기만 한다
+  // (추출기는 leword-app, SPA 는 naver 레포라 런타임에 못 부른다).
+  const suggestion = suggestTitles(brief.keyword, facts.map((f) => f.text), headlines);
   return {
+    titles: {
+      seo: suggestion.seoTitle,
+      home: suggestion.homeTitle,
+      topic: suggestion.topic ? suggestion.topic.label : '',
+      topicGroup: suggestion.topic ? suggestion.topic.group : '',
+    },
     facts: facts.map((f) => ({ text: f.text, sourceIndex: f.sourceIndex })),
     links: brief.links.slice(0, 3).map((l) => ({ url: l.url, press: l.press })),
     images: brief.articles.map((a) => a.imageUrl).filter(Boolean).slice(0, 3),
