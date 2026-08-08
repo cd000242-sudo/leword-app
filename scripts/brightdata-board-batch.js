@@ -8,13 +8,19 @@
  *   판정 지표는 원창출률·원창출품질이다. 그래서 탈락분을 표본으로 같이 태워
  *   오탈락률(문서수로 버렸는데 실제론 먹을 수 있었던 비율)을 추적한다.
  *
- * 예산(scripts/brightdata-budget-model.js 기준, 주 2회 = 월 8.7회):
- *   최종 96 + 탈락 표본 48 = 회당 144 → 월 1,251회. 무료 5,000의 25%.
+ * 표본을 몇 건 볼지는 비율이 아니라 "회당 예산"에서 역산한다.
+ * 무료 5,000 은 여러 기능이 나눠 쓰므로(golden/affiliate/youtube/mindmap…)
+ * golden 몫을 정해 두고, 최종 행을 채우고 남는 만큼을 전부 탈락 감사에 쓴다.
+ * 비율을 고정하면 후보 수가 늘 때 예산을 넘고, 줄 때는 남는 예산을 버린다.
+ *
+ * 기본값: 회당 344건 (= golden 월 3,000 / 8.7회, 무료의 60%. 나머지 40%는 타 기능 몫)
+ *   → 최종 96 + 탈락 248 = 344. 탈락 864건 중 29% 감사.
  *
  * 사용:
  *   BRIGHTDATA_TOKEN=xxx node scripts/brightdata-board-batch.js --in=candidates.json
  *   ... --dryRun            네트워크 없이 소요량만 계산(BD 호출 0회)
- *   ... --sampleRate=0.05   탈락 후보 중 감사할 비율
+ *   ... --maxPerRun=344     이번 실행에서 쓸 총 요청 수
+ *   ... --sampleRate=0.3    비율을 직접 지정(예산 상한은 그대로 적용)
  *   ... --out=report.json
  *
  * 입력 형식: { finalists: [{keyword,...}], rejected: [{keyword, reason?}] }
@@ -33,6 +39,11 @@ const { brightDataQuotaSnapshot } = require('../src/utils/brightdata-quota-gover
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
 const DELAY_MS = 400;
 const FEATURE = 'golden';
+/**
+ * 회당 요청 상한. golden 월 3,000 ÷ 주2회(월 8.7회) ≈ 344.
+ * 무료 5,000 의 60% 를 golden 몫으로 두고 40% 는 타 기능(affiliate/youtube/mindmap…)에 남긴다.
+ */
+const DEFAULT_MAX_PER_RUN = 344;
 
 function arg(name) {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -111,11 +122,21 @@ async function main() {
   if (!fs.existsSync(inPath)) { console.error(`입력 파일 없음: ${inPath}`); process.exit(2); }
 
   const dryRun = hasFlag('dryRun');
-  const sampleRate = Number(arg('sampleRate')) || 0.05;
+  const maxPerRun = Number(arg('maxPerRun')) || DEFAULT_MAX_PER_RUN;
   const outPath = arg('out');
 
   const { finalists, rejected } = loadCandidates(inPath);
-  const sample = pickSample(rejected, sampleRate);
+
+  // 최종 행은 전량 검증이 원칙이라 예산에서 먼저 뺀다.
+  // 남는 예산을 전부 탈락 감사에 쓴다 — 남겨봐야 월말에 소멸한다.
+  const roomForSample = Math.max(0, maxPerRun - finalists.length);
+  const requestedRate = Number(arg('sampleRate')) || 0;
+  const wantSample = requestedRate > 0
+    ? Math.round(rejected.length * requestedRate)
+    : rejected.length;
+  const sampleCount = Math.min(wantSample, roomForSample, rejected.length);
+  const sample = pickSample(rejected, rejected.length > 0 ? sampleCount / rejected.length : 0);
+  const sampleRate = rejected.length > 0 ? sample.length / rejected.length : 0;
   const planned = finalists.length + sample.length;
 
   console.log('='.repeat(70));
@@ -123,7 +144,10 @@ async function main() {
   console.log('='.repeat(70));
   console.log(`  최종 행       ${finalists.length}건  → 전량 검증`);
   console.log(`  탈락 후보     ${rejected.length}건  → 표본 ${sample.length}건 (${Math.round(sampleRate * 100)}%)`);
-  console.log(`  이번 실행 소요 ${planned}건`);
+  console.log(`  이번 실행 소요 ${planned}건 / 회당 예산 ${maxPerRun}건`);
+  if (sample.length < rejected.length && sample.length === roomForSample) {
+    console.log('  (예산이 차서 표본을 잘랐다. --maxPerRun 을 올리면 더 본다)');
+  }
 
   const before = brightDataQuotaSnapshot();
   console.log(`  이번 달 사용  ${before.used} / 한도 ${before.freeCeiling}  (남은 ${before.remainingFree})\n`);
