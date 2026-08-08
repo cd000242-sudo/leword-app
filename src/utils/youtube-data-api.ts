@@ -19,6 +19,12 @@
  * - 결과 캐싱
  */
 
+import {
+  reserveYoutubeUnits,
+  recordYoutubeUnits,
+  YoutubeQuotaExhaustedError,
+} from './youtube-quota-governor';
+
 // ============================================
 // 타입 정의
 // ============================================
@@ -279,14 +285,23 @@ async function apiRequest(
   params: URLSearchParams,
   retryCount: number = 3
 ): Promise<any> {
+  // 쿼터 게이트: search.list 는 호출당 100유닛이라 페이지네이션이 하루치(10,000)를 순식간에 태운다.
+  // 403 quotaExceeded 로 유튜브 기능 전체가 죽기 전에 스스로 멈춘다.
+  const gate = reserveYoutubeUnits(url);
+  if (!gate.allowed) {
+    throw new YoutubeQuotaExhaustedError(`[YOUTUBE-QUOTA] ${gate.reason}`);
+  }
+
   return withRetry(async () => {
     const response = await fetch(`${url}?${params}`);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(`YouTube API 오류: ${response.status}`);
     }
-    
+
+    // 유닛은 성공 응답 기준으로 확정한다(재시도 실패분까지 세면 과대계상).
+    recordYoutubeUnits(url);
     return response.json();
   }, retryCount);
 }
