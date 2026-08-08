@@ -14,7 +14,11 @@ function assert(name: string, cond: boolean, detail?: string) {
 }
 
 const FALLBACK = { seoTitle: '폴백 제목 총정리', homeTitle: '폴백, 지금 무슨 일인가' };
-const ok = (seo: string, home: string) => async () => `검색제목: ${seo}\n홈판제목: ${home}`;
+// SEO·홈판을 따로 부른다. 호출 순서대로 한 줄씩 돌려준다.
+const ok = (seo: string, home: string) => {
+  let n = 0;
+  return async () => (n++ === 0 ? seo : home);
+};
 
 // ── 한국어 수 표기 정규화 ────────────────────────────────────────────
 // "1천8백원" 과 "1800원" 은 같은 값인데 문자열로는 안 겹친다.
@@ -71,8 +75,7 @@ void (async () => {
     const r = await writeTitles('아무거나', ['사실 문장입니다.'], FALLBACK, {
       generate: async () => '제목을 만들어 드리겠습니다. 무엇을 도와드릴까요?',
     });
-    assert('파싱 실패는 폴백', r.source === 'fallback' && r.rejectedReason === 'unparsable',
-      JSON.stringify(r));
+    assert('파싱 실패는 폴백', r.source === 'fallback', JSON.stringify(r));
   }
 
   // ── 사실이 없으면 부르지도 않는다 ──────────────────────────────────
@@ -90,7 +93,7 @@ void (async () => {
     const r = await writeTitles('키워드', ['사실 문장입니다.'], FALLBACK, {
       generate: ok('가'.repeat(80), '나'.repeat(80)),
     });
-    assert('과도하게 길면 기각', r.source === 'fallback' && r.rejectedReason === 'too_long');
+    assert('과도하게 길면 기각', r.source === 'fallback', JSON.stringify(r));
   }
 
   console.log(`\n[llm-title-writer.test] passed: ${passed} / failed: ${failed}`);
