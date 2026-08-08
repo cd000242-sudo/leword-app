@@ -81,14 +81,42 @@ function looksLikePress(value: string): boolean {
 }
 
 /**
- * 문장 단위로 쪼갠다. 한국어 기사는 마침표 뒤 공백이 일정치 않아
- * 종결어미까지 같이 본다.
+ * 문장 단위로 쪼갠다.
+ *
+ * 말줄임표(…/...)도 경계로 본다. 네이버 요약은 문장 중간을 잘라 "…" 로 잇는데,
+ * 이걸 경계로 안 보면 "6경기 연속 안타... 그는 2사 만루에서 몬테로의 3구째를
+ * 걷어내 2타점 적시타를 폭발했다" 가 통째로 한 덩어리가 되고, 앞쪽 잘린 조각
+ * 때문에 뒤의 알짜 정황까지 같이 버려진다. 실제로 그렇게 묻혔다.
  */
 function splitSentences(text: string): string[] {
   return text
-    .split(/(?<=[.!?])\s+|(?<=다)\s+(?=[A-Z가-힣])/)
+    .split(/(?<=[.!?])\s+|\.{3,}\s*|…\s*|(?<=다)\s+(?=[A-Z가-힣])/)
     .map((s) => s.trim())
     .filter((s) => s.length >= 15);
+}
+
+/** 사진 캡션 종결 — 사건이 아니라 정지된 장면 묘사다. */
+const PHOTO_CAPTION_TAIL_RE = /(바라보고 있다|하고 있다|기뻐하고 있다|들어서고 있다|모습이다)\.?$/;
+/** 끝이 잘린 문장 — 핵심 숫자가 날아간 상태다. */
+const TRUNCATED_TAIL_RE = /(\.\.\.|…)\s*$/;
+
+/**
+ * 글감이 되는 문장인지. 캡션과 잘린 문장은 후보에서 아예 뺀다.
+ *
+ * 점수만으로 거르면 안 된다 — 사진 캡션은 "2회 말", "2타점", "오라클 파크" 를
+ * 다 담고 있어서 오히려 점수가 제일 높게 나온다. 실제로 캡션이 1위를 먹고
+ * 정작 필요한 "몬테로의 3구째를 걷어내" 가 밀려났다.
+ */
+function isUsableFact(sentence: string): boolean {
+  if (PHOTO_CAPTION_TAIL_RE.test(sentence)) return false;
+  if (TRUNCATED_TAIL_RE.test(sentence)) return false;
+  // 날짜만 있는 꼬리("2026.08.08.") 같은 조각 제외
+  if (!/[가-힣]{4,}/.test(sentence)) return false;
+  // 문장이 제대로 끝났는지. 말줄임표로 쪼개고 나면 앞 조각은 "…3타수" 처럼
+  // 잘렸다는 표시를 잃어버려서, 꼬리 검사만으로는 못 걸러진다.
+  // 종결어미로 끝나지 않으면 중간에서 잘린 것으로 본다.
+  if (!/(다|요|음|함|됨|것|죠|네|까)[.!?"”'’)\]]*$/.test(sentence)) return false;
+  return true;
 }
 
 /** 구체 정황이 담긴 문장일수록 앞에 둔다 — 숫자·상황어가 있으면 글감이 된다. */
@@ -96,8 +124,9 @@ function specificityScore(sentence: string): number {
   let score = 0;
   if (/\d/.test(sentence)) score += 2;
   if (/(회말|회초|타석|만루|타점|연속|타율|득점|결승|선발)/.test(sentence)) score += 3;
-  if (/(현지|한국시간|열린|경기|파크|구장)/.test(sentence)) score += 2;
-  if (/(밝혔다|전했다|말했다|발표)/.test(sentence)) score += 1;
+  // 동작 서술 — "어떻게 했는지" 가 들어간 문장이 초보자에게 실제 글감이 된다.
+  if (/(걷어내|때렸|폭발|터뜨리|잡은 뒤|묶었|허용|뽑았|승리했|패했)/.test(sentence)) score += 4;
+  if (/(현지|한국시간|열린|경기|파크|구장)/.test(sentence)) score += 1;
   return score;
 }
 
@@ -149,7 +178,16 @@ export function extractIssueBrief(html: string, keyword: string): IssueBrief {
   const factCandidates: Array<IssueFact & { score: number }> = [];
   summaries.forEach((summary, index) => {
     for (const sentence of splitSentences(summary)) {
-      factCandidates.push({ text: sentence, sourceIndex: index, score: specificityScore(sentence) });
+      if (!isUsableFact(sentence)) continue;
+      factCandidates.push({
+        text: sentence,
+        sourceIndex: index,
+        // 네이버가 이미 관련도순으로 정렬해 준다. 뒤쪽 기사는 같은 검색어라도
+        // 다른 날 다른 경기인 경우가 많아서, 섞으면 "흐름 정리"가 엉킨다
+        // (같은 키워드에 0-6 패배·4-5 석패 같은 과거 경기가 딸려 온다).
+        // 그래서 뒤로 갈수록 감점해 현재 사건 쪽으로 모은다.
+        score: specificityScore(sentence) - index,
+      });
     }
   });
   const seen = new Set<string>();
