@@ -116,7 +116,27 @@ function isUsableFact(sentence: string): boolean {
   // 잘렸다는 표시를 잃어버려서, 꼬리 검사만으로는 못 걸러진다.
   // 종결어미로 끝나지 않으면 중간에서 잘린 것으로 본다.
   if (!/(다|요|음|함|됨|것|죠|네|까)[.!?"”'’)\]]*$/.test(sentence)) return false;
+  // 앞이 잘린 조각. 네이버 요약은 부제와 본문을 "…" 로 붙여 오는데, 그 이음매가
+  // "시즌 타율 0.067 샌프란시스코 … 이정후가" 처럼 남의 기록을 앞에 달고 온다.
+  // 실제로 김하성의 타율이 이정후 기록으로 붙어 나갔다 — 사실 오류다.
+  if (/^(?:시즌|올해|현재|누적|통산)?\s*[가-힣]{2,5}\s*[\d.]+\s+[가-힣]/.test(sentence)) return false;
+  // 목록·캡션 기호로 시작하는 조각
+  if (/^[▲△■□●○◇◆▶·※\-–—]/.test(sentence)) return false;
   return true;
+}
+
+/**
+ * 검색어와 실제로 같은 주제인지. 기사 요약에는 본문과 무관한 문단이 섞인다
+ * ("전국 무더위 지속" 기사에 해상 파고 예보가 딸려 오는 식).
+ * 검색어 어절이 하나도 안 걸리면 그 키워드 글감으로는 쓸 수 없다.
+ */
+function sharesKeywordToken(sentence: string, keyword: string): boolean {
+  const tokens = String(keyword || '')
+    .split(/\s+/)
+    .map((t) => t.replace(/[^가-힣A-Za-z0-9]/g, ''))
+    .filter((t) => t.length >= 2);
+  if (tokens.length === 0) return true;
+  return tokens.some((t) => sentence.includes(t));
 }
 
 /** 구체 정황이 담긴 문장일수록 앞에 둔다 — 숫자·상황어가 있으면 글감이 된다. */
@@ -190,8 +210,13 @@ export function extractIssueBrief(html: string, keyword: string): IssueBrief {
       });
     }
   });
+  // 주제가 맞는 문장만 남긴다. 다만 너무 조여서 다 날아가면 원래 후보로 되돌린다
+  // (짧은 키워드는 어절 겹침이 드물다).
+  const onTopic = factCandidates.filter((c) => sharesKeywordToken(c.text, keyword));
+  const pool = onTopic.length >= 2 ? onTopic : factCandidates;
+
   const seen = new Set<string>();
-  const facts: IssueFact[] = factCandidates
+  const facts: IssueFact[] = pool
     .sort((a, b) => b.score - a.score)
     .filter((candidate) => {
       const key = candidate.text.slice(0, 24);

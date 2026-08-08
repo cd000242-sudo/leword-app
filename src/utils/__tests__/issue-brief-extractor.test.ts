@@ -97,6 +97,62 @@ assert('링크는 네이버 뉴스 절대주소',
 }
 assert('정상 입력이면 hasContent=true', brief.hasContent === true);
 
+// ── 실주행에서 나온 결함들 (2026-08-08 실측) ─────────────────────────
+// 6개 키워드 실주행에서 실제로 새어나온 것들이라 회귀로 못 박는다.
+function fakeNewsHtml(summaries: string[]): string {
+  return summaries.map((s, i) => (
+    `<span class="sds-comps-text-type-headline1">기사제목 ${i + 1} 입니다</span>`
+    + `<span class="sds-comps-text-type-body1">${s}</span>`
+  )).join('');
+}
+
+{
+  // 🔴 사실 오류 — 네이버 요약은 부제와 본문을 "…" 로 붙여 온다. 그 이음매에서
+  // 남의 기록(김하성 타율 0.067)이 이정후 문장 앞에 달려 나왔다.
+  const html = fakeNewsHtml([
+    '송성문은 안타 친 뒤 도루 실패로 복귀한 김하성은 무안타 침묵…시즌 타율 0.067 샌프란시스코 자이언츠 주전 외야수 이정후가 6경기 연속 안타 행진을 이어갔다.',
+    '이정후는 2사 만루에서 몬테로의 3구째를 걷어내 2타점 중전 적시타를 폭발했다.',
+  ]);
+  const facts = extractIssueBrief(html, '이정후 안타').facts.map((f) => f.text);
+  assert('남의 기록이 앞에 붙은 조각을 버린다',
+    !facts.some((t) => t.includes('0.067')), facts.join(' | '));
+}
+
+{
+  // 🟡 캡션 기호 유출 — "▲ 안타 치는 이정후 …" 가 사실로 나갔다.
+  const html = fakeNewsHtml([
+    '▲ 안타 치는 이정후 메이저리그 샌프란시스코 자이언츠의 이정후가 6경기 연속 안타 행진을 이어갔습니다.',
+    '이정후는 1회말 첫 타석에서 볼넷을 골라냈다.',
+  ]);
+  const facts = extractIssueBrief(html, '이정후 안타').facts.map((f) => f.text);
+  assert('캡션 기호로 시작하는 조각을 버린다',
+    !facts.some((t) => t.startsWith('▲')), facts.join(' | '));
+}
+
+{
+  // 🟡 주제 이탈 — '전국 무더위 지속' 기사에 해상 파고 예보가 딸려 왔다.
+  const html = fakeNewsHtml([
+    '바다의 물결은 동해 앞바다에서 0.5∼3.5m, 서해 앞바다에서 0.5∼2.0m로 일겠다.',
+    '다음 주도 대부분 지역 낮 최고 기온이 33도 안팎을 기록하며 무더위가 이어지겠다.',
+    '이번 무더위는 8월 중순까지 계속될 전망이다.',
+  ]);
+  const facts = extractIssueBrief(html, '전국 무더위 지속').facts.map((f) => f.text);
+  assert('검색어와 무관한 문단을 버린다',
+    !facts.some((t) => t.includes('앞바다')), facts.join(' | '));
+  assert('주제가 맞는 문장은 남긴다',
+    facts.some((t) => t.includes('무더위')), facts.join(' | '));
+}
+
+{
+  // 주제 필터가 과하면 안 된다 — 다 걸러지면 원래 후보로 되돌아가야 한다.
+  const html = fakeNewsHtml([
+    '검찰은 8일 결심 공판에서 징역 1년을 구형했다고 밝혔다.',
+    '재판부는 오는 11일 선고를 내릴 예정이라고 전했다.',
+  ]);
+  const facts = extractIssueBrief(html, '조중연').facts;
+  assert('어절이 안 겹쳐도 사실이 비지 않는다', facts.length >= 1, String(facts.length));
+}
+
 console.log(`\n[issue-brief-extractor.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach((f) => console.error('  ' + f));
