@@ -1,0 +1,116 @@
+import {
+  titleCoverage,
+  parseDaysAgo,
+  analyzeSerp,
+  verdictFor,
+  DEFAULT_SERP_THRESHOLDS,
+} from '../serp-winnability';
+
+let passed = 0;
+let failed = 0;
+const failures: string[] = [];
+
+function assert(name: string, cond: boolean, detail?: string) {
+  if (cond) {
+    passed++;
+  } else {
+    failed++;
+    failures.push(`FAIL ${name}${detail ? ' - ' + detail : ''}`);
+  }
+}
+
+// ── 제목 커버리지 ────────────────────────────────────────────────────
+assert('모든 어절이 들어있으면 1', titleCoverage('소상공인 지원금 신청 방법', '소상공인 지원금') === 1);
+assert('일부만 들어있으면 0<x<1', titleCoverage('소상공인 대출 안내', '소상공인 지원금') === 0.5);
+assert('하나도 없으면 0', titleCoverage('오늘 날씨', '소상공인 지원금') === 0);
+// 조사·공백·기호가 붙어도 같은 어절로 봐야 한다. 안 그러면 한국어에서 거의 다 미스.
+assert('조사가 붙어도 일치', titleCoverage('소상공인 지원금을 받는 법', '소상공인 지원금') === 1);
+assert('기호가 껴도 일치', titleCoverage('[소상공인] 지원금-신청', '소상공인 지원금') === 1);
+// 1글자 어절은 우연 일치가 잦아 분모에서 빠져야 한다.
+// '소상공인 A' 의 유효 어절은 '소상공인' 하나뿐 → 그것만 있으면 1.
+assert('1글자 어절은 분모에서 빠진다', titleCoverage('소상공인 이야기', '소상공인 A') === 1,
+  String(titleCoverage('소상공인 이야기', '소상공인 A')));
+assert('유효 어절이 없으면 0', titleCoverage('제목', 'A B') === 0);
+
+// ── 날짜 파싱 ────────────────────────────────────────────────────────
+const NOW = Date.UTC(2026, 7, 8);
+assert('"3일 전"', parseDaysAgo('3일 전', NOW) === 3);
+assert('"2주 전" = 14일', parseDaysAgo('2주 전', NOW) === 14);
+assert('"1개월 전" = 30일', parseDaysAgo('1개월 전', NOW) === 30);
+assert('"24시간 전" = 1일', parseDaysAgo('24시간 전', NOW) === 1);
+assert('절대날짜', parseDaysAgo('2026.08.01', NOW) === 7);
+assert('못 읽으면 null', parseDaysAgo('어제', NOW) === null);
+
+// ── SERP 분석 ────────────────────────────────────────────────────────
+function headline(text: string): string {
+  return `<span class="sds-comps-text-type-headline1 x" data-y="1">${text}</span>`;
+}
+
+{
+  // 상위 제목이 키워드를 정면으로 다루는 경우
+  const html = [
+    headline('소상공인 <mark>지원금</mark> 신청 방법 총정리'),
+    headline('소상공인 지원금 대상 확인'),
+    headline('소상공인 지원금 서류 준비'),
+    headline('전혀 다른 이야기 오늘 점심'),
+  ].join('');
+  const serp = analyzeSerp(html, '소상공인 지원금', { nowMs: NOW });
+  assert('제목 4건을 읽는다', serp.sampledTitles === 4, String(serp.sampledTitles));
+  // <mark> 태그가 걷혀야 '지원금'이 어절로 인식된다.
+  assert('mark 태그를 걷어낸다', serp.exactTitleHits === 3, JSON.stringify(serp));
+  assert('무관한 제목은 정확일치가 아니다', serp.topTitles.length === 3);
+  assert('정면 대응 많으면 LOCKED', verdictFor(serp).verdict === 'LOCKED', JSON.stringify(verdictFor(serp)));
+}
+
+{
+  // 상위에 정면으로 답한 글이 없는 경우 = 선점 여지
+  const html = [
+    headline('여름 휴가 준비물 체크리스트'),
+    headline('장마철 제습기 고르는 법'),
+    headline('에어컨 전기요금 절약 팁'),
+    headline('소상공인 대출 상담 후기'),
+  ].join('');
+  const serp = analyzeSerp(html, '소상공인 지원금', { nowMs: NOW });
+  assert('정확 일치 0건', serp.exactTitleHits === 0, JSON.stringify(serp));
+  assert('정면 대응 없으면 WINNABLE', verdictFor(serp).verdict === 'WINNABLE', JSON.stringify(verdictFor(serp)));
+}
+
+{
+  // 파싱 실패를 '공백'으로 오판하면 안 된다 — 가장 위험한 오류다.
+  const serp = analyzeSerp('<html><body>차단됨</body></html>', '소상공인 지원금', { nowMs: NOW });
+  assert('제목을 못 읽으면 sampledTitles 0', serp.sampledTitles === 0);
+  assert('못 읽으면 WINNABLE 이 아니라 NO_DATA', verdictFor(serp).verdict === 'NO_DATA',
+    JSON.stringify(verdictFor(serp)));
+}
+
+{
+  // 중간 지대. 어절 2개짜리 키워드는 커버리지가 0/0.5/1 뿐이라 '부분 일치'가
+  // 원리적으로 안 나온다 — 부분 판정을 보려면 3어절 이상이어야 한다.
+  const html = [
+    headline('소상공인 지원금 신청 총정리'),
+    headline('소상공인 지원금 안내'),
+    headline('여름 휴가 준비물'),
+    headline('제습기 추천'),
+  ].join('');
+  const serp = analyzeSerp(html, '소상공인 지원금 신청', { nowMs: NOW });
+  assert('정확 1 / 부분 1', serp.exactTitleHits === 1 && serp.partialTitleHits === 1, JSON.stringify(serp));
+  assert('중간 지대는 CONTESTED', verdictFor(serp).verdict === 'CONTESTED', JSON.stringify(verdictFor(serp)));
+}
+
+// ── 임계값 주입 ──────────────────────────────────────────────────────
+// 임계값이 코드에 박혀 있으면 배치가 돌기 시작한 뒤 보정을 못 한다.
+{
+  const html = [headline('소상공인 지원금 신청'), headline('여름 휴가 준비물'), headline('제습기 추천')].join('');
+  const serp = analyzeSerp(html, '소상공인 지원금', { nowMs: NOW });
+  const strict = verdictFor(serp, { ...DEFAULT_SERP_THRESHOLDS, contestedMaxExact: 0 });
+  assert('임계값을 조이면 판정이 바뀐다', strict.verdict === 'LOCKED', JSON.stringify(strict));
+  const loose = verdictFor(serp, { ...DEFAULT_SERP_THRESHOLDS, minSampledTitles: 99 });
+  assert('표본 하한을 올리면 판정 보류', loose.verdict === 'NO_DATA', JSON.stringify(loose));
+}
+
+console.log(`\n[serp-winnability.test] passed: ${passed} / failed: ${failed}`);
+if (failed > 0) {
+  failures.forEach((f) => console.error('  ' + f));
+  process.exit(1);
+}
+process.exit(0);

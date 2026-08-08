@@ -16,6 +16,7 @@ const path = require('path');
 const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'sanity-gate.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'brightdata-client.test.ts'),
+    path.join(__dirname, '..', 'src', 'utils', '__tests__', 'serp-winnability.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'sanity-environment-isolation.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'shopping-opportunity.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'shopping-purchase-angle.test.ts'),
