@@ -13,6 +13,7 @@
  */
 
 require('ts-node/register/transpile-only');
+require('./load-project-env').loadProjectEnv();
 
 const fs = require('fs');
 const { brightDataFetch } = require('../src/utils/brightdata-client');
