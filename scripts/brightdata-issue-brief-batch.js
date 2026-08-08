@@ -82,6 +82,7 @@ async function main() {
   // 대상 수집 — 같은 키워드가 여러 레인에 겹치면 한 번만 부른다(호출 절약).
   const targets = [];
   const seen = new Map();
+  const alreadyHas = new Set();
   for (const lane of lanes) {
     if (laneFilter.length > 0 && !laneFilter.includes(lane.id)) continue;
     for (const item of (lane.items || [])) {
@@ -89,9 +90,15 @@ async function main() {
       if (!keyword) continue;
       if (!seen.has(keyword)) { seen.set(keyword, []); targets.push(keyword); }
       seen.get(keyword).push(item);
+      if (item.insight) alreadyHas.add(keyword);
     }
   }
-  const planned = limit > 0 ? targets.slice(0, limit) : targets;
+
+  // 실시간 검색어는 교체가 빨라서(한 사이클에 3분의 2가 바뀌는 것을 관측)
+  // 매번 전량을 다시 부르면 예산이 금방 마른다. 기본은 브리프가 없는 것만 채운다.
+  const refreshAll = hasFlag('refreshAll');
+  const pending = refreshAll ? targets : targets.filter((k) => !alreadyHas.has(k));
+  const planned = limit > 0 ? pending.slice(0, limit) : pending;
 
   const before = brightDataQuotaSnapshot();
   console.log('='.repeat(70));
@@ -99,6 +106,7 @@ async function main() {
   console.log('='.repeat(70));
   console.log(`  레인          ${lanes.map((l) => l.id).join(', ')}`);
   console.log(`  고유 키워드   ${targets.length}건 (중복 제거 후)`);
+  console.log(`  브리프 보유   ${alreadyHas.size}건${refreshAll ? ' (refreshAll — 전량 재수집)' : ' → 건너뜀'}`);
   console.log(`  이번 실행     ${planned.length}건 = BD ${planned.length}회`);
   console.log(`  이번 달 사용  ${before.used} / ${before.freeCeiling} (남은 ${before.remainingFree})\n`);
 
