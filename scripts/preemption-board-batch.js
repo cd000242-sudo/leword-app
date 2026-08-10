@@ -207,6 +207,7 @@ async function verify(keyword, withStructure) {
     serp.hasAiBriefing = structure.hasAiBriefing;
     serp.aiBriefingSourceCount = structure.aiBriefingSources.length;
     serp.sections = structure.sections;
+    serp.sectionMarkerVersion = structure.sectionMarkerVersion;
   }
   return { serp, quotaBlocked: false };
 }
@@ -369,6 +370,8 @@ async function main() {
           hasAiBriefing: serp.hasAiBriefing,
           aiBriefingSourceCount: serp.aiBriefingSourceCount,
           sections: serp.sections,
+          sectionMarkerVersion: serp.sectionMarkerVersion ?? null,
+          topTitles: serp.topTitles || [],
         } : null,
         firstSeenAt: firstSeen[result.keyword] || null,
       });

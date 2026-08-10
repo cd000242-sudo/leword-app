@@ -142,6 +142,77 @@ export function classifySearchIntent(keyword: string): IntentResult {
   return { intent: 'unknown', intentLabel: SEARCH_INTENT_LABEL.unknown, matched: [] };
 }
 
+/* ─────────────── 구획으로 보강 ─────────────── */
+
+export interface ResolvedIntentResult extends IntentResult {
+  /** 무엇으로 판정했는가. lexical = 검색자가 쓴 말, serp = 화면에 실제로 뜬 구획. */
+  source: 'lexical' | 'serp' | 'none';
+}
+
+/**
+ * 어휘로 분류가 안 된 키워드를 **화면에 실제로 뜬 구획**으로 판정한다.
+ *
+ * 왜 필요한가:
+ *   실제 후보의 다수는 '강아지 사료'·'제주 애월 카페'처럼 의도어 없이 명사만
+ *   있는 말이다. 어휘 목록으로는 전부 '분류 안 됨' 이 되고, 그러면 실행 계획이
+ *   제목 지침 한 줄만 남는다.
+ *
+ * 왜 이게 추정이 아닌가:
+ *   네이버가 그 검색어에 쇼핑 구획을 내놨다는 것은 **네이버가 측정한 구매 의도**다.
+ *   우리가 단어를 보고 넘겨짚는 게 아니라, 화면에서 확인한 사실을 옮기는 것이다.
+ *
+ * 어휘 판정이 이미 났으면 건드리지 않는다 — 검색자가 직접 쓴 말이 더 가까운 증거다.
+ */
+export function resolveIntentFromSerp(
+  lexical: IntentResult,
+  sections: readonly string[] | null | undefined,
+): ResolvedIntentResult {
+  if (lexical.intent !== 'unknown') return { ...lexical, source: 'lexical' };
+  if (!sections || sections.length === 0) return { ...lexical, source: 'none' };
+
+  // 쇼핑이 광고를 이긴다. 상품 목록이 떴다면 파는 물건이 있는 검색어다.
+  if (sections.includes('쇼핑')) {
+    return {
+      intent: 'commercial',
+      intentLabel: SEARCH_INTENT_LABEL.commercial,
+      matched: ['쇼핑 구획'],
+      source: 'serp',
+    };
+  }
+  // 서로 묻고 답하는 구획이 떴다 = 아직 정보를 찾는 단계다.
+  // 광고보다 먼저 본다: '멜라토닌 복용량' 실측에서 질문 20건과 광고 1건이 같이 떴는데,
+  // 광고를 앞세우면 정보형을 거래형으로 잘못 부른다. 사람 수가 더 무거운 증거다.
+  const asking = ['지식iN', '카페'].filter((name) => sections.includes(name));
+  if (asking.includes('지식iN')) {
+    return {
+      intent: 'informational',
+      intentLabel: SEARCH_INTENT_LABEL.informational,
+      matched: asking.map((name) => `${name} 구획`),
+      source: 'serp',
+    };
+  }
+  // 상품도 질문도 없는데 광고가 붙는다 = 신청·예약·견적에 돈을 쓰는 검색어다.
+  if (sections.includes('파워링크')) {
+    return {
+      intent: 'transactional',
+      intentLabel: SEARCH_INTENT_LABEL.transactional,
+      matched: ['파워링크 구획'],
+      source: 'serp',
+    };
+  }
+  if (asking.length > 0) {
+    return {
+      intent: 'informational',
+      intentLabel: SEARCH_INTENT_LABEL.informational,
+      matched: asking.map((name) => `${name} 구획`),
+      source: 'serp',
+    };
+  }
+
+  // 인플루언서만 뜬 경우가 여기 온다. 그것만으로는 무엇을 원하는 검색인지 모른다.
+  return { ...lexical, source: 'none' };
+}
+
 export interface BriefingRiskResult {
   risk: BriefingRisk;
   label: string;

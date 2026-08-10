@@ -24,13 +24,39 @@ const AI_BRIEF_MARKERS: readonly RegExp[] = [
   /AI브리핑/,
 ];
 
-/** 화면 상단을 차지하는 경쟁 구획들. 블로그가 아래로 밀리는 원인이다. */
+/**
+ * 구획 마커 세대.
+ *
+ * 왜 번호를 붙이나: v1 은 상단 탭바·광고 요청설정·API 게이트웨이를 구획으로 잘못 셌다.
+ * 그 시절에 저장된 배치 결과를 새 코드가 그대로 읽으면 **뜨지도 않은 쇼핑 구획을
+ * 근거로 '구매 검토'라고 말하게 된다** — 실제로 69행 전부가 그렇게 나왔다.
+ * 저장물에 세대를 함께 적어, 세대가 다르면 "못 본 것"으로 취급한다.
+ *
+ * v1 (~2026-08-10) 느슨한 마커 · v2 (2026-08-10~) 렌더된 내용만
+ */
+export const SECTION_MARKER_VERSION = 2;
+
+/**
+ * 화면 상단을 차지하는 경쟁 구획들. 블로그가 아래로 밀리는 원인이다.
+ *
+ * 마커는 **실제로 렌더된 내용**만 잡아야 한다. 처음엔 느슨하게 썼다가
+ * 뜨지도 않은 구획을 떴다고 말했다 — 통합검색은 어느 검색어에나 다음을 싣는다:
+ *   - 상단 탭바의 `search.shopping.naver.com` (쇼핑 오탐)
+ *   - `"adRequests":{"powerlink"` 요청 설정 (파워링크 오탐, 광고가 없어도 있다)
+ *   - `gw.in.naver.com` 내부 API 게이트웨이 (인플루언서 오탐)
+ * 그래서 목록·게시글 주소나 렌더된 고지문만 센다.
+ */
 const SECTION_MARKERS: Record<string, RegExp> = {
-  인플루언서: /influencer|인플루언서/,
-  지식iN: /kin\.naver/,
-  카페: /cafe\.naver/,
-  쇼핑: /shopping\.naver/,
-  파워링크: /powerlink|파워링크/,
+  // 인플루언서 채널 홈 주소. 게이트웨이(gw.)는 제외한다.
+  인플루언서: /(?<![\w.])in\.naver\.com\/[A-Za-z0-9_-]{3,}/,
+  // 질문 상세 링크. 카테고리 탭 링크에는 /qna 가 붙지 않는다.
+  지식iN: /kin\.naver\.com\/qna/,
+  // 카페 게시글은 `/카페아이디/글번호` 형태다. 카페 홈 링크만으로는 결과가 아니다.
+  카페: /cafe\.naver\.com\/[A-Za-z0-9_-]+\/[0-9]{3,}/,
+  // 상품 카드가 거는 브릿지 주소. 탭바의 search.shopping 과 다르다.
+  쇼핑: /cr3\.shopping\.naver\.com/,
+  // 광고가 실제로 붙었을 때만 나오는 고지문.
+  파워링크: /사이트검색광고\(파워링크\)/,
 };
 
 export interface SerpStructure {
@@ -45,6 +71,8 @@ export interface SerpStructure {
   aiBriefingSources: string[];
   /** 화면에 함께 뜬 경쟁 구획들. */
   sections: string[];
+  /** 어느 세대 마커로 셌는가. 저장물을 다시 읽을 때 신뢰 여부를 가른다. */
+  sectionMarkerVersion: number;
   /** 블로그 제목이 몇 개나 읽혔는가. 0이면 블로그 자리가 아예 없다는 뜻이다. */
   blogTitleCount: number;
 }
@@ -80,6 +108,7 @@ export function readSerpStructure(html: string): SerpStructure | null {
     aiBriefingMarkers: matched.length,
     aiBriefingSources: matched.length > 0 ? extractAiSources(html) : [],
     sections,
+    sectionMarkerVersion: SECTION_MARKER_VERSION,
     blogTitleCount: (html.match(/sds-comps-text-type-headline/g) || []).length,
   };
 }
