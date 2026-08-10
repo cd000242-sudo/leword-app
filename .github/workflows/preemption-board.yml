@@ -1,0 +1,88 @@
+name: 선점 보드 발굴 (월·금)
+
+# 매일 돌리지 않는다 — 사장님 지시.
+#
+# 시간대 함정: cron 은 UTC 다. 한국 월요일 07:00 은 UTC 일요일 22:00,
+# 금요일 07:00 은 UTC 목요일 22:00 이다. 그래서 요일이 0(일)·4(목) 이다.
+# 여기에 1,5 를 적으면 한국 시간으로 화요일·토요일에 돈다.
+on:
+  schedule:
+    - cron: '0 22 * * 0,4'
+  workflow_dispatch:
+    inputs:
+      targetPerTopic:
+        description: 주제당 목표 건수
+        default: '4'
+
+concurrency:
+  group: preemption-board
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # 후보 발굴은 무료다(검색광고·자동완성). BD 크레딧은 다음 단계에서만 쓴다.
+      - name: 후보 발굴
+        env:
+          NAVER_SEARCHAD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCHAD_ACCESS_LICENSE }}
+          NAVER_SEARCHAD_SECRET_KEY: ${{ secrets.NAVER_SEARCHAD_SECRET_KEY }}
+          NAVER_SEARCHAD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCHAD_CUSTOMER_ID }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=6 --perSeed=8
+
+      # 예산 절단 — 뽑은 만큼 그대로 넘기면 크레딧을 넘긴다(한 번 겪었다).
+      - name: 예산에 맞춰 자르기
+        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=6
+
+      - name: 자리 판정 (Bright Data)
+        env:
+          BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}
+          BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: |
+          node scripts/preemption-board-batch.js \
+            --in=candidates-trimmed.json \
+            --out=board.json \
+            --targetPerTopic=${{ github.event.inputs.targetPerTopic || '4' }} \
+            --withStructure
+
+      # 사이트 레포에 발행한다. 화면이 읽는 파일은 그쪽에 있다.
+      - name: 사이트 레포 체크아웃
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          token: ${{ secrets.SITE_REPO_TOKEN }}
+          path: site
+
+      - name: 보드 발행
+        run: |
+          node scripts/publish-preemption-board.js \
+            --in=board.json \
+            --dest=site/spa/public/data/preemption-board.json
+
+      - name: 커밋·푸시
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/preemption-board.json
+          # 통과 행이 없으면 발행기가 기존 파일을 그대로 두므로 변경이 없다.
+          if git diff --cached --quiet; then
+            echo '변경 없음 — 이번 회차는 통과한 키워드가 없다.'
+            exit 0
+          fi
+          git commit -m "chore(board): 선점 보드 갱신 $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push

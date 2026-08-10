@@ -33,6 +33,7 @@ const path = require('path');
 const { brightDataFetch } = require('../src/utils/brightdata-client');
 const { analyzeSerp } = require('../src/utils/serp-winnability');
 const { readSerpStructure } = require('../src/utils/naver-serp-structure');
+const { readSerpMeaning } = require('../src/utils/serp-meaning');
 const { brightDataQuotaSnapshot } = require('../src/utils/brightdata-quota-governor');
 const { selectWithFill, TIER_ORDER, TIER_LABEL, DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
 const { BLOG_TOPIC_COVERAGE, topicsWithoutCoverage } = require('../src/utils/blog-topic-coverage');
@@ -208,6 +209,11 @@ async function verify(keyword, withStructure) {
     serp.aiBriefingSourceCount = structure.aiBriefingSources.length;
     serp.sections = structure.sections;
     serp.sectionMarkerVersion = structure.sectionMarkerVersion;
+    /*
+     * "이 키워드가 뭔데" 를 같은 문서에서 함께 읽는다.
+     * 따로 부르면 크레딧이 두 배가 되는데, 필요한 글자는 이미 이 HTML 안에 있다.
+     */
+    serp.meaning = readSerpMeaning(whole.body);
   }
   return { serp, quotaBlocked: false };
 }
@@ -374,6 +380,7 @@ async function main() {
           sections: serp.sections,
           sectionMarkerVersion: serp.sectionMarkerVersion ?? null,
           topTitles: serp.topTitles || [],
+          meaning: serp.meaning || null,
         } : null,
         firstSeenAt: firstSeen[result.keyword] || null,
       });

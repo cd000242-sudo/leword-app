@@ -99,6 +99,14 @@ function toPublicRow(row) {
     regulatoryLabel: row.regulatoryLabel || '',
     trendLabel: row.trendLabel || '',
     timing: row.timing || '',
+    // 화면이 "이게 뭔데" 를 보여줄 재료. 전부 검색결과에서 그대로 옮긴 글자다.
+    meaning: serp.meaning ? {
+      citedTitles: serp.meaning.citedTitles || [],
+      questions: serp.meaning.questions || [],
+      productNames: serp.meaning.productNames || [],
+      priceMedian: serp.meaning.priceMedian ?? null,
+      priceSamples: serp.meaning.priceSamples ?? 0,
+    } : null,
     serp: {
       sampledTitles: serp.sampledTitles ?? null,
       exactTitleHits: serp.exactTitleHits ?? null,
