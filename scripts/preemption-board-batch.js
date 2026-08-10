@@ -121,14 +121,30 @@ function loadFirstSeen(statePath, keywords, nowIso) {
       state = {};
     }
   }
-  let added = 0;
+  /*
+   * 이번 회차에 처음 장부에 오른 것은 **나이를 모른다**.
+   *
+   * 장부는 "우리가 언제 처음 봤나" 만 안다. 이번에 처음 등록한 키워드에
+   * 지금 시각을 적어 두고 그걸 나이로 읽으면 0시간이 되어, 몇 년 된 말에도
+   * "N시간 전에 처음 관측된 말이다" 가 화면에 붙는다. 이건 실측이 아니라 거짓이다.
+   *
+   * CI 는 매 회차 새 러너라 장부 파일이 없다 — 그대로 두면 **전 행이** 그렇게 된다.
+   * 그래서 등록은 하되(다음 회차부터 의미가 생긴다) 이번 회차에는 안 알려 준다.
+   */
+  const addedKeywords = new Set();
   for (const keyword of keywords) {
     if (!state[keyword]) {
       state[keyword] = nowIso;
-      added += 1;
+      addedKeywords.add(keyword);
     }
   }
-  return { state, added };
+  return { state, added: addedKeywords.size, addedKeywords };
+}
+
+/** 이번 회차에 처음 본 것은 null(모름) 로 넘긴다. */
+function observedSince(firstSeen, addedKeywords, keyword) {
+  if (addedKeywords.has(keyword)) return null;
+  return firstSeen[keyword] || null;
 }
 
 /** 지금 실시간 검색어에 올라와 있는 키워드 집합. */
@@ -235,7 +251,7 @@ async function main() {
 
   const byTopic = loadCandidates(inPath);
   const allKeywords = [...byTopic.values()].flat().map((row) => row.keyword);
-  const { state: firstSeen, added } = loadFirstSeen(statePath, allKeywords, nowIso);
+  const { state: firstSeen, added, addedKeywords } = loadFirstSeen(statePath, allKeywords, nowIso);
   const realtime = loadRealtimeKeywords(signalsPath);
   const allocation = allocateBudget(byTopic, maxPerRun);
   const planned = [...allocation.values()].reduce((sum, n) => sum + n, 0) * (process.argv.includes('--withStructure') ? 2 : 1);
@@ -329,7 +345,7 @@ async function main() {
           searchVolume: candidate.searchVolume,
           documentCount: candidate.documentCount,
           serp,
-          firstSeenAt: firstSeen[candidate.keyword] || null,
+          firstSeenAt: observedSince(firstSeen, addedKeywords, candidate.keyword),
           inRealtimeNow: realtime.has(candidate.keyword.replace(/\s+/g, '')),
         },
       });
@@ -382,7 +398,7 @@ async function main() {
           topTitles: serp.topTitles || [],
           meaning: serp.meaning || null,
         } : null,
-        firstSeenAt: firstSeen[result.keyword] || null,
+        firstSeenAt: observedSince(firstSeen, addedKeywords, result.keyword),
       });
     }
     const layerSummary = TIER_ORDER
