@@ -25,7 +25,9 @@ require('ts-node/register/transpile-only');
 const fs = require('fs');
 const path = require('path');
 const { classifySearchIntent, resolveIntentFromSerp } = require('../src/utils/keyword-intent');
-const { SECTION_MARKER_VERSION } = require('../src/utils/naver-serp-structure');
+const { SECTION_MARKER_VERSION, trustedSections } = require('../src/utils/naver-serp-structure');
+const { judgeEarlyMover } = require('../src/utils/early-mover');
+const { adviseFromLayout } = require('../src/utils/serp-layout-advice');
 
 const DEFAULT_DEST = path.join(
   __dirname, '..', 'tmp', 'leaderspro-admin-work', 'spa', 'public', 'data', 'preemption-board.json',
@@ -49,13 +51,34 @@ function toPublicRow(row) {
 
   // 옛 세대 마커로 센 구획은 "못 본 것"으로 본다.
   // v1 은 탭바를 쇼핑으로 셌고, 그걸 믿으면 69행 전부가 '구매 검토'가 된다.
-  const trusted = serp.sectionMarkerVersion === SECTION_MARKER_VERSION;
-  const sections = trusted && Array.isArray(serp.sections) ? serp.sections : null;
+  const sections = trustedSections(serp);
+  const trusted = sections !== null;
+
+  /*
+   * "뜨는 중인데 아직 아무도 모르는" 판정.
+   * 자리가 빈 이유가 '관심이 없어서'인지 '아직 못 채서'인지를 여기서 가른다.
+   */
+  const earlyMover = judgeEarlyMover({
+    shape: row.trendShape || null,
+    searchVolume: row.searchVolume ?? null,
+    documentCount: row.documentCount ?? null,
+    inRealtimeNow: Boolean(row.inRealtimeNow),
+    firstSeenAt: row.firstSeenAt || null,
+  });
+
+  // 어느 판에서 싸울 것인가 — 구획의 유무가 아니라 **위아래 순서**가 정한다.
+  const layout = adviseFromLayout(sections);
 
   const intent = resolveIntentFromSerp(classifySearchIntent(row.keyword), sections);
   const intentLabel = intent.intent === 'unknown' ? (row.intentLabel || '') : intent.intentLabel;
   return {
     serpSections: sections || [],
+    layoutBestFor: layout.bestFor,
+    layoutHeadline: layout.headline,
+    layoutRanked: layout.ranked,
+    layoutAdsOnTop: layout.adsOnTop,
+    earlyMover: earlyMover.early,
+    earlyMoverReasons: earlyMover.early ? earlyMover.reasons : [],
     sectionsMeasured: trusted,
     intentSource: intent.source,
     keyword: row.keyword,
@@ -120,6 +143,14 @@ function main() {
   }
   const aiSeen = withEvidence.filter((r) => r.serp?.hasAiBriefing !== undefined).length;
   console.log(`  AI 브리핑    ${withEvidence.filter((r) => r.serp?.hasAiBriefing === true).length}건 있음 / ${aiSeen}건 측정`);
+  const early = withEvidence.filter((r) => judgeEarlyMover({
+    shape: r.trendShape || null,
+    searchVolume: r.searchVolume ?? null,
+    documentCount: r.documentCount ?? null,
+    inRealtimeNow: Boolean(r.inRealtimeNow),
+    firstSeenAt: r.firstSeenAt || null,
+  }).early).length;
+  console.log(`  선점 적기    ${early}행 (뜨는 중 · 밭 비어 있음 · 실시간 전 · 새로 생긴 말)`);
 
   // ① 빈 회차가 기존 보드를 지우지 않게
   if (withEvidence.length === 0) {

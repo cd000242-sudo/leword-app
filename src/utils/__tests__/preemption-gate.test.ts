@@ -262,3 +262,53 @@ describe('selectWithFill — 껍질 까기', () => {
         expect(wider.byTier.top3).toBe(3);
     });
 });
+
+/**
+ * 검색량 대비 문서수 하한.
+ *
+ * 왜 넣었나: 실측 69행 중 63행이 문서수 ≥ 검색량이었고 비율 중앙값이 0.028이었다.
+ * '5단서랍장가격비교'는 검색량 140에 문서 29,721(비율 0.005)인데 1층으로 올라왔다.
+ * 상위 3개가 이 검색어를 정면으로 안 다뤘다는 건 사실이지만, 그 정도로 포화된
+ * 밭에 글 하나를 던지는 것을 "빈자리"라고 팔 수는 없다.
+ * 이 앱의 등급 SSoT 도 같은 말을 한다 — SSS 는 비율 3 이상이다.
+ */
+describe('선점 게이트 — 검색량 대비 문서수', () => {
+    const winnableSerp = {
+        sampledTitles: 10, exactTitleHits: 0, partialTitleHits: 0,
+        medianDaysAgo: 120, topTitles: ['가', '나', '다'],
+    };
+    const base = {
+        keyword: '테스트 키워드', serp: winnableSerp,
+        firstSeenAt: new Date().toISOString(), inRealtimeNow: false,
+    };
+
+    it('문서수가 검색량보다 많으면 자리로 치지 않는다', () => {
+        const out = selectWithFill([{ ...base, searchVolume: 140, documentCount: 29721 }], 5);
+        expect(out.rows).toHaveLength(0);
+        expect(out.rejected[0].failed[0]).toContain('문서수');
+    });
+
+    it('검색량이 문서수보다 많으면 통과한다', () => {
+        const out = selectWithFill([{ ...base, searchVolume: 940, documentCount: 20 }], 5);
+        expect(out.rows).toHaveLength(1);
+    });
+
+    it('같으면 통과시킨다 — 경계에서 버리지 않는다', () => {
+        const out = selectWithFill([{ ...base, searchVolume: 500, documentCount: 500 }], 5);
+        expect(out.rows).toHaveLength(1);
+    });
+
+    // 못 잰 것과 나쁜 것을 섞지 않는다. 문서수를 못 재면 이 조건은 판단하지 않는다.
+    it('문서수를 못 쟀으면 이 조건으로 버리지 않는다', () => {
+        const out = selectWithFill([{ ...base, searchVolume: 500, documentCount: null }], 5);
+        expect(out.rows).toHaveLength(1);
+    });
+
+    it('개수가 모자라도 이 조건은 안 푼다 — 껍질 까기의 예외다', () => {
+        const rows = [
+            { ...base, keyword: '포화1', searchVolume: 140, documentCount: 29721 },
+            { ...base, keyword: '포화2', searchVolume: 130, documentCount: 21070 },
+        ];
+        expect(selectWithFill(rows, 6).rows).toHaveLength(0);
+    });
+});

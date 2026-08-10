@@ -108,7 +108,19 @@ async function main() {
   const minVolume = Number(arg('minVolume')) || DEFAULT_PREEMPTION_THRESHOLDS.minSearchVolume;
   // 실측 경계: 쓸 만한 후보는 dc 1,549~26,064 · 자리 없는 것은 30,188 이상이었다.
   const maxDocumentCount = Number(arg('maxDocumentCount')) || 30000;
+  /*
+   * 검색량 대비 문서수 하한 — 게이트와 **같은 값**을 쓴다.
+   * 예전에 후보 하한과 게이트 하한이 갈라져 후보 30건이 전량 탈락했고,
+   * 그걸 BD 크레딧 30건 태우고서야 알았다. 기본값은 게이트에서 가져온다.
+   */
+  const minRatio = Number(arg('minRatio')) || DEFAULT_PREEMPTION_THRESHOLDS.minVolumeToDocumentRatio;
   const perSeed = Number(arg('perSeed')) || 3;
+  /*
+   * 문서수를 몇 배수까지 훑을 것인가.
+   * 비율을 만족하는 후보는 드물다(실측 304건 중 11건). 좁게 훑으면 주제당 0건이
+   * 되므로 넉넉히 재고 조건에 맞는 것만 담는다. 문서수 조회는 무료다.
+   */
+  const scanWidth = Number(arg('scanWidth')) || 16;
   const secondarySeeds = Number(arg('secondarySeeds')) || 8;
   const outPath = arg('out') || 'preemption-candidates.json';
   const realtime = loadRealtime(arg('signals'));
@@ -123,7 +135,7 @@ async function main() {
 
   console.log('='.repeat(76));
   console.log(`선점 후보 발굴 — ${topics.length}개 주제 · 주제당 최대 ${perTopic}건`);
-  console.log(`거르기: 검색량 ${minVolume} 이상 · 문서수 ${maxDocumentCount.toLocaleString('ko-KR')} 이하 · 씨앗당 최대 ${perSeed}건`);
+  console.log(`거르기: 검색량 ${minVolume} 이상 · 문서수 ≤ 검색량÷${minRatio} · 절대상한 ${maxDocumentCount.toLocaleString('ko-KR')} · 씨앗당 최대 ${perSeed}건`);
   console.log('자리 유무 판정은 다음 단계인 Bright Data SERP 가 한다 — 여기서 미리 버리지 않는다.');
   console.log(`유형: 데이터랩 30일 실측 시계열로 에버그린·떡상·단발성·시즌성 분류 · 롱테일 기준 어절 ${minWords}개`);
   console.log('='.repeat(76));
@@ -282,7 +294,7 @@ async function main() {
         bySeed.set(row.seed, used + 1);
         return true;
       })
-      .slice(0, perTopic * 4);
+      .slice(0, perTopic * scanWidth);
 
     // ── 4) 문서수 실측 → 비율로 자리 가능성 1차 판정 ────────────────────
     const measured = [];
@@ -315,6 +327,17 @@ async function main() {
        * 18건이 dc 10만 이상이었다 — 그대로 돌렸으면 크레딧의 60%가 헛돈다.
        */
       if (documentCount !== null && documentCount > maxDocumentCount) continue;
+      /*
+       * 검색량보다 문서가 많으면 포화된 밭이다.
+       *
+       * 절대 상한(3만)만 두었더니 검색량 140 / 문서 29,721(비율 0.005) 같은 것이
+       * 후보로 올라와 1층까지 갔다. "상위 3개가 정면으로 안 다뤘다"는 사실이어도
+       * 그 정도 밭을 빈자리라고 팔 수는 없다. 게이트와 같은 하한을 여기서도 건다.
+       */
+      if (documentCount !== null && documentCount > 0
+        && (row.searchVolume || 0) / documentCount < minRatio) {
+        continue;
+      }
       /*
        * 유형 판정: 데이터랩 **12개월 월별** 실측 시계열.
        *
@@ -350,6 +373,7 @@ async function main() {
         longTail: row.longTail,
         inRealtime: row.inRealtime,
         trendType: trend.type,
+        trendShape: trend.type,
         trendLabel: trend.label,
         trendEvidence: trend.evidence,
       });

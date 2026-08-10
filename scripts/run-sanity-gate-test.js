@@ -297,6 +297,13 @@ const VITEST_SUITES = [
     'src/utils/__tests__/keyword-intent.test.ts',
     'src/utils/__tests__/keyword-completeness.test.ts',
     'src/utils/__tests__/keyword-demand-shape.test.ts',
+    // 구획 마커가 껍데기를 세면 "뜨지도 않은 쇼핑"을 근거로 삼는다. 한 번 겪었다.
+    'src/utils/__tests__/naver-serp-sections.test.ts',
+    'src/utils/__tests__/keyword-intent-serp.test.ts',
+    'src/utils/__tests__/keyword-action-plan.test.ts',
+    // 배치 순서와 '지금이 적기' 판정은 화면 문구를 직접 만든다. 틀리면 거짓말이 나간다.
+    'src/utils/__tests__/serp-layout-advice.test.ts',
+    'src/utils/__tests__/early-mover.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

@@ -48,6 +48,14 @@ export interface PreemptionThresholds {
   minSampledTitles: number;
   /** '상위'를 몇 위까지로 볼 것인가. */
   topSlots: number;
+  /**
+   * 검색량 ÷ 문서수 하한.
+   *
+   * 상위 3개가 정면으로 안 다뤘다는 것만으로는 부족하다. 문서 3만 개짜리 밭에
+   * 검색이 140번 일어나는 키워드(실측 '5단서랍장가격비교', 비율 0.005)를
+   * "빈자리"라고 부를 수는 없다. 이 앱의 등급 SSoT 도 같은 말을 한다.
+   */
+  minVolumeToDocumentRatio: number;
 }
 
 /**
@@ -61,6 +69,9 @@ export const DEFAULT_PREEMPTION_THRESHOLDS: PreemptionThresholds = {
   minSearchVolume: 100,
   minSampledTitles: 5,
   topSlots: 3,
+  // 최소한 "검색량이 문서수보다 적지는 않을 것". SSS(3배)보다 느슨하지만,
+  // 실측 69행 중 63행이 여기서 걸린다 — 그만큼 지금 보드가 포화 밭을 담고 있었다.
+  minVolumeToDocumentRatio: 1,
 };
 
 export interface PreemptionSerp {
@@ -159,6 +170,20 @@ function checkInvariants(
   }
   if (input.searchVolume < thresholds.minSearchVolume) {
     return { undetermined: false, reason: `검색량 ${input.searchVolume} < ${thresholds.minSearchVolume}` };
+  }
+  /*
+   * 검색량 대비 문서수. 못 쟀으면(null) 판단하지 않는다 — 못 본 것과 나쁜 것을 섞지 않는다.
+   * 개수가 모자라도 이 조건은 안 푼다. 껍질을 까는 것은 '자리의 확실성'이지
+   * '밭이 포화인지'가 아니다.
+   */
+  if (input.documentCount !== null && input.documentCount > 0) {
+    const ratio = input.searchVolume / input.documentCount;
+    if (ratio < thresholds.minVolumeToDocumentRatio) {
+      return {
+        undetermined: false,
+        reason: `문서수 ${input.documentCount.toLocaleString('ko-KR')} > 검색량 ${input.searchVolume.toLocaleString('ko-KR')} — 포화된 밭`,
+      };
+    }
   }
   // 정면 대응이 2건 이상이면 자리가 없다. 개수를 채우려고 끼워 넣지 않는다.
   if (input.serp.exactTitleHits > 1) {

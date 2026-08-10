@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readSerpStructure } from '../naver-serp-structure';
+import { readSerpStructure, SECTION_MARKER_VERSION, trustedSections } from '../naver-serp-structure';
 
 /**
  * 구획 마커 회귀 시험.
@@ -78,5 +78,26 @@ describe('AI 브리핑 판정은 그대로 산다', () => {
     // 못 본 것과 없는 것을 섞지 않는다.
     it('문서가 짧으면 판정하지 않는다', () => {
         expect(readSerpStructure('<html>차단</html>')).toBeNull();
+    });
+});
+
+describe('저장된 구획을 믿을지 가른다', () => {
+    it('같은 세대면 그대로 쓴다', () => {
+        const saved = { sections: ['쇼핑'], sectionMarkerVersion: SECTION_MARKER_VERSION };
+        expect(trustedSections(saved)).toEqual(['쇼핑']);
+    });
+
+    // v1 은 탭바를 쇼핑으로 셌다. 그걸 믿으면 모든 행이 '구매 검토'가 된다.
+    it('옛 세대면 못 본 것으로 돌려준다', () => {
+        expect(trustedSections({ sections: ['쇼핑', '파워링크'], sectionMarkerVersion: 1 })).toBeNull();
+    });
+
+    it('세대가 아예 없으면 못 본 것이다', () => {
+        expect(trustedSections({ sections: ['쇼핑'] })).toBeNull();
+        expect(trustedSections(null)).toBeNull();
+    });
+
+    it('빈 구획 목록과 못 본 것을 구분한다', () => {
+        expect(trustedSections({ sections: [], sectionMarkerVersion: SECTION_MARKER_VERSION })).toEqual([]);
     });
 });
