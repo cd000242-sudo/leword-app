@@ -41,6 +41,28 @@ const NOISE_TAILS: readonly string[] = Object.freeze([
   '티어', '갤러리', '카페',
 ]);
 
+/**
+ * 이 제품이 추천하면 안 되는 주제.
+ *
+ * 왜 여기서 거르나: 실측에서 자동완성이 문학·책 주제에 '야설사이트'를 물어 왔다.
+ * 검색량이 있어도 사장님 블로그에 실으면 애드센스 정책 위반이고, 애초에 이
+ * 제품이 팔 물건이 아니다. BD 크레딧을 태우기 전에 여기서 끝낸다.
+ *
+ * 짧은 말은 안 넣는다 — '성인'을 넣으면 '성인병 예방 식단'이, '도박'을 넣으면
+ * '도박중독 상담센터'가 걸린다. 한국어는 부분 문자열 매칭이라 멀쩡한 단어 속에
+ * 숨는다. 그래서 애매한 말은 예외를 함께 둔다.
+ */
+const BANNED_TOPICS: readonly string[] = Object.freeze([
+  '야설', '음란', '19금', '성인용품', '성인사이트', '성인방송',
+  '토토', '바카라', '카지노', '슬롯머신', '먹튀', '사설도박', '불법도박',
+  '사채', '급전대출',
+]);
+
+/** 금지어를 품고 있지만 정상인 말. 이쪽이 먼저 이긴다. */
+const BANNED_EXCEPTIONS: readonly string[] = Object.freeze([
+  '성인병', '성인교육', '성인영어', '도박중독', '토토로',
+]);
+
 export interface CompletenessResult {
   complete: boolean;
   /** 사람이 읽는 사유. 운영자가 규칙을 조정할 때 본다. */
@@ -68,6 +90,14 @@ export function judgeCompleteness(
 
   const tail = tailToken(text);
   const compact = text.replace(/\s+/g, '');
+
+  // ⓪ 금지 주제 — 검색량이 있어도 이 제품이 추천할 물건이 아니다
+  if (!BANNED_EXCEPTIONS.some((safe) => compact.includes(safe))) {
+    const banned = BANNED_TOPICS.find((token) => compact.includes(token));
+    if (banned) {
+      return { complete: false, reason: `'${banned}' — 이 제품이 추천할 주제가 아니다` };
+    }
+  }
 
   // ① 끊긴 조각 — 문장이 중간에 멈춘 것들
   for (const fragment of FRAGMENT_TAILS) {

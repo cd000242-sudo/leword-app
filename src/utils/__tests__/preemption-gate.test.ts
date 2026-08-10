@@ -283,24 +283,24 @@ describe('선점 게이트 — 검색량 대비 문서수', () => {
     };
 
     it('문서수가 검색량보다 많으면 자리로 치지 않는다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 140, documentCount: 29721 }], 5);
+        const out = selectWithFill([{ ...base, searchVolume: 140, documentCount: 29721 }], { target: 5 });
         expect(out.rows).toHaveLength(0);
         expect(out.rejected[0].failed[0]).toContain('문서수');
     });
 
     it('검색량이 문서수보다 많으면 통과한다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 940, documentCount: 20 }], 5);
+        const out = selectWithFill([{ ...base, searchVolume: 940, documentCount: 20 }], { target: 5 });
         expect(out.rows).toHaveLength(1);
     });
 
     it('같으면 통과시킨다 — 경계에서 버리지 않는다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 500, documentCount: 500 }], 5);
+        const out = selectWithFill([{ ...base, searchVolume: 500, documentCount: 500 }], { target: 5 });
         expect(out.rows).toHaveLength(1);
     });
 
     // 못 잰 것과 나쁜 것을 섞지 않는다. 문서수를 못 재면 이 조건은 판단하지 않는다.
     it('문서수를 못 쟀으면 이 조건으로 버리지 않는다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 500, documentCount: null }], 5);
+        const out = selectWithFill([{ ...base, searchVolume: 500, documentCount: null }], { target: 5 });
         expect(out.rows).toHaveLength(1);
     });
 
@@ -309,6 +309,109 @@ describe('선점 게이트 — 검색량 대비 문서수', () => {
             { ...base, keyword: '포화1', searchVolume: 140, documentCount: 29721 },
             { ...base, keyword: '포화2', searchVolume: 130, documentCount: 21070 },
         ];
-        expect(selectWithFill(rows, 6).rows).toHaveLength(0);
+        expect(selectWithFill(rows, { target: 6 }).rows).toHaveLength(0);
+    });
+});
+
+/**
+ * AI 브리핑이 뜬 키워드는 뒤로 민다.
+ *
+ * 왜: 브리핑에서 답을 얻고 나면 굳이 글을 안 본다. 자리가 비어 있어도 클릭이
+ * 안 오는 자리다. 그렇다고 버리지는 않는다 — 개수가 모자라면 껍질을 까듯
+ * 그때 꺼낸다. 사장님 지시: "최대한 없는 게 좋다".
+ */
+describe('선점 게이트 — AI 브리핑 없는 것부터 채운다', () => {
+    const serp = (hasAiBriefing: boolean) => ({
+        sampledTitles: 10, exactTitleHits: 0, partialTitleHits: 0,
+        medianDaysAgo: 120, topTitles: ['가', '나', '다'], hasAiBriefing,
+    });
+    const row = (keyword: string, hasAiBriefing: boolean) => ({
+        keyword, searchVolume: 900, documentCount: 100,
+        serp: serp(hasAiBriefing),
+        firstSeenAt: new Date().toISOString(), inRealtimeNow: false,
+    });
+
+    it('브리핑 없는 것이 먼저 나온다', () => {
+        const out = selectWithFill([row('브리핑있음', true), row('브리핑없음', false)], { target: 2 });
+        expect(out.rows[0].keyword).toBe('브리핑없음');
+    });
+
+    it('없는 것만으로 목표를 채우면 있는 것은 안 넣는다', () => {
+        const out = selectWithFill([row('브리핑있음', true), row('브리핑없음', false)], { target: 1 });
+        expect(out.rows).toHaveLength(1);
+        expect(out.rows[0].keyword).toBe('브리핑없음');
+    });
+
+    it('모자라면 브리핑 있는 것도 꺼낸다 — 빈 결과보다는 낫다', () => {
+        const out = selectWithFill([row('브리핑있음', true)], { target: 3 });
+        expect(out.rows).toHaveLength(1);
+        expect(out.rows[0].keyword).toBe('브리핑있음');
+    });
+
+    // 못 본 것(undefined)을 "있다"로 취급해 뒤로 밀면 멀쩡한 키워드가 손해를 본다.
+    it('브리핑을 못 쟀으면 뒤로 밀지 않는다', () => {
+        const unmeasured = { ...row('미측정', false), serp: { ...serp(false), hasAiBriefing: undefined } };
+        const out = selectWithFill([row('브리핑있음', true), unmeasured as never], { target: 1 });
+        expect(out.rows[0].keyword).toBe('미측정');
+    });
+});
+
+/**
+ * 층보다 브리핑 유무가 먼저다.
+ *
+ * 사장님 논리: 브리핑에서 답을 얻으면 굳이 내 글을 안 본다. 자리가 좋아도
+ * 클릭이 안 오는 자리는 값이 없고, 경합이어도 클릭이 오는 자리가 낫다.
+ */
+describe('선점 게이트 — 브리핑 유무가 층보다 앞선다', () => {
+    const make = (keyword: string, hasAiBriefing: boolean, exactTitleHits: number) => ({
+        keyword, searchVolume: 900, documentCount: 100,
+        serp: {
+            sampledTitles: 10, exactTitleHits, partialTitleHits: 0,
+            medianDaysAgo: 120, topTitles: ['가', '나', '다'], hasAiBriefing,
+        },
+        firstSeenAt: new Date().toISOString(), inRealtimeNow: false,
+    });
+
+    it('브리핑 없는 경합이, 브리핑 있는 1페이지보다 먼저다', () => {
+        const out = selectWithFill([
+            make('브리핑있음_1페이지', true, 0),
+            make('브리핑없음_경합', false, 1),
+        ], { target: 2 });
+        expect(out.rows[0].keyword).toBe('브리핑없음_경합');
+    });
+
+    it('둘 다 브리핑이 없으면 층 순서를 지킨다', () => {
+        const out = selectWithFill([
+            make('경합', false, 1),
+            make('1층', false, 0),
+        ], { target: 2 });
+        expect(out.rows[0].keyword).toBe('1층');
+    });
+});
+
+/**
+ * 문서수 0 은 "경쟁이 전혀 없다"가 아니라 대개 **측정 실패**다.
+ * 실측: '야설사이트' 검색량 130 / 문서수 0 — 네이버가 그 질의에 결과를 안 준 것이지
+ * 글이 없는 게 아니다. 0 을 무경쟁으로 읽으면 비율 검사를 통째로 건너뛴다.
+ */
+describe('선점 게이트 — 문서수 0', () => {
+    const input = {
+        keyword: '야설사이트', searchVolume: 130, documentCount: 0,
+        serp: {
+            sampledTitles: 10, exactTitleHits: 0, partialTitleHits: 0,
+            medianDaysAgo: 120, topTitles: ['가', '나', '다'], hasAiBriefing: false,
+        },
+        firstSeenAt: new Date().toISOString(), inRealtimeNow: false,
+    };
+
+    it('문서수 0 은 통과시키지 않는다', () => {
+        const out = selectWithFill([input], { target: 5 });
+        expect(out.rows).toHaveLength(0);
+        expect(out.rejected[0].failed[0]).toContain('문서수 0');
+    });
+
+    // 못 잰 것(null)과 0 은 다르다. null 은 그 조건을 안 볼 뿐이다.
+    it('문서수를 아예 못 쟀으면 이 조건으로 버리지 않는다', () => {
+        expect(selectWithFill([{ ...input, documentCount: null }], { target: 5 }).rows).toHaveLength(1);
     });
 });

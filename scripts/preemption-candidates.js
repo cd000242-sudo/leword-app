@@ -334,7 +334,9 @@ async function main() {
        * 후보로 올라와 1층까지 갔다. "상위 3개가 정면으로 안 다뤘다"는 사실이어도
        * 그 정도 밭을 빈자리라고 팔 수는 없다. 게이트와 같은 하한을 여기서도 건다.
        */
-      if (documentCount !== null && documentCount > 0
+      // 문서수 0 은 무경쟁이 아니라 측정 실패다(게이트와 같은 판단).
+      if (documentCount === 0) continue;
+      if (documentCount !== null
         && (row.searchVolume || 0) / documentCount < minRatio) {
         continue;
       }

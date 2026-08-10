@@ -118,6 +118,11 @@ export interface PreemptionResult {
   undetermined: boolean;
   /** 상위 몇 번째 자리가 비어 있는가. 1이면 1위 자리가 비었다는 뜻이다. */
   openSlot: number | null;
+  /**
+   * AI 브리핑이 떠 있었는가. undefined 는 '안 봤다'이지 '없다'가 아니다.
+   * 정렬이 이 값을 쓴다 — 화면 문구로 가르면 카피 수정에 조용히 깨진다.
+   */
+  hasAiBriefing?: boolean;
 }
 
 function hoursSince(iso: string | null, nowMs: number): number | null {
@@ -176,7 +181,15 @@ function checkInvariants(
    * 개수가 모자라도 이 조건은 안 푼다. 껍질을 까는 것은 '자리의 확실성'이지
    * '밭이 포화인지'가 아니다.
    */
-  if (input.documentCount !== null && input.documentCount > 0) {
+  /*
+   * 문서수 0 은 "경쟁이 없다"가 아니라 대개 측정 실패다. 실측 '야설사이트'는
+   * 검색량 130 인데 문서수 0 으로 왔다 — 네이버가 그 질의에 결과를 안 준 것이다.
+   * 0 을 무경쟁으로 읽으면 아래 비율 검사를 통째로 건너뛰고 무조건 통과한다.
+   */
+  if (input.documentCount === 0) {
+    return { undetermined: false, reason: '문서수 0 — 측정 실패로 본다' };
+  }
+  if (input.documentCount !== null) {
     const ratio = input.searchVolume / input.documentCount;
     if (ratio < thresholds.minVolumeToDocumentRatio) {
       return {
@@ -303,6 +316,7 @@ export function judgePreemption(
     failed,
     undetermined: false,
     openSlot,
+    hasAiBriefing: input.serp?.hasAiBriefing,
   };
 }
 
@@ -352,15 +366,31 @@ export function selectWithFill(
 
   const rows: PreemptionResult[] = [];
   let deepestTier: PreemptionTier | null = null;
-  for (const tier of TIER_ORDER) {
-    if (rows.length >= options.target) break;
-    const layer = judged
-      .filter((result) => result.tier === tier)
-      .sort(compareWithinTier);
-    for (const result of layer) {
+
+  /*
+   * 껍질을 두 겹으로 깐다. 바깥 겹이 **AI 브리핑 유무**, 안쪽 겹이 층이다.
+   *
+   * 왜 브리핑이 층보다 먼저인가: 브리핑에서 답을 얻은 사람은 굳이 글을 안 본다.
+   * 자리가 아무리 좋아도 클릭이 안 오면 값이 없고, 경합이어도 클릭이 오는 편이
+   * 낫다. 그래서 브리핑 있는 1페이지보다 브리핑 없는 경합을 먼저 낸다.
+   *
+   * 못 잰 것(undefined)은 "있다"로 치지 않는다 — 안 본 것을 벌주면 멀쩡한
+   * 키워드가 손해를 본다.
+   */
+  const briefingPhases = [false, true] as const;
+  for (const allowBriefing of briefingPhases) {
+    for (const tier of TIER_ORDER) {
       if (rows.length >= options.target) break;
-      rows.push(result);
-      deepestTier = tier;
+      const layer = judged
+        .filter((result) => result.tier === tier)
+        // 화면 문구가 아니라 측정값을 본다. 문구로 가르면 카피를 고칠 때 조용히 깨진다.
+        .filter((result) => (result.hasAiBriefing === true) === allowBriefing)
+        .sort(compareWithinTier);
+      for (const result of layer) {
+        if (rows.length >= options.target) break;
+        rows.push(result);
+        deepestTier = tier;
+      }
     }
   }
 

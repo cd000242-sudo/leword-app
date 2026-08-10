@@ -96,3 +96,30 @@ describe('filterComplete', () => {
         expect(dropped.every((r) => r.reason.length > 0)).toBe(true);
     });
 });
+
+/**
+ * 애드센스·제휴가 못 붙는 키워드는 발굴 단계에서 뺀다.
+ *
+ * 실측: 자동완성 확장에서 '야설사이트'(문학·책 주제)가 후보로 올라왔다.
+ * 검색량이 있어도 이 제품이 추천할 물건이 아니고, 사장님 블로그에 실으면
+ * 애드센스 정책 위반이다.
+ */
+describe('금지 주제', () => {
+    it('성인·도박 키워드는 버린다', () => {
+        for (const keyword of ['야설사이트', '무료 토토 사이트', '바카라 규칙', '음란물 차단']) {
+            expect(judgeCompleteness(keyword, []).complete).toBe(false);
+        }
+    });
+
+    it('멀쩡한 키워드는 그대로 통과한다', () => {
+        for (const keyword of ['강아지 슬개골 수술비', '캠핑 의자 추천', '중문 설치비용']) {
+            expect(judgeCompleteness(keyword, []).complete).toBe(true);
+        }
+    });
+
+    // 부분 문자열 매칭이라 짧은 말은 멀쩡한 단어 속에 숨는다.
+    it('다른 말 속에 든 글자를 잘못 잡지 않는다', () => {
+        expect(judgeCompleteness('성인병 예방 식단', []).complete).toBe(true);
+        expect(judgeCompleteness('도박중독 상담센터', []).complete).toBe(true);
+    });
+});
