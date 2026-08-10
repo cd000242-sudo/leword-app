@@ -28,6 +28,8 @@ const { classifySearchIntent, resolveIntentFromSerp } = require('../src/utils/ke
 const { SECTION_MARKER_VERSION, trustedSections } = require('../src/utils/naver-serp-structure');
 const { judgeEarlyMover } = require('../src/utils/early-mover');
 const { shapeFromLabel } = require('../src/utils/keyword-demand-shape');
+const { judgeNamedPersonRisk } = require('../src/utils/named-person-risk');
+const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { adviseFromLayout } = require('../src/utils/serp-layout-advice');
 
 const DEFAULT_DEST = path.join(
@@ -133,20 +135,37 @@ function main() {
    * 건강·의학과 스포츠에 동시에 떴다. 씨앗이 겹치면 생기는 일이고, 화면에서는
    * 같은 카드가 두 번 보인다. 먼저 온 것(=확실한 층)만 남긴다.
    */
+  /*
+   * 마지막 방어선 — 화면 직전에 한 번 더 거른다.
+   *
+   * 배치를 돌린 뒤에 규칙이 늘어나는 일이 실제로 있었다. 금지 주제 필터를 넣기
+   * 전에 뽑은 후보에 '야설록뜻'이 남아 있었고, 실명 판정을 만들기 전 후보에
+   * '정형외과 임형태'가 남아 발행까지 갔다. 발행기가 마지막으로 붙잡는다.
+   */
+  const blocked = [];
+  const safe = hasEvidence.filter((row) => {
+    const named = judgeNamedPersonRisk(row.keyword);
+    if (named.risky) { blocked.push(`${row.keyword} — ${named.reason}`); return false; }
+    const complete = judgeCompleteness(row.keyword, []);
+    if (!complete.complete) { blocked.push(`${row.keyword} — ${complete.reason}`); return false; }
+    return true;
+  });
+
   const seen = new Set();
-  const withEvidence = hasEvidence.filter((row) => {
+  const withEvidence = safe.filter((row) => {
     const key = String(row.keyword).replace(/\s+/g, '');
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-  const deduped = hasEvidence.length - withEvidence.length;
+  const deduped = safe.length - withEvidence.length;
 
   console.log('='.repeat(70));
   console.log('선점 보드 발행');
   console.log('='.repeat(70));
   console.log(`  입력        ${inPath}`);
-  console.log(`  행          ${rows.length}${dropped > 0 ? ` · 근거 없는 ${dropped}행 제외` : ''}${deduped > 0 ? ` · 중복 ${deduped}행 제외` : ''} → ${withEvidence.length}`);
+  console.log(`  행          ${rows.length}${dropped > 0 ? ` · 근거 없는 ${dropped}행 제외` : ''}${blocked.length > 0 ? ` · 규칙 위반 ${blocked.length}행 제외` : ''}${deduped > 0 ? ` · 중복 ${deduped}행 제외` : ''} → ${withEvidence.length}`);
+  blocked.forEach((line) => console.log(`                ✕ ${line}`));
 
   const byTopic = new Map();
   withEvidence.forEach((row) => byTopic.set(row.topic, (byTopic.get(row.topic) || 0) + 1));

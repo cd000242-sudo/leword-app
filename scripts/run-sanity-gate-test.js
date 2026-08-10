@@ -304,6 +304,9 @@ const VITEST_SUITES = [
     // 배치 순서와 '지금이 적기' 판정은 화면 문구를 직접 만든다. 틀리면 거짓말이 나간다.
     'src/utils/__tests__/serp-layout-advice.test.ts',
     'src/utils/__tests__/early-mover.test.ts',
+    // 실명 키워드가 새 나가면 법적 문제다. 게이트에 묶어 둔다.
+    'src/utils/__tests__/named-person-risk.test.ts',
+    'src/utils/__tests__/golden-index.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
