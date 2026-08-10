@@ -96,6 +96,12 @@ function loadCandidates(inPath) {
       monthsToPeak: Number.isFinite(Number(row.monthsToPeak)) ? Number(row.monthsToPeak) : null,
       timing: row.timing || '',
       longTail: Boolean(row.longTail),
+      // 언제 잰 값인지. 여기서 안 넘기면 화면이 "언제쩍 숫자인지" 를 말할 수 없다.
+      measuredAt: row.measuredAt || null,
+      demandAsOf: row.demandAsOf || null,
+      latestVsPeakPct: Number.isFinite(Number(row.latestVsPeakPct)) ? Number(row.latestVsPeakPct) : null,
+      monthsSincePeak: Number.isFinite(Number(row.monthsSincePeak)) ? Number(row.monthsSincePeak) : null,
+      recencySummary: row.recencySummary || '',
     });
   };
 
@@ -380,6 +386,11 @@ async function main() {
         inRealtimeNow: realtime.has(result.keyword.replace(/\s+/g, '')),
         monthsToPeak: candidate?.monthsToPeak ?? null,
         timing: candidate?.timing || '',
+        measuredAt: candidate?.measuredAt || null,
+        demandAsOf: candidate?.demandAsOf || null,
+        latestVsPeakPct: candidate?.latestVsPeakPct ?? null,
+        monthsSincePeak: candidate?.monthsSincePeak ?? null,
+        recencySummary: candidate?.recencySummary || '',
         tier: result.tier,
         tierLabel: result.tierLabel,
         openSlot: result.openSlot,

@@ -99,6 +99,18 @@ function toPublicRow(row) {
     regulatoryLabel: row.regulatoryLabel || '',
     trendLabel: row.trendLabel || '',
     timing: row.timing || '',
+    /*
+     * 이 숫자가 언제쩍 결과인지.
+     *
+     * 검색량은 지난 한 달의 총합이라, 정점이 1년 전인 키워드와 지금이 정점인
+     * 키워드가 화면에서 똑같은 숫자로 보인다. 어느 달까지 반영된 값인지와
+     * 정점 대비 지금 수준을 같이 낸다 — 둘 다 실측 시계열의 단순 나눗셈이다.
+     */
+    measuredAt: row.measuredAt || null,
+    demandAsOf: row.demandAsOf || null,
+    latestVsPeakPct: row.latestVsPeakPct ?? null,
+    monthsSincePeak: row.monthsSincePeak ?? null,
+    recencySummary: row.recencySummary || '',
     // 화면이 "이게 뭔데" 를 보여줄 재료. 전부 검색결과에서 그대로 옮긴 글자다.
     meaning: serp.meaning ? {
       citedTitles: serp.meaning.citedTitles || [],

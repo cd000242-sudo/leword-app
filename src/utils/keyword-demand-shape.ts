@@ -231,6 +231,93 @@ export interface DemandShapeConfig {
  * timeUnit 을 'date' 로 두면 검색이 없는 날이 통째로 빠져서 저볼륨 키워드는
  * 1~3포인트만 온다(실측 확인). 'month' 로 받아야 롱테일도 판정할 수 있다.
  */
+/** 월별 실측 한 점. period 는 데이터랩이 주는 달(YYYY-MM-DD, 1일로 온다). */
+export interface DemandPoint {
+  period: string;
+  ratio: number;
+}
+
+/**
+ * 이 숫자가 **언제 기준이고 지금은 어느 수준인지**.
+ *
+ * 왜 필요한가: 검색량은 지난 한 달의 총합이라 "황금키워드"라고 나와도 그게
+ * 언제쩍 이야기인지, 지금도 그만큼 찾는지 알 수가 없다. 정점이 1년 전인
+ * 키워드와 지금이 정점인 키워드가 같은 숫자로 보인다.
+ *
+ * 둘 다 실측 시계열의 단순 나눗셈이다 — 예측하거나 지어내지 않는다.
+ */
+export interface DemandRecency {
+  /** 시계열의 마지막 달(YYYY-MM). 이 수치가 어느 달까지 반영된 것인지. */
+  asOf: string | null;
+  /** 마지막 달이 정점 대비 몇 %인가. 100 이면 지금이 정점이다. */
+  latestVsPeakPct: number | null;
+  /** 정점이 몇 개월 전이었나. 0 이면 이번 달이 정점이다. */
+  monthsSincePeak: number | null;
+  /** 화면에 그대로 쓸 수 있는 한 문장. */
+  summary: string;
+}
+
+export function readDemandRecency(points: DemandPoint[]): DemandRecency {
+  const clean = (points || []).filter((p) => p && Number.isFinite(Number(p.ratio)));
+  if (clean.length === 0) {
+    return { asOf: null, latestVsPeakPct: null, monthsSincePeak: null, summary: '수요 추이를 재지 못했습니다' };
+  }
+  const ratios = clean.map((p) => Number(p.ratio));
+  const peak = Math.max(...ratios);
+  const latest = ratios[ratios.length - 1] as number;
+  const peakIndex = ratios.indexOf(peak);
+  const monthsSincePeak = ratios.length - 1 - peakIndex;
+  const asOf = String(clean[clean.length - 1]?.period || '').slice(0, 7) || null;
+  const latestVsPeakPct = peak > 0 ? Math.round((latest / peak) * 100) : null;
+
+  let summary: string;
+  if (latestVsPeakPct === null) {
+    summary = '수요 추이를 재지 못했습니다';
+  } else if (monthsSincePeak === 0) {
+    summary = `${asOf} 기준 지금이 최고치입니다`;
+  } else {
+    summary = `${asOf} 기준 최고치의 ${latestVsPeakPct}% (정점은 ${monthsSincePeak}개월 전)`;
+  }
+  return { asOf, latestVsPeakPct, monthsSincePeak, summary };
+}
+
+/** 기간까지 함께 받는다. 비율만 필요하면 fetchMonthlyDemand 를 쓴다. */
+export async function fetchMonthlyDemandPoints(
+  keyword: string,
+  config: DemandShapeConfig,
+  fetchImpl: typeof fetch = fetch,
+): Promise<DemandPoint[]> {
+  const end = new Date();
+  const start = new Date(end);
+  start.setFullYear(end.getFullYear() - 2);
+  const iso = (date: Date) => date.toISOString().slice(0, 10);
+
+  try {
+    const response = await fetchImpl('https://openapi.naver.com/v1/datalab/search', {
+      method: 'POST',
+      headers: {
+        'X-Naver-Client-Id': config.clientId,
+        'X-Naver-Client-Secret': config.clientSecret,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        startDate: iso(start),
+        endDate: iso(end),
+        timeUnit: 'month',
+        keywordGroups: [{ groupName: keyword, keywords: [keyword] }],
+      }),
+    });
+    if (!response.ok) return [];
+    const payload = await response.json() as { results?: Array<{ data?: Array<{ period?: string; ratio?: number }> }> };
+    return (payload.results?.[0]?.data || [])
+      .map((point) => ({ period: String(point.period || ''), ratio: Number(point.ratio) }))
+      .filter((point) => Number.isFinite(point.ratio));
+  } catch {
+    // 모양을 지어내지 않는다. 빈 배열이면 호출자가 unknown 으로 남긴다.
+    return [];
+  }
+}
+
 export async function fetchMonthlyDemand(
   keyword: string,
   config: DemandShapeConfig,
@@ -281,4 +368,22 @@ export async function analyzeDemandShape(
   fetchImpl: typeof fetch = fetch,
 ): Promise<DemandShapeResult> {
   return classifyDemandShape(await fetchMonthlyDemand(keyword, config, fetchImpl), thresholds);
+}
+
+/**
+ * 모양과 **시점**을 한 번의 호출로 같이 받는다.
+ *
+ * 따로 부르면 데이터랩을 두 번 때린다. 같은 시계열에서 둘 다 나오므로 한 번만 받는다.
+ */
+export async function analyzeDemandWithRecency(
+  keyword: string,
+  config: DemandShapeConfig,
+  thresholds: DemandShapeThresholds = DEFAULT_DEMAND_SHAPE_THRESHOLDS,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ shape: DemandShapeResult; recency: DemandRecency }> {
+  const points = await fetchMonthlyDemandPoints(keyword, config, fetchImpl);
+  return {
+    shape: classifyDemandShape(points.map((point) => point.ratio), thresholds),
+    recency: readDemandRecency(points),
+  };
 }

@@ -11,11 +11,15 @@
  *   주제 씨앗어 → 검색광고 연관키워드(실측 검색량) + 네이버 자동완성(실측)
  *              → 롱테일 우선 정렬 → 블로그 문서수 실측 → 비율로 거르기
  *
- * 유형은 거르지 않고 **라벨로 붙인다**. 롱테일만 값진 게 아니다 —
- * 시즌성·에버그린·실시간·떡상 전부 쓸모가 다르므로 다 보여주고 화면에서 고르게 한다.
- * 유형 판정은 데이터랩 30일 실측 시계열이 한다(trend-type-classifier).
+ * 유형은 대체로 **라벨로 붙인다**. 롱테일만 값진 게 아니다 —
+ * 시즌성·에버그린·실시간 전부 쓸모가 다르므로 보여주고 화면에서 고르게 한다.
+ * 유형 판정은 데이터랩 24개월 월별 실측 시계열이 한다(keyword-demand-shape).
  *
- * 거르는 것은 하나뿐이다: **자리가 없는 것**(문서수 ≫ 검색량).
+ * 거르는 것은 둘이다:
+ *   ① **자리가 없는 것**(문서수 ≫ 검색량)
+ *   ② **식어가는 것**(declining) — 자리가 있어도 사람이 안 온다.
+ *      예전에는 이것도 라벨로만 붙였고, 그 결과 통과 26건 중 7건이 이미 꺾인
+ *      키워드였다. 월 검색량은 지난 한 달의 총합이라 방향이 안 보인다.
  *
  * Bright Data 는 안 쓴다. SERP 판정은 다음 단계(preemption-board-batch.js)다.
  *
@@ -102,7 +106,7 @@ async function main() {
   const { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
   const { getNaverAutocompleteKeywords } = require('../src/utils/naver-autocomplete');
   const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
-  const { analyzeDemandShape } = require('../src/utils/keyword-demand-shape');
+  const { analyzeDemandWithRecency } = require('../src/utils/keyword-demand-shape');
 
   const perTopic = Number(arg('perTopic')) || 10;
   const minWords = Number(arg('minWords')) || 3;
@@ -124,6 +128,9 @@ async function main() {
   const scanWidth = Number(arg('scanWidth')) || 16;
   const secondarySeeds = Number(arg('secondarySeeds')) || 8;
   const outPath = arg('out') || 'preemption-candidates.json';
+  /** 탈락분까지 포함한 실측 원장. 게이트 하한을 숫자로 고르기 위한 것이다. */
+  const measureLogPath = arg('measureLog');
+  const measureLog = measureLogPath ? [] : null;
   const realtime = loadRealtime(arg('signals'));
 
   const topics = hasFlag('all')
@@ -151,6 +158,7 @@ async function main() {
 
     const started = Date.now();
     const incompleteLog = [];
+    const decliningLog = [];
     const driftLog = [];
     let expansionWarned = false;
 
@@ -305,7 +313,12 @@ async function main() {
     // ── 4) 문서수 실측 → 비율로 자리 가능성 1차 판정 ────────────────────
     const measured = [];
     for (const row of shortlist) {
-      if (measured.length >= perTopic) break;
+      /*
+       * 필요한 만큼 찾으면 멈춘다 — 문서수 조회를 아끼기 위해서다.
+       * 다만 원장을 뜰 때는 끝까지 잰다. 통과분만 보고 하한을 정하면
+       * 잘라낸 쪽이 어디에 몰려 있는지 모른 채 고르게 된다.
+       */
+      if (measured.length >= perTopic && !measureLog) break;
       /*
        * 문서수는 broad 매치 실측만 싣는다. 참고용이고 여기서 거르지 않는다.
        *
@@ -324,6 +337,24 @@ async function main() {
       }
       await sleep(120);
       if (documentCount !== null && !Number.isFinite(documentCount)) documentCount = null;
+
+      /*
+       * 게이트 캘리브레이션용 원장. --measureLog 를 줄 때만 남긴다.
+       *
+       * 지금은 **통과한 것만** 저장돼서 떨어진 것이 어디에 몰려 있는지 볼 수가 없다.
+       * 그래서 "비율 하한을 얼마로 둘 것인가" 를 느낌으로 정하게 된다.
+       * 재 놓고 고르려면 탈락분의 분포가 있어야 한다. 문서수 조회는 이미 끝났으므로
+       * 여기서 받아 적는 데 드는 추가 비용은 없다.
+       */
+      if (measureLog) {
+        measureLog.push({
+          topic,
+          keyword: row.keyword,
+          searchVolume: row.searchVolume ?? null,
+          documentCount,
+          ratio: documentCount ? (row.searchVolume || 0) / documentCount : null,
+        });
+      }
 
       /*
        * 문서수 상한 — 여기서 걸러야 BD 크레딧이 안 샌다.
@@ -354,9 +385,33 @@ async function main() {
        * 게다가 시즌성은 30일로는 원리상 판별이 불가능하다.
        */
       let trend = { type: 'unknown', label: '', evidence: '' };
+      /*
+       * 이 숫자가 **언제쩍 결과인지**. 검색량은 지난 한 달의 총합이라 화면에서는
+       * 정점이 1년 전인 키워드와 지금이 정점인 키워드가 똑같아 보인다.
+       * 실측 시계열의 마지막 달과 정점 대비 비율을 같이 싣는다(단순 나눗셈).
+       */
+      let recency = { asOf: null, latestVsPeakPct: null, monthsSincePeak: null, summary: '' };
       try {
-        const shape = await analyzeDemandShape(row.keyword, openApi);
+        const analyzed = await analyzeDemandWithRecency(row.keyword, openApi);
+        const shape = analyzed.shape;
+        recency = analyzed.recency;
         trend = { type: shape.shape, label: shape.label, evidence: shape.evidence };
+        /*
+         * 식어가는 키워드는 자리가 있어도 내보내지 않는다.
+         *
+         * 여기까지는 유형을 **라벨로만** 붙이고 거르지 않았다. 그 결과 통과한 26건 중
+         * 7건이 이미 꺾인 것이었다 — '브롤 스타즈 서버 점검 시간'은 월 검색량 120이
+         * 멀쩡해 보이지만 실측 시계열은 서버 장애 한 번에 튄 스파이크 하나였고,
+         * '냥코 계정 복구'는 정점이 25개월 전이다. 월 검색량은 지난 한 달의 총합이라
+         * 방향이 안 보인다. 초보자가 이런 걸 받아 글을 쓰면 자리가 있어도 사람이 안 온다.
+         *
+         * 판정은 1년 전 같은 기간과 비교한다(keyword-demand-shape). 그래서 시즌성
+         * 키워드가 비수기라는 이유로 하락으로 몰리지 않는다.
+         */
+        if (shape.shape === 'declining') {
+          decliningLog.push(`${row.keyword} — ${shape.evidence}`);
+          continue;
+        }
       } catch (error) {
         // 조용히 삼키면 "왜 전부 미상인지"를 또 못 찾는다. 한 번만 찍는다.
         if (!trendWarned) {
@@ -365,6 +420,9 @@ async function main() {
         }
       }
       await sleep(150);
+
+      // 원장을 뜨느라 끝까지 재는 중이어도, 내보내는 후보 수는 평소와 같게 둔다.
+      if (measured.length >= perTopic) continue;
 
       const signals = analyzeKeywordSignals(row.keyword);
       measured.push({
@@ -384,6 +442,12 @@ async function main() {
         trendShape: trend.type,
         trendLabel: trend.label,
         trendEvidence: trend.evidence,
+        // 언제 잰 값인지. 없으면 화면이 "언제쩍 숫자인지" 를 말할 수 없다.
+        measuredAt: new Date().toISOString(),
+        demandAsOf: recency.asOf,
+        latestVsPeakPct: recency.latestVsPeakPct,
+        monthsSincePeak: recency.monthsSincePeak,
+        recencySummary: recency.summary,
       });
     }
 
@@ -397,6 +461,7 @@ async function main() {
     report.push({
       topic, seeds: expansionSeeds.size, phrases: phrases.size,
       incomplete: incompleteLog.length, drift: driftLog.length, shortlist: shortlist.length,
+      declining: decliningLog.length, decliningSamples: decliningLog.slice(0, 5),
       driftSamples: driftLog.slice(0, 5),
       rows: measured.length, seconds,
       incompleteSamples: incompleteLog.slice(0, 8),
@@ -404,7 +469,7 @@ async function main() {
     console.log(
       `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
       + ` 씨앗 ${String(expansionSeeds.size).padStart(3)} → 완결 ${String(phrases.size).padStart(4)}(조각 ${incompleteLog.length}·이탈 ${driftLog.length} 제외)`
-      + ` → 수요통과 ${String(shortlist.length).padStart(3)} → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
+      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length} 제외) → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
     );
   }
 
@@ -416,6 +481,17 @@ async function main() {
     report,
     topics: byTopic,
   }, null, 1), 'utf8');
+
+  if (measureLog) {
+    fs.mkdirSync(path.dirname(path.resolve(measureLogPath)), { recursive: true });
+    fs.writeFileSync(path.resolve(measureLogPath), JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      note: '문서수까지 실측한 전량(탈락분 포함). 게이트 하한을 숫자로 고르기 위한 원장이다.',
+      thresholdsAtRun: { minVolume, minRatio, maxDocumentCount },
+      rows: measureLog,
+    }, null, 1), 'utf8');
+    console.log(`실측 원장 ${measureLog.length}건 → ${measureLogPath}`);
+  }
 
   console.log('-'.repeat(76));
   console.log(`후보 ${total}건 / 주제 ${Object.keys(byTopic).length}종 → ${outPath}`);
