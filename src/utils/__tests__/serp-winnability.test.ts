@@ -42,8 +42,19 @@ assert('절대날짜', parseDaysAgo('2026.08.01', NOW) === 7);
 assert('못 읽으면 null', parseDaysAgo('어제', NOW) === null);
 
 // ── SERP 분석 ────────────────────────────────────────────────────────
+/*
+ * 실제 마크업을 그대로 쓴다. 예전 픽스처는 weight 클래스를 뺀 채였는데,
+ * 실측에서 작성자 이름도 headline 계열을 쓴다는 걸 알고 선택자를 좁혔다
+ * (headline3+weight-lg = 작성자, headline1+weight-sm = 글 제목).
+ * 픽스처가 실제와 다르면 시험이 통과해도 현장에서 틀린다.
+ */
 function headline(text: string): string {
-  return `<span class="sds-comps-text-type-headline1 x" data-y="1">${text}</span>`;
+  return `<span class="sds-comps-text sds-comps-text-type-headline1 sds-comps-text-weight-sm">${text}</span>`;
+}
+
+/** 작성자·채널 이름. 제목으로 세면 안 된다. */
+function author(text: string): string {
+  return `<span class="sds-comps-text sds-comps-text-type-headline3 sds-comps-text-weight-lg q8NHdL14jowibv2C">${text}</span>`;
 }
 
 {
@@ -108,7 +119,20 @@ function headline(text: string): string {
   assert('표본 하한을 올리면 판정 보류', loose.verdict === 'NO_DATA', JSON.stringify(loose));
 }
 
-console.log(`\n[serp-winnability.test] passed: ${passed} / failed: ${failed}`);
+
+/*
+ * 실측 회귀: '멜라토닌 복용량' 에서 상위 열 개가 전부 작성자 이름이었고,
+ * 그 탓에 "정면으로 다룬 글이 없다"는 판정이 나왔다 — 1위가 정면 대응 글이었는데도.
+ */
+{
+  const html = `<html><body>${author('홀니스랩')}${headline('멜라토닌 복용량 정확히 어떻게 드시나요?')}${author('인천성모병원')}${headline('멜라토닌 효능 및 섭취 방법')}${'<div></div>'.repeat(600)}</body></html>`;
+  const serp = analyzeSerp(html, '멜라토닌 복용량');
+  assert('작성자 이름을 제목으로 세지 않는다', serp.sampledTitles === 2, serp.topTitles.join('|'));
+  assert('정면 대응을 놓치지 않는다', serp.exactTitleHits >= 1, JSON.stringify(serp));
+}
+
+console.log(`
+[serp-winnability.test] passed: ${passed} / failed: ${failed}`);
 if (failed > 0) {
   failures.forEach((f) => console.error('  ' + f));
   process.exit(1);

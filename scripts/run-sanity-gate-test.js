@@ -307,6 +307,9 @@ const VITEST_SUITES = [
     // 실명 키워드가 새 나가면 법적 문제다. 게이트에 묶어 둔다.
     'src/utils/__tests__/named-person-risk.test.ts',
     'src/utils/__tests__/golden-index.test.ts',
+    // 제목 선택자가 작성자 이름을 물면 게이트 전체가 거짓이 된다. 가장 비싼 회귀다.
+    'src/utils/__tests__/serp-title-extraction.test.ts',
+    'src/utils/__tests__/serp-meaning.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

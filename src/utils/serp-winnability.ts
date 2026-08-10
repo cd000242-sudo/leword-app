@@ -92,10 +92,20 @@ export function parseDaysAgo(token: string, nowMs: number): number | null {
   return null;
 }
 
-/** 네이버 신 마크업(sds-comps-*)에서 상위 글 제목만 뽑는다. */
+/**
+ * 네이버 신 마크업(sds-comps-*)에서 **글 제목만** 뽑는다.
+ *
+ * 함정 (2026-08-10 실측): 작성자 이름과 글 제목이 둘 다 headline 계열이다.
+ *   headline3 + weight-lg → 작성자·채널 ('홀니스랩', '인천성모병원')
+ *   headline1 + weight-sm → 글 제목
+ * headline 만 보고 앞에서부터 집으면 작성자가 먼저 잡힌다. '멜라토닌 복용량'
+ * 실측에서 열 개가 전부 작성자 이름이었고, 그래서 "정면으로 다룬 글이 없다"는
+ * 판정이 나왔다 — 정작 1위가 '멜라토닌 복용량 정확히 어떻게 드시나요?' 였다.
+ * 이 게이트의 값어치가 통째로 이 선택자에 걸려 있다.
+ */
 function extractTitles(html: string, topN: number): string[] {
-  // 제목은 headline 계열 클래스 span 안에 있고, 검색어 일치부는 <mark> 로 감싸여 온다.
-  return [...html.matchAll(/sds-comps-text-type-headline[^"]*"[^>]*>([\s\S]{2,200}?)<\/span>/g)]
+  // 검색어 일치부는 <mark> 로 감싸여 오므로 태그를 걷어낸 뒤 비교한다.
+  return [...html.matchAll(/sds-comps-text-type-headline1[^"]*sds-comps-text-weight-sm[^"]*"[^>]*>([\s\S]{2,200}?)<\/span>/g)]
     .map((match) => String(match[1])
       .replace(/<[^>]+>/g, '')
       .replace(/&[a-z]+;/g, ' ')
