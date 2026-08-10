@@ -48,6 +48,10 @@ const testFiles = [
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mindmap-metrics-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'mindmap-ui-focus-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'keyword-expansion-ranker.test.ts'),
+    // 선점 황금키워드 판정계(preemption-gate·keyword-intent·keyword-completeness·
+    // keyword-demand-shape)는 여기 넣지 않는다. 이 게이트는 ts-node 로 파일을
+    // 직접 실행하는 자체 스크립트만 돌리는데, 그 넷은 vitest 스위트라
+    // 'Cannot find module vitest' 로 릴리스를 막는다. `npm test` 가 커버한다.
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'rich-feed-precision-floor.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'keyword-relevance-regression.test.ts'),
     path.join(__dirname, '..', 'src', 'utils', '__tests__', 'deterministic-scoring-regression.test.ts'),
@@ -280,6 +284,30 @@ for (const testFile of testFiles) {
         console.error(`[${path.basename(testFile)}] ❌ FAILED — release 차단`);
         process.exit(1);
     }
+}
+
+/*
+ * 선점 판정계는 vitest 스위트라 위 루프(ts-node 직접 실행)로는 못 돈다.
+ * 그렇다고 빼 두면 106개 테스트가 **아무 데서도 안 도는** 상태가 된다 —
+ * 임계값을 자주 만지는 코드라 회귀가 제일 나기 쉬운 곳이다.
+ * 그래서 vitest 를 한 번 불러 같은 게이트 안에서 막는다.
+ */
+const VITEST_SUITES = [
+    'src/utils/__tests__/preemption-gate.test.ts',
+    'src/utils/__tests__/keyword-intent.test.ts',
+    'src/utils/__tests__/keyword-completeness.test.ts',
+    'src/utils/__tests__/keyword-demand-shape.test.ts',
+];
+
+console.log('[vitest] 선점 판정계 실행...');
+const vitest = spawnSync('npx', ['vitest', 'run', ...VITEST_SUITES], {
+    stdio: 'inherit',
+    shell: true,
+    cwd: path.join(__dirname, '..'),
+});
+if (vitest.status !== 0) {
+    console.error('[vitest] ❌ 선점 판정계 회귀 — release 차단');
+    process.exit(1);
 }
 
 console.log('[sanity-gate.test] ✅ PASSED');

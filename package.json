@@ -94,7 +94,8 @@
     "dist:mac:universal:unsigned": "node scripts/build-mac.js --arch universal --unsigned",
     "release:mac:unsigned": "node scripts/build-mac.js --arch both --unsigned --publish",
     "health:harness": "node scripts/harness-health.js",
-    "health:harness:save": "node scripts/harness-health.js --json=.codex-build-cache/harness-health.json"
+    "health:harness:save": "node scripts/harness-health.js --json=.codex-build-cache/harness-health.json",
+    "test:keyword": "vitest run src/utils/__tests__/preemption-gate.test.ts src/utils/__tests__/keyword-intent.test.ts src/utils/__tests__/keyword-completeness.test.ts src/utils/__tests__/keyword-demand-shape.test.ts"
   },
   "keywords": [
     "keyword",
@@ -130,7 +131,8 @@
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.10"
   },
   "build": {
     "appId": "com.leword.app",

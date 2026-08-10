@@ -53,6 +53,8 @@ type RecordFn = (feature: BrightDataFeature, count: number) => void;
 export interface BrightDataFetchOptions {
   token?: string;
   zone?: string;
+  /** 기본 'html'. 네이버는 반드시 html 이어야 한다. */
+  parse?: BrightDataParse;
   timeoutMs?: number;
   transport?: BrightDataTransport;
   reserve?: ReserveFn;
@@ -60,9 +62,28 @@ export interface BrightDataFetchOptions {
 }
 
 /**
- * 요청 페이로드. data_format:'html' 이 핵심이다 — 이게 빠지면 조용히 실패한다.
+ * 응답 형태.
+ *  - 'html'  원문 HTML. **네이버는 이것만 된다** — BD 에 네이버 파서가 없어서
+ *            json 을 요구하면 x-brd-error(502)로 빈 본문이 오는데 HTTP 는 200이라
+ *            조용히 실패한다.
+ *  - 'json'  BD 가 파싱한 구조화 JSON(구글 계열). organic 외에
+ *            related_searches · people_also_ask 가 **같은 호출에 딸려온다**.
+ *            추가 크레딧이 들지 않으므로 연관 키워드를 여기서 공짜로 얻는다.
  */
-export function buildBrightDataPayload(url: string, zone: string): string {
+export type BrightDataParse = 'html' | 'json';
+
+/**
+ * 요청 페이로드.
+ * 기본값은 'html' 이다 — 네이버가 주 대상이고, 잘못 바꾸면 조용히 실패하기 때문에
+ * JSON 은 호출자가 명시적으로 골라야 한다.
+ */
+export function buildBrightDataPayload(url: string, zone: string, parse: BrightDataParse = 'html'): string {
+  if (parse === 'json') {
+    // brd_json=1 은 URL 쿼리로 붙인다. data_format 은 싣지 않는다 — 둘을 같이 주면
+    // 파서가 아니라 원문이 온다.
+    const separator = url.includes('?') ? '&' : '?';
+    return JSON.stringify({ zone, url: `${url}${separator}brd_json=1`, format: 'raw' });
+  }
   return JSON.stringify({ zone, url, format: 'raw', data_format: 'html' });
 }
 
@@ -148,7 +169,11 @@ export async function brightDataFetch(
 
   let raw: BrightDataRawResponse;
   try {
-    raw = await transport(BRIGHT_DATA_ENDPOINT, buildBrightDataPayload(url, zone), { token, timeoutMs });
+    raw = await transport(
+      BRIGHT_DATA_ENDPOINT,
+      buildBrightDataPayload(url, zone, options.parse ?? 'html'),
+      { token, timeoutMs },
+    );
   } catch (error) {
     // 전송이 통째로 터져도 Bright Data 쪽에서는 이미 차감됐을 수 있다.
     record(feature, 1);
