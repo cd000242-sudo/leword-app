@@ -8,7 +8,8 @@
  *
  *   구분에 필요한 값은 이미 다 재고 있었다 — 24개월 수요 곡선(상승 중인가),
  *   검색량 대비 문서수(밭이 비었는가), 실시간 검색어 대조(이미 퍼졌는가),
- *   최초 관측 장부(새로 생긴 말인가). 흩어져 있던 걸 여기서 합친다.
+ *   AI 브리핑(클릭이 오기는 하는가), 최초 관측 장부(새로 생긴 말인가).
+ *   흩어져 있던 걸 여기서 합친다.
  *
  * 전부 관측값이다. 점수·확률을 만들지 않는다 — 조건을 만족했는지와,
  * 무엇을 보고 그렇게 봤는지만 돌려준다.
@@ -24,11 +25,16 @@ export interface EarlyMoverInput {
   inRealtimeNow: boolean;
   /** 우리 장부에 처음 들어온 시각. 없으면 언제부터 있었는지 모른다. */
   firstSeenAt?: string | null;
+  /**
+   * AI 브리핑이 떠 있었는가. undefined 는 '안 봤다'이지 '없다'가 아니다.
+   * 브리핑이 답을 대신하면 자리를 선점해도 클릭이 안 온다 — "먹는다"는 전제가 깨진다.
+   */
+  hasAiBriefing?: boolean;
   nowMs?: number;
 }
 
 export interface EarlyMoverResult {
-  /** 네 조건을 다 만족했는가. */
+  /** 다섯 조건을 다 만족했는가. */
   early: boolean;
   /** 화면에 그대로 쓸 근거. 만족한 것만 담는다. */
   reasons: string[];
@@ -64,7 +70,7 @@ function hoursSince(iso: string | null | undefined, nowMs: number): number | nul
 /**
  * 선점 적기인지 가른다.
  *
- * 네 조건 중 하나라도 못 재면 그 조건은 **만족하지 않은 것으로** 둔다.
+ * 다섯 조건 중 하나라도 못 재면 그 조건은 **만족하지 않은 것으로** 둔다.
  * 모르는 것을 만족으로 세면 "지금 들어가면 먹는다"고 말해 놓고 근거가 없게 된다.
  */
 export function judgeEarlyMover(
@@ -93,6 +99,12 @@ export function judgeEarlyMover(
     reasons.push('실시간 검색어에는 아직 없다 — 대중화 전이다');
   } else {
     missing.push('실시간 검색어에 이미 올라 있다');
+  }
+
+  if (input.hasAiBriefing === false) {
+    reasons.push('AI 브리핑이 없다 — 클릭이 글로 온다');
+  } else {
+    missing.push(input.hasAiBriefing === true ? 'AI 브리핑이 답을 대신한다' : 'AI 브리핑을 못 쟀다');
   }
 
   const age = hoursSince(input.firstSeenAt, nowMs);

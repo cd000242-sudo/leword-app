@@ -23,6 +23,19 @@ export const DEMAND_SHAPE_LABEL: Record<DemandShape, string> = {
   unknown: '판정불가',
 };
 
+/**
+ * 라벨에서 원래 판정값을 되짚는다.
+ *
+ * 왜 필요한가: 배치 결과에 `trendShape` 를 싣기 전에 돌린 후보 파일이 남아 있고,
+ * 그걸 다시 뽑으려면 40분짜리 재발굴을 해야 한다. 라벨은 이 표에서 나온 것이라
+ * 되짚어도 새로 만드는 값이 아니다. 모르는 라벨은 null 로 둔다.
+ */
+export function shapeFromLabel(label: string | null | undefined): DemandShape | null {
+  if (!label) return null;
+  const found = Object.entries(DEMAND_SHAPE_LABEL).find(([, text]) => text === label);
+  return found ? (found[0] as DemandShape) : null;
+}
+
 export interface DemandShapeThresholds {
   /** 이보다 포인트가 적으면 판정하지 않는다. */
   minPoints: number;

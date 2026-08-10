@@ -27,6 +27,7 @@ const path = require('path');
 const { classifySearchIntent, resolveIntentFromSerp } = require('../src/utils/keyword-intent');
 const { SECTION_MARKER_VERSION, trustedSections } = require('../src/utils/naver-serp-structure');
 const { judgeEarlyMover } = require('../src/utils/early-mover');
+const { shapeFromLabel } = require('../src/utils/keyword-demand-shape');
 const { adviseFromLayout } = require('../src/utils/serp-layout-advice');
 
 const DEFAULT_DEST = path.join(
@@ -59,11 +60,13 @@ function toPublicRow(row) {
    * 자리가 빈 이유가 '관심이 없어서'인지 '아직 못 채서'인지를 여기서 가른다.
    */
   const earlyMover = judgeEarlyMover({
-    shape: row.trendShape || null,
+    // trendShape 를 싣기 전 세대의 배치 결과는 라벨에서 되짚는다.
+    shape: row.trendShape || shapeFromLabel(row.trendLabel),
     searchVolume: row.searchVolume ?? null,
     documentCount: row.documentCount ?? null,
     inRealtimeNow: Boolean(row.inRealtimeNow),
     firstSeenAt: row.firstSeenAt || null,
+    hasAiBriefing: row.serp && row.serp.hasAiBriefing,
   });
 
   // 어느 판에서 싸울 것인가 — 구획의 유무가 아니라 **위아래 순서**가 정한다.
@@ -122,14 +125,28 @@ function main() {
   const rows = Array.isArray(board.rows) ? board.rows : [];
 
   // ② 근거 없는 행 제거
-  const withEvidence = rows.filter((row) => Array.isArray(row.evidence) && row.evidence.length > 0);
-  const dropped = rows.length - withEvidence.length;
+  const hasEvidence = rows.filter((row) => Array.isArray(row.evidence) && row.evidence.length > 0);
+  const dropped = rows.length - hasEvidence.length;
+
+  /*
+   * 같은 키워드가 두 주제로 올라오는 일이 있다 — 실측에서 '정형외과 임형태'가
+   * 건강·의학과 스포츠에 동시에 떴다. 씨앗이 겹치면 생기는 일이고, 화면에서는
+   * 같은 카드가 두 번 보인다. 먼저 온 것(=확실한 층)만 남긴다.
+   */
+  const seen = new Set();
+  const withEvidence = hasEvidence.filter((row) => {
+    const key = String(row.keyword).replace(/\s+/g, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const deduped = hasEvidence.length - withEvidence.length;
 
   console.log('='.repeat(70));
   console.log('선점 보드 발행');
   console.log('='.repeat(70));
   console.log(`  입력        ${inPath}`);
-  console.log(`  행          ${rows.length}${dropped > 0 ? ` → ${withEvidence.length} (근거 없는 ${dropped}행 제외)` : ''}`);
+  console.log(`  행          ${rows.length}${dropped > 0 ? ` · 근거 없는 ${dropped}행 제외` : ''}${deduped > 0 ? ` · 중복 ${deduped}행 제외` : ''} → ${withEvidence.length}`);
 
   const byTopic = new Map();
   withEvidence.forEach((row) => byTopic.set(row.topic, (byTopic.get(row.topic) || 0) + 1));
@@ -144,13 +161,14 @@ function main() {
   const aiSeen = withEvidence.filter((r) => r.serp?.hasAiBriefing !== undefined).length;
   console.log(`  AI 브리핑    ${withEvidence.filter((r) => r.serp?.hasAiBriefing === true).length}건 있음 / ${aiSeen}건 측정`);
   const early = withEvidence.filter((r) => judgeEarlyMover({
-    shape: r.trendShape || null,
+    shape: r.trendShape || shapeFromLabel(r.trendLabel),
     searchVolume: r.searchVolume ?? null,
     documentCount: r.documentCount ?? null,
     inRealtimeNow: Boolean(r.inRealtimeNow),
     firstSeenAt: r.firstSeenAt || null,
+    hasAiBriefing: r.serp && r.serp.hasAiBriefing,
   }).early).length;
-  console.log(`  선점 적기    ${early}행 (뜨는 중 · 밭 비어 있음 · 실시간 전 · 새로 생긴 말)`);
+  console.log(`  선점 적기    ${early}행 (뜨는 중 · 밭 비어 있음 · 실시간 전 · 브리핑 없음 · 새로 생긴 말)`);
 
   // ① 빈 회차가 기존 보드를 지우지 않게
   if (withEvidence.length === 0) {

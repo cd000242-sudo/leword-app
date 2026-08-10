@@ -12,6 +12,7 @@ function base(overrides = {}) {
         documentCount: 120,
         inRealtimeNow: false,
         firstSeenAt: new Date(Date.now() - 6 * 3_600_000).toISOString(),
+        hasAiBriefing: false,
         ...overrides,
     };
 }
@@ -20,7 +21,7 @@ describe('judgeEarlyMover', () => {
     it('네 조건을 다 만족하면 선점 적기다', () => {
         const result = judgeEarlyMover(base());
         expect(result.early).toBe(true);
-        expect(result.reasons).toHaveLength(4);
+        expect(result.reasons).toHaveLength(5);
         expect(result.missing).toEqual([]);
     });
 
@@ -44,6 +45,17 @@ describe('judgeEarlyMover', () => {
     it('게이트 하한(비율 1)만 넘겨서는 부족하다 — 2배는 돼야 한다', () => {
         expect(judgeEarlyMover(base({ searchVolume: 300, documentCount: 200 })).early).toBe(false);
         expect(judgeEarlyMover(base({ searchVolume: 400, documentCount: 200 })).early).toBe(true);
+    });
+
+    // 브리핑이 답을 대신하면 자리를 선점해도 클릭이 안 온다.
+    it('AI 브리핑이 떠 있으면 선점 적기가 아니다', () => {
+        const result = judgeEarlyMover(base({ hasAiBriefing: true }));
+        expect(result.early).toBe(false);
+        expect(result.missing).toContain('AI 브리핑이 답을 대신한다');
+    });
+
+    it('브리핑을 못 쟀으면 단정하지 않는다', () => {
+        expect(judgeEarlyMover(base({ hasAiBriefing: undefined })).early).toBe(false);
     });
 
     it('오래전부터 있던 말이면 새로 생긴 게 아니다', () => {
