@@ -32,12 +32,46 @@ jobs:
 
       - run: npm ci
 
+      # 돈 쓰기 전에 끝까지 갈 수 있는지부터 본다.
+      #
+      # 발행용 토큰이 없으면 BD 크레딧을 다 태우고 나서 마지막 스텝에서 죽는다.
+      # 그 회차의 결과는 아티팩트에도 안 남고 사라진다 — 순수 손실이다.
+      # 그래서 무료 단계보다도 앞에 세운다.
+      - name: 필수 시크릿 확인
+        env:
+          REQUIRED: |
+            NAVER_SEARCH_AD_ACCESS_LICENSE=${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE != '' }}
+            NAVER_SEARCH_AD_SECRET_KEY=${{ secrets.NAVER_SEARCH_AD_SECRET_KEY != '' }}
+            NAVER_SEARCH_AD_CUSTOMER_ID=${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID != '' }}
+            NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID != '' }}
+            NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET != '' }}
+            BRIGHTDATA_TOKEN=${{ secrets.BRIGHTDATA_TOKEN != '' }}
+            SITE_REPO_SSH_KEY=${{ secrets.SITE_REPO_SSH_KEY != '' }}
+        run: |
+          missing=0
+          while IFS='=' read -r name present; do
+            [ -z "$name" ] && continue
+            if [ "$present" != 'true' ]; then
+              echo "::error::시크릿 없음 — $name"
+              missing=1
+            fi
+          done <<< "$REQUIRED"
+          if [ "$missing" -eq 1 ]; then
+            echo '크레딧을 쓰기 전에 멈춘다. 저장소 Settings → Secrets 에서 채울 것.'
+            exit 1
+          fi
+          echo '필수 시크릿 확인됨.'
+
       # 후보 발굴은 무료다(검색광고·자동완성). BD 크레딧은 다음 단계에서만 쓴다.
       - name: 후보 발굴
         env:
-          NAVER_SEARCHAD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCHAD_ACCESS_LICENSE }}
-          NAVER_SEARCHAD_SECRET_KEY: ${{ secrets.NAVER_SEARCHAD_SECRET_KEY }}
-          NAVER_SEARCHAD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCHAD_CUSTOMER_ID }}
+          # SEARCH 와 AD 사이 밑줄을 빼면 조용히 빈 값이 된다. EnvironmentManager 가
+          # 읽는 이름은 여기 적힌 그대로이고, 어긋나면 예외 없이 빈 문자열이 되어
+          # "자격증명이 필요합니다" 로 죽는다 — 실측으로 확인했다.
+          # preemption-board-workflow.test.ts 가 이 이름들을 코드와 대조한다.
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=6 --perSeed=8
@@ -60,11 +94,15 @@ jobs:
             --withStructure
 
       # 사이트 레포에 발행한다. 화면이 읽는 파일은 그쪽에 있다.
+      #
+      # 개인 토큰(PAT) 대신 배포키를 쓴다. 개인 토큰은 계정의 모든 레포에 대한
+      # 권한을 CI 로그 안까지 들고 들어오고, 사람이 재로그인하면 조용히 깨진다.
+      # 배포키는 이 레포 하나에만 붙고 만료가 없다.
       - name: 사이트 레포 체크아웃
         uses: actions/checkout@v4
         with:
           repository: cd000242-sudo/naver
-          token: ${{ secrets.SITE_REPO_TOKEN }}
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
           path: site
 
       - name: 보드 발행

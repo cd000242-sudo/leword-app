@@ -310,6 +310,10 @@ const VITEST_SUITES = [
     // 제목 선택자가 작성자 이름을 물면 게이트 전체가 거짓이 된다. 가장 비싼 회귀다.
     'src/utils/__tests__/serp-title-extraction.test.ts',
     'src/utils/__tests__/serp-meaning.test.ts',
+    // 자격증명 이름 하나가 어긋나면 주 2회 배치가 통째로 죽는다. 파일 대조로 잡는다.
+    'src/utils/__tests__/preemption-board-workflow.test.ts',
+    // substring 으로 씨앗을 맞추다 남의 낱말을 문 것이 이 레포에서만 세 번째다.
+    'src/utils/__tests__/seed-drift.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

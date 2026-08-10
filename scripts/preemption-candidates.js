@@ -40,6 +40,7 @@ const {
 const { DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { analyzeKeywordSignals, sortWeight } = require('../src/utils/keyword-intent');
+const { sharesSeedToken } = require('../src/utils/seed-drift');
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -206,11 +207,8 @@ async function main() {
            * 자동완성은 원래 씨앗을 앞에 두고 늘리므로, 이걸 못 지키면
            * 이미 다른 주제로 건너간 것이다.
            */
-          const seedTokens = String(seed).split(/\s+/).filter((t) => t.length >= 2);
-          const kwCompact = keyword.replace(/\s+/g, '');
-          const shares = seedTokens.length === 0
-            || seedTokens.some((token) => kwCompact.includes(token.replace(/\s+/g, '')));
-          if (!shares) {
+          // 규칙은 seed-drift.ts 가 단일 출처다(테스트가 실측 오염 사례를 고정한다).
+          if (!sharesSeedToken(keyword, seed)) {
             driftLog.push(`${keyword} — 씨앗 '${seed}' 와 공유 어절 없음`);
             continue;
           }
@@ -253,7 +251,15 @@ async function main() {
     }
     const phraseList = [];
     const queues = [...bySeedQueue.values()];
-    const sampleCap = perTopic * 12;
+    /*
+     * 검색량을 실측할 표본 수.
+     *
+     * 기본값이 perTopic 에 묶여 있었다. 그래서 씨앗을 205 → 275 로 늘렸을 때
+     * 발굴 문장은 29,175개가 됐는데 실측한 것은 주제당 72개(전체의 7.9%)뿐이었고,
+     * 늘린 씨앗이 결과를 못 바꿨다 — 씨앗을 늘릴수록 각 씨앗의 몫만 얇아진다.
+     * 검색량 조회는 무료다(5개씩 묶어 보낸다). 표본은 따로 정한다.
+     */
+    const sampleCap = Number(arg('sampleCap')) || perTopic * 12;
     for (let round = 0; phraseList.length < sampleCap; round += 1) {
       let added = 0;
       for (const queue of queues) {
