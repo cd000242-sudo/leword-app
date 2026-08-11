@@ -21,6 +21,10 @@ export interface EarlyMoverInput {
   shape: DemandShape | null;
   searchVolume: number | null;
   documentCount: number | null;
+  /** 상위 표본 중 이 키워드를 정면으로 다룬 글 수(실측). */
+  facingPosts?: number | null;
+  /** 정면 글을 몇 개 중에서 셌는가. 표본 없이 0건은 '못 봤다'다. */
+  sampledTitles?: number | null;
   /**
    * 실시간 검색어에 지금 올라와 있는가. 올라와 있으면 이미 퍼진 것이다.
    * null/undefined 는 '못 쟀다'이지 '없다'가 아니다 — 근거로 세지 않는다.
@@ -46,7 +50,7 @@ export interface EarlyMoverResult {
 }
 
 export interface EarlyMoverThresholds {
-  /** 이 배수 이상으로 문서보다 검색이 많아야 "아직 안 채워진 밭"이다. */
+  /** @deprecated 판정에 안 쓴다 — '밭 비어 있음'은 정면 글 수 실측으로 교체(2026-08-12). */
   minRatio: number;
   /** 처음 관측된 지 이 시간 안이면 "새로 생긴 말"로 본다. */
   freshHours: number;
@@ -102,12 +106,25 @@ export function judgeEarlyMover(
     missing.push('수요가 오르는 중이 아니다');
   }
 
-  const { searchVolume, documentCount } = input;
-  if (searchVolume !== null && documentCount !== null && documentCount > 0
-    && searchVolume / documentCount >= thresholds.minRatio) {
-    reasons.push(`검색 ${num(searchVolume)}회에 글이 ${num(documentCount)}개뿐이다`);
+  /*
+   * "밭이 비어 있다" 는 문서수 비율이 아니라 **정면 글 수**로 잰다 (2026-08-12 교체).
+   *
+   * 비율(검색량 ÷ 문서수) 2배 조건은 단위가 안 맞아 거의 못 넘는다 — 검색량은 지난
+   * 한 달의 횟수이고 문서수는 10년치 누적 broad 매치다. 실측 34행 중 6행만 통과했고,
+   * 다른 조건들과의 교집합은 0 이라 '선점 적기' 가 구조적으로 0행이었다.
+   * 상위 표본에서 정면으로 다룬 글이 0건이면 그 밭은 비어 있는 것이다 —
+   * 같은 날 titleCoverage 를 고치며 확립한 기준과 같은 자를 쓴다.
+   */
+  const facing = input.facingPosts;
+  const sampled = input.sampledTitles;
+  if (typeof facing === 'number' && typeof sampled === 'number' && sampled > 0) {
+    if (facing === 0) {
+      reasons.push(`상위 ${num(sampled)}개 중 정면으로 다룬 글 0건 — 밭이 비어 있다`);
+    } else {
+      missing.push(`이미 정면으로 다룬 글이 ${num(facing)}건 있다`);
+    }
   } else {
-    missing.push('밭이 이미 채워져 있다');
+    missing.push('정면 글 수를 못 쟀다');
   }
 
   /*

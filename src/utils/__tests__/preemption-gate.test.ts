@@ -102,22 +102,40 @@ describe('judgePreemption — 층 판정', () => {
         expect(judgePreemption(base({ inRealtimeNow: true })).tier).toBe('page1-weak');
     });
 
+    /*
+     * base 는 검색량 900 / 문서수 120 — **황금 비율**이라 새 정책(2026-08-12,
+     * "검색량 > 문서수는 다 통과")에서는 경쟁이 있어도 통과한다. 차단을 검증하는
+     * 테스트는 문서수를 검색량 위로 올려 황금 비율을 벗긴다.
+     */
     it('정면 대응 1건이면 마지막 층이고 경합이라고 적는다', () => {
         const result = judgePreemption(base({
+            documentCount: 2000,
             serp: serpOf([OTHER, COVERING], { exactTitleHits: 1, partialTitleHits: 2 }),
         }));
         expect(result.tier).toBe('contested');
         expect(result.evidence.some((e) => e.code === 'contested')).toBe(true);
     });
 
-    // 여기가 핵심 불변조건이다. 개수를 채우려고 자리 없는 것을 끼우면 안 된다.
-    it('정면 대응 2건 이상이면 어떤 층에도 못 들어간다', () => {
+    // 핵심 불변조건 — 단, 황금 비율은 예외다(별도 테스트).
+    it('황금 비율이 아니면 정면 대응 2건 이상은 어떤 층에도 못 들어간다', () => {
         const result = judgePreemption(base({
+            documentCount: 2000,
             serp: serpOf([COVERING, COVERING], { exactTitleHits: 2, partialTitleHits: 3 }),
         }));
         expect(result.passed).toBe(false);
         expect(result.tier).toBeNull();
         expect(result.failed.join(' ')).toContain('자리 없음');
+    });
+
+    // 사장님 최종 기준: "검색량이 문서수보다 높은 키워드들이야, 다 통과시켜서 보여줘."
+    it('황금 비율이면 정면 대응이 몇 건이어도 통과한다', () => {
+        const result = judgePreemption(base({
+            searchVolume: 940, documentCount: 20,
+            serp: serpOf([COVERING, COVERING], { exactTitleHits: 3, partialTitleHits: 3 }),
+        }));
+        expect(result.passed).toBe(true);
+        expect(result.tier).toBe('golden-ratio');
+        expect(result.evidence.some((e) => e.code === 'golden-ratio')).toBe(true);
     });
 
     it('검색량이 기준 미만이면 어떤 층에도 못 들어간다', () => {
@@ -290,12 +308,25 @@ describe('selectWithFill — 껍질 까기', () => {
     it('자리 없는 키워드는 개수가 모자라도 절대 안 들어온다', () => {
         const noRoom = Array.from({ length: 10 }, (_, i) => base({
             keyword: `자리없음${i}`,
+            documentCount: 2000, // 황금 비율이면 예외로 통과하므로, 이 테스트는 비율을 벗긴다
             serp: serpOf([COVERING], { exactTitleHits: 3, partialTitleHits: 4 }),
         }));
         const outcome = selectWithFill([...topTier(1), ...noRoom], { target: 6 });
         expect(outcome.rows).toHaveLength(1);
         expect(outcome.short).toBe(true);
-        expect(outcome.rejected).toHaveLength(10);
+    });
+
+    // "다 통과시켜서 보여줘" — 황금 비율은 목표 개수 절단에서도 제외된다.
+    it('황금 비율은 목표를 넘겨도 전부 실린다', () => {
+        const golden = Array.from({ length: 4 }, (_, i) => base({
+            keyword: `황금${i}`,
+            searchVolume: 900, documentCount: 100,
+            serp: serpOf([COVERING], { exactTitleHits: 3, partialTitleHits: 3 }),
+        }));
+        const outcome = selectWithFill([...topTier(2), ...golden], { target: 2 });
+        // 목표 2 를 top3 가 채우고도, 황금 비율 4행이 전부 덧붙는다.
+        expect(outcome.rows.length).toBe(6);
+        expect(outcome.rows.filter((r) => r.tier === 'golden-ratio')).toHaveLength(4);
     });
 
     it('층별 건수를 세어 몇 층까지 깠는지 알려준다', () => {
@@ -368,12 +399,15 @@ describe('선점 게이트 — 문서수가 검색량보다 많으면 빈자리�
         expect(out.rows).toHaveLength(1);
     });
 
-    it('비율이 좋아도 정면 대응이 2건 이상이면 막는다 — 최종 판정은 SERP 가 한다', () => {
-        // 실측 '우리won cma note' — 상위 10개 중 5개가 정확 일치였다.
+    /*
+     * 2026-08-12 정책 반전: 검색량 > 문서수(황금 비율)는 정면 대응이 있어도
+     * 전부 통과한다 — 사장님 최종 기준. 비율이 안 되는 것만 정면 차단이 잡는다.
+     */
+    it('황금 비율이면 정면 5건이어도 통과한다 — 층 라벨이 사실을 밝힌다', () => {
         const locked = { ...winnableSerp, exactTitleHits: 5 };
         const out = selectWithFill([{ ...base, serp: locked, searchVolume: 820, documentCount: 313 }], { target: 5 });
-        expect(out.rows).toHaveLength(0);
-        expect(out.rejected[0].failed[0]).toContain('정면 대응');
+        expect(out.rows).toHaveLength(1);
+        expect(out.rows[0].tier).toBe('golden-ratio');
     });
 
     // 못 쟀으면 자르지 않는다 — 못 본 것과 나쁜 것을 섞지 않는다.
@@ -382,10 +416,11 @@ describe('선점 게이트 — 문서수가 검색량보다 많으면 빈자리�
         expect(out.rows).toHaveLength(1);
     });
 
-    it('검색량이 문서수보다 많아도 자리가 없으면 안 올린다', () => {
+    it('검색량이 문서수보다 많으면 자리가 없어도 올린다 — 황금 비율 층으로', () => {
         const locked = { ...winnableSerp, exactTitleHits: 3 };
         const out = selectWithFill([{ ...base, serp: locked, searchVolume: 940, documentCount: 20 }], { target: 5 });
-        expect(out.rows).toHaveLength(0);
+        expect(out.rows).toHaveLength(1);
+        expect(out.rows[0].tier).toBe('golden-ratio');
     });
 });
 

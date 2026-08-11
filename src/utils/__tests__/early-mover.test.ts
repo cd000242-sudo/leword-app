@@ -11,6 +11,8 @@ function base(overrides = {}) {
         searchVolume: 900,
         documentCount: 120,
         inRealtimeNow: false,
+        facingPosts: 0,
+        sampledTitles: 10,
         firstSeenAt: new Date(Date.now() - 6 * 3_600_000).toISOString(),
         hasAiBriefing: false,
         ...overrides,
@@ -36,15 +38,20 @@ describe('judgeEarlyMover', () => {
         expect(judgeEarlyMover(base({ inRealtimeNow: true })).early).toBe(false);
     });
 
-    it('문서가 검색량만큼 있으면 밭이 찬 것이다', () => {
-        const result = judgeEarlyMover(base({ searchVolume: 900, documentCount: 800 }));
+    /*
+     * '밭 비어 있음' 은 정면 글 실측으로 잰다(2026-08-12 교체).
+     * 비율 2배 조건은 단위가 안 맞아 실측 34행 중 6행만 넘었고, 다른 조건과의
+     * 교집합이 0 이라 '선점 적기' 가 구조적으로 0행이었다.
+     */
+    it('이미 정면으로 다룬 글이 있으면 밭이 찬 것이다', () => {
+        const result = judgeEarlyMover(base({ facingPosts: 1 }));
         expect(result.early).toBe(false);
-        expect(result.missing).toContain('밭이 이미 채워져 있다');
+        expect(result.missing.join(' ')).toContain('이미 정면으로 다룬 글이 1건');
     });
 
-    it('게이트 하한(비율 1)만 넘겨서는 부족하다 — 2배는 돼야 한다', () => {
-        expect(judgeEarlyMover(base({ searchVolume: 300, documentCount: 200 })).early).toBe(false);
-        expect(judgeEarlyMover(base({ searchVolume: 400, documentCount: 200 })).early).toBe(true);
+    it('문서수 비율은 더 이상 이 판정을 못 막는다', () => {
+        // 실측 '에너지바우처조회' 꼴 — 문서 22,035에 검색 280. 정면 0건이면 밭은 빈 것이다.
+        expect(judgeEarlyMover(base({ searchVolume: 280, documentCount: 22035 })).early).toBe(true);
     });
 
     // 브리핑이 답을 대신하면 자리를 선점해도 클릭이 안 온다.
@@ -81,7 +88,8 @@ describe('judgeEarlyMover', () => {
     // 못 잰 것을 만족으로 세면 근거 없이 "지금 들어가면 먹는다"고 말하게 된다.
     it('못 잰 값은 만족으로 세지 않는다', () => {
         expect(judgeEarlyMover(base({ shape: null })).early).toBe(false);
-        expect(judgeEarlyMover(base({ documentCount: null })).early).toBe(false);
+        expect(judgeEarlyMover(base({ facingPosts: null })).early).toBe(false);
+        expect(judgeEarlyMover(base({ sampledTitles: 0 })).early).toBe(false);
         expect(judgeEarlyMover(base({ firstSeenAt: null })).early).toBe(false);
     });
 
@@ -102,7 +110,7 @@ describe('judgeEarlyMover', () => {
     });
 
     it('근거 문장에 실측 숫자를 그대로 싣는다', () => {
-        expect(judgeEarlyMover(base()).reasons.join(' ')).toContain('검색 900회에 글이 120개뿐이다');
+        expect(judgeEarlyMover(base()).reasons.join(' ')).toContain('상위 10개 중 정면으로 다룬 글 0건');
     });
 
     it('추정 표현을 만들지 않는다', () => {

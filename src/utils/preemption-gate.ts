@@ -18,17 +18,25 @@
 import { titleCoverage, DEFAULT_SERP_THRESHOLDS } from './serp-winnability';
 
 /** 껍질을 까는 순서. 앞일수록 자리가 확실하다. */
-export type PreemptionTier = 'top3' | 'page1' | 'page1-weak' | 'contested';
+export type PreemptionTier = 'top3' | 'page1' | 'golden-ratio' | 'page1-weak' | 'contested';
 
 export const TIER_LABEL: Record<PreemptionTier, string> = {
   top3: '상위 3위권에 빈자리',
   page1: '1페이지에 빈자리',
+  /*
+   * 황금 비율 — 검색량이 문서수보다 많다. 사장님 최종 기준(2026-08-12):
+   * "순수하게 마지막으로 통과하는 건 황금키워드, 한마디로 검색량이 문서수보다
+   *  높은 키워드들이야. 다 통과시켜서 보여줘."
+   * 문서수는 10년치 누적인데도 한 달 검색량이 그걸 넘는다는 것은 수요가 공급을
+   * 압도한다는 뜻이다. 자리 판정과 무관하게 전부 통과한다.
+   */
+  'golden-ratio': '황금 비율 — 검색량 > 문서수',
   'page1-weak': '1페이지에 빈자리 (실시간 노출 중)',
-  contested: '경합 — 정면 대응 1건',
+  contested: '경합 — 정면 대응 있음',
 };
 
 /** 층 순서. 이 배열 순서대로 채운다. */
-export const TIER_ORDER: readonly PreemptionTier[] = ['top3', 'page1', 'page1-weak', 'contested'];
+export const TIER_ORDER: readonly PreemptionTier[] = ['top3', 'page1', 'golden-ratio', 'page1-weak', 'contested'];
 
 export interface PreemptionThresholds {
   /**
@@ -139,7 +147,7 @@ export interface PreemptionInput {
 }
 
 export interface PreemptionEvidence {
-  code: 'open-slot' | 'empty-field' | 'stale-top' | 'fresh' | 'not-realtime' | 'demand' | 'contested' | 'ai-briefing' | 'ads';
+  code: 'open-slot' | 'empty-field' | 'stale-top' | 'fresh' | 'not-realtime' | 'demand' | 'contested' | 'ai-briefing' | 'ads' | 'golden-ratio';
   text: string;
 }
 
@@ -250,9 +258,17 @@ function checkInvariants(
         + `${Math.round(input.documentCount / input.searchVolume)}배라 소음이 너무 두껍다`,
     };
   }
-  // 정면 대응이 2건 이상이면 자리가 없다. 개수를 채우려고 끼워 넣지 않는다.
+  /*
+   * 정면 대응이 2건 이상이면 자리가 없다 — 단, **황금 비율(검색량 > 문서수)은
+   * 예외로 전부 통과한다**(사장님 최종 기준). 경쟁 글이 있어도 수요가 공급을
+   * 압도하는 밭이라 노출 기회가 있고, 층 라벨('황금 비율')과 정면 건수 근거로
+   * 그 사실을 숨기지 않고 내보낸다.
+   */
   if (input.serp.exactTitleHits > 1) {
-    return { undetermined: false, reason: `정면 대응 ${input.serp.exactTitleHits}건 — 자리 없음` };
+    const golden = input.documentCount !== null && input.searchVolume > input.documentCount;
+    if (!golden) {
+      return { undetermined: false, reason: `정면 대응 ${input.serp.exactTitleHits}건 — 자리 없음` };
+    }
   }
   return null;
 }
@@ -309,9 +325,13 @@ export function judgePreemption(
    */
   const aiTakesAnswer = input.serp?.hasAiBriefing === true;
 
+  const goldenRatio = input.documentCount !== null && input.searchVolume! > input.documentCount;
+
   let tier: PreemptionTier;
   if (topOpen && !input.inRealtimeNow && !aiTakesAnswer) tier = 'top3';
   else if (emptyField && !input.inRealtimeNow && !aiTakesAnswer) tier = 'page1';
+  // 자리 층에 못 들어도 황금 비율이면 전용 층으로 통과한다(위 불변조건 예외와 짝).
+  else if (goldenRatio && !emptyField) tier = 'golden-ratio';
   else if (emptyField) tier = 'page1-weak';
   else tier = 'contested';
 
@@ -355,6 +375,13 @@ export function judgePreemption(
   if (fresh) {
     evidence.push({ code: 'fresh', text: `${formatAge(age!)} 처음 관측` });
   }
+  if (goldenRatio) {
+    evidence.push({
+      code: 'golden-ratio',
+      text: `월 검색량 ${input.searchVolume!.toLocaleString('ko-KR')} > 문서수 ${input.documentCount!.toLocaleString('ko-KR')} — 수요가 공급을 넘는 황금 비율`,
+    });
+  }
+
   // 못 쟀으면(null) 근거로 싣지 않는다. 안 잰 것은 사실이 아니다.
   if (input.inRealtimeNow === false) {
     evidence.push({ code: 'not-realtime', text: '실시간 검색어에는 아직 없음' });
@@ -471,6 +498,11 @@ export function selectWithFill(
    * 못 잰 것(undefined)은 "있다"로 치지 않는다 — 안 본 것을 벌주면 멀쩡한
    * 키워드가 손해를 본다.
    */
+  /*
+   * 황금 비율은 **목표 개수와 무관하게 전부** 싣는다 — "다 통과시켜서 보여줘".
+   * 자리 층(top3 등)으로 이미 들어간 황금 비율 행도 있으므로, 목표 채우기가
+   * 끝난 뒤 아직 안 실린 황금 비율 행을 전부 덧붙인다.
+   */
   const briefingPhases = [false, true] as const;
   for (const allowBriefing of briefingPhases) {
     for (const tier of TIER_ORDER) {
@@ -485,6 +517,13 @@ export function selectWithFill(
         rows.push(result);
         deepestTier = tier;
       }
+    }
+  }
+
+  for (const result of judged) {
+    if (result.tier === 'golden-ratio' && !rows.includes(result)) {
+      rows.push(result);
+      deepestTier = deepestTier ?? 'golden-ratio';
     }
   }
 

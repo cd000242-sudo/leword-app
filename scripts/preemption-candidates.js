@@ -389,8 +389,15 @@ async function main() {
        *
        * 제목을 못 받았으면(캐시 적중 등) 거르지 않는다 — 못 본 것을 나쁜 것으로 치지 않는다.
        */
+      /*
+       * 황금 비율(검색량 > 문서수)은 무료 선별을 **건너뛴다** — 사장님 최종 기준
+       * (2026-08-12): "검색량이 문서수보다 높은 키워드들이야, 다 통과시켜서 보여줘."
+       * 정면 글이 있어도 게이트가 golden-ratio 층으로 전부 통과시키므로, 여기서
+       * 걸러 버리면 그 층에 도달할 후보가 없어진다.
+       */
+      const goldenRatio = documentCount !== null && Number(row.searchVolume) > documentCount;
       const freeTitles = takeRecentBlogTitles(row.keyword);
-      if (Array.isArray(freeTitles) && freeTitles.length >= 5) {
+      if (!goldenRatio && Array.isArray(freeTitles) && freeTitles.length >= 5) {
         const facing = freeTitles.filter(
           (title) => titleCoverage(title, row.keyword) >= SERP_THRESHOLDS.exactCoverage,
         ).length;

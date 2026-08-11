@@ -67,6 +67,9 @@ function toPublicRow(row) {
     shape: row.trendShape || shapeFromLabel(row.trendLabel),
     searchVolume: row.searchVolume ?? null,
     documentCount: row.documentCount ?? null,
+    // '밭 비어 있음'은 정면 글 실측으로 잰다(early-mover 2026-08-12 교체와 짝).
+    facingPosts: row.serp && typeof row.serp.exactTitleHits === 'number' ? row.serp.exactTitleHits : null,
+    sampledTitles: row.serp && typeof row.serp.sampledTitles === 'number' ? row.serp.sampledTitles : null,
     // null(못 쟀음)을 false 로 눌러 담으면 안 잰 사실이 근거로 되살아난다.
     inRealtimeNow: row.inRealtimeNow ?? null,
     firstSeenAt: row.firstSeenAt || null,
@@ -207,6 +210,8 @@ function main() {
     shape: r.trendShape || shapeFromLabel(r.trendLabel),
     searchVolume: r.searchVolume ?? null,
     documentCount: r.documentCount ?? null,
+    facingPosts: r.serp && typeof r.serp.exactTitleHits === 'number' ? r.serp.exactTitleHits : null,
+    sampledTitles: r.serp && typeof r.serp.sampledTitles === 'number' ? r.serp.sampledTitles : null,
     inRealtimeNow: r.inRealtimeNow ?? null,
     firstSeenAt: r.firstSeenAt || null,
     hasAiBriefing: r.serp && r.serp.hasAiBriefing,

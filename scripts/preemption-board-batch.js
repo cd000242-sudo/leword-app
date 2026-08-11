@@ -394,7 +394,7 @@ async function main() {
   });
   console.log(`  동시 검증        ${concurrency}건 (호출 간격 ${DELAY_MS}ms 는 공용으로 유지)`);
 
-  const tierTotals = { top3: 0, page1: 0, 'page1-weak': 0, contested: 0 };
+  const tierTotals = { top3: 0, page1: 0, 'golden-ratio': 0, 'page1-weak': 0, contested: 0 };
   const shortTopics = [];
   const rejectionLog = [];
   /*
