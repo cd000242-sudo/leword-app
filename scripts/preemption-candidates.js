@@ -152,7 +152,7 @@ async function main() {
   console.log(`거르기: 검색량 ${minVolume} 이상 · 문서수 절대상한 ${maxDocumentCount.toLocaleString('ko-KR')} · 씨앗당 최대 ${perSeed}건`
     + (minRatio > 0 ? ` · 비율 ${minRatio} 이상` : ' · 비율 컷 없음'));
   console.log('자리 유무 판정은 다음 단계인 Bright Data SERP 가 한다 — 여기서 미리 버리지 않는다.');
-  console.log('비율(검색량÷문서수)로는 자리를 못 가린다 — 실측 36건에서 두 무리가 안 갈렸다.');
+  console.log('비율은 최소선이다 — 문서수가 검색량보다 많으면 뺀다. 자리의 최종 판정은 SERP 가 한다.');
   console.log(`유형: 데이터랩 30일 실측 시계열로 에버그린·떡상·단발성·시즌성 분류 · 롱테일 기준 어절 ${minWords}개`);
   console.log('='.repeat(76));
 
@@ -373,11 +373,12 @@ async function main() {
        */
       if (documentCount !== null && documentCount > maxDocumentCount) continue;
       /*
-       * 비율 컷은 기본으로 꺼져 있다(게이트가 단일 출처, 기본 0).
+       * 비율 컷(게이트가 단일 출처). 2026-08-11 에 다시 켰다 — 기본 1.
        *
-       * 예전에는 검색량보다 문서가 많으면 여기서 버렸다. 그렇게 버린 개념 롱테일
-       * 36건을 SERP 로 재보니 18건에 자리가 있었다 — 버린 쪽이 통과한 쪽보다 많았다.
-       * 문서수는 broad 매치라 경쟁을 과장한다. 자리는 다음 단계 SERP 가 판정한다.
+       * 잠깐 껐던 근거는 "버린 롱테일 36건을 SERP 로 재보니 18건에 자리가 있더라"
+       * 였는데, 그 실측이 무효였다. 자리를 잰 titleCoverage 가 붙여 쓴 검색어를
+       * 전부 '정면 0건'으로 냈기 때문이다. 사장님 기준으로 돌아간다 —
+       * 검색량이 높고 문서수가 적어야 황금키워드다.
        */
       // 문서수 0 은 무경쟁이 아니라 측정 실패다(게이트와 같은 판단).
       if (documentCount === 0) continue;

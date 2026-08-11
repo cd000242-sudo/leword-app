@@ -49,23 +49,31 @@ export interface PreemptionThresholds {
   /** '상위'를 몇 위까지로 볼 것인가. */
   topSlots: number;
   /**
-   * 검색량 ÷ 문서수 하한. **판정에는 쓰지 않는다(기본 0).**
+   * 검색량 ÷ 문서수 하한. **소음 키워드를 걷어내는 용도다.**
    *
-   * 예전에는 이 값이 불변조건이었다 — "문서 3만 개짜리 밭에 검색이 140번인 것을
-   * 빈자리라고 부를 수 없다"는 논리였다. 2026-08-11 실측이 그걸 뒤집었다.
+   * ## 왜 1 이 아닌가 (2026-08-11 실측 45건)
    *
-   * 이 게이트가 버린 개념 롱테일 36건을 SERP 로 직접 재보니 18건에 자리가 있었고,
-   * 두 무리를 가르는 지표가 **하나도 없었다**:
-   *     자리있음 18건 문서수 중앙값 22,351 · 비율 0.027
-   *     막힘   18건 문서수 중앙값  9,324 · 비율 0.110
-   * 오히려 비율이 낮은 쪽에 자리가 많았다. '이케아 옷정리함'은 문서 10,432 인데
-   * 상위 10개 중 정면 대응이 0건이고, 비율 0.62 인 '우리won cma note' 는 5건이다.
+   * 사장님 기준은 "검색량이 높고 문서수가 적어야 황금키워드다" 이고 그 말이 맞다.
+   * 그런데 우리가 가진 '문서수' 로는 그 기준을 그대로 잴 수가 없다:
    *
-   * 이유는 문서수가 broad 매치라서다 — "그 단어들이 들어간 글" 수이지
-   * "그 질문에 답한 글" 수가 아니다. 자리는 SERP 제목으로만 알 수 있다.
+   *   검색량 = 지난 **한 달** 동안 그 검색어를 친 횟수
+   *   문서수 = **10년치 누적** 블로그 글 중 그 단어들이 어딘가 들어간 글 수
+   *            (정확구문도 아니다 — 오픈 API 가 따옴표를 무시하는 것을 실측 확인)
    *
-   * 값을 남겨 둔 이유: 후보 단계에서 BD 를 어디부터 태울지 고를 때 쓸 수 있다.
-   * 다만 위 실측대로 자리를 예측하지 못하므로 순서 기준으로도 약하다.
+   * 단위가 다르므로 비율 1 은 원리적으로 통과할 수 없다. 실측 45건에서 최대가
+   * 0.476 이고 1 을 넘은 것은 **0건**이었다. 여기를 1 로 두면 보드가 통째로 빈다.
+   *
+   * 사장님이 말한 "문서수" 에 해당하는 진짜 숫자는 **정면 대응 건수**다.
+   * '크레마 이북리더기 미피' 는 문서수 525건이지만 상위 10개 중 정면은 3건이고
+   * 나머지는 팔레트 일반 후기였다. 월 250회 검색에 경쟁 글 3건 — 그게 기준에 맞다.
+   * 그 판정은 checkInvariants 의 exactTitleHits 가 한다.
+   *
+   * ## 그럼 이 값은 무엇을 하나
+   *
+   * 정면 대응만으로는 **블로그 주제가 아예 아닌 검색어**를 못 거른다.
+   * '오퍼레이터24'(검색량 730 · 문서수 15,654)는 상위 10개가 전부 웹소설·공장등록
+   * 현황이라 정면 0건이 나오는데, 그건 자리가 빈 게 아니라 그 말로 쓸 글이 없는 것이다.
+   * 소음이 검색량의 10배를 넘으면 그런 밭으로 본다 — 실측 45건 중 5건이 통과한다.
    */
   minVolumeToDocumentRatio: number;
 }
@@ -81,8 +89,13 @@ export const DEFAULT_PREEMPTION_THRESHOLDS: PreemptionThresholds = {
   minSearchVolume: 100,
   minSampledTitles: 5,
   topSlots: 3,
-  // 0 = 판정에 쓰지 않는다. SERP 실측 36건이 이 비율과 자리 유무가 무관함을 보였다.
-  minVolumeToDocumentRatio: 0,
+  /*
+   * 소음이 검색량의 10배를 넘으면 뺀다. 1 은 원리적으로 통과 불가다(위 주석 — 실측
+   * 45건 최대 0.476). 지적받은 4건이 전부 여기서 걸린다:
+   *   오퍼레이터24 0.047 · 에너지바우처조회 0.013 · 사진인화4X6 0.013 · 무료상표등록조회 0.022
+   * 사람이 봐도 납득되는 것은 남는다: 헬리오스 식물등 0.187 · jyp 채용 후기 0.383
+   */
+  minVolumeToDocumentRatio: 0.1,
 };
 
 export interface PreemptionSerp {
@@ -204,13 +217,26 @@ function checkInvariants(
     return { undetermined: false, reason: '문서수 0 — 측정 실패로 본다' };
   }
   /*
-   * 예전에는 여기서 비율(검색량 ÷ 문서수)로 잘랐다. 뺐다 — 실측이 뒤집었다.
-   * 문서수는 broad 매치라 "그 단어들이 들어간 글"을 센다. 그 숫자가 커도
-   * 그 질문에 정면으로 답한 글은 없을 수 있다(실측: 문서 10,432 인 '이케아
-   * 옷정리함' 의 정면 대응 0건). 자리 판정은 바로 아래 SERP 제목이 한다.
-   * 임계값은 남아 있으나 기본 0 이라 아무것도 막지 않는다 — 자세한 근거는
-   * PreemptionThresholds.minVolumeToDocumentRatio 주석에 있다.
+   * 소음이 검색량에 견줘 지나치게 두꺼우면 뺀다.
+   *
+   * 문서 22,035개에 검색이 280번인 것을 "빈자리"라고 부를 수 없다 — 사장님 지적이고
+   * 맞다. 다만 문서수는 10년치 누적 broad 매치라 한 달 치 검색량과 단위가 다르다.
+   * 그래서 1 이 아니라 실측 분포에서 고른 값을 쓴다(minVolumeToDocumentRatio 주석).
+   *
+   * 이 컷이 실제로 잡는 것은 **블로그 주제가 아닌 검색어**다 — 상위 글이 전부
+   * 남의 이야기라 정면 대응이 0으로 나오는 것들. 밭이 찼는지는 정면 대응이 잰다.
+   *
+   * 못 쟀으면(null) 자르지 않는다 — 못 본 것과 나쁜 것을 섞지 않는다.
    */
+  if (input.documentCount !== null
+    && thresholds.minVolumeToDocumentRatio > 0
+    && (input.searchVolume / input.documentCount) < thresholds.minVolumeToDocumentRatio) {
+    return {
+      undetermined: false,
+      reason: `문서수 ${input.documentCount.toLocaleString('ko-KR')} — 검색량 ${input.searchVolume.toLocaleString('ko-KR')}의 `
+        + `${Math.round(input.documentCount / input.searchVolume)}배라 소음이 너무 두껍다`,
+    };
+  }
   // 정면 대응이 2건 이상이면 자리가 없다. 개수를 채우려고 끼워 넣지 않는다.
   if (input.serp.exactTitleHits > 1) {
     return { undetermined: false, reason: `정면 대응 ${input.serp.exactTitleHits}건 — 자리 없음` };
@@ -275,13 +301,24 @@ export function judgePreemption(
 
   // ── 근거. 사실인 것만 담는다 ─────────────────────────────────────────
   const evidence: PreemptionEvidence[] = [];
+  /*
+   * 수요와 경쟁을 한 줄에 낸다. 경쟁 쪽 숫자는 **정면 대응 건수**다.
+   *
+   * 예전에는 '월 검색량 730 · 문서수 15,654' 라고 적었다. 그런데 이 둘은 잰
+   * 대상이 다르다 — 검색량은 지난 **한 달**의 횟수이고, 문서수는 **10년치 누적**에서
+   * 그 단어들이 어딘가 들어간 글 수다(정확구문도 아니다. API 가 따옴표를 무시한다).
+   * 나란히 놓으면 언제나 문서수가 커서 멀쩡한 키워드도 "검색량보다 글이 많다"로
+   * 읽힌다. 실측 45건에서 검색량이 문서수를 넘은 것은 0건이었다.
+   *
+   * 실제로 겨루는 상대는 그 자리를 정면으로 다룬 글이다. '크레마 이북리더기 미피'
+   * 는 문서수 525건이지만 상위 10개 중 정면은 3건이고 나머지는 팔레트 일반 후기다.
+   * 그 3이 사장님이 말한 "문서수" 다. 문서수는 참고용으로 뒤에 붙인다.
+   */
   const docs = input.documentCount;
-  evidence.push({
-    code: 'demand',
-    text: docs === null
-      ? `월 검색량 ${input.searchVolume!.toLocaleString('ko-KR')}`
-      : `월 검색량 ${input.searchVolume!.toLocaleString('ko-KR')} · 문서수 ${docs.toLocaleString('ko-KR')}`,
-  });
+  const demand = [`월 검색량 ${input.searchVolume!.toLocaleString('ko-KR')}`];
+  demand.push(`정면으로 다룬 글 ${serp.exactTitleHits}건 (상위 ${serp.sampledTitles}개 중)`);
+  if (docs !== null) demand.push(`문서수 ${docs.toLocaleString('ko-KR')}(참고)`);
+  evidence.push({ code: 'demand', text: demand.join(' · ') });
 
   if (openSlot !== null) {
     evidence.push({ code: 'open-slot', text: `상위 ${openSlot}번째 자리가 비어 있음` });

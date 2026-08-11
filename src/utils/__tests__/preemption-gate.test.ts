@@ -273,7 +273,19 @@ describe('selectWithFill — 껍질 까기', () => {
  * 문서수는 broad 매치라 "그 단어들이 들어간 글" 수이지 "그 질문에 답한 글"
  * 수가 아니다. 자리는 SERP 제목으로만 알 수 있다.
  */
-describe('선점 게이트 — 문서수는 자리를 판정하지 않는다', () => {
+/*
+ * 이 블록은 2026-08-11 에 통째로 뒤집혔다.
+ *
+ * 전에는 '문서수는 자리를 판정하지 않는다'를 고정했다. 근거는 실측 36건이었는데
+ * 그 실측이 무효였다 — 자리 유무를 잰 titleCoverage 가 붙여 쓴 검색어를 전부
+ * '정면 0건'으로 냈기 때문이다('에너지바우처조회' ← "에너지바우처 잔액조회…" 0.00).
+ * 즉 "문서수가 많아도 자리가 있더라" 는 관측 자체가 고장 난 판정기의 산물이었다.
+ *
+ * 사장님 기준으로 돌아간다 — 검색량이 높고 문서수가 적어야 황금키워드다.
+ * 다만 문서수는 컷 하나로만 쓴다(문서수 > 검색량이면 뺀다). 자리의 최종 판정은
+ * 여전히 SERP 제목이 한다 — 비율로 등수를 매기지 않는다.
+ */
+describe('선점 게이트 — 문서수가 검색량보다 많으면 빈자리라고 하지 않는다', () => {
     const winnableSerp = {
         sampledTitles: 10, exactTitleHits: 0, partialTitleHits: 0,
         medianDaysAgo: 120, topTitles: ['가', '나', '다'],
@@ -283,24 +295,35 @@ describe('선점 게이트 — 문서수는 자리를 판정하지 않는다', (
         firstSeenAt: new Date().toISOString(), inRealtimeNow: false,
     };
 
-    it('문서수가 검색량보다 훨씬 많아도 정면 대응이 없으면 통과한다', () => {
-        // 실측 '이케아 옷정리함' — 문서 10,432 · 검색량 630 인데 정면 대응 0건.
-        const out = selectWithFill([{ ...base, searchVolume: 630, documentCount: 10432 }], { target: 5 });
-        expect(out.rows).toHaveLength(1);
+    it('소음이 검색량의 10배를 넘으면 정면 대응 0건이어도 안 올린다', () => {
+        // 실측 '에너지바우처조회' — 검색량 280 · 문서 22,035(79배). 이걸 빈자리라고 부를 수 없다.
+        const out = selectWithFill([{ ...base, searchVolume: 280, documentCount: 22035 }], { target: 5 });
+        expect(out.rows).toHaveLength(0);
+        expect(out.rejected[0].failed[0]).toContain('소음이 너무 두껍다');
     });
 
-    it('문서 4만 개짜리도 정면 대응이 없으면 통과한다', () => {
-        // 실측 '미니멀라이프 반대' 대역 — broad 문서수는 경쟁을 크게 과장한다.
+    it('문서 4만 개짜리는 더 말할 것도 없다', () => {
         const out = selectWithFill([{ ...base, searchVolume: 180, documentCount: 40560 }], { target: 5 });
+        expect(out.rows).toHaveLength(0);
+    });
+
+    it('소음이 얇고 정면 대응도 없으면 통과한다', () => {
+        const out = selectWithFill([{ ...base, searchVolume: 900, documentCount: 300 }], { target: 5 });
         expect(out.rows).toHaveLength(1);
     });
 
-    it('비율이 좋아도 정면 대응이 2건 이상이면 막는다 — 판정은 SERP 가 한다', () => {
-        // 실측 '우리won cma note' — 비율 0.62 인데 상위 10개 중 5개가 정확 일치였다.
+    it('비율이 좋아도 정면 대응이 2건 이상이면 막는다 — 최종 판정은 SERP 가 한다', () => {
+        // 실측 '우리won cma note' — 상위 10개 중 5개가 정확 일치였다.
         const locked = { ...winnableSerp, exactTitleHits: 5 };
-        const out = selectWithFill([{ ...base, serp: locked, searchVolume: 820, documentCount: 1313 }], { target: 5 });
+        const out = selectWithFill([{ ...base, serp: locked, searchVolume: 820, documentCount: 313 }], { target: 5 });
         expect(out.rows).toHaveLength(0);
         expect(out.rejected[0].failed[0]).toContain('정면 대응');
+    });
+
+    // 못 쟀으면 자르지 않는다 — 못 본 것과 나쁜 것을 섞지 않는다.
+    it('문서수를 못 쟀으면 비율로 자르지 않는다', () => {
+        const out = selectWithFill([{ ...base, searchVolume: 280, documentCount: null }], { target: 5 });
+        expect(out.rows).toHaveLength(1);
     });
 
     it('검색량이 문서수보다 많아도 자리가 없으면 안 올린다', () => {
