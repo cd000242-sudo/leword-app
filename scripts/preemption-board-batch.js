@@ -292,6 +292,18 @@ async function main() {
   const byTopic = loadCandidates(inPath);
   const allKeywords = [...byTopic.values()].flat().map((row) => row.keyword);
   const { state: firstSeen, added, addedKeywords } = loadFirstSeen(statePath, allKeywords, nowIso);
+  /*
+   * 장부는 **BD 를 태우기 전에** 저장한다.
+   *
+   * 예전에는 전 주제를 다 돈 뒤에 썼다. 그래서 2026-08-11 회차가 90분 잡 타임아웃에
+   * 걸려 취소됐을 때, 102건을 새로 관측해 놓고도 장부가 통째로 날아갔다 —
+   * 다음 회차가 또 빈 장부로 시작하고 '선점 적기' 는 또 0행이 된다.
+   *
+   * 등록은 후보를 만든 시점에 이미 끝났다(그때 우리가 그 말을 처음 본 것이다).
+   * SERP 검증 성공 여부와는 상관없는 사실이므로 여기서 적어도 거짓이 아니다.
+   */
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
+  fs.writeFileSync(statePath, JSON.stringify(firstSeen, null, 0), 'utf8');
   const realtime = loadRealtimeKeywords(signalsPath);
   const allocation = allocateBudget(byTopic, maxPerRun);
   const planned = [...allocation.values()].reduce((sum, n) => sum + n, 0) * (process.argv.includes('--withStructure') ? 2 : 1);
@@ -312,7 +324,7 @@ async function main() {
 
   console.log(`  후보 총           ${allKeywords.length}건`);
   console.log(`  최초 관측 신규    ${added}건 (장부 ${Object.keys(firstSeen).length}건)`);
-  console.log(`  실시간 대조군     ${realtime.size}건${signalsPath ? '' : ' (--signals 미지정 — ④조건이 전부 통과된다)'}`);
+  console.log(`  실시간 대조군     ${realtime.measured ? `${realtime.keywords.size}건` : '못 쟀음 — 실시간 조건을 근거로 쓰지 않는다'}`);
   console.log(`  이번 실행 소요    ${planned}건 / 회당 예산 ${maxPerRun}건`);
   console.log(`  주제당 목표       ${targetPerTopic}건 (확실한 층부터 채우고 모자라면 아래 층을 깐다)`);
   console.log('  층 순서           ' + TIER_ORDER.map((t, i) => `${i + 1}) ${TIER_LABEL[t]}`).join('  '));
@@ -499,9 +511,6 @@ async function main() {
       .join(' + ');
     console.log(`  [${topic}] ${outcome.rows.length}/${targetPerTopic}건 — ${layerSummary || '없음'}${outcome.short ? '  ← 목표 미달' : ''}`);
   }
-
-  fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, JSON.stringify(firstSeen, null, 0), 'utf8');
 
   const after = brightDataQuotaSnapshot();
   console.log('\n' + '-'.repeat(72));

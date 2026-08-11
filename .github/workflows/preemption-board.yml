@@ -21,7 +21,10 @@ concurrency:
 jobs:
   discover:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # 90분이면 모자란다 — 2026-08-11 회차가 정확히 90분에 잘렸다.
+    # 실측 배분: 후보 발굴 63분(무료 API 구간) + Bright Data 27분에 29주제 중 14주제.
+    # 전 주제를 도려면 BD 만 60분쯤 필요하다. 여유를 두고 3시간으로 둔다.
+    timeout-minutes: 180
     # 최초 관측 장부를 이 레포에 되돌려 커밋하기 위해 필요하다(아래 마지막 스텝).
     permissions:
       contents: write
@@ -154,7 +157,10 @@ jobs:
       #
       # 장부는 키워드와 최초 관측 시각뿐이고 비밀이 없다. 실패해도 회차는 살린다 —
       # 이 스텝 때문에 이미 태운 BD 크레딧의 결과를 버릴 이유가 없다.
+      # 잘려도 장부는 남긴다. 배치가 BD 를 태우기 전에 장부를 먼저 쓰므로,
+      # 앞 스텝이 취소돼도 이번 회차에 관측한 것은 기록된다.
       - name: 최초 관측 장부 커밋
+        if: always()
         continue-on-error: true
         run: |
           git config user.name 'leword-bot'
