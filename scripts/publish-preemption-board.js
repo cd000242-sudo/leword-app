@@ -221,10 +221,18 @@ function main() {
   }
 
   /*
-   * 2군 — 자리를 확인하지 못했거나 조금 미달한 것들.
+   * 2군 — **네이버 자리는 늦었지만 외부 유입으로는 쓸 수 있는 밭.**
    *
-   * 버리지 않고 참고용으로 낸다. 다만 1군과 **한 칸에 섞지 않는다** — 섞으면
-   * "이것도 황금, 저것도 황금"이 되어 보드의 값어치가 사라진다. 별도 배열이다.
+   * 사장님 지적(2026-08-11): "외부 유입 글로 쓸 수도 있는데…?"
+   * 맞다. 여기 떨어진 것은 대부분 '이미 누가 정면으로 썼다' 이지 '수요가 없다' 가
+   * 아니다. 실측 예: '시나공 cbt' 는 **월 검색량 7,610** 인데 정면 4건이라 1군에서
+   * 빠졌다. 네이버 블로그로는 늦었어도 구글·워드프레스로는 충분한 자리다.
+   *
+   * 1군과 **한 칸에 섞지 않는다** — 섞으면 "이것도 황금, 저것도 황금"이 되어
+   * 보드의 값어치가 사라진다. 별도 배열이고, 화면도 따로 낸다.
+   *
+   * 외부 유입 판단에 필요한 실측을 함께 싣는다 — 문서수·광고수·정면 건수·어느 판인가.
+   * 예전에는 검색량과 이유 문장만 나가서, 화면이 "쓸 만한지" 를 판단할 재료가 없었다.
    *
    * 실명·조각·금지 주제는 여기에도 안 넣는다. 법적 위험이거나 글 제목이 못 되는
    * 것은 참고 가치도 없다.
@@ -237,6 +245,14 @@ function main() {
       keyword: row.keyword,
       topic: row.topic || '주제 선택 안 함',
       searchVolume: row.searchVolume ?? null,
+      documentCount: row.documentCount ?? null,
+      /*
+       * 광고가 붙어 있으면 외부 유입으로도 값이 나가는 자리다 — 광고주가 이미
+       * 돈을 넣고 있다는 뜻이니까. 못 쟀으면 null 이다(0 으로 눌러 담지 않는다).
+       */
+      adCount: row.serp && typeof row.serp.adCount === 'number' ? row.serp.adCount : null,
+      facingPosts: row.serp && typeof row.serp.exactTitleHits === 'number' ? row.serp.exactTitleHits : null,
+      sampledTitles: row.serp && typeof row.serp.sampledTitles === 'number' ? row.serp.sampledTitles : null,
       // 이유는 실측 사실만. 임계값은 여기서 걸러진다(reference-row-reason 이 단일 출처).
       note: referenceRowReason(row),
       intentLabel: row.intentLabel || '',

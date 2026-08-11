@@ -472,6 +472,12 @@ async function main() {
           partialTitleHits: serp.partialTitleHits,
           medianDaysAgo: serp.medianDaysAgo,
           hasAiBriefing: serp.hasAiBriefing,
+          /*
+           * 탈락분에도 광고수를 싣는다. 2군은 "네이버 자리는 늦었지만 외부 유입으로
+           * 쓸 밭" 인데, 그게 쓸 만한지 가르는 신호가 바로 광고다(광고주가 이미
+           * 돈을 넣는 검색어인가). 통과분에만 실으면 2군이 판단 재료 없이 나간다.
+           */
+          adCount: serp.adCount ?? null,
         } : null,
         intentLabel: candidate?.intentLabel || '',
         trendLabel: candidate?.trendLabel || '',
