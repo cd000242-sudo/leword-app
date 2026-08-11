@@ -60,21 +60,38 @@ function isModelToken(token: string): boolean {
 
 const COLOR = /^(그린|블루|레드|블랙|화이트|핑크|옐로|옐로우|퍼플|그레이|네이비|실버|골드|브라운|베이지)$/;
 
+function isCategoryToken(token: string): boolean {
+    const lower = token.toLowerCase();
+    return SORTED_NOUNS.some((noun) => lower.includes(noun));
+}
+
 /**
  * 어절에서 품목 명사를 찾는다. 어절 자체가 명사를 품고 있으면(‘AAA건전지’) 그 어절을 쓴다.
  *
- * **뒤에서부터** 찾는다 — 한국어 복합어는 뒤가 머리말이다.
- * '기저귀 쓰레기봉투'에서 앞부터 찾으면 '기저귀'가 잡혀 '매직캔 로고리필 기저귀'가
- * 되고, 파는 물건(봉투)이 사라진다. 실측으로 확인한 순서다.
+ * **앞에서부터** 찾되, 품목 명사가 **붙어 있으면** 뒤엣것을 쓴다.
+ *
+ * 두 가지를 동시에 지켜야 해서 이 모양이 됐다:
+ *
+ *   ① '기저귀 쓰레기봉투' 는 한 덩어리다. 한국어 복합어는 뒤가 머리말이라
+ *      앞엣것만 잡으면 파는 물건(봉투)이 사라진다. → 붙어 있으면 뒤로 간다.
+ *
+ *   ② 요즘 상품명은 **끝에 검색어를 몰아 붙인다.** 뒤에서부터 찾으면 그 꼬리를 문다.
+ *      실측(2026-08-11 브랜드커넥트):
+ *        '오아 소닉플로우 미니 드라이기 … 초경량 휴대용 여행용 수영장'
+ *          → 뒤에서 찾으면 '수영장' → '오아 여행용 수영장'  (드라이기가 수영장이 됐다)
+ *          → 앞에서 찾으면 '드라이기' → '오아 미니 드라이기'
+ *      이대로 화면에 나가면 "여행용 수영장으로 글 쓰세요" 가 된다.
+ *
+ * 꼬리 검색어는 앞말과 **떨어져** 있고, 진짜 복합어는 붙어 있다 — 그 차이만 쓴다.
  */
 function findCategory(tokens: string[]): { index: number; word: string } | null {
-    for (let i = tokens.length - 1; i >= 0; i -= 1) {
-        const lower = tokens[i]!.toLowerCase();
-        for (const noun of SORTED_NOUNS) {
-            if (lower.includes(noun)) return { index: i, word: tokens[i]! };
-        }
+    let found = -1;
+    for (let i = 0; i < tokens.length; i += 1) {
+        if (isCategoryToken(tokens[i]!)) { found = i; break; }
     }
-    return null;
+    if (found < 0) return null;
+    while (found + 1 < tokens.length && isCategoryToken(tokens[found + 1]!)) found += 1;
+    return { index: found, word: tokens[found]! };
 }
 
 /**
