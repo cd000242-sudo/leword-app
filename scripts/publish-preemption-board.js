@@ -67,7 +67,8 @@ function toPublicRow(row) {
     shape: row.trendShape || shapeFromLabel(row.trendLabel),
     searchVolume: row.searchVolume ?? null,
     documentCount: row.documentCount ?? null,
-    inRealtimeNow: Boolean(row.inRealtimeNow),
+    // null(못 쟀음)을 false 로 눌러 담으면 안 잰 사실이 근거로 되살아난다.
+    inRealtimeNow: row.inRealtimeNow ?? null,
     firstSeenAt: row.firstSeenAt || null,
     hasAiBriefing: row.serp && row.serp.hasAiBriefing,
   });
@@ -205,7 +206,7 @@ function main() {
     shape: r.trendShape || shapeFromLabel(r.trendLabel),
     searchVolume: r.searchVolume ?? null,
     documentCount: r.documentCount ?? null,
-    inRealtimeNow: Boolean(r.inRealtimeNow),
+    inRealtimeNow: r.inRealtimeNow ?? null,
     firstSeenAt: r.firstSeenAt || null,
     hasAiBriefing: r.serp && r.serp.hasAiBriefing,
   }).early).length;

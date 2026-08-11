@@ -22,6 +22,9 @@ jobs:
   discover:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # 최초 관측 장부를 이 레포에 되돌려 커밋하기 위해 필요하다(아래 마지막 스텝).
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -62,6 +65,19 @@ jobs:
           fi
           echo '필수 시크릿 확인됨.'
 
+      # 실시간 검색어 스냅샷. 무료이고, BD 를 태우기 전에 뜬다.
+      #
+      # 이게 없으면 아래 두 스텝의 실시간 집합이 비어서 `inRealtimeNow` 가 전 행
+      # false 가 되고, 화면에는 "실시간 검색어에는 아직 없다 — 대중화 전이다" 가
+      # **재보지도 않은 채** 근거로 붙는다(2026-08-11 확인). 공급원은 네이버 하나다 —
+      # 보드가 판정하는 자리가 네이버 자리이기 때문이다.
+      #
+      # 실패하면 파일을 안 남긴다. 그러면 아래 단계가 '못 쟀음'(null)으로 다뤄
+      # 근거에서 뺀다 — 회차를 죽이지는 않는다.
+      - name: 실시간 검색어 스냅샷
+        continue-on-error: true
+        run: node scripts/realtime-signals.js --out=signals.json --limit=20
+
       # 후보 발굴은 무료다(검색광고·자동완성). BD 크레딧은 다음 단계에서만 쓴다.
       - name: 후보 발굴
         env:
@@ -77,7 +93,7 @@ jobs:
         # perTopic 은 표본 폭(perTopic × 12)도 같이 정한다. 6 이면 주제당 72개만
         # 재고 끝나서 후보가 얕다. 10 으로 두면 120개를 재고, 그중 좋은 6개를
         # 다음 스텝이 고른다 — BD 비용은 그대로다(자르는 개수가 예산을 정한다).
-        run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=10 --perSeed=8
+        run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=10 --perSeed=8 --signals=signals.json
 
       # 예산 절단 — 뽑은 만큼 그대로 넘기면 크레딧을 넘긴다(한 번 겪었다).
       - name: 예산에 맞춰 자르기
@@ -94,6 +110,7 @@ jobs:
             --in=candidates-trimmed.json \
             --out=board.json \
             --targetPerTopic=${{ github.event.inputs.targetPerTopic || '4' }} \
+            --signals=signals.json \
             --withStructure
 
       # 사이트 레포에 발행한다. 화면이 읽는 파일은 그쪽에 있다.
@@ -127,3 +144,27 @@ jobs:
           fi
           git commit -m "chore(board): 선점 보드 갱신 $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
+
+      # 최초 관측 장부를 이 레포에 되돌려 커밋한다.
+      #
+      # 이게 없으면 CI 는 매 회차 **빈 장부**로 시작한다. 그러면 모든 키워드가
+      # "이번에 처음 등록" 이 되고, 배치는 그런 것을 나이 모름(null)으로 넘긴다
+      # (지금 시각을 나이로 읽으면 몇 년 된 말에도 '0시간 전'이 붙기 때문이다).
+      # 결과는 '선점 적기' 가 매 회차 0행 — 장부가 쌓이지 않아서지 밭이 없어서가 아니다.
+      #
+      # 장부는 키워드와 최초 관측 시각뿐이고 비밀이 없다. 실패해도 회차는 살린다 —
+      # 이 스텝 때문에 이미 태운 BD 크레딧의 결과를 버릴 이유가 없다.
+      - name: 최초 관측 장부 커밋
+        continue-on-error: true
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add data/preemption-first-seen.json
+          if git diff --cached --quiet; then
+            echo '장부 변경 없음.'
+            exit 0
+          fi
+          git commit -m "chore(board): 최초 관측 장부 갱신 $(date -u '+%Y-%m-%d %H:%M UTC')"
+          # 그사이 사람이 밀어 넣은 커밋 위로 얹는다. 장부 파일만 건드리므로 충돌이 없다.
+          git pull --rebase origin ${{ github.ref_name }}
+          git push origin HEAD:${{ github.ref_name }}

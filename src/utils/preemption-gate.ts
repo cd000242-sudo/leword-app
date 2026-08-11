@@ -107,7 +107,15 @@ export interface PreemptionInput {
   documentCount: number | null;
   serp: PreemptionSerp | null;
   firstSeenAt: string | null;
-  inRealtimeNow: boolean;
+  /**
+   * 실시간 검색어에 지금 올라와 있는가. null 은 '못 쟀다'.
+   *
+   * 층 결정에서 null 은 **강등하지 않는다**(true 일 때만 내린다). 강등은 "이미
+   * 퍼졌으니 선점이 아니다" 라는 적극적 사실이 있을 때 하는 일이고, 못 잰 것을
+   * 그 사실로 대신 쓸 수는 없다. 대신 근거 줄(not-realtime)에는 안 싣는다 —
+   * 안 잰 것을 근거라고 말하지 않는다.
+   */
+  inRealtimeNow: boolean | null;
   nowMs?: number;
 }
 
@@ -289,7 +297,8 @@ export function judgePreemption(
   if (fresh) {
     evidence.push({ code: 'fresh', text: `${formatAge(age!)} 처음 관측` });
   }
-  if (!input.inRealtimeNow) {
+  // 못 쟀으면(null) 근거로 싣지 않는다. 안 잰 것은 사실이 아니다.
+  if (input.inRealtimeNow === false) {
     evidence.push({ code: 'not-realtime', text: '실시간 검색어에는 아직 없음' });
   }
   if (input.serp?.hasAiBriefing === true) {

@@ -63,11 +63,42 @@ describe('judgeEarlyMover', () => {
         expect(judgeEarlyMover(base({ firstSeenAt: old })).early).toBe(false);
     });
 
+    /*
+     * 관측 주기(월·금)와 이 조건이 맞물리는지 고정한다.
+     * 72시간으로 두었을 때 '선점 적기' 가 구조적으로 0행이었다 — 두 관측 사이가
+     * 최소 72시간(금→월)·최대 96시간(월→금)이라 어느 쪽도 통과하지 못했다.
+     */
+    it('직전 회차에 처음 본 말은 새로 생긴 말로 센다', () => {
+        const lastFriday = new Date(Date.now() - 96 * 3_600_000).toISOString();
+        expect(judgeEarlyMover(base({ firstSeenAt: lastFriday })).early).toBe(true);
+    });
+
+    it('두 회차를 넘긴 말은 새로 생긴 말이 아니다', () => {
+        const twoRunsAgo = new Date(Date.now() - 170 * 3_600_000).toISOString();
+        expect(judgeEarlyMover(base({ firstSeenAt: twoRunsAgo })).early).toBe(false);
+    });
+
     // 못 잰 것을 만족으로 세면 근거 없이 "지금 들어가면 먹는다"고 말하게 된다.
     it('못 잰 값은 만족으로 세지 않는다', () => {
         expect(judgeEarlyMover(base({ shape: null })).early).toBe(false);
         expect(judgeEarlyMover(base({ documentCount: null })).early).toBe(false);
         expect(judgeEarlyMover(base({ firstSeenAt: null })).early).toBe(false);
+    });
+
+    /*
+     * 워크플로가 실시간 스냅샷을 안 넘기던 동안 이 값이 전 행 false 였고,
+     * 그래서 "실시간 검색어에는 아직 없다" 가 재보지도 않은 채 근거로 붙었다.
+     */
+    it('실시간을 못 쟀으면 근거로도 세지 않는다', () => {
+        const result = judgeEarlyMover(base({ inRealtimeNow: null }));
+        expect(result.early).toBe(false);
+        expect(result.missing).toContain('실시간 검색어를 못 쟀다');
+        expect(result.reasons.join(' ')).not.toContain('대중화 전');
+    });
+
+    it('실시간에 없다고 실측했으면 근거가 된다', () => {
+        const result = judgeEarlyMover(base({ inRealtimeNow: false }));
+        expect(result.reasons.join(' ')).toContain('실시간 검색어에는 아직 없다');
     });
 
     it('근거 문장에 실측 숫자를 그대로 싣는다', () => {

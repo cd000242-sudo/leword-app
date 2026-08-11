@@ -21,8 +21,11 @@ export interface EarlyMoverInput {
   shape: DemandShape | null;
   searchVolume: number | null;
   documentCount: number | null;
-  /** 실시간 검색어에 지금 올라와 있는가. 올라와 있으면 이미 퍼진 것이다. */
-  inRealtimeNow: boolean;
+  /**
+   * 실시간 검색어에 지금 올라와 있는가. 올라와 있으면 이미 퍼진 것이다.
+   * null/undefined 는 '못 쟀다'이지 '없다'가 아니다 — 근거로 세지 않는다.
+   */
+  inRealtimeNow: boolean | null;
   /** 우리 장부에 처음 들어온 시각. 없으면 언제부터 있었는지 모른다. */
   firstSeenAt?: string | null;
   /**
@@ -55,7 +58,19 @@ export interface EarlyMoverThresholds {
  */
 export const DEFAULT_EARLY_MOVER: EarlyMoverThresholds = {
   minRatio: 2,
-  freshHours: 72,
+  /*
+   * 관측 주기보다 짧으면 이 조건은 **영원히 못 맞춘다** (2026-08-11 확인).
+   *
+   * 장부는 보드 배치가 돌 때만 적힌다. 배치는 월·금 07:00 뿐이라 두 관측 사이의
+   * 최소 간격이 금→월 72시간, 월→금 96시간이다. 72시간으로 두면 금→월 이 딱
+   * 경계에 걸리고(실제로는 회차 안에서 배치·발행 시각이 벌어져 늘 72를 넘는다),
+   * 월→금 은 96시간이라 무조건 탈락한다. 그래서 '선점 적기' 가 구조적으로 0행이었다.
+   *
+   * 이 값이 재는 것은 "세상에 없던 말" 이 아니라 **"직전 회차에는 우리 장부에
+   * 없던 말"** 이다. 주 2회 관측으로 그보다 정밀하게 말할 수는 없다.
+   * 그래서 한 회차 간격(최대 96시간)에 여유를 붙인다. 주기를 바꾸면 여기도 바꾼다.
+   */
+  freshHours: 120,
 };
 
 const num = (value: number) => value.toLocaleString('ko-KR');
@@ -95,10 +110,19 @@ export function judgeEarlyMover(
     missing.push('밭이 이미 채워져 있다');
   }
 
-  if (!input.inRealtimeNow) {
+  /*
+   * 못 잰 것을 "없다" 로 세지 않는다.
+   *
+   * 보드 워크플로가 실시간 스냅샷을 안 넘기던 동안 이 값이 전 행 false 였고,
+   * 그래서 "실시간 검색어에는 아직 없다 — 대중화 전이다" 가 **재보지도 않은 채**
+   * 근거로 붙었다. hasAiBriefing 과 같은 3상태로 다룬다(true/false/못 쟀음).
+   */
+  if (input.inRealtimeNow === false) {
     reasons.push('실시간 검색어에는 아직 없다 — 대중화 전이다');
   } else {
-    missing.push('실시간 검색어에 이미 올라 있다');
+    missing.push(input.inRealtimeNow === true
+      ? '실시간 검색어에 이미 올라 있다'
+      : '실시간 검색어를 못 쟀다');
   }
 
   if (input.hasAiBriefing === false) {
