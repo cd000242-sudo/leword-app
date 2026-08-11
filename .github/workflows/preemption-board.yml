@@ -116,6 +116,27 @@ jobs:
             --signals=signals.json \
             --withStructure
 
+      # 원장을 아티팩트로 남긴다.
+      #
+      # 탈락 사유(rejections)는 board.json 안에만 있고 사이트에는 안 나간다. 그래서
+      # 회차가 끝나고 나면 "무엇이 왜 떨어졌는지" 를 되짚을 방법이 없다 —
+      # 게이트를 조일지 풀지 정할 근거가 매번 사라진다는 뜻이다.
+      # 2026-08-11 회차가 딱 그렇게 됐다: 통과 12/56 인데 이유를 못 봤다.
+      #
+      # if: always() 로 둔다. 잘렸을 때야말로 남은 것을 봐야 한다.
+      - name: 보드 원장 보관
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preemption-board-raw
+          path: |
+            board.json
+            candidates.json
+            candidates-trimmed.json
+            signals.json
+          retention-days: 14
+          if-no-files-found: warn
+
       # 사이트 레포에 발행한다. 화면이 읽는 파일은 그쪽에 있다.
       #
       # 개인 토큰(PAT) 대신 배포키를 쓴다. 개인 토큰은 계정의 모든 레포에 대한
