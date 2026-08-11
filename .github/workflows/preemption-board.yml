@@ -143,19 +143,24 @@ jobs:
       # 권한을 CI 로그 안까지 들고 들어오고, 사람이 재로그인하면 조용히 깨진다.
       # 배포키는 이 레포 하나에만 붙고 만료가 없다.
       - name: 사이트 레포 체크아웃
+        if: always()
         uses: actions/checkout@v4
         with:
           repository: cd000242-sudo/naver
           ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
           path: site
 
+      # 배치가 도중에 죽어도(체크포인트 덕에 board.json 은 남는다) 있는 만큼 발행한다.
+      # 사장님 방침: "조금 미달되더라도 참고할 수 있다면 상관없다." 부분 보드 > 빈손.
       - name: 보드 발행
+        if: always()
         run: |
           node scripts/publish-preemption-board.js \
             --in=board.json \
             --dest=site/spa/public/data/preemption-board.json
 
       - name: 커밋·푸시
+        if: always()
         working-directory: site
         run: |
           git config user.name 'leword-bot'

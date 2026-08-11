@@ -378,11 +378,53 @@ async function main() {
    */
   const concurrency = Number(arg('concurrency')) || 3;
   const bdGate = createInterval(DELAY_MS);
+  /*
+   * 검증 한 건의 시간 상한. 클라이언트 자체 타임아웃(90s)이 있지만, 2026-08-11
+   * 회차가 검증 도중 **아무 오류 없이 exit 0** 으로 죽었다 — 어딘가의 요청이
+   * 핸들 없이 매달리면 이벤트 루프가 비면서 그렇게 된다. 여기서 한 번 더 감싸
+   * 어떤 경우에도 그 키워드만 '수집 실패'로 치고 회차는 계속 가게 한다.
+   */
+  const VERIFY_DEADLINE_MS = 150_000;
+  const withDeadline = (promise) => new Promise((resolve) => {
+    const timer = setTimeout(() => resolve({ serp: null, quotaBlocked: false, error: `응답 없음 ${VERIFY_DEADLINE_MS / 1000}s` }), VERIFY_DEADLINE_MS);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); resolve({ serp: null, quotaBlocked: false, error: String(err && err.message || err).slice(0, 60) }); },
+    );
+  });
   console.log(`  동시 검증        ${concurrency}건 (호출 간격 ${DELAY_MS}ms 는 공용으로 유지)`);
 
   const tierTotals = { top3: 0, page1: 0, 'page1-weak': 0, contested: 0 };
   const shortTopics = [];
   const rejectionLog = [];
+  /*
+   * 체크포인트 — 주제 하나 끝날 때마다 지금까지의 결과를 통째로 저장한다.
+   *
+   * 2026-08-11 회차: 20주제를 검증해 놓고 프로세스가 조용히 죽어 **크레딧 ~80건의
+   * 결과가 전부 증발**했다(저장이 맨 끝에 한 번뿐이었다). 파일이 몇 십 KB 라
+   * 매번 다시 쓰는 비용은 없는 것과 같다. partial 플래그로 "끝까지 못 간 회차"
+   * 임을 밝힌다 — 발행기는 있는 행만 내보내므로 부분 보드도 빈손보다 낫다.
+   */
+  const saveBoard = (partial) => {
+    if (!outPath) return;
+    const covered = new Set(rows.map((r) => r.topic).filter((t) => t !== '주제 선택 안 함'));
+    const board = {
+      publishedAt: nowIso,
+      generator: 'preemption-board-batch',
+      partial,
+      gate: DEFAULT_PREEMPTION_THRESHOLDS,
+      targetPerTopic,
+      tierTotals,
+      topicsTotal: BLOG_TOPIC_COVERAGE.length,
+      topicsWithRows: covered.size,
+      topicVerdicts: topicVerdictTotals,
+      verified: stats.verified,
+      rejections: rejectionLog,
+      rows,
+    };
+    fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
+    fs.writeFileSync(path.resolve(outPath), JSON.stringify(board, null, 2), 'utf8');
+  };
   /** 주제 되짚기 결과. 과교정(정상 후보까지 라벨을 떼는 것)을 이 숫자로 감시한다. */
   const topicVerdictTotals = { supported: 0, reassigned: 0, unlabeled: 0, insufficient: 0 };
   const topicMoves = [];
@@ -403,7 +445,7 @@ async function main() {
     const verified = await mapWithConcurrency(candidates, concurrency, async (candidate) => {
       if (blocked) return null;
       await bdGate();
-      const { serp, quotaBlocked, error } = await verify(candidate.keyword, withStructure);
+      const { serp, quotaBlocked, error } = await withDeadline(verify(candidate.keyword, withStructure));
       if (quotaBlocked) {
         if (!blocked) console.log(`  쿼터 한도 도달 — 중단 (${stats.verified}건 처리됨)`);
         blocked = true;
@@ -543,6 +585,7 @@ async function main() {
       .map((tier) => `${tier} ${outcome.rows.filter((r) => r.tier === tier).length}`)
       .join(' + ');
     console.log(`  [${topic}] ${outcome.rows.length}/${targetPerTopic}건 — ${layerSummary || '없음'}${outcome.short ? '  ← 목표 미달' : ''}`);
+    saveBoard(true);
   }
 
   const after = brightDataQuotaSnapshot();
@@ -578,24 +621,26 @@ async function main() {
     console.log('   preemption-gate 의 임계값은 인자로 뺐다 — 실측 결과로 보정할 것.');
   }
 
-  if (outPath) {
-    const board = {
-      publishedAt: nowIso,
-      generator: 'preemption-board-batch',
-      gate: DEFAULT_PREEMPTION_THRESHOLDS,
-      targetPerTopic,
-      tierTotals,
-      topicsTotal: BLOG_TOPIC_COVERAGE.length,
-      topicsWithRows: coveredTopics.size,
-      topicVerdicts: topicVerdictTotals,
-      verified: stats.verified,
-      rejections: rejectionLog,
-      rows,
-    };
-    fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
-    fs.writeFileSync(path.resolve(outPath), JSON.stringify(board, null, 2), 'utf8');
-    console.log(`보드 저장: ${outPath} (${rows.length}행)`);
-  }
+  saveBoard(false);
+  if (outPath) console.log(`보드 저장: ${outPath} (${rows.length}행 · 완주)`);
 }
 
-main().catch((e) => { console.error('실패:', e.message); process.exit(1); });
+/*
+ * 조기 종료 감시.
+ *
+ * 2026-08-11 회차가 검증 도중 **아무 오류 없이 exit 0** 으로 죽었다 — 어딘가의
+ * 대기가 핸들 없이 사라지면 이벤트 루프가 비고, 노드는 그걸 정상 종료로 친다.
+ * CI 는 exit 0 을 성공으로 읽어 다음 스텝(발행)이 없는 파일을 찾다 죽었다.
+ * beforeExit 는 루프가 빌 때 불린다 — main 이 안 끝났는데 불렸다면 그 죽음이다.
+ * 시끄럽게 실패로 바꾼다. 체크포인트 덕에 결과는 마지막 주제까지 남아 있다.
+ */
+let mainFinished = false;
+process.on('beforeExit', () => {
+  if (mainFinished) return;
+  mainFinished = true; // 재진입 방지
+  console.error('\n⚠️ 프로세스가 일을 끝내기 전에 이벤트 루프가 비었다 — 매달린 요청이 증발한 것이다.');
+  console.error('   지금까지의 결과는 체크포인트(--out)에 저장돼 있다. 이 회차는 실패로 기록한다.');
+  process.exitCode = 1;
+});
+
+main().then(() => { mainFinished = true; }).catch((e) => { mainFinished = true; console.error('실패:', e.message); process.exit(1); });
