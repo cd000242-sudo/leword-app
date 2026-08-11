@@ -39,6 +39,7 @@ const {
   topicsWithoutCoverage,
   oversizedSeedTerms,
 } = require('../src/utils/blog-topic-coverage');
+const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
 // 검색량 하한은 게이트가 단일 출처다. 여기 숫자를 따로 적으면 두 값이 갈라지고,
 // 후보가 전부 게이트에서 탈락하는 걸 BD 크레딧을 태워서야 알게 된다.
 const { DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
@@ -160,9 +161,26 @@ async function main() {
   const report = [];
   let trendWarned = false;
 
-  for (const topic of topics) {
+  /*
+   * 주제를 **동시에** 훑는다. 주제끼리는 아무 상관이 없는데 예전에는 1번이 끝나야
+   * 2번을 시작해서 32주제에 63분이 걸렸다(실측). 그 시간은 계산이 아니라 네트워크
+   * 왕복을 하나씩 기다린 것이다 — 주제당 약 190회 호출.
+   *
+   * 그냥 동시에 돌리면 초당 호출이 배로 뛰어 네이버가 429 를 준다. 그래서 호출
+   * 사이 sleep 을 **API 별 공용 간격기**로 바꿨다. 몇 개가 동시에 돌든 그 API 로
+   * 나가는 호출은 정해진 간격 이상 벌어진다 — 속도 제한은 그대로인데 기다리는
+   * 시간이 겹쳐 사라진다. 간격 값은 예전 sleep 과 같다.
+   */
+  const concurrency = Number(arg('concurrency')) || 3;
+  const adGate = createInterval(220);
+  const autoGate = createInterval(150);
+  const docGate = createInterval(120);
+  const trendGate = createInterval(150);
+  console.log(`동시 처리: 주제 ${concurrency}개 (API 별 호출 간격은 공용으로 유지)`);
+
+  const perTopicResults = await mapWithConcurrency(topics, concurrency, async (topic) => {
     const coverage = BLOG_TOPIC_COVERAGE.find((e) => e.topic === topic);
-    if (!coverage) { console.log(`  ?? ${topic} — 커버리지 표에 없음`); continue; }
+    if (!coverage) { console.log(`  ?? ${topic} — 커버리지 표에 없음`); return null; }
 
     const started = Date.now();
     const incompleteLog = [];
@@ -187,7 +205,7 @@ async function main() {
       } catch (error) {
         console.log(`  !! ${topic}/${seed} 연관어 — ${String(error.message).slice(0, 70)}`);
       }
-      await sleep(220);
+      await adGate();
     }
 
     // ── 2) 자동완성으로 롱테일 문장을 받는다 ────────────────────────────
@@ -248,7 +266,7 @@ async function main() {
           expansionWarned = true;
         }
       }
-      await sleep(150);
+      await autoGate();
     }
 
     // ── 3) 롱테일 문장들의 검색량 실측 ──────────────────────────────────
@@ -343,7 +361,7 @@ async function main() {
       } catch {
         documentCount = null;
       }
-      await sleep(120);
+      await docGate();
       if (documentCount !== null && !Number.isFinite(documentCount)) documentCount = null;
 
       /*
@@ -428,7 +446,7 @@ async function main() {
           trendWarned = true;
         }
       }
-      await sleep(150);
+      await trendGate();
 
       // 원장을 뜨느라 끝까지 재는 중이어도, 내보내는 후보 수는 평소와 같게 둔다.
       if (measured.length >= perTopic) continue;
@@ -465,21 +483,38 @@ async function main() {
      * 가중치는 내부 정렬에만 쓰고 화면에 내보내지 않는다.
      */
     measured.sort((a, b) => sortWeight(analyzeKeywordSignals(a.keyword)) - sortWeight(analyzeKeywordSignals(b.keyword)));
-    if (measured.length > 0) byTopic[topic] = measured;
     const seconds = Math.round((Date.now() - started) / 1000);
-    report.push({
+    console.log(
+      `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
+      + ` 씨앗 ${String(expansionSeeds.size).padStart(3)} → 완결 ${String(phrases.size).padStart(4)}(조각 ${incompleteLog.length}·이탈 ${driftLog.length} 제외)`
+      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length} 제외) → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
+    );
+    return {
+      topic,
+      measured,
+      report: {
       topic, seeds: expansionSeeds.size, phrases: phrases.size,
       incomplete: incompleteLog.length, drift: driftLog.length, shortlist: shortlist.length,
       declining: decliningLog.length, decliningSamples: decliningLog.slice(0, 5),
       driftSamples: driftLog.slice(0, 5),
       rows: measured.length, seconds,
       incompleteSamples: incompleteLog.slice(0, 8),
-    });
-    console.log(
-      `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
-      + ` 씨앗 ${String(expansionSeeds.size).padStart(3)} → 완결 ${String(phrases.size).padStart(4)}(조각 ${incompleteLog.length}·이탈 ${driftLog.length} 제외)`
-      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length} 제외) → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
-    );
+      },
+    };
+  }, (error, topic) => {
+    // 주제 하나가 죽어도 회차를 버리지 않는다 — 예전 루프도 그렇게 돌았다.
+    console.log(`  !! ${topic} — ${String(error && error.message || error).slice(0, 90)}`);
+  });
+
+  /*
+   * 결과는 **주제 입력 순서 그대로** 담는다.
+   * 콜백 안에서 byTopic 에 바로 쓰면 키 순서가 완료 순이 되어, 회차마다 순서가
+   * 바뀌고 다음 단계(예산 배분)가 다른 결과를 낸다.
+   */
+  for (const result of perTopicResults) {
+    if (!result) continue;
+    if (result.measured.length > 0) byTopic[result.topic] = result.measured;
+    report.push(result.report);
   }
 
   const total = Object.values(byTopic).reduce((sum, rows) => sum + rows.length, 0);
