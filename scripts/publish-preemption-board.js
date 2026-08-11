@@ -31,6 +31,7 @@ const { shapeFromLabel } = require('../src/utils/keyword-demand-shape');
 const { judgeNamedPersonRisk } = require('../src/utils/named-person-risk');
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { adviseFromLayout } = require('../src/utils/serp-layout-advice');
+const { referenceRowReason } = require('../src/utils/reference-row-reason');
 
 const DEFAULT_DEST = path.join(
   __dirname, '..', 'tmp', 'leaderspro-admin-work', 'spa', 'public', 'data', 'preemption-board.json',
@@ -192,6 +193,7 @@ function main() {
   const byTier = {};
   withEvidence.forEach((row) => { byTier[row.tier] = (byTier[row.tier] || 0) + 1; });
   console.log(`  주제        ${byTopic.size}종`);
+  console.log(`  참고용(2군)  ${Array.isArray(board.rejections) ? board.rejections.length : 0}행 중 실측 사실이 있는 것만 내보냅니다`);
   console.log(`  층          ${Object.entries(byTier).map(([t, n]) => `${t} ${n}`).join(' · ') || '없음'}`);
   const staleSections = withEvidence.filter((r) => r.serp?.sectionMarkerVersion !== SECTION_MARKER_VERSION).length;
   if (staleSections > 0) {
@@ -216,6 +218,33 @@ function main() {
     process.exit(4);
   }
 
+  /*
+   * 2군 — 자리를 확인하지 못했거나 조금 미달한 것들.
+   *
+   * 버리지 않고 참고용으로 낸다. 다만 1군과 **한 칸에 섞지 않는다** — 섞으면
+   * "이것도 황금, 저것도 황금"이 되어 보드의 값어치가 사라진다. 별도 배열이다.
+   *
+   * 실명·조각·금지 주제는 여기에도 안 넣는다. 법적 위험이거나 글 제목이 못 되는
+   * 것은 참고 가치도 없다.
+   */
+  const reference = (Array.isArray(board.rejections) ? board.rejections : [])
+    .filter((row) => row && row.keyword)
+    .filter((row) => !judgeNamedPersonRisk(row.keyword).risky)
+    .filter((row) => judgeCompleteness(row.keyword, []).complete)
+    .map((row) => ({
+      keyword: row.keyword,
+      topic: row.topic || '주제 선택 안 함',
+      searchVolume: row.searchVolume ?? null,
+      // 이유는 실측 사실만. 임계값은 여기서 걸러진다(reference-row-reason 이 단일 출처).
+      note: referenceRowReason(row),
+      intentLabel: row.intentLabel || '',
+      trendLabel: row.trendLabel || '',
+      recencySummary: row.recencySummary || '',
+      demandAsOf: row.demandAsOf || null,
+      measuredAt: row.measuredAt || null,
+    }))
+    .filter((row) => row.note);
+
   const payload = {
     publishedAt: new Date().toISOString(),
     generator: 'preemption-board-batch',
@@ -223,12 +252,15 @@ function main() {
     topicsWithRows: byTopic.size,
     verified: board.verified ?? null,
     rows: withEvidence.map(toPublicRow),
+    reference,
   };
 
   if (hasFlag('dryRun')) {
     console.log('\ndryRun — 파일을 쓰지 않고 종료합니다.');
     console.log('상위 5행:');
     payload.rows.slice(0, 5).forEach((r) => console.log(`  · [${r.topic}] ${r.keyword} — ${r.tierLabel}`));
+    console.log(`참고용(2군) ${payload.reference.length}행:`);
+    payload.reference.slice(0, 5).forEach((r) => console.log(`  · [${r.topic}] ${r.keyword} — ${r.note}`));
     process.exit(0);
   }
 

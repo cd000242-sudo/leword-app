@@ -74,7 +74,10 @@ jobs:
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-        run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=6 --perSeed=8
+        # perTopic 은 표본 폭(perTopic × 12)도 같이 정한다. 6 이면 주제당 72개만
+        # 재고 끝나서 후보가 얕다. 10 으로 두면 120개를 재고, 그중 좋은 6개를
+        # 다음 스텝이 고른다 — BD 비용은 그대로다(자르는 개수가 예산을 정한다).
+        run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=10 --perSeed=8
 
       # 예산 절단 — 뽑은 만큼 그대로 넘기면 크레딧을 넘긴다(한 번 겪었다).
       - name: 예산에 맞춰 자르기

@@ -111,8 +111,14 @@ async function main() {
   const perTopic = Number(arg('perTopic')) || 10;
   const minWords = Number(arg('minWords')) || 3;
   const minVolume = Number(arg('minVolume')) || DEFAULT_PREEMPTION_THRESHOLDS.minSearchVolume;
-  // 실측 경계: 쓸 만한 후보는 dc 1,549~26,064 · 자리 없는 것은 30,188 이상이었다.
-  const maxDocumentCount = Number(arg('maxDocumentCount')) || 30000;
+  /*
+   * 문서수 절대 상한 — BD 를 태울 가치가 없는 밭만 자른다. 자리 판정이 아니다.
+   *
+   * 30,000 이었다. 2026-08-11 SERP 실측에서 문서 47,509('윈도우11 설치비용')와
+   * 40,560('미니멀라이프 반대')이 CONTESTED(자리 있음)로 나와서 올렸다.
+   * 실측한 범위가 거기까지라 50,000 으로 둔다 — 그 위는 아직 안 재봤다.
+   */
+  const maxDocumentCount = Number(arg('maxDocumentCount')) || 50000;
   /*
    * 검색량 대비 문서수 하한 — 게이트와 **같은 값**을 쓴다.
    * 예전에 후보 하한과 게이트 하한이 갈라져 후보 30건이 전량 탈락했고,
@@ -143,8 +149,10 @@ async function main() {
 
   console.log('='.repeat(76));
   console.log(`선점 후보 발굴 — ${topics.length}개 주제 · 주제당 최대 ${perTopic}건`);
-  console.log(`거르기: 검색량 ${minVolume} 이상 · 문서수 ≤ 검색량÷${minRatio} · 절대상한 ${maxDocumentCount.toLocaleString('ko-KR')} · 씨앗당 최대 ${perSeed}건`);
+  console.log(`거르기: 검색량 ${minVolume} 이상 · 문서수 절대상한 ${maxDocumentCount.toLocaleString('ko-KR')} · 씨앗당 최대 ${perSeed}건`
+    + (minRatio > 0 ? ` · 비율 ${minRatio} 이상` : ' · 비율 컷 없음'));
   console.log('자리 유무 판정은 다음 단계인 Bright Data SERP 가 한다 — 여기서 미리 버리지 않는다.');
+  console.log('비율(검색량÷문서수)로는 자리를 못 가린다 — 실측 36건에서 두 무리가 안 갈렸다.');
   console.log(`유형: 데이터랩 30일 실측 시계열로 에버그린·떡상·단발성·시즌성 분류 · 롱테일 기준 어절 ${minWords}개`);
   console.log('='.repeat(76));
 
@@ -365,11 +373,11 @@ async function main() {
        */
       if (documentCount !== null && documentCount > maxDocumentCount) continue;
       /*
-       * 검색량보다 문서가 많으면 포화된 밭이다.
+       * 비율 컷은 기본으로 꺼져 있다(게이트가 단일 출처, 기본 0).
        *
-       * 절대 상한(3만)만 두었더니 검색량 140 / 문서 29,721(비율 0.005) 같은 것이
-       * 후보로 올라와 1층까지 갔다. "상위 3개가 정면으로 안 다뤘다"는 사실이어도
-       * 그 정도 밭을 빈자리라고 팔 수는 없다. 게이트와 같은 하한을 여기서도 건다.
+       * 예전에는 검색량보다 문서가 많으면 여기서 버렸다. 그렇게 버린 개념 롱테일
+       * 36건을 SERP 로 재보니 18건에 자리가 있었다 — 버린 쪽이 통과한 쪽보다 많았다.
+       * 문서수는 broad 매치라 경쟁을 과장한다. 자리는 다음 단계 SERP 가 판정한다.
        */
       // 문서수 0 은 무경쟁이 아니라 측정 실패다(게이트와 같은 판단).
       if (documentCount === 0) continue;

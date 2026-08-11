@@ -264,15 +264,16 @@ describe('selectWithFill — 껍질 까기', () => {
 });
 
 /**
- * 검색량 대비 문서수 하한.
+ * 검색량 대비 문서수 — **더 이상 판정에 쓰지 않는다.**
  *
- * 왜 넣었나: 실측 69행 중 63행이 문서수 ≥ 검색량이었고 비율 중앙값이 0.028이었다.
- * '5단서랍장가격비교'는 검색량 140에 문서 29,721(비율 0.005)인데 1층으로 올라왔다.
- * 상위 3개가 이 검색어를 정면으로 안 다뤘다는 건 사실이지만, 그 정도로 포화된
- * 밭에 글 하나를 던지는 것을 "빈자리"라고 팔 수는 없다.
- * 이 앱의 등급 SSoT 도 같은 말을 한다 — SSS 는 비율 3 이상이다.
+ * 예전에는 불변조건이었다. 2026-08-11 실측이 뒤집었다: 이 조건이 버린 개념
+ * 롱테일 36건을 SERP 로 직접 재보니 18건에 자리가 있었고, 두 무리를 가르는
+ * 지표가 하나도 없었다(자리있음 문서수 중앙값 22,351 · 막힘 9,324 — 오히려 반대).
+ *
+ * 문서수는 broad 매치라 "그 단어들이 들어간 글" 수이지 "그 질문에 답한 글"
+ * 수가 아니다. 자리는 SERP 제목으로만 알 수 있다.
  */
-describe('선점 게이트 — 검색량 대비 문서수', () => {
+describe('선점 게이트 — 문서수는 자리를 판정하지 않는다', () => {
     const winnableSerp = {
         sampledTitles: 10, exactTitleHits: 0, partialTitleHits: 0,
         medianDaysAgo: 120, topTitles: ['가', '나', '다'],
@@ -282,44 +283,33 @@ describe('선점 게이트 — 검색량 대비 문서수', () => {
         firstSeenAt: new Date().toISOString(), inRealtimeNow: false,
     };
 
-    it('문서수가 검색량보다 많으면 자리로 치지 않는다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 140, documentCount: 29721 }], { target: 5 });
+    it('문서수가 검색량보다 훨씬 많아도 정면 대응이 없으면 통과한다', () => {
+        // 실측 '이케아 옷정리함' — 문서 10,432 · 검색량 630 인데 정면 대응 0건.
+        const out = selectWithFill([{ ...base, searchVolume: 630, documentCount: 10432 }], { target: 5 });
+        expect(out.rows).toHaveLength(1);
+    });
+
+    it('문서 4만 개짜리도 정면 대응이 없으면 통과한다', () => {
+        // 실측 '미니멀라이프 반대' 대역 — broad 문서수는 경쟁을 크게 과장한다.
+        const out = selectWithFill([{ ...base, searchVolume: 180, documentCount: 40560 }], { target: 5 });
+        expect(out.rows).toHaveLength(1);
+    });
+
+    it('비율이 좋아도 정면 대응이 2건 이상이면 막는다 — 판정은 SERP 가 한다', () => {
+        // 실측 '우리won cma note' — 비율 0.62 인데 상위 10개 중 5개가 정확 일치였다.
+        const locked = { ...winnableSerp, exactTitleHits: 5 };
+        const out = selectWithFill([{ ...base, serp: locked, searchVolume: 820, documentCount: 1313 }], { target: 5 });
         expect(out.rows).toHaveLength(0);
-        expect(out.rejected[0].failed[0]).toContain('문서수');
+        expect(out.rejected[0].failed[0]).toContain('정면 대응');
     });
 
-    it('검색량이 문서수보다 많으면 통과한다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 940, documentCount: 20 }], { target: 5 });
-        expect(out.rows).toHaveLength(1);
-    });
-
-    it('같으면 통과시킨다 — 경계에서 버리지 않는다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 500, documentCount: 500 }], { target: 5 });
-        expect(out.rows).toHaveLength(1);
-    });
-
-    // 못 잰 것과 나쁜 것을 섞지 않는다. 문서수를 못 재면 이 조건은 판단하지 않는다.
-    it('문서수를 못 쟀으면 이 조건으로 버리지 않는다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 500, documentCount: null }], { target: 5 });
-        expect(out.rows).toHaveLength(1);
-    });
-
-    it('개수가 모자라도 이 조건은 안 푼다 — 껍질 까기의 예외다', () => {
-        const rows = [
-            { ...base, keyword: '포화1', searchVolume: 140, documentCount: 29721 },
-            { ...base, keyword: '포화2', searchVolume: 130, documentCount: 21070 },
-        ];
-        expect(selectWithFill(rows, { target: 6 }).rows).toHaveLength(0);
+    it('검색량이 문서수보다 많아도 자리가 없으면 안 올린다', () => {
+        const locked = { ...winnableSerp, exactTitleHits: 3 };
+        const out = selectWithFill([{ ...base, serp: locked, searchVolume: 940, documentCount: 20 }], { target: 5 });
+        expect(out.rows).toHaveLength(0);
     });
 });
 
-/**
- * AI 브리핑이 뜬 키워드는 뒤로 민다.
- *
- * 왜: 브리핑에서 답을 얻고 나면 굳이 글을 안 본다. 자리가 비어 있어도 클릭이
- * 안 오는 자리다. 그렇다고 버리지는 않는다 — 개수가 모자라면 껍질을 까듯
- * 그때 꺼낸다. 사장님 지시: "최대한 없는 게 좋다".
- */
 describe('선점 게이트 — AI 브리핑 없는 것부터 채운다', () => {
     const serp = (hasAiBriefing: boolean) => ({
         sampledTitles: 10, exactTitleHits: 0, partialTitleHits: 0,

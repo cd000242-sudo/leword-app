@@ -49,11 +49,23 @@ export interface PreemptionThresholds {
   /** '상위'를 몇 위까지로 볼 것인가. */
   topSlots: number;
   /**
-   * 검색량 ÷ 문서수 하한.
+   * 검색량 ÷ 문서수 하한. **판정에는 쓰지 않는다(기본 0).**
    *
-   * 상위 3개가 정면으로 안 다뤘다는 것만으로는 부족하다. 문서 3만 개짜리 밭에
-   * 검색이 140번 일어나는 키워드(실측 '5단서랍장가격비교', 비율 0.005)를
-   * "빈자리"라고 부를 수는 없다. 이 앱의 등급 SSoT 도 같은 말을 한다.
+   * 예전에는 이 값이 불변조건이었다 — "문서 3만 개짜리 밭에 검색이 140번인 것을
+   * 빈자리라고 부를 수 없다"는 논리였다. 2026-08-11 실측이 그걸 뒤집었다.
+   *
+   * 이 게이트가 버린 개념 롱테일 36건을 SERP 로 직접 재보니 18건에 자리가 있었고,
+   * 두 무리를 가르는 지표가 **하나도 없었다**:
+   *     자리있음 18건 문서수 중앙값 22,351 · 비율 0.027
+   *     막힘   18건 문서수 중앙값  9,324 · 비율 0.110
+   * 오히려 비율이 낮은 쪽에 자리가 많았다. '이케아 옷정리함'은 문서 10,432 인데
+   * 상위 10개 중 정면 대응이 0건이고, 비율 0.62 인 '우리won cma note' 는 5건이다.
+   *
+   * 이유는 문서수가 broad 매치라서다 — "그 단어들이 들어간 글" 수이지
+   * "그 질문에 답한 글" 수가 아니다. 자리는 SERP 제목으로만 알 수 있다.
+   *
+   * 값을 남겨 둔 이유: 후보 단계에서 BD 를 어디부터 태울지 고를 때 쓸 수 있다.
+   * 다만 위 실측대로 자리를 예측하지 못하므로 순서 기준으로도 약하다.
    */
   minVolumeToDocumentRatio: number;
 }
@@ -69,9 +81,8 @@ export const DEFAULT_PREEMPTION_THRESHOLDS: PreemptionThresholds = {
   minSearchVolume: 100,
   minSampledTitles: 5,
   topSlots: 3,
-  // 최소한 "검색량이 문서수보다 적지는 않을 것". SSS(3배)보다 느슨하지만,
-  // 실측 69행 중 63행이 여기서 걸린다 — 그만큼 지금 보드가 포화 밭을 담고 있었다.
-  minVolumeToDocumentRatio: 1,
+  // 0 = 판정에 쓰지 않는다. SERP 실측 36건이 이 비율과 자리 유무가 무관함을 보였다.
+  minVolumeToDocumentRatio: 0,
 };
 
 export interface PreemptionSerp {
@@ -177,27 +188,21 @@ function checkInvariants(
     return { undetermined: false, reason: `검색량 ${input.searchVolume} < ${thresholds.minSearchVolume}` };
   }
   /*
-   * 검색량 대비 문서수. 못 쟀으면(null) 판단하지 않는다 — 못 본 것과 나쁜 것을 섞지 않는다.
-   * 개수가 모자라도 이 조건은 안 푼다. 껍질을 까는 것은 '자리의 확실성'이지
-   * '밭이 포화인지'가 아니다.
-   */
-  /*
    * 문서수 0 은 "경쟁이 없다"가 아니라 대개 측정 실패다. 실측 '야설사이트'는
    * 검색량 130 인데 문서수 0 으로 왔다 — 네이버가 그 질의에 결과를 안 준 것이다.
-   * 0 을 무경쟁으로 읽으면 아래 비율 검사를 통째로 건너뛰고 무조건 통과한다.
+   * 문서수를 못 쟀으면(null) 판단하지 않는다 — 못 본 것과 나쁜 것을 섞지 않는다.
    */
   if (input.documentCount === 0) {
     return { undetermined: false, reason: '문서수 0 — 측정 실패로 본다' };
   }
-  if (input.documentCount !== null) {
-    const ratio = input.searchVolume / input.documentCount;
-    if (ratio < thresholds.minVolumeToDocumentRatio) {
-      return {
-        undetermined: false,
-        reason: `문서수 ${input.documentCount.toLocaleString('ko-KR')} > 검색량 ${input.searchVolume.toLocaleString('ko-KR')} — 포화된 밭`,
-      };
-    }
-  }
+  /*
+   * 예전에는 여기서 비율(검색량 ÷ 문서수)로 잘랐다. 뺐다 — 실측이 뒤집었다.
+   * 문서수는 broad 매치라 "그 단어들이 들어간 글"을 센다. 그 숫자가 커도
+   * 그 질문에 정면으로 답한 글은 없을 수 있다(실측: 문서 10,432 인 '이케아
+   * 옷정리함' 의 정면 대응 0건). 자리 판정은 바로 아래 SERP 제목이 한다.
+   * 임계값은 남아 있으나 기본 0 이라 아무것도 막지 않는다 — 자세한 근거는
+   * PreemptionThresholds.minVolumeToDocumentRatio 주석에 있다.
+   */
   // 정면 대응이 2건 이상이면 자리가 없다. 개수를 채우려고 끼워 넣지 않는다.
   if (input.serp.exactTitleHits > 1) {
     return { undetermined: false, reason: `정면 대응 ${input.serp.exactTitleHits}건 — 자리 없음` };

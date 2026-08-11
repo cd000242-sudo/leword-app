@@ -368,7 +368,38 @@ async function main() {
     // 탈락 사유를 남긴다. 첫 주행에서 45건이 왜 떨어졌는지 되짚을 수가 없어서
     // 게이트를 보정할 근거가 사라졌다. 같은 실수를 반복하지 않는다.
     for (const result of outcome.rejected) {
-      rejectionLog.push({ topic, keyword: result.keyword, reason: result.failed[0] || '알 수 없음' });
+      /*
+       * 탈락분도 실측 사실을 함께 남긴다.
+       *
+       * 사장님 지시: "조금 미달되더라도 그 키워드를 사용할 수 있다면, 참고할 수
+       * 있다면 상관없다. 좋은 것만 가져오려면 돈과 시간이 너무 든다."
+       * 그래서 버리지 않고 2군으로 내보낸다. 다만 화면에 나갈 이유는 **실측 사실**
+       * 이어야 한다 — 임계값(내부 숫자)은 발행기가 걸러낸다.
+       */
+      const source = judgedInputs.find((e) => e.input.keyword === result.keyword);
+      const serp = source ? source.input.serp : null;
+      const candidate = source ? source.candidate : null;
+      rejectionLog.push({
+        topic,
+        keyword: result.keyword,
+        reason: result.failed[0] || '알 수 없음',
+        undetermined: Boolean(result.undetermined),
+        searchVolume: source ? source.input.searchVolume : null,
+        documentCount: source ? source.input.documentCount : null,
+        serp: serp ? {
+          sampledTitles: serp.sampledTitles,
+          exactTitleHits: serp.exactTitleHits,
+          partialTitleHits: serp.partialTitleHits,
+          medianDaysAgo: serp.medianDaysAgo,
+          hasAiBriefing: serp.hasAiBriefing,
+        } : null,
+        intentLabel: candidate?.intentLabel || '',
+        trendLabel: candidate?.trendLabel || '',
+        recencySummary: candidate?.recencySummary || '',
+        demandAsOf: candidate?.demandAsOf || null,
+        latestVsPeakPct: candidate?.latestVsPeakPct ?? null,
+        measuredAt: candidate?.measuredAt || null,
+      });
     }
 
     for (const result of outcome.rows) {

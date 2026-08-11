@@ -314,6 +314,8 @@ const VITEST_SUITES = [
     'src/utils/__tests__/preemption-board-workflow.test.ts',
     // substring 으로 씨앗을 맞추다 남의 낱말을 문 것이 이 레포에서만 세 번째다.
     'src/utils/__tests__/seed-drift.test.ts',
+    // 2군 이유 문장에 내부 임계값이 새면 판단 근거가 통째로 공개된다.
+    'src/utils/__tests__/reference-row-reason.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
