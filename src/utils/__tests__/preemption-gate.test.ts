@@ -186,6 +186,62 @@ describe('AI 브리핑 실측 반영', () => {
     });
 });
 
+/*
+ * 사장님 기준(2026-08-11): "상위에 광고가 많이 떠 있다면 그 키워드는 돈이 되는
+ * 키워드다 — 광고주가 많으니까. 광고 많고 검색량 높고 문서수 낮은 것을 위에."
+ * 광고 건수는 실측이다(파워링크 항목 수). 실측 대조: 치아보험 10 · 오퍼레이터24 1.
+ */
+describe('줄 세우기 — 광고 많고 · 검색량 높고 · 문서수 낮은 순', () => {
+    const row = (keyword: string, over: Partial<PreemptionInput> & { adCount?: number }) => {
+        const { adCount, ...rest } = over;
+        return base({
+            keyword,
+            serp: { ...serpOf([OTHER, OTHER]), ...(adCount === undefined ? {} : { adCount }) },
+            ...rest,
+        });
+    };
+
+    it('광고가 많은 것이 먼저 나온다', () => {
+        const out = selectWithFill([
+            row('광고적음', { adCount: 1 }),
+            row('광고많음', { adCount: 9 }),
+        ], { target: 2 });
+        expect(out.rows.map((r) => r.keyword)).toEqual(['광고많음', '광고적음']);
+    });
+
+    it('광고가 같으면 검색량이 많은 것이 먼저다', () => {
+        const out = selectWithFill([
+            row('검색적음', { adCount: 3, searchVolume: 400 }),
+            row('검색많음', { adCount: 3, searchVolume: 2000 }),
+        ], { target: 2 });
+        expect(out.rows[0].keyword).toBe('검색많음');
+    });
+
+    it('광고·검색량이 같으면 문서수가 적은 것이 먼저다', () => {
+        const out = selectWithFill([
+            row('문서많음', { adCount: 3, searchVolume: 900, documentCount: 5000 }),
+            row('문서적음', { adCount: 3, searchVolume: 900, documentCount: 300 }),
+        ], { target: 2 });
+        expect(out.rows[0].keyword).toBe('문서적음');
+    });
+
+    // 안 본 것을 '광고 없음'으로 눌러 담으면 멀쩡한 키워드가 뒤로 밀린다.
+    it('광고를 못 쟀으면 그 축으로 벌주지 않는다', () => {
+        const out = selectWithFill([
+            row('광고미측정', { searchVolume: 2000 }),
+            row('광고있음', { adCount: 5, searchVolume: 400 }),
+        ], { target: 2 });
+        expect(out.rows[0].keyword).toBe('광고미측정');
+    });
+
+    it('광고가 있으면 근거로 적고, 못 쟀으면 안 적는다', () => {
+        const measured = judgePreemption(base({ serp: { ...serpOf([OTHER]), adCount: 7 } }));
+        expect(measured.evidence.find((e) => e.code === 'ads')?.text).toContain('상단 광고 7건');
+        const unmeasured = judgePreemption(base());
+        expect(unmeasured.evidence.some((e) => e.code === 'ads')).toBe(false);
+    });
+});
+
 describe('selectWithFill — 껍질 까기', () => {
     /** n개의 1층짜리 입력. */
     const topTier = (n: number) => Array.from({ length: n }, (_, i) => base({ keyword: `1층${i}` }));

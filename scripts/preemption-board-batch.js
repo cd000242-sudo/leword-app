@@ -245,6 +245,7 @@ async function verify(keyword, withStructure) {
     // 못 본 것을 '없음'으로 적지 않는다. 판독 실패면 필드를 안 채운다.
     serp.hasAiBriefing = structure.hasAiBriefing;
     serp.aiBriefingSourceCount = structure.aiBriefingSources.length;
+    serp.adCount = structure.adCount;
     serp.sections = structure.sections;
     serp.sectionMarkerVersion = structure.sectionMarkerVersion;
     /*
@@ -483,6 +484,7 @@ async function main() {
           medianDaysAgo: serp.medianDaysAgo,
           hasAiBriefing: serp.hasAiBriefing,
           aiBriefingSourceCount: serp.aiBriefingSourceCount,
+          adCount: serp.adCount ?? null,
           sections: serp.sections,
           sectionMarkerVersion: serp.sectionMarkerVersion ?? null,
           topTitles: serp.topTitles || [],

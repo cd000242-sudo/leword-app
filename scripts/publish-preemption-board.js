@@ -127,6 +127,7 @@ function toPublicRow(row) {
       medianDaysAgo: serp.medianDaysAgo ?? null,
       hasAiBriefing: serp.hasAiBriefing,
       aiBriefingSourceCount: serp.aiBriefingSourceCount ?? null,
+      adCount: serp.adCount ?? null,
     },
   };
 }

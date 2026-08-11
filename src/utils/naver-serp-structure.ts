@@ -104,7 +104,31 @@ export interface SerpStructure {
   sectionMarkerVersion: number;
   /** 블로그 제목이 몇 개나 읽혔는가. 0이면 블로그 자리가 아예 없다는 뜻이다. */
   blogTitleCount: number;
+  /**
+   * 상단 파워링크에 붙은 광고 건수(실측).
+   *
+   * 왜 세는가 (사장님, 2026-08-11): "상위에 광고가 많이 떠 있다면 그 키워드는
+   * 돈이 되는 키워드다 — 광고주가 많으니까." 맞다. 광고주는 전환되는 검색어에만
+   * 돈을 넣는다. 우리가 지어낸 수익 추정이 아니라 **광고주들이 이미 낸 판단**이다.
+   */
+  adCount: number;
 }
+
+/**
+ * 파워링크 광고 한 건의 마커.
+ *
+ * 실측으로 맞췄다(2026-08-11, 통합검색 원문 5건):
+ *   블록  <div class="nad_area" id="power_link_body">
+ *   항목  <li class="lst js-hover-item …">   ← 이 개수가 곧 광고 수
+ *
+ *   치아보험 10건 · 노트북받침대 비교 3건 · 크레마 이북리더기 미피 2건
+ *   오퍼레이터24 1건 · 에너지바우처조회 1건
+ *
+ * `ad_area` 는 광고 **유무**만 알려 준다(고지문 레이어라 위치·개수와 무관).
+ * 개수를 세려면 항목 마커를 봐야 한다.
+ */
+const AD_BLOCK_MARKER = /nad_area|id="power_link_body"|ad_area|api_ad/;
+const AD_ITEM_MARKER = /class="lst js-hover-item/g;
 
 /** HTML 조각에서 앞뒤 태그를 걷어 URL 만 남긴다. */
 function extractAiSources(html: string): string[] {
@@ -137,6 +161,8 @@ export function readSerpStructure(html: string): SerpStructure | null {
     sections,
     sectionMarkerVersion: SECTION_MARKER_VERSION,
     blogTitleCount: (html.match(/sds-comps-text-type-headline/g) || []).length,
+    // 광고 블록이 없으면 항목도 없다 — 마커가 어디 다른 데 걸리는 것을 막는다.
+    adCount: AD_BLOCK_MARKER.test(html) ? (html.match(AD_ITEM_MARKER) || []).length : 0,
   };
 }
 

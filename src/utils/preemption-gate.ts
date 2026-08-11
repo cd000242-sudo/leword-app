@@ -112,6 +112,12 @@ export interface PreemptionSerp {
   hasAiBriefing?: boolean;
   /** AI 브리핑이 인용한 글 수. 인용되면 노출돼도 클릭은 AI 가 가져간다. */
   aiBriefingSourceCount?: number;
+  /**
+   * 상단 파워링크 광고 건수(실측). undefined 는 '안 봤다'이지 '없다'가 아니다.
+   * 광고가 많다는 것은 광고주들이 그 검색어에 돈을 넣고 있다는 뜻이다 —
+   * 우리가 만든 수익 추정이 아니라 남이 이미 낸 판단이라 그대로 싣는다.
+   */
+  adCount?: number;
 }
 
 export interface PreemptionInput {
@@ -133,7 +139,7 @@ export interface PreemptionInput {
 }
 
 export interface PreemptionEvidence {
-  code: 'open-slot' | 'empty-field' | 'stale-top' | 'fresh' | 'not-realtime' | 'demand' | 'contested' | 'ai-briefing';
+  code: 'open-slot' | 'empty-field' | 'stale-top' | 'fresh' | 'not-realtime' | 'demand' | 'contested' | 'ai-briefing' | 'ads';
   text: string;
 }
 
@@ -155,6 +161,13 @@ export interface PreemptionResult {
    * 정렬이 이 값을 쓴다 — 화면 문구로 가르면 카피 수정에 조용히 깨진다.
    */
   hasAiBriefing?: boolean;
+  /**
+   * 줄 세우기에 쓰는 실측값. 화면이 아니라 **여기서** 순서를 정하려고 싣는다.
+   * 화면이 제 나름대로 정렬하면 같은 보드가 기기마다 다른 순서로 보인다.
+   */
+  adCount?: number;
+  searchVolume: number | null;
+  documentCount: number | null;
 }
 
 function hoursSince(iso: string | null, nowMs: number): number | null {
@@ -264,6 +277,9 @@ export function judgePreemption(
       failed: [blocked.reason],
       undetermined: blocked.undetermined,
       openSlot: null,
+      adCount: input.serp?.adCount,
+      searchVolume: input.searchVolume,
+      documentCount: input.documentCount,
     };
   }
 
@@ -302,23 +318,28 @@ export function judgePreemption(
   // ── 근거. 사실인 것만 담는다 ─────────────────────────────────────────
   const evidence: PreemptionEvidence[] = [];
   /*
-   * 수요와 경쟁을 한 줄에 낸다. 경쟁 쪽 숫자는 **정면 대응 건수**다.
+   * 수요와 밭 크기. 둘 다 실측 그대로 적는다.
    *
-   * 예전에는 '월 검색량 730 · 문서수 15,654' 라고 적었다. 그런데 이 둘은 잰
-   * 대상이 다르다 — 검색량은 지난 **한 달**의 횟수이고, 문서수는 **10년치 누적**에서
-   * 그 단어들이 어딘가 들어간 글 수다(정확구문도 아니다. API 가 따옴표를 무시한다).
-   * 나란히 놓으면 언제나 문서수가 커서 멀쩡한 키워드도 "검색량보다 글이 많다"로
-   * 읽힌다. 실측 45건에서 검색량이 문서수를 넘은 것은 0건이었다.
-   *
-   * 실제로 겨루는 상대는 그 자리를 정면으로 다룬 글이다. '크레마 이북리더기 미피'
-   * 는 문서수 525건이지만 상위 10개 중 정면은 3건이고 나머지는 팔레트 일반 후기다.
-   * 그 3이 사장님이 말한 "문서수" 다. 문서수는 참고용으로 뒤에 붙인다.
+   * 주의: 이 둘은 잰 대상이 다르다 — 검색량은 지난 **한 달**의 횟수이고, 문서수는
+   * **10년치 누적**에서 그 단어들이 어딘가 들어간 글 수다(정확구문도 아니다.
+   * 오픈 API 가 따옴표를 무시하는 것을 실측 확인했다). 그래서 문서수가 검색량보다
+   * 큰 것이 정상이며, 실제로 겨루는 상대 수는 아래 '정면으로 다룬 글' 줄이 말한다.
    */
   const docs = input.documentCount;
-  const demand = [`월 검색량 ${input.searchVolume!.toLocaleString('ko-KR')}`];
-  demand.push(`정면으로 다룬 글 ${serp.exactTitleHits}건 (상위 ${serp.sampledTitles}개 중)`);
-  if (docs !== null) demand.push(`문서수 ${docs.toLocaleString('ko-KR')}(참고)`);
-  evidence.push({ code: 'demand', text: demand.join(' · ') });
+  evidence.push({
+    code: 'demand',
+    text: docs === null
+      ? `월 검색량 ${input.searchVolume!.toLocaleString('ko-KR')}`
+      : `월 검색량 ${input.searchVolume!.toLocaleString('ko-KR')} · 문서수 ${docs.toLocaleString('ko-KR')}`,
+  });
+
+  /*
+   * 광고는 **광고주들이 이미 낸 판단**이다. 우리가 수익을 추정하지 않고 그 사실만 적는다.
+   * 못 쟀으면 적지 않는다 — 0건이라고 쓰면 안 본 것이 '광고 없음'이 된다.
+   */
+  if (typeof serp.adCount === 'number' && serp.adCount > 0) {
+    evidence.push({ code: 'ads', text: `상단 광고 ${serp.adCount}건 — 광고주가 돈을 넣는 검색어다` });
+  }
 
   if (openSlot !== null) {
     evidence.push({ code: 'open-slot', text: `상위 ${openSlot}번째 자리가 비어 있음` });
@@ -368,6 +389,9 @@ export function judgePreemption(
     undetermined: false,
     openSlot,
     hasAiBriefing: input.serp?.hasAiBriefing,
+    adCount: input.serp?.adCount,
+    searchVolume: input.searchVolume,
+    documentCount: input.documentCount,
   };
 }
 
@@ -390,11 +414,30 @@ export interface FillOutcome {
   short: boolean;
 }
 
-/** 같은 층 안에서의 우선순위 — 자리가 위일수록, 상위가 낡을수록, 수요가 클수록 앞. */
+/**
+ * 같은 층 안에서의 줄 세우기.
+ *
+ * 사장님 기준(2026-08-11): "상위에 광고가 많이 떠 있다면 그 키워드는 돈이 되는
+ * 키워드다 — 광고주가 많으니까. 특히 광고가 많고 검색량은 높으면서 문서수는
+ * 낮은 그런 키워드들을 위에 먼저 배치해서 순위별로 나열해 달라."
+ *
+ * 그대로 옮긴다: 광고 많은 순 → 검색량 많은 순 → 문서수 적은 순 → 빈자리 위인 순.
+ * 넷 다 실측값이다. 점수로 합치지 않는다 — 합치면 가중치가 곧 지어낸 값이 된다.
+ *
+ * 광고를 **못 쟀으면**(undefined) 그 축은 건너뛴다. 0으로 눌러 담으면 안 본 것이
+ * '광고 없음'이 되어 뒤로 밀린다 — 안 본 것을 벌주지 않는다.
+ */
 function compareWithinTier(left: PreemptionResult, right: PreemptionResult): number {
-  const slotDiff = (left.openSlot ?? 99) - (right.openSlot ?? 99);
-  if (slotDiff !== 0) return slotDiff;
-  return 0;
+  if (typeof left.adCount === 'number' && typeof right.adCount === 'number') {
+    const adDiff = right.adCount - left.adCount;
+    if (adDiff !== 0) return adDiff;
+  }
+  const volumeDiff = (right.searchVolume ?? 0) - (left.searchVolume ?? 0);
+  if (volumeDiff !== 0) return volumeDiff;
+  const docsDiff = (left.documentCount ?? Number.MAX_SAFE_INTEGER)
+    - (right.documentCount ?? Number.MAX_SAFE_INTEGER);
+  if (docsDiff !== 0) return docsDiff;
+  return (left.openSlot ?? 99) - (right.openSlot ?? 99);
 }
 
 /**
