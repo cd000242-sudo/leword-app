@@ -38,6 +38,7 @@ const { brightDataQuotaSnapshot } = require('../src/utils/brightdata-quota-gover
 const { selectWithFill, TIER_ORDER, TIER_LABEL, DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
 const { BLOG_TOPIC_COVERAGE, topicsWithoutCoverage } = require('../src/utils/blog-topic-coverage');
 const { judgeTopicByEvidence } = require('../src/utils/topic-evidence');
+const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
 
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
 const FEATURE = 'golden';
@@ -302,8 +303,12 @@ async function main() {
    * 등록은 후보를 만든 시점에 이미 끝났다(그때 우리가 그 말을 처음 본 것이다).
    * SERP 검증 성공 여부와는 상관없는 사실이므로 여기서 적어도 거짓이 아니다.
    */
-  fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(statePath, JSON.stringify(firstSeen, null, 0), 'utf8');
+  // dryRun 은 아무것도 바꾸지 않는다. 시늉 실행이 장부를 늘리면 다음 회차의
+  // '새로 생긴 말' 판정이 실제로 본 적 없는 관측을 근거로 삼게 된다.
+  if (!dryRun) {
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    fs.writeFileSync(statePath, JSON.stringify(firstSeen, null, 0), 'utf8');
+  }
   const realtime = loadRealtimeKeywords(signalsPath);
   const allocation = allocateBudget(byTopic, maxPerRun);
   const planned = [...allocation.values()].reduce((sum, n) => sum + n, 0) * (process.argv.includes('--withStructure') ? 2 : 1);
@@ -364,6 +369,16 @@ async function main() {
   const rows = [];
   const stats = { verified: 0, passed: 0, rejected: 0, undetermined: 0, failed: 0 };
   let blocked = false;
+  /*
+   * 동시에 몇 개를 검증할 것인가.
+   *
+   * 3 이면 이 단계가 대략 3분의 1로 줄어든다(실측 60분 → 20분대). 크레딧 소모는
+   * 그대로다 — 같은 요청을 순서만 겹쳐서 보낸다. Bright Data 는 프록시라
+   * 동시 요청을 감당하지만, 간격기(bdGate)가 초당 요청 수를 원래대로 묶는다.
+   */
+  const concurrency = Number(arg('concurrency')) || 3;
+  const bdGate = createInterval(DELAY_MS);
+  console.log(`  동시 검증        ${concurrency}건 (호출 간격 ${DELAY_MS}ms 는 공용으로 유지)`);
 
   const tierTotals = { top3: 0, page1: 0, 'page1-weak': 0, contested: 0 };
   const shortTopics = [];
@@ -376,24 +391,31 @@ async function main() {
     if (blocked) break;
     const candidates = byTopic.get(topic).slice(0, take);
 
-    // 주제 하나를 통째로 검증한 뒤 층을 나눈다. 한 건씩 즉시 판정하면
-    // "1층이 모자라니 2층을 깐다"를 결정할 수가 없다.
-    const judgedInputs = [];
-    for (const candidate of candidates) {
-      await sleep(DELAY_MS);
+    /*
+     * 주제 하나를 통째로 검증한 뒤 층을 나눈다. 한 건씩 즉시 판정하면
+     * "1층이 모자라니 2층을 깐다"를 결정할 수가 없다.
+     *
+     * 검증은 **동시에** 돈다. 이 단계의 시간은 전부 Bright Data 응답을 기다리는
+     * 것이고(회당 60분, 키워드당 두 번), 키워드끼리는 아무 상관이 없다.
+     * 다만 호출 간격(DELAY_MS)은 공용 문지기가 지키므로 **초당 요청 수는 그대로**다 —
+     * 기다리는 시간만 겹쳐서 사라진다.
+     */
+    const verified = await mapWithConcurrency(candidates, concurrency, async (candidate) => {
+      if (blocked) return null;
+      await bdGate();
       const { serp, quotaBlocked, error } = await verify(candidate.keyword, withStructure);
       if (quotaBlocked) {
-        console.log(`  쿼터 한도 도달 — 중단 (${stats.verified}건 처리됨)`);
+        if (!blocked) console.log(`  쿼터 한도 도달 — 중단 (${stats.verified}건 처리됨)`);
         blocked = true;
-        break;
+        return null;
       }
       stats.verified += 1;
       if (!serp) {
         stats.failed += 1;
         console.log(`  ?? [${topic}] ${candidate.keyword} — 수집 실패 ${error}`);
-        continue;
+        return null;
       }
-      judgedInputs.push({
+      return {
         candidate,
         input: {
           keyword: candidate.keyword,
@@ -403,8 +425,13 @@ async function main() {
           firstSeenAt: observedSince(firstSeen, addedKeywords, candidate.keyword),
           inRealtimeNow: realtimeState(realtime, candidate.keyword),
         },
-      });
-    }
+      };
+    }, (error, candidate) => {
+      stats.failed += 1;
+      console.log(`  ?? [${topic}] ${candidate.keyword} — ${String(error && error.message || error).slice(0, 70)}`);
+    });
+    // 순서는 후보 순 그대로다(mapWithConcurrency 가 보장한다) — 회차 간 대조를 위해서다.
+    const judgedInputs = verified.filter(Boolean);
     if (judgedInputs.length === 0) continue;
 
     const outcome = selectWithFill(judgedInputs.map((e) => e.input), { target: targetPerTopic });
