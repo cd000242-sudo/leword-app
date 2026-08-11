@@ -37,6 +37,7 @@ const { readSerpMeaning } = require('../src/utils/serp-meaning');
 const { brightDataQuotaSnapshot } = require('../src/utils/brightdata-quota-governor');
 const { selectWithFill, TIER_ORDER, TIER_LABEL, DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
 const { BLOG_TOPIC_COVERAGE, topicsWithoutCoverage } = require('../src/utils/blog-topic-coverage');
+const { judgeTopicByEvidence } = require('../src/utils/topic-evidence');
 
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
 const FEATURE = 'golden';
@@ -153,9 +154,16 @@ function observedSince(firstSeen, addedKeywords, keyword) {
   return firstSeen[keyword] || null;
 }
 
-/** 지금 실시간 검색어에 올라와 있는 키워드 집합. */
+/**
+ * 지금 실시간 검색어에 올라와 있는 키워드 집합.
+ *
+ * **measured 를 함께 돌려준다.** 빈 집합만 돌려주면 "실시간에 없다" 와 "실시간을
+ * 못 쟀다" 가 같은 모양이 된다. 그 둘을 섞은 탓에 워크플로가 --signals 를 안 넘기던
+ * 내내 화면에는 "실시간 검색어에는 아직 없다 — 대중화 전이다" 가 근거로 붙어 있었다.
+ */
 function loadRealtimeKeywords(signalsPath) {
-  if (!signalsPath || !fs.existsSync(signalsPath)) return new Set();
+  const unmeasured = { keywords: new Set(), measured: false };
+  if (!signalsPath || !fs.existsSync(signalsPath)) return unmeasured;
   try {
     const data = JSON.parse(fs.readFileSync(signalsPath, 'utf8'));
     const set = new Set();
@@ -165,10 +173,18 @@ function loadRealtimeKeywords(signalsPath) {
         if (keyword) set.add(keyword.replace(/\s+/g, ''));
       }
     }
-    return set;
+    // 0건짜리 스냅샷은 수집 실패의 흔적이다 — 잰 것으로 치지 않는다.
+    if (set.size === 0) return unmeasured;
+    return { keywords: set, measured: true };
   } catch {
-    return new Set();
+    return unmeasured;
   }
+}
+
+/** 실시간 여부. 못 쟀으면 null 로 넘긴다 — 아래 판정기들이 근거에서 뺀다. */
+function realtimeState(realtime, keyword) {
+  if (!realtime.measured) return null;
+  return realtime.keywords.has(keyword.replace(/\s+/g, ''));
 }
 
 /**
@@ -238,6 +254,23 @@ async function verify(keyword, withStructure) {
     serp.meaning = readSerpMeaning(whole.body);
   }
   return { serp, quotaBlocked: false };
+}
+
+/**
+ * 후보에 붙어 있던 주제를 검색결과로 되짚는다.
+ *
+ * 왜 여기서 하나: 후보를 만들 때는 재료가 압축된 키워드 한 줄뿐이라 주제 이탈을
+ * 가릴 수가 없다(씨앗 '독서대 추천' → 연관어 '노트북받침대' → 문학·책으로 실림).
+ * SERP 를 태우고 나면 사람이 띄어 쓴 제목이 생기고, 거기서는 낱말 경계가 존재한다.
+ * 판정 규칙은 topic-evidence.ts 가 단일 출처다.
+ */
+function settleTopic(topic, keyword, serp) {
+  return judgeTopicByEvidence({
+    keyword,
+    claimedTopic: topic,
+    meaning: serp ? serp.meaning : null,
+    topTitles: serp ? serp.topTitles : null,
+  });
 }
 
 async function main() {
@@ -322,6 +355,9 @@ async function main() {
   const tierTotals = { top3: 0, page1: 0, 'page1-weak': 0, contested: 0 };
   const shortTopics = [];
   const rejectionLog = [];
+  /** 주제 되짚기 결과. 과교정(정상 후보까지 라벨을 떼는 것)을 이 숫자로 감시한다. */
+  const topicVerdictTotals = { supported: 0, reassigned: 0, unlabeled: 0, insufficient: 0 };
+  const topicMoves = [];
 
   for (const [topic, take] of allocation) {
     if (blocked) break;
@@ -352,7 +388,7 @@ async function main() {
           documentCount: candidate.documentCount,
           serp,
           firstSeenAt: observedSince(firstSeen, addedKeywords, candidate.keyword),
-          inRealtimeNow: realtime.has(candidate.keyword.replace(/\s+/g, '')),
+          inRealtimeNow: realtimeState(realtime, candidate.keyword),
         },
       });
     }
@@ -379,8 +415,12 @@ async function main() {
       const source = judgedInputs.find((e) => e.input.keyword === result.keyword);
       const serp = source ? source.input.serp : null;
       const candidate = source ? source.candidate : null;
+      const settled = settleTopic(topic, result.keyword, serp);
       rejectionLog.push({
-        topic,
+        topic: settled.topic,
+        claimedTopic: topic,
+        topicVerdict: settled.kind,
+        topicReason: settled.reason,
         keyword: result.keyword,
         reason: result.failed[0] || '알 수 없음',
         undetermined: Boolean(result.undetermined),
@@ -406,15 +446,23 @@ async function main() {
       const source = judgedInputs.find((e) => e.input.keyword === result.keyword);
       const serp = source ? source.input.serp : null;
       const candidate = source ? source.candidate : null;
+      const settled = settleTopic(topic, result.keyword, serp);
+      topicVerdictTotals[settled.kind] += 1;
+      if (settled.kind !== 'supported' && settled.kind !== 'insufficient') {
+        topicMoves.push(`${result.keyword}: ${topic} → ${settled.topic} (${settled.reason})`);
+      }
       rows.push({
         keyword: result.keyword,
-        topic,
+        topic: settled.topic,
+        claimedTopic: topic,
+        topicVerdict: settled.kind,
+        topicReason: settled.reason,
         intentLabel: candidate?.intentLabel || '',
         briefingRisk: candidate?.briefingRisk || null,
         regulatoryLabel: candidate?.regulatoryLabel || '',
         trendShape: candidate?.trendShape || null,
         trendLabel: candidate?.trendLabel || '',
-        inRealtimeNow: realtime.has(result.keyword.replace(/\s+/g, '')),
+        inRealtimeNow: realtimeState(realtime, result.keyword),
         monthsToPeak: candidate?.monthsToPeak ?? null,
         timing: candidate?.timing || '',
         measuredAt: candidate?.measuredAt || null,
@@ -456,8 +504,30 @@ async function main() {
   const after = brightDataQuotaSnapshot();
   console.log('\n' + '-'.repeat(72));
   console.log(`검증 ${stats.verified}건 → 통과 ${stats.passed} · 탈락 ${stats.rejected} · 판정불가 ${stats.undetermined} · 수집실패 ${stats.failed}`);
-  console.log(`통과 주제 ${new Set(rows.map((r) => r.topic)).size}종 / 후보 있던 주제 ${byTopic.size}종`);
+  /*
+   * 주제 커버리지는 **진짜 주제만** 센다.
+   * 되짚기로 라벨을 뗀 행('주제 선택 안 함')까지 세면 커버리지가 부풀려진다.
+   */
+  const coveredTopics = new Set(rows.map((r) => r.topic).filter((t) => t !== '주제 선택 안 함'));
+  console.log(`통과 주제 ${coveredTopics.size}종 / 후보 있던 주제 ${byTopic.size}종`);
   console.log(`사용량 ${before.used} → ${after.used} (이번 실행 ${after.used - before.used}건) · 남은 ${after.remainingFree}`);
+
+  /*
+   * 주제 되짚기 결과를 매 회차 찍는다.
+   *
+   * 이 검사는 과교정이 위험이다 — 규칙이 세면 정상 후보의 라벨까지 뗀다.
+   * 그런데 그건 조용히 일어나므로(라벨만 바뀌고 행 수는 그대로) 숫자로 안 찍으면
+   * 아무도 모른다. 옮긴 것은 키워드까지 전부 적는다.
+   */
+  const settled = topicVerdictTotals;
+  const judged = settled.supported + settled.reassigned + settled.unlabeled;
+  console.log(`주제 되짚기 — 유지 ${settled.supported} · 옮김 ${settled.reassigned} · 주제 뗌 ${settled.unlabeled}`
+    + ` · 판정 안 함(화면 못 읽음) ${settled.insufficient}`);
+  if (judged > 0 && (settled.reassigned + settled.unlabeled) / judged > 0.3) {
+    console.log('  ⚠️ 되짚기로 바뀐 비율이 30%를 넘는다. 고유 낱말표가 얇거나 규칙이 세다 — topic-evidence.ts 를 볼 것.');
+  }
+  for (const move of topicMoves.slice(0, 20)) console.log(`    ${move}`);
+  if (topicMoves.length > 20) console.log(`    … 외 ${topicMoves.length - 20}건 (보드 JSON 의 topicVerdict 참조)`);
 
   if (stats.verified > 0 && stats.passed === 0) {
     console.log('\n⚠️ 통과 0건. 게이트가 과하게 조였거나 후보 품질이 낮다.');
@@ -472,7 +542,8 @@ async function main() {
       targetPerTopic,
       tierTotals,
       topicsTotal: BLOG_TOPIC_COVERAGE.length,
-      topicsWithRows: new Set(rows.map((r) => r.topic)).size,
+      topicsWithRows: coveredTopics.size,
+      topicVerdicts: topicVerdictTotals,
       verified: stats.verified,
       rejections: rejectionLog,
       rows,
