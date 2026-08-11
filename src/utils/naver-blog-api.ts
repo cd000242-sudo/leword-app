@@ -707,6 +707,39 @@ function setCachedNaverBlogDocumentCount(keyword: string, total: number, nowMs =
  * @param keyword 검색할 키워드
  * @returns 블로그 문서 수
  */
+/**
+ * 방금 문서수를 잴 때 함께 받은 상위 제목.
+ *
+ * 문서수 조회는 이제 display=10 으로 부르므로 제목이 딸려 온다(쿼터는 같다).
+ * 그걸 버리지 않고 여기 잠깐 담아 둔다 — 후보 단계가 Bright Data 를 태우기 전에
+ * "이미 누가 정면으로 썼는가" 를 무료로 세는 데 쓴다.
+ *
+ * 캐시가 아니다. 문서수가 캐시에서 나오면 요청을 안 하므로 제목도 없다.
+ * 그때는 '못 쟀음'으로 다뤄야 한다 — 없는 것과 못 본 것을 섞지 않는다.
+ */
+const recentBlogTitles = new Map<string, string[]>();
+const RECENT_TITLES_CAP = 4_000;
+
+function rememberBlogTitles(keyword: string, items: unknown): void {
+  if (!Array.isArray(items)) return;
+  const titles = items
+    .map((item) => String((item as { title?: string })?.title || '').replace(/<[^>]+>/g, '').trim())
+    .filter((title) => title.length > 0);
+  if (titles.length === 0) return;
+  const key = normalizeNaverBlogBroadQuery(keyword);
+  if (recentBlogTitles.size >= RECENT_TITLES_CAP) {
+    const oldest = recentBlogTitles.keys().next();
+    if (!oldest.done) recentBlogTitles.delete(oldest.value);
+  }
+  recentBlogTitles.set(key, titles);
+}
+
+/** 못 받았으면 빈 배열이 아니라 null 이다 — '없다'와 '못 봤다'를 구분한다. */
+export function takeRecentBlogTitles(keyword: string): string[] | null {
+  const key = normalizeNaverBlogBroadQuery(keyword);
+  return recentBlogTitles.get(key) ?? null;
+}
+
 export async function getNaverBlogDocumentCount(
   keyword: string,
   options: NaverBlogDocumentCountOptions = {},
@@ -784,7 +817,15 @@ async function fetchNaverBlogDocumentCount(
     }
     
     const encodedKeyword = encodeURIComponent(keyword);
-    const apiUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodedKeyword}&display=1`;
+    /*
+     * display=10 으로 받는다. 예전에는 1 이었다 — 문서수(total)만 쓰고 제목은 버렸다.
+     *
+     * 같은 호출이고 쿼터도 같은데, 제목 10개를 함께 받으면 **Bright Data 를 태우기
+     * 전에** "이미 누가 정면으로 썼는가" 를 무료로 셀 수 있다. 실측(2026-08-12, 26건):
+     * 이 무료 판정이 BD 판정과 88% 일치했고, 어긋난 3건은 전부 "무료는 통과·BD는 탈락"
+     * 방향이라 **좋은 키워드를 잘못 버리지는 않았다.**
+     */
+    const apiUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodedKeyword}&display=10`;
     
     console.log(`[NAVER-BLOG-API] API 호출: ${apiUrl}`);
     
@@ -826,6 +867,7 @@ async function fetchNaverBlogDocumentCount(
       }
       console.log(`[NAVER-BLOG-API] ✅ API 문서수: "${keyword}" = ${data.total.toLocaleString()}개`);
       setCachedNaverBlogDocumentCount(keyword, data.total);
+      rememberBlogTitles(keyword, data.items);
       return data.total;
       } finally {
         clearTimeout(timeoutId);

@@ -40,6 +40,7 @@ const {
   oversizedSeedTerms,
 } = require('../src/utils/blog-topic-coverage');
 const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
+const { titleCoverage, DEFAULT_SERP_THRESHOLDS: SERP_THRESHOLDS } = require('../src/utils/serp-winnability');
 // 검색량 하한은 게이트가 단일 출처다. 여기 숫자를 따로 적으면 두 값이 갈라지고,
 // 후보가 전부 게이트에서 탈락하는 걸 BD 크레딧을 태워서야 알게 된다.
 const { DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
@@ -106,7 +107,7 @@ async function main() {
 
   const { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
   const { getNaverAutocompleteKeywords } = require('../src/utils/naver-autocomplete');
-  const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
+  const { getNaverBlogDocumentCount, takeRecentBlogTitles } = require('../src/utils/naver-blog-api');
   const { analyzeDemandWithRecency } = require('../src/utils/keyword-demand-shape');
 
   const perTopic = Number(arg('perTopic')) || 10;
@@ -132,8 +133,9 @@ async function main() {
    * 비율을 만족하는 후보는 드물다(실측 304건 중 11건). 좁게 훑으면 주제당 0건이
    * 되므로 넉넉히 재고 조건에 맞는 것만 담는다. 문서수 조회는 무료다.
    */
-  const scanWidth = Number(arg('scanWidth')) || 16;
-  const secondarySeeds = Number(arg('secondarySeeds')) || 8;
+  // 무료 선별이 붙어 더 깊이 훑어도 BD 비용이 안 는다. 병렬화로 시간도 여유가 생겼다.
+  const scanWidth = Number(arg('scanWidth')) || 28;
+  const secondarySeeds = Number(arg('secondarySeeds')) || 12;
   const outPath = arg('out') || 'preemption-candidates.json';
   /** 탈락분까지 포함한 실측 원장. 게이트 하한을 숫자로 고르기 위한 것이다. */
   const measureLogPath = arg('measureLog');
@@ -171,7 +173,13 @@ async function main() {
    * 나가는 호출은 정해진 간격 이상 벌어진다 — 속도 제한은 그대로인데 기다리는
    * 시간이 겹쳐 사라진다. 간격 값은 예전 sleep 과 같다.
    */
-  const concurrency = Number(arg('concurrency')) || 3;
+  /*
+   * 6 으로 둔다. 동시 실행을 올려도 **초당 호출은 안 는다** — 아래 공용 간격기가
+   * API 별 속도를 묶기 때문이다. 늘어나는 것은 기다리는 시간이 겹치는 정도뿐이라,
+   * 이 배치처럼 지연이 지배적인 곳에서는 그만큼 그대로 빨라진다.
+   * 천장은 간격기다: 문서수 120ms → 초당 8.3건이 이 회차의 하한 시간을 정한다.
+   */
+  const concurrency = Number(arg('concurrency')) || 6;
   const adGate = createInterval(220);
   const autoGate = createInterval(150);
   const docGate = createInterval(120);
@@ -186,6 +194,8 @@ async function main() {
     const incompleteLog = [];
     const decliningLog = [];
     const driftLog = [];
+    /** BD 태우기 전에 무료로 걸러낸 것. 예산을 어디에 아꼈는지 남긴다. */
+    const preScreened = [];
     let expansionWarned = false;
 
     // ── 1) 확장 씨앗을 넓힌다 ──────────────────────────────────────────
@@ -293,7 +303,7 @@ async function main() {
      * 늘린 씨앗이 결과를 못 바꿨다 — 씨앗을 늘릴수록 각 씨앗의 몫만 얇아진다.
      * 검색량 조회는 무료다(5개씩 묶어 보낸다). 표본은 따로 정한다.
      */
-    const sampleCap = Number(arg('sampleCap')) || perTopic * 12;
+    const sampleCap = Number(arg('sampleCap')) || perTopic * 20;
     for (let round = 0; phraseList.length < sampleCap; round += 1) {
       let added = 0;
       for (const queue of queues) {
@@ -363,6 +373,32 @@ async function main() {
       }
       await docGate();
       if (documentCount !== null && !Number.isFinite(documentCount)) documentCount = null;
+
+      /*
+       * **Bright Data 를 태우기 전에 무료로 걸러낸다.**
+       *
+       * 문서수를 잴 때 상위 제목 10개가 같이 온다(display=10, 쿼터는 같다).
+       * 거기서 이미 정면으로 다룬 글이 2건 이상이면 SERP 판정도 거의 확실히 탈락이다.
+       * 실측(2026-08-12, 26건): 무료 판정이 BD 판정과 88% 일치했고, 어긋난 3건은
+       * 전부 "무료는 통과·BD는 탈락" 방향이었다 — **좋은 것을 잘못 버리지는 않는다.**
+       * 무료로 정면 2건 이상이라고 본 13건은 13건 모두 BD 에서도 탈락했다.
+       *
+       * 이게 왜 중요한가: 지난 회차는 107건을 태워 27건만 통과했다(25%). 예산 344 중
+       * 214만 쓰고도 후보가 모자라 못 채웠다. 여기서 미리 버리면 같은 예산으로
+       * **자리가 있을 만한 것만** 태울 수 있다.
+       *
+       * 제목을 못 받았으면(캐시 적중 등) 거르지 않는다 — 못 본 것을 나쁜 것으로 치지 않는다.
+       */
+      const freeTitles = takeRecentBlogTitles(row.keyword);
+      if (Array.isArray(freeTitles) && freeTitles.length >= 5) {
+        const facing = freeTitles.filter(
+          (title) => titleCoverage(title, row.keyword) >= SERP_THRESHOLDS.exactCoverage,
+        ).length;
+        if (facing >= 2) {
+          preScreened.push(`${row.keyword} — 무료 판정 정면 ${facing}건`);
+          continue;
+        }
+      }
 
       /*
        * 게이트 캘리브레이션용 원장. --measureLog 를 줄 때만 남긴다.
@@ -487,7 +523,7 @@ async function main() {
     console.log(
       `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
       + ` 씨앗 ${String(expansionSeeds.size).padStart(3)} → 완결 ${String(phrases.size).padStart(4)}(조각 ${incompleteLog.length}·이탈 ${driftLog.length} 제외)`
-      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length} 제외) → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
+      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length} 제외) → 무료선별 ${String(preScreened.length).padStart(3)} 제외 → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
     );
     return {
       topic,
