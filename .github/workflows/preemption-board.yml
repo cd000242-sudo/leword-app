@@ -36,7 +36,15 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      # npm ci 가 하루 두 번 러너에서 걸렸다(2시간 행업 1회, 러너 사망 1회) —
+      # 레지스트리·러너 플레이크다. 10분 제한 + 3회 재시도로 회차를 지킨다.
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
 
       # 돈 쓰기 전에 끝까지 갈 수 있는지부터 본다.
       #
