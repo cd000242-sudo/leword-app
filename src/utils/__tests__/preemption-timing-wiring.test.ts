@@ -44,6 +44,27 @@ describe('시기 배선 — 배치 로더가 라벨을 흘리지 않는다', () 
     });
 });
 
+describe('제목·시기 배선 — 만든 것을 화면까지 나른다', () => {
+    it('배치가 행에 제목 2종을 싣는다 (buildBoardTitles)', () => {
+        expect(/buildBoardTitles/.test(batchSource)).toBe(true);
+        expect(/titles:\s*buildBoardTitles/.test(batchSource)).toBe(true);
+    });
+
+    it('배치 로더가 씨앗을 복사한다 — 형제 파생을 찾는 열쇠다', () => {
+        expect(/seed:\s*row\.seed/.test(batchSource)).toBe(true);
+    });
+
+    it('발행기가 timingGroup 과 titles 를 화면으로 통과시킨다', () => {
+        const publishSource = fs.readFileSync(
+            path.join(root, 'scripts', 'publish-preemption-board.js'),
+            'utf8',
+        );
+        expect(/judgeTimingGroup/.test(publishSource)).toBe(true);
+        expect(/timingGroup:/.test(publishSource)).toBe(true);
+        expect(/titles:\s*row\.titles/.test(publishSource)).toBe(true);
+    });
+});
+
 describe('집계 — golden-ratio 층도 셈에 들어간다', () => {
     const goldenInput: PreemptionInput = {
         keyword: '노각무침 황금레시피',

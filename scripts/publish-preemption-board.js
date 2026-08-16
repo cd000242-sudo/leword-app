@@ -32,6 +32,7 @@ const { judgeNamedPersonRisk } = require('../src/utils/named-person-risk');
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { adviseFromLayout } = require('../src/utils/serp-layout-advice');
 const { referenceRowReason } = require('../src/utils/reference-row-reason');
+const { judgeTimingGroup } = require('../src/utils/preemption-timing-group');
 
 const DEFAULT_DEST = path.join(
   __dirname, '..', 'tmp', 'leaderspro-admin-work', 'spa', 'public', 'data', 'preemption-board.json',
@@ -104,6 +105,23 @@ function toPublicRow(row) {
     regulatoryLabel: row.regulatoryLabel || '',
     trendLabel: row.trendLabel || '',
     timing: row.timing || '',
+    monthsToPeak: row.monthsToPeak ?? null,
+    /*
+     * 시기 그룹 — 화면이 "언제 쓸 것"으로 묶는 키. 실측 산술만 쓴다
+     * (preemption-timing-group). 못 쟀으면 빈 문자열로 남는다.
+     */
+    timingGroup: judgeTimingGroup({
+      trendShape: row.trendShape || shapeFromLabel(row.trendLabel),
+      monthsToPeak: row.monthsToPeak ?? null,
+    }),
+    /*
+     * SEO/홈판 제목 2종 + 근거. 배치가 회차 실측(형제 후보·1페이지 제목·시기)으로
+     * 만든 값을 그대로 통과시킨다. 없으면(옛 세대 board.json) null.
+     */
+    titles: row.titles && row.titles.seo ? {
+      seo: { text: row.titles.seo.text, frame: row.titles.seo.frame, basis: row.titles.seo.basis },
+      home: { text: row.titles.home.text, frame: row.titles.home.frame, basis: row.titles.home.basis },
+    } : null,
     /*
      * 이 숫자가 언제쩍 결과인지.
      *

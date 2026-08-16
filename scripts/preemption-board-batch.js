@@ -39,6 +39,7 @@ const { selectWithFill, TIER_ORDER, TIER_LABEL, DEFAULT_PREEMPTION_THRESHOLDS } 
 const { BLOG_TOPIC_COVERAGE, topicsWithoutCoverage } = require('../src/utils/blog-topic-coverage');
 const { judgeTopicByEvidence } = require('../src/utils/topic-evidence');
 const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
+const { buildBoardTitles } = require('../src/utils/title-forge/board-titles');
 
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
 const FEATURE = 'golden';
@@ -96,6 +97,8 @@ function loadCandidates(inPath) {
       trendType: row.trendType || null,
       trendShape: row.trendShape || null,
       trendLabel: row.trendLabel || '',
+      // 제목 배선용 — 같은 씨앗 형제를 찾는 열쇠다. 없으면 어절 공유로 대신한다.
+      seed: row.seed || null,
       monthsToPeak: Number.isFinite(Number(row.monthsToPeak)) ? Number(row.monthsToPeak) : null,
       timing: row.timing || '',
       longTail: Boolean(row.longTail),
@@ -578,6 +581,16 @@ async function main() {
           topTitles: serp.topTitles || [],
           meaning: serp.meaning || null,
         } : null,
+        /*
+         * SEO/홈판 제목 2종. 재료는 전부 이 회차의 실측이다 —
+         * 같은 주제 형제 후보(검색량)·1페이지 제목·시기. 새 API 호출 없음.
+         * 형제가 없으면 낚시 가드대로 generic 이 된다.
+         */
+        titles: buildBoardTitles(
+          { keyword: result.keyword, seed: candidate?.seed, timing: candidate?.timing || '' },
+          byTopic.get(topic),
+          (serp && serp.topTitles) || [],
+        ),
         firstSeenAt: observedSince(firstSeen, addedKeywords, result.keyword),
       });
     }
