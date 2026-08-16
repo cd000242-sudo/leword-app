@@ -47,6 +47,7 @@ const { DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate'
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { analyzeKeywordSignals, sortWeight } = require('../src/utils/keyword-intent');
 const { sharesSeedToken } = require('../src/utils/seed-drift');
+const { judgeEphemeralKeyword } = require('../src/utils/preemption-supply-guards');
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -196,6 +197,8 @@ async function main() {
     const driftLog = [];
     /** BD 태우기 전에 무료로 걸러낸 것. 예산을 어디에 아꼈는지 남긴다. */
     const preScreened = [];
+    /** 유통기한 며칠짜리 일정 조회. 자리가 비어 있어도 글이 바로 부패한다. */
+    const ephemeralLog = [];
     let expansionWarned = false;
 
     // ── 1) 확장 씨앗을 넓힌다 ──────────────────────────────────────────
@@ -355,6 +358,18 @@ async function main() {
        * 잘라낸 쪽이 어디에 몰려 있는지 모른 채 고르게 된다.
        */
       if (measured.length >= perTopic && !measureLog) break;
+      /*
+       * 유통기한 컷 — 문서수 조회(쿼터) 전에 자른다.
+       *
+       * 8/14 회차 통과 35행 중 5행이 무대인사 일정·재방송 편성표·서버 점검류였다.
+       * 씨앗은 정리했지만 자동완성이 같은 부류를 도로 만들어 온다('스파이더맨
+       * 무대인사 일정'은 확장 산물이었다). 그래서 씨앗과 후보 양쪽에서 막는다.
+       */
+      const rot = judgeEphemeralKeyword(row.keyword);
+      if (rot.ephemeral) {
+        ephemeralLog.push(`${row.keyword} — ${rot.reason}`);
+        continue;
+      }
       /*
        * 문서수는 broad 매치 실측만 싣는다. 참고용이고 여기서 거르지 않는다.
        *
@@ -544,7 +559,7 @@ async function main() {
     console.log(
       `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
       + ` 씨앗 ${String(expansionSeeds.size).padStart(3)} → 완결 ${String(phrases.size).padStart(4)}(조각 ${incompleteLog.length}·이탈 ${driftLog.length} 제외)`
-      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length} 제외) → 무료선별 ${String(preScreened.length).padStart(3)} 제외 → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
+      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length}·부패 ${ephemeralLog.length} 제외) → 무료선별 ${String(preScreened.length).padStart(3)} 제외 → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
     );
     return {
       topic,
@@ -553,6 +568,7 @@ async function main() {
       topic, seeds: expansionSeeds.size, phrases: phrases.size,
       incomplete: incompleteLog.length, drift: driftLog.length, shortlist: shortlist.length,
       declining: decliningLog.length, decliningSamples: decliningLog.slice(0, 5),
+      ephemeral: ephemeralLog.length, ephemeralSamples: ephemeralLog.slice(0, 5),
       driftSamples: driftLog.slice(0, 5),
       rows: measured.length, seconds,
       incompleteSamples: incompleteLog.slice(0, 8),
