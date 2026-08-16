@@ -195,7 +195,9 @@ export function analyzeSerp(
     partialTitleHits: coverages.filter((c) => c >= thresholds.partialCoverage && c < thresholds.exactCoverage).length,
     medianDaysAgo,
     influencer: (html.match(/인플루언서/g) || []).length,
-    topTitles: titles.slice(0, 3),
+    // 판 것을 다 남긴다(topN=10). 3개로 자르면 findOpenSlot 이 4위 이하
+    // 빈자리를 못 보고, 제목 프레임 분석은 이미 치른 BD 비용의 원료를 잃는다.
+    topTitles: titles,
   };
 }
 

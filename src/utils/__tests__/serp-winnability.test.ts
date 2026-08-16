@@ -100,7 +100,8 @@ function author(text: string): string {
   assert('제목 4건을 읽는다', serp.sampledTitles === 4, String(serp.sampledTitles));
   // <mark> 태그가 걷혀야 '지원금'이 어절로 인식된다.
   assert('mark 태그를 걷어낸다', serp.exactTitleHits === 3, JSON.stringify(serp));
-  assert('무관한 제목은 정확일치가 아니다', serp.topTitles.length === 3);
+  // 판 제목은 전부 남긴다(2026-08-16 — 3개 절단 폐지). 자리 세기·프레임 분석의 원료다.
+  assert('읽은 제목을 전부 topTitles 로 남긴다', serp.topTitles.length === 4, String(serp.topTitles.length));
   assert('정면 대응 많으면 LOCKED', verdictFor(serp).verdict === 'LOCKED', JSON.stringify(verdictFor(serp)));
 }
 

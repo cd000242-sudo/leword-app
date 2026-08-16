@@ -10,8 +10,18 @@ function assert(name: string, condition: boolean, detail?: string): void {
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'leword-binding-revalidation-'));
 const boardFile = path.join(tmpDir, 'mobile-live-golden-binding-revalidation-board.json');
 const cacheFile = path.join(tmpDir, 'mobile-live-golden-binding-revalidation-cache.json');
-const fixedNow = new Date('2026-07-15T01:00:00.000Z');
-const measuredAtMs = Date.parse('2026-07-15T00:30:00.000Z');
+/*
+ * 시계는 절대 날짜로 동결하지 않는다 — 달력 부패 방지.
+ *
+ * searchad-volume-cache 는 주입 시계가 아니라 **실제 벽시계**로 30일 TTL 을
+ * 판정한다(searchad-volume-cache.ts isValidDiskEntry). 예전 픽스처
+ * ('2026-07-15' 고정)는 2026-08-14 에 TTL 지평선을 넘는 순간부터 코드 변경
+ * 없이 실패했고, 이 게이트가 모든 커밋을 막았다. "30분 전"으로 앵커하면
+ * TTL(30일)·미래시각 가드(+5분)·보드 나이 한도 모두의 안쪽이라 재부패가 없다.
+ */
+const fixedNow = new Date();
+const measuredAtMs = fixedNow.getTime() - 30 * 60 * 1000;
+const discoveredAtIso = new Date(fixedNow.getTime() - 5 * 60 * 60 * 1000).toISOString();
 fs.mkdirSync(tmpDir, { recursive: true });
 fs.rmSync(boardFile, { force: true });
 fs.rmSync(cacheFile, { force: true });
@@ -65,8 +75,8 @@ fs.writeFileSync(boardFile, JSON.stringify({
     documentCountQueryKey: naverBlogDocumentCountQueryKey('원룸 청소 업체 가격'),
     documentCountMeasuredAt: fixedNow.toISOString(),
     isDocumentCountEstimated: false,
-    discoveredAt: '2026-07-14T20:00:00.000Z',
-    updatedAt: '2026-07-14T20:00:00.000Z',
+    discoveredAt: discoveredAtIso,
+    updatedAt: discoveredAtIso,
     freshness: 'live',
     isPublicPreview: false,
     publicSearchVolumeLabel: '5k-10k',
@@ -98,8 +108,8 @@ fs.writeFileSync(boardFile, JSON.stringify({
     documentCountQueryKey: naverBlogDocumentCountQueryKey('에어컨 청소 비용'),
     documentCountMeasuredAt: fixedNow.toISOString(),
     isDocumentCountEstimated: false,
-    discoveredAt: '2026-07-14T20:00:00.000Z',
-    updatedAt: '2026-07-14T20:00:00.000Z',
+    discoveredAt: discoveredAtIso,
+    updatedAt: discoveredAtIso,
     freshness: 'live',
     isPublicPreview: false,
     publicSearchVolumeLabel: '2k-5k',
@@ -153,7 +163,7 @@ async function run(): Promise<void> {
       && rebound?.mobileSearchVolume === 5400
       && rebound?.totalSearchVolume === 6400
       && rebound?.searchVolumeBindingVersion === 'keyword-keyed-v2'
-      && rebound?.searchVolumeMeasuredAt === '2026-07-15T00:30:00.000Z',
+      && rebound?.searchVolumeMeasuredAt === new Date(measuredAtMs).toISOString(),
     JSON.stringify(after.verifiedSupply));
 
   const partialCacheRow = [...(radar as any).board.values()]
@@ -168,7 +178,7 @@ async function run(): Promise<void> {
   const persistedRow = persisted.items.find((item: any) => item.keyword === '원룸 청소 업체 가격');
   assert('cache rebind provenance persists for API and worker reloads',
     persistedRow?.searchVolumeBindingVersion === 'keyword-keyed-v2'
-      && persistedRow?.searchVolumeMeasuredAt === '2026-07-15T00:30:00.000Z'
+      && persistedRow?.searchVolumeMeasuredAt === new Date(measuredAtMs).toISOString()
       && persistedRow?.totalSearchVolume === 6400,
     JSON.stringify(persistedRow));
 }

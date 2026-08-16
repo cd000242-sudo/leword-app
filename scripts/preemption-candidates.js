@@ -454,7 +454,7 @@ async function main() {
        * 날을 통째로 뺀다) 전부 판정불가가 된다. 실측으로 확인했다.
        * 게다가 시즌성은 30일로는 원리상 판별이 불가능하다.
        */
-      let trend = { type: 'unknown', label: '', evidence: '' };
+      let trend = { type: 'unknown', label: '', evidence: '', monthsToPeak: null, timing: '' };
       /*
        * 이 숫자가 **언제쩍 결과인지**. 검색량은 지난 한 달의 총합이라 화면에서는
        * 정점이 1년 전인 키워드와 지금이 정점인 키워드가 똑같아 보인다.
@@ -465,7 +465,19 @@ async function main() {
         const analyzed = await analyzeDemandWithRecency(row.keyword, openApi);
         const shape = analyzed.shape;
         recency = analyzed.recency;
-        trend = { type: shape.shape, label: shape.label, evidence: shape.evidence };
+        /*
+         * monthsToPeak·timing 을 여기서 안 옮기면 계산해 놓고 버리는 것이다 —
+         * 배치 로더(preemption-board-batch.js loadCandidates)가 읽을 원본이
+         * 이 행뿐이라, 여기서 떨어뜨리면 보드의 시기 표시가 통째로 빈다.
+         * 2026-08-14 회차 34행 전부 timing='' 이 그 결과였다.
+         */
+        trend = {
+          type: shape.shape,
+          label: shape.label,
+          evidence: shape.evidence,
+          monthsToPeak: Number.isFinite(shape.monthsToPeak) ? shape.monthsToPeak : null,
+          timing: shape.timing || '',
+        };
         /*
          * 식어가는 키워드는 자리가 있어도 내보내지 않는다.
          *
@@ -512,6 +524,8 @@ async function main() {
         trendShape: trend.type,
         trendLabel: trend.label,
         trendEvidence: trend.evidence,
+        monthsToPeak: trend.monthsToPeak,
+        timing: trend.timing,
         // 언제 잰 값인지. 없으면 화면이 "언제쩍 숫자인지" 를 말할 수 없다.
         measuredAt: new Date().toISOString(),
         demandAsOf: recency.asOf,

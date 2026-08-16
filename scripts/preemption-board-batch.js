@@ -94,6 +94,7 @@ function loadCandidates(inPath) {
       regulatoryRisk: row.regulatoryRisk || null,
       regulatoryLabel: row.regulatoryLabel || '',
       trendType: row.trendType || null,
+      trendShape: row.trendShape || null,
       trendLabel: row.trendLabel || '',
       monthsToPeak: Number.isFinite(Number(row.monthsToPeak)) ? Number(row.monthsToPeak) : null,
       timing: row.timing || '',

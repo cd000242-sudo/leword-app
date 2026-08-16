@@ -480,7 +480,7 @@ export function selectWithFill(
   const thresholds = options.thresholds ?? DEFAULT_PREEMPTION_THRESHOLDS;
   const judged = inputs.map((input) => judgePreemption(input, thresholds));
 
-  const byTier = { top3: 0, page1: 0, 'page1-weak': 0, contested: 0 } as Record<PreemptionTier, number>;
+  const byTier = { top3: 0, page1: 0, 'golden-ratio': 0, 'page1-weak': 0, contested: 0 } as Record<PreemptionTier, number>;
   for (const result of judged) {
     if (result.tier) byTier[result.tier] += 1;
   }
