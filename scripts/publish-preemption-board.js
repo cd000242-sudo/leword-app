@@ -304,6 +304,17 @@ function main() {
     verified: board.verified ?? null,
     rows: withEvidence.map(toPublicRow),
     reference,
+    /*
+     * 쇼핑 레인으로 라우팅된 키워드 — 조용히 사라지면 "왜 줄었나"를 화면이
+     * 설명할 수 없다. 실측 근거(reasons)와 함께 그대로 내보낸다. 화면은
+     * "쇼핑 커넥트 소관 N건" 안내와 목록으로 쓴다. 없으면 빈 배열.
+     */
+    routedShopping: (Array.isArray(board.routedShopping) ? board.routedShopping : []).map((row) => ({
+      topic: row.topic || '',
+      keyword: row.keyword,
+      searchVolume: row.searchVolume ?? null,
+      reasons: Array.isArray(row.reasons) ? row.reasons : [],
+    })),
   };
 
   if (hasFlag('dryRun')) {

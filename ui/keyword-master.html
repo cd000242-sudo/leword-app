@@ -1431,6 +1431,19 @@
       };
 
       // 🔥 v2.42.30: 30일 트렌드 그래프 — 상대값 명시, 실제 날짜 라벨, 그리드, 호버, 절대값 추정
+      /*
+       * 모달 z-순서 관리 — "버튼 눌러 연 모달은 무조건 맨 앞"(2026-08-17 제보).
+       * 이 파일의 오버레이 z-index 가 9000~11200 까지 제각각이라, 높은 모달
+       * 안에서 낮은 모달을 열면 뒤에 깔린다(그래프 10100 < 헌터류 11000+).
+       * 고정값 경쟁을 끝내려면 열리는 순간 전역 카운터로 최상위를 받아 간다.
+       */
+      window.lewordTopZ = window.lewordTopZ || 12000;
+      window.lewordBringToFront = function(el) {
+        if (!el) return;
+        window.lewordTopZ += 10;
+        el.style.zIndex = String(window.lewordTopZ);
+      };
+
       window.rfShowTrendGraph = async function(kw, monthSv) {
         const existing = document.getElementById('rfTrendModal');
         if (existing) existing.remove();
@@ -1450,6 +1463,7 @@
           <div id="rfTrendRec" style="margin-top:12px; padding:10px 14px; background:rgba(251,191,36,0.08); border-left:3px solid #fbbf24; border-radius:6px; font-size:12px; color:#fcd34d; display:none;"></div>
         </div>`;
         document.body.appendChild(modal);
+        window.lewordBringToFront(modal);
         modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
         const escHandler = (e) => {
           if (e.key === 'Escape') {
@@ -7157,6 +7171,7 @@
               <div id="golden-lane-body"></div>
             </div>`;
           document.body.appendChild(overlay);
+          window.lewordBringToFront(overlay);
           goldenLanesEl = overlay;
 
           overlay.addEventListener('click', async (e) => {
@@ -7313,6 +7328,7 @@
               <div id="agent-cli-rows"><div style="padding:18px; color:#64748b;">감지 중…</div></div>
             </div>`;
           document.body.appendChild(overlay);
+          window.lewordBringToFront(overlay);
           agentCliEl = overlay;
 
           overlay.addEventListener('click', async (e) => {
