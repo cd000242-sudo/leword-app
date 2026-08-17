@@ -39,6 +39,8 @@ export interface WebBridgeDeps {
   getAgentStatuses: () => Promise<unknown>;
   /** 고정 템플릿 추론(레인 인사이트). 임의 프롬프트는 받지 않는다. */
   forgeInsights: (keyword: string) => Promise<unknown>;
+  /** 마인드맵·수요 분석. 없으면 그 경로는 열리지 않는다(구버전 호환). */
+  analyzeDemand?: (keyword: string) => Promise<unknown>;
   /**
    * 어드민 작업자(사장님 전용 UX: "토큰도 알아서, 자동 연동").
    * 브리지가 이 PC 의 gh 인증으로 GitHub 를 대신 부른다 — 토큰이 브라우저에
@@ -126,6 +128,31 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
         }
         const result = await deps.forgeInsights(keyword);
         json(res, 200, { ok: true, result });
+        return;
+      }
+
+      /*
+       * 마인드맵 — 사이트에서도 앱과 같은 두뇌를 쓴다.
+       *
+       * 지금까지 웹의 "마인드맵 확장키워드"는 /leword 소개로 보내는 링크였다.
+       * 앱 기능이라 웹에서는 못 돌린다고 적어 뒀는데, 브리지가 생긴 뒤로는
+       * 그 전제가 사라졌다 — 사용자 PC 의 앱이 켜져 있으면 본인 구독으로
+       * 돌릴 수 있다. 실측 확장어 + "왜 검색하나"를 그대로 돌려준다.
+       */
+      if (deps.analyzeDemand && req.method === 'POST' && req.url === '/v1/bridge/mindmap') {
+        let keyword = '';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          keyword = String(parsed?.keyword || '').trim();
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        if (!keyword || keyword.length > 60) {
+          json(res, 400, { ok: false, error: '키워드가 비었거나 너무 깁니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.analyzeDemand(keyword) });
         return;
       }
 

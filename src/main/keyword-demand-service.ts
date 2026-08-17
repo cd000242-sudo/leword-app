@@ -42,12 +42,28 @@ export interface DemandExpansion {
   source: 'autocomplete' | 'ai-verified';
 }
 
+export interface MonetizationVerdict {
+  /** 쓸까 말까 — good(써라) | bad(광고 수익 안 나온다) | mixed(각도에 달렸다) */
+  verdict: 'good' | 'bad' | 'mixed';
+  /** 클릭·체류·광고 종류를 하나하나 따진 판단. 실측을 짚은 것만 남는다. */
+  points: DemandReason[];
+  /** 쓴다면 어떤 각도로 써야 체류와 클릭이 사는가. */
+  angle: string;
+}
+
 export interface KeywordDemandResult {
   success: true;
   keyword: string;
   reasons: DemandReason[];
   expansions: DemandExpansion[];
   signals: string[];
+  /**
+   * 수익성 추론(사장님 지시 2026-08-18): "왜 검색할까?를 생각해야 돼.
+   * 광고를 클릭할까, 어떤 광고가 뜰까, 내 글에 오래 체류할까 — 전부
+   * 하나하나 따지면 결론이 나오지 않을까". 숫자를 지어내지 않는다 —
+   * 실측 검색어에서 읽어낸 질적 판단과 그 근거만 싣는다.
+   */
+  monetize: MonetizationVerdict | null;
   agent: { available: boolean; provider: string; proposed: number; verified: number; error?: string };
 }
 
@@ -145,6 +161,7 @@ export async function analyzeKeywordDemand(rawKeyword: string): Promise<KeywordD
   // ── ② 두뇌: 본인 구독으로 묶고 설명하고 더 찾는다 ─────────────────
   const agent = { available: false, provider: '', proposed: 0, verified: 0, error: undefined as string | undefined };
   let reasons: DemandReason[] = [];
+  let monetize: MonetizationVerdict | null = null;
 
   const provider = await pickAgent();
   if (!provider) {
@@ -209,6 +226,77 @@ export async function analyzeKeywordDemand(rawKeyword: string): Promise<KeywordD
         serpSections: [],
       });
       reasons = groundDemandReasons(parsed?.reasons || [], evidence);
+
+      /*
+       * 설명이 하나도 안 남는 흔한 경우: 자동완성이 0개라 1차 프롬프트에 인용할
+       * 재료가 없었고, AI 가 근거 없이 일반론을 써서 전부 걸러진 것이다. 그런데
+       * 그 사이 우리는 실측 검색량이 붙은 확장어를 손에 넣었다 — 그걸 재료로
+       * 한 번 더 물으면 근거 있는 설명이 나온다('인스타 글씨체 변환' 실측).
+       */
+      if (reasons.length === 0 && expansions.length > 0) {
+        const lines = expansions.slice(0, 10)
+          .map((e) => `${e.keyword}${e.searchVolume ? ` (월 ${e.searchVolume})` : ''}`);
+        const second = await runWithAnyAgent([
+          '너는 네이버 검색 데이터 분석가다. 아래는 우리가 실제로 측정한 값이다.',
+          '',
+          `키워드: ${keyword}`,
+          `같이 검색되는 것으로 확인된 검색어: ${lines.join(', ')}`,
+          '',
+          '사람들이 이 키워드를 검색하는 이유를 2~3개로 설명하라.',
+          '반드시 위 검색어를 **직접 인용**하면서 설명한다. 인용하지 않은 설명은 버린다.',
+          '"관심이 높아지고 있다" 같은 아무 데나 붙는 문장, 측정하지 않은 것(연령·성별·계절)은 금지.',
+          '',
+          'JSON 만 출력: {"reasons":[{"text":"...","basis":"검색량"}]}',
+        ].join('\n'), chain, { timeoutMs: AI_TIMEOUT_MS });
+        const retry = tryExtractJson(second.reply) as { reasons?: DemandReason[] } | null;
+        reasons = groundDemandReasons(retry?.reasons || [], evidence);
+      }
+
+      /*
+       * 수익성 결론 — 여기까지의 실측(확장어 + 검색량)을 재료로, 이 검색자가
+       * 광고를 클릭할 사람인지 / 무슨 광고가 뜰지 / 글에 머물지 를 하나하나
+       * 따져 쓸까 말까를 결론낸다. 숫자(예상 수익·트래픽)는 금지 — 지어낸
+       * 수치가 화면에 오르는 순간 이 도구의 신뢰가 무너진다.
+       */
+      try {
+        const lines = expansions.slice(0, 10)
+          .map((e) => `${e.keyword}${e.searchVolume ? ` (월 ${e.searchVolume})` : ''}`);
+        const verdictRun = await runWithAnyAgent([
+          '너는 애드센스 블로그 수익 분석가다. 아래는 실측 값이다.',
+          '',
+          `키워드: ${keyword}`,
+          `같이 검색되는 확인된 검색어: ${lines.join(', ') || '(없음)'}`,
+          '',
+          '이 키워드로 글을 쓸지 말지, 다음을 **하나하나** 따져 결론을 내라:',
+          '1) 이 검색자는 무엇을 손에 넣으면 만족하나 (도구 URL / 정보 / 구매처 / 절차)',
+          '2) 그 사람이 광고를 클릭할 상태인가 — 어떤 종류의 광고가 뜰 법한 검색어인가',
+          '3) 글에 머무는 시간 — 답을 한 줄 얻고 바로 나가는 검색인가, 읽어야 풀리는 검색인가',
+          '4) 결론: 쓴다/안 쓴다/각도에 달렸다. 쓴다면 어떤 각도로 써야 체류와 클릭이 사는가',
+          '',
+          '지켜라:',
+          '- 각 판단은 위 실측 검색어를 직접 인용해서 근거를 댄다',
+          '- 예상 수익·예상 트래픽 같은 숫자를 지어내지 마라',
+          '- 뻔한 덕담 금지. 안 되는 키워드면 안 된다고 말해라',
+          '',
+          'JSON 만 출력:',
+          '{"verdict":"good|bad|mixed","points":[{"text":"...","basis":"검색량"}],"angle":"쓴다면 이런 각도"}',
+        ].join('\n'), chain, { timeoutMs: AI_TIMEOUT_MS });
+        const parsedVerdict = tryExtractJson(verdictRun.reply) as {
+          verdict?: string; points?: DemandReason[]; angle?: string;
+        } | null;
+        if (parsedVerdict && ['good', 'bad', 'mixed'].includes(String(parsedVerdict.verdict))) {
+          const points = groundDemandReasons(parsedVerdict.points || [], evidence);
+          if (points.length > 0) {
+            monetize = {
+              verdict: parsedVerdict.verdict as MonetizationVerdict['verdict'],
+              points,
+              angle: String(parsedVerdict.angle || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+            };
+          }
+        }
+      } catch (error) {
+        console.error('[DEMAND] 수익성 결론 실패(없이 계속):', error);
+      }
     } catch (error) {
       agent.error = error instanceof Error ? error.message : String(error);
       console.error('[DEMAND] AI 분석 실패(실측 결과로 계속):', error);
@@ -229,6 +317,7 @@ export async function analyzeKeywordDemand(rawKeyword: string): Promise<KeywordD
     // 잰 검색량이 큰 것부터. 못 잰 것은 뒤로 — 순서가 곧 확신의 순서다.
     expansions: expansions.sort((a, b) => (b.searchVolume ?? -1) - (a.searchVolume ?? -1)).slice(0, 20),
     signals: evidence.signals,
+    monetize,
     agent,
   };
 }

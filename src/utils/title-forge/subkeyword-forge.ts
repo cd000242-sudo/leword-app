@@ -31,7 +31,8 @@ const PROBLEM_FRAMES: ReadonlySet<TitleFrame> = new Set(['mistake', 'compare']);
 
 const MAX_SUBS = 3;
 
-export function pickProblemSubKeywords(
+/** 실존 검증까지 끝난 후보를 공통 규칙으로 정리한다(남의 키워드·자기 자신 제외). */
+function normalize(
   mainKeyword: string,
   expansions: readonly ExpansionCandidate[],
 ): SubKeyword[] {
@@ -42,8 +43,44 @@ export function pickProblemSubKeywords(
       ...candidate,
       searchVolume: candidate.searchVolume ?? null,
       frame: classifyTitleFrame(candidate.keyword),
-    }))
+    }));
+}
+
+const byVolume = (a: SubKeyword, b: SubKeyword) => (b.searchVolume ?? -1) - (a.searchVolume ?? -1);
+
+export function pickProblemSubKeywords(
+  mainKeyword: string,
+  expansions: readonly ExpansionCandidate[],
+): SubKeyword[] {
+  return normalize(mainKeyword, expansions)
     .filter((candidate) => PROBLEM_FRAMES.has(candidate.frame))
-    .sort((a, b) => (b.searchVolume ?? -1) - (a.searchVolume ?? -1))
+    .sort(byVolume)
     .slice(0, MAX_SUBS);
+}
+
+/**
+ * 문제해결형을 **우선**하되 모자라면 실존 검색어로 채운다.
+ *
+ * 왜 채우는가 (2026-08-18 실측): 프롬프트를 고쳐 실존 검증 통과가 2% → 77%
+ * 로 올랐는데(제안 79 → 통과 61) 정작 보강된 행은 0이었다. 실제로 검색되는
+ * 61개를 손에 쥐고도 프레임 하나만 보고 전부 버렸기 때문이다.
+ *
+ * 문제해결형이 정보 수요가 가장 진한 것은 맞지만, 모든 키워드가 문제를 안고
+ * 검색되는 것은 아니다. 실존이 확인된 검색어를 버리는 것보다 순서를 매겨
+ * 보여주는 편이 낫다 — 지어낸 것이 아니라 사람들이 실제로 치는 말이다.
+ */
+export function pickSubKeywords(
+  mainKeyword: string,
+  expansions: readonly ExpansionCandidate[],
+): SubKeyword[] {
+  const all = normalize(mainKeyword, expansions);
+  const problems = all.filter((c) => PROBLEM_FRAMES.has(c.frame)).sort(byVolume);
+  if (problems.length >= MAX_SUBS) return problems.slice(0, MAX_SUBS);
+
+  const taken = new Set(problems.map((p) => p.keyword));
+  const fill = all
+    .filter((c) => !taken.has(c.keyword))
+    .sort(byVolume)
+    .slice(0, MAX_SUBS - problems.length);
+  return [...problems, ...fill];
 }

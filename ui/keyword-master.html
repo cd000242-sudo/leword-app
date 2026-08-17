@@ -7582,12 +7582,9 @@
               </div>`;
             }).join('');
             content.innerHTML = `<div style="font-weight:700; color:#475569; margin-bottom:8px;">🔗 "${kw}" 확장 키워드 (클릭 → LEWORD 재검색)</div>${items}
-              <div id="demand-${idx}" style="margin-top:10px;">
-                <button onclick="analyzeDemand('${String(kw).replace(/'/g, "\\'")}', ${idx})"
-                        style="padding:7px 12px; background:#f5f3ff; color:#6d28d9; border:1px solid #ddd6fe; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700;">
-                  🧠 왜 검색하는지 분석 (내 클로드코드·코덱스)
-                </button>
-              </div>`;
+              <div id="demand-${idx}" style="margin-top:10px;"></div>`;
+            // 누르라고 하지 않는다 — 펼치면 바로 보인다(사장님 지시 2026-08-18).
+            window.analyzeDemand(kw, idx);
           } catch (err) {
             content.innerHTML = `<div style="color:#ef4444;">조회 실패: ${err?.message || err}</div>`;
           }
@@ -7652,6 +7649,22 @@
                   <span style="font-weight:500; color:#8b7fb8; font-size:10px;">제안 ${res.agent?.proposed || 0} → 통과 ${aiFound.length}</span>
                 </div>
                 <div>${aiHtml}</div>
+                ${res.monetize ? (() => {
+                  const m = res.monetize;
+                  const badge = m.verdict === 'good' ? ['#dcfce7', '#15803d', '✅ 쓸 만하다']
+                    : m.verdict === 'bad' ? ['#fee2e2', '#b91c1c', '⛔ 광고 수익 안 나온다']
+                      : ['#fef9c3', '#a16207', '⚖ 각도에 달렸다'];
+                  const pts = m.points.map(p => `<li style="margin-bottom:5px; line-height:1.6;">${p.text}</li>`).join('');
+                  return `
+                    <div style="margin-top:12px; padding-top:10px; border-top:1px dashed #ddd6fe;">
+                      <div style="font-weight:800; color:#5b21b6; font-size:12px; margin-bottom:7px;">
+                        💰 광고 수익 관점 — 클릭할까 · 무슨 광고가 뜰까 · 머물까
+                        <span style="display:inline-block; margin-left:6px; padding:2px 8px; border-radius:999px; background:${badge[0]}; color:${badge[1]}; font-size:10px; font-weight:800;">${badge[2]}</span>
+                      </div>
+                      <ul style="margin:0 0 8px 16px; padding:0; color:#3f3f5f; font-size:12px;">${pts}</ul>
+                      ${m.angle ? `<div style="padding:7px 10px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; color:#166534; font-size:12px; line-height:1.6;"><strong>쓴다면:</strong> ${m.angle}</div>` : ''}
+                    </div>`;
+                })() : ''}
               </div>`;
           } catch (err) {
             box.innerHTML = `<div style="color:#ef4444; font-size:12px;">분석 실패: ${err?.message || err}</div>`;

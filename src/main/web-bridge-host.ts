@@ -10,6 +10,7 @@ import { app } from 'electron';
 import { execFile } from 'child_process';
 import { startWebBridge } from './web-bridge';
 import { forgeLaneInsights } from './lane-insights-service';
+import { analyzeKeywordDemand } from './keyword-demand-service';
 import { detectAgent } from '../utils/agent-cli/detect';
 
 const WORKER_REPO = 'cd000242-sudo/leword-app';
@@ -62,6 +63,7 @@ export function startWebBridgeHost(): void {
         return statuses;
       },
       forgeInsights: (keyword) => forgeLaneInsights(keyword),
+      analyzeDemand: (keyword) => analyzeKeywordDemand(keyword),
       adminWorker: {
         status: workerStatus,
         dispatchTest: workerDispatchTest,

@@ -167,7 +167,11 @@ function buildPrompt(batch) {
     '- "최신 이슈와 핵심 내용 정리", "관련 확인할 점", "총정리", "한눈에" 같은',
     '  상투구 금지. 아무 기사에나 갖다 붙일 수 있는 문장이면 실패다.',
     '',
-    'JSON 배열로만 출력한다: [{"keyword":"...","seo":"...","home":"..."}]',
+    '- summary: 기사에서 무슨 일이 있었는지 **두 문장**으로. 90자 이내.',
+    '  기사 원문을 그대로 옮기지 말고 핵심만 남긴다. 사실에 없는 말은 넣지 않는다.',
+    '  "~라고 밝혔다" 식 인용 나열 대신, 무엇이 어떻게 됐는지를 먼저 쓴다.',
+    '',
+    'JSON 배열로만 출력한다: [{"keyword":"...","seo":"...","home":"...","summary":"..."}]',
     '',
     ...batch.map((row, i) => [
       `${i + 1}) 검색어: ${row.keyword}`,
@@ -195,8 +199,25 @@ async function titlesForBatch(batch) {
       rejectedHome.push(`${keyword} — 서브 없음: ${home}`);
       home = '';
     }
-    if (!seo && !home) continue;
-    titles.push({ keyword, ...(seo ? { seo } : {}), ...(home ? { home } : {}), provider: run.provider });
+    /*
+     * 요약도 사실에 붙들어 맨다 — 기사에 없는 낱말만으로 이루어진 요약은
+     * 지어낸 것이다. 사실 문장의 낱말을 하나도 안 쓰면 버린다.
+     */
+    const summaryRaw = String(entry.summary || '').replace(/\s+/g, ' ').trim();
+    const factTokens = row.facts.flatMap((f) => tokensOf(f));
+    const summary = (summaryRaw.length >= 15 && summaryRaw.length <= 140
+      && factTokens.some((t) => summaryRaw.includes(t)))
+      ? summaryRaw
+      : '';
+
+    if (!seo && !home && !summary) continue;
+    titles.push({
+      keyword,
+      ...(seo ? { seo } : {}),
+      ...(home ? { home } : {}),
+      ...(summary ? { summary } : {}),
+      provider: run.provider,
+    });
   }
   return { provider: run.provider, titles };
 }

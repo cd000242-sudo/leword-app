@@ -26,7 +26,7 @@ const fs = require('fs');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
 const { probeNaverAutocompleteSuggestions } = require('../src/utils/naver-autocomplete');
-const { pickProblemSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
+const { pickSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
 const { sharesToken } = require('../src/utils/title-forge/board-titles');
 const { forgeTitles } = require('../src/utils/title-forge/forge');
 const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
@@ -52,7 +52,11 @@ function arg(name, fallback = '') {
 }
 
 const AI_TIMEOUT_MS = 60_000;
-const AI_PROPOSAL_CAP = 5;
+/*
+ * 검증을 통과한 것 중에서 문제해결형을 고르는 구조라, 풀이 넓어야 고를 것이
+ * 생긴다. 5개로는 통과분이 1~2개뿐이라 프레임 선별에서 전부 떨어졌다.
+ */
+const AI_PROPOSAL_CAP = 10;
 
 /** 마지막으로 답한 구독 CLI. 어느 배선이 이 결과를 만들었는지 행에 남긴다. */
 let lastProvider = '';
@@ -86,15 +90,34 @@ async function measureVolumes(searchAd, keywords) {
 
 /** 클로드에 문제해결형 파생 제안을 받는다 — 반환은 미검증 후보다. */
 async function proposeSubKeywords(mainKeyword) {
+  /*
+   * 2026-08-18 실측: "문제해결형만" 을 강요했더니 제안 142건 중 3건만 실존
+   * 확인을 통과했다(2%). 각도를 좁게 못 박으면 AI 가 **말이 되는 검색어를
+   * 지어낸다** — 실제로 아무도 안 치는 말이다.
+   *
+   * 같은 날 수요 분석기는 "실제로 칠 법한 검색어"만 물었더니 6건 중 6건이
+   * 실측 검색량으로 확인됐다. 그래서 여기서도 각도를 강요하지 않는다.
+   * 문제해결형 선별은 검증을 통과한 **실존 검색어 풀**에서 나중에 한다
+   * (pickProblemSubKeywords) — 없는 것을 만들어 내는 것보다 있는 것 중에
+   * 고르는 편이 언제나 낫다.
+   */
   const prompt = [
     '너는 네이버 검색어 데이터 전문가다.',
-    `검색 키워드 "${mainKeyword}" 에 대해, 사람들이 실제로 네이버 검색창에 치는 **문제해결형 파생 검색어** ${AI_PROPOSAL_CAP}개를 제안하라.`,
+    `검색 키워드 "${mainKeyword}" 를 찾는 사람들이 **실제로 네이버에 치는 다른 검색어** ${AI_PROPOSAL_CAP}개를 대라.`,
     '',
-    '지켜라:',
+    '가장 중요한 것: **실제로 존재하는 검색어만**. 우리가 검색량으로 확인하므로',
+    '지어낸 말은 전부 탈락하고, 탈락하면 이 키워드는 빈손으로 나간다.',
+    '확신이 없으면 개수를 줄여라 — 적고 진짜인 편이 많고 가짜인 것보다 낫다.',
+    '',
+    '이런 것들이 실제로 많이 검색된다:',
+    '- 정식 명칭 ↔ 구어·줄임말 (예: 민증사진 ↔ 주민등록증 사진)',
+    '- 세부 조건 (규격·크기·가격·기간·자격·준비물)',
+    '- 막히는 지점 (안 됨·반려·오류·취소·환불)',
+    '- 바로 옆 대안 (비교 대상, 대체 서비스, 다음 단계)',
+    '',
+    '형식:',
     `- "${mainKeyword}" 의 핵심 명사를 포함`,
-    '- 검색창에 치는 짧은 명사구 형태: 2~4어절, 공백 제외 15자 이내. 질문 문장·조사 금지',
-    '- 문제/실수/원인/해결/안됨/비교 각도만 (추천·후기·일반 정보형 금지)',
-    '- 예시 형태: "여권사진 안경", "여권사진 반려 사유" (이 키워드가 아니라 형태만 참고)',
+    '- 검색창에 치는 짧은 명사구: 2~4어절, 공백 제외 15자 이내. 질문 문장 금지',
     '- JSON 문자열 배열로만 출력: ["검색어1", "검색어2", ...]',
   ].join('\n');
   const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
@@ -169,7 +192,11 @@ async function main() {
      * 병합: 기존(형제 실측) + AI 검증분을 한 풀로 두고 프레임 게이트를 다시
      * 통과시킨다 — 출처가 달라도 기준은 하나다.
      */
-    const merged = pickProblemSubKeywords(row.keyword, [...existingSubs, ...verified]);
+    /*
+     * 문제해결형 우선, 모자라면 실존 검색어로 채운다. 엄격한 판정만 쓰면
+     * 실측 통과 61건을 쥐고도 보강 0행이 된다(2026-08-18 실측).
+     */
+    const merged = pickSubKeywords(row.keyword, [...existingSubs, ...verified]);
     const gotNewSubs = merged.length > existingSubs.length;
 
     /*
