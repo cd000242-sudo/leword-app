@@ -39,8 +39,8 @@ export interface WebBridgeDeps {
   getAgentStatuses: () => Promise<unknown>;
   /** 고정 템플릿 추론(레인 인사이트). 임의 프롬프트는 받지 않는다. */
   forgeInsights: (keyword: string) => Promise<unknown>;
-  /** 마인드맵·수요 분석. 없으면 그 경로는 열리지 않는다(구버전 호환). */
-  analyzeDemand?: (keyword: string) => Promise<unknown>;
+  /** 마인드맵·수요 분석. light=연쇄용 경량(AI 1콜). 없으면 경로가 안 열린다. */
+  analyzeDemand?: (keyword: string, light?: boolean) => Promise<unknown>;
   /** 30일 트렌드(데이터랩 실측). 없으면 그 경로는 열리지 않는다. */
   trend30?: (keyword: string) => Promise<unknown>;
   /**
@@ -143,9 +143,11 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
        */
       if (deps.analyzeDemand && req.method === 'POST' && req.url === '/v1/bridge/mindmap') {
         let keyword = '';
+        let light = false;
         try {
           const parsed = JSON.parse((await readBody(req)) || '{}');
           keyword = String(parsed?.keyword || '').trim();
+          light = parsed?.light === true;
         } catch {
           json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
           return;
@@ -154,7 +156,7 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           json(res, 400, { ok: false, error: '키워드가 비었거나 너무 깁니다.' });
           return;
         }
-        json(res, 200, { ok: true, result: await deps.analyzeDemand(keyword) });
+        json(res, 200, { ok: true, result: await deps.analyzeDemand(keyword, light) });
         return;
       }
 

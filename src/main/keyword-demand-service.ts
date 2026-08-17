@@ -135,9 +135,23 @@ function buildPrompt(keyword: string, expansions: string[], volumeLines: string[
   ].join('\n');
 }
 
-export async function analyzeKeywordDemand(rawKeyword: string): Promise<KeywordDemandResult> {
+export interface DemandAnalysisOptions {
+  /**
+   * 연쇄(자동 연관 분석)용 경량 모드 — AI 제안·재질문을 건너뛰고 실측
+   * (자동완성+검색량) 위에서 이유·수익 결론만 한 번에 받는다(AI 1콜).
+   * 사장님 지시(2026-08-18): "비슷하게 많이 찾는 키워드를 자동으로 분석" —
+   * 연관 하나하나에 풀코스를 돌리면 클릭 한 번에 AI 십수 콜이 나간다.
+   */
+  light?: boolean;
+}
+
+export async function analyzeKeywordDemand(
+  rawKeyword: string,
+  options: DemandAnalysisOptions = {},
+): Promise<KeywordDemandResult> {
   const keyword = String(rawKeyword || '').trim();
   if (!keyword) throw new Error('키워드가 비어 있습니다.');
+  const light = options.light === true;
 
   const env = EnvironmentManager.getInstance().getConfig();
   const openApi = { clientId: env.naverClientId || '', clientSecret: env.naverClientSecret || '' };
@@ -167,6 +181,54 @@ export async function analyzeKeywordDemand(rawKeyword: string): Promise<KeywordD
   const provider = await pickAgent();
   if (!provider) {
     agent.error = 'no_agent';
+  } else if (light) {
+    // ── 경량(연쇄용): AI 1콜로 이유 + 수익 결론만 ─────────────────────
+    agent.available = true;
+    const LIGHT_RUNNERS = [
+      { provider: 'claude' as const, run: runClaude },
+      { provider: 'codex' as const, run: runCodex },
+      { provider: 'gemini' as const, run: runGemini },
+      { provider: 'grok' as const, run: runGrok },
+    ];
+    const startAt = LIGHT_RUNNERS.findIndex((r) => r.provider === provider);
+    const lightChain = [...LIGHT_RUNNERS.slice(startAt), ...LIGHT_RUNNERS.slice(0, startAt)];
+    try {
+      const lines = expansions.slice(0, 10)
+        .map((e) => `${e.keyword}${e.searchVolume ? ` (월 ${e.searchVolume})` : ''}`);
+      const run = await runWithAnyAgent([
+        '너는 네이버 검색 데이터 분석가이자 애드센스 수익 분석가다. 아래는 실측 값이다.',
+        '',
+        `키워드: ${keyword}`,
+        `같이 검색되는 확인된 검색어: ${lines.join(', ') || '(없음)'}`,
+        '',
+        '1) reasons — 이 키워드를 검색하는 이유 2개. 위 실측 검색어를 직접 인용해서.',
+        '   아무 키워드에나 붙는 문장·측정 안 한 것(연령·계절) 금지.',
+        '2) verdict — 광고 수익 관점: good(써라)/bad(안 나온다)/mixed(각도에 달렸다).',
+        '   points 는 실측 검색어를 인용한 판단 1~2개, angle 은 쓴다면의 각도 한 줄.',
+        '',
+        'JSON 만: {"reasons":[{"text":"...","basis":"검색량"}],"verdict":"good|bad|mixed","points":[{"text":"..."}],"angle":"..."}',
+      ].join('\n'), lightChain, { timeoutMs: AI_TIMEOUT_MS });
+      agent.provider = run.provider;
+      const parsed = tryExtractJson(run.reply) as {
+        reasons?: DemandReason[]; verdict?: string; points?: DemandReason[]; angle?: string;
+      } | null;
+      const evidence = buildDemandEvidence({
+        keyword, expansions: expansions.map((e) => e.keyword), volumes, serpSections: [],
+      });
+      reasons = groundDemandReasons(parsed?.reasons || [], evidence);
+      if (parsed && ['good', 'bad', 'mixed'].includes(String(parsed.verdict))) {
+        const points = groundDemandReasons(parsed.points || [], evidence);
+        if (points.length > 0) {
+          monetize = {
+            verdict: parsed.verdict as MonetizationVerdict['verdict'],
+            points,
+            angle: String(parsed.angle || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+          };
+        }
+      }
+    } catch (error) {
+      agent.error = error instanceof Error ? error.message : String(error);
+    }
   } else {
     agent.available = true;
     /*

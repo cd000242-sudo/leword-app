@@ -63,7 +63,7 @@ export function startWebBridgeHost(): void {
         return statuses;
       },
       forgeInsights: (keyword) => forgeLaneInsights(keyword),
-      analyzeDemand: (keyword) => analyzeKeywordDemand(keyword),
+      analyzeDemand: (keyword, light) => analyzeKeywordDemand(keyword, { light }),
       trend30: async (keyword) => {
         const { EnvironmentManager } = await import('../utils/environment-manager');
         const { analyzeKeywordTrend } = await import('../utils/trend-type-classifier');

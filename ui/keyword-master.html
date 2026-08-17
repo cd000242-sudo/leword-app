@@ -7730,6 +7730,7 @@
                   <span style="font-weight:500; color:#8b7fb8; font-size:10px;">제안 ${res.agent?.proposed || 0} → 통과 ${aiFound.length}</span>
                 </div>
                 <div>${aiHtml}</div>
+                <div id="demand-chain-${idx}"></div>
                 ${res.monetize ? (() => {
                   const m = res.monetize;
                   const badge = m.verdict === 'good' ? ['#dcfce7', '#15803d', '✅ 쓸 만하다']
@@ -7747,6 +7748,42 @@
                     </div>`;
                 })() : ''}
               </div>`;
+
+            /*
+             * 자동 연쇄(사장님 지시 2026-08-18): 확인된 확장어 중 검색량 상위
+             * 2개를 경량 분석(AI 1콜)으로 이어서 돌린다 — 순차 실행이라 구독
+             * 부담이 겹치지 않고, 도착하는 대로 아래에 쌓인다.
+             */
+            const chainBox = document.getElementById('demand-chain-' + idx);
+            const chainTargets = (res.expansions || [])
+              .filter(e => typeof e.searchVolume === 'number' && e.searchVolume > 0)
+              .sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0))
+              .slice(0, 2);
+            if (chainBox && chainTargets.length > 0) {
+              chainBox.innerHTML = '<div style="margin-top:12px; padding-top:10px; border-top:1px dashed #ddd6fe; font-weight:800; color:#5b21b6; font-size:12px;">🔗 많이 찾는 연관 자동 분석</div>';
+              for (const target of chainTargets) {
+                const slot = document.createElement('div');
+                slot.style.cssText = 'margin-top:8px; font-size:12px; color:#3f3f5f;';
+                slot.innerHTML = `<strong style="color:#6d28d9;">${target.keyword}</strong> <span style="color:#94a3b8;">분석 중…</span>`;
+                chainBox.appendChild(slot);
+                try {
+                  const sub = await sendIPCRequest('analyze-keyword-demand', { keyword: target.keyword, light: true });
+                  if (!sub || sub.success === false) { slot.querySelector('span').textContent = '실패 — 넘어감'; continue; }
+                  const verdict = sub.monetize
+                    ? (sub.monetize.verdict === 'good' ? '<em style="font-style:normal; margin-left:6px; padding:1px 7px; border-radius:999px; background:#dcfce7; color:#15803d; font-size:10px; font-weight:800;">✅ 쓸 만하다</em>'
+                      : sub.monetize.verdict === 'bad' ? '<em style="font-style:normal; margin-left:6px; padding:1px 7px; border-radius:999px; background:#fee2e2; color:#b91c1c; font-size:10px; font-weight:800;">⛔ 수익 안 나옴</em>'
+                        : '<em style="font-style:normal; margin-left:6px; padding:1px 7px; border-radius:999px; background:#fef9c3; color:#a16207; font-size:10px; font-weight:800;">⚖ 각도에 달림</em>')
+                    : '';
+                  const lines = (sub.reasons || []).slice(0, 2).map(r => `<li style="margin-bottom:3px; line-height:1.55;">${r.text}</li>`).join('')
+                    + (sub.monetize && sub.monetize.angle ? `<li style="margin-bottom:3px; line-height:1.55;"><b>쓴다면:</b> ${sub.monetize.angle}</li>` : '');
+                  slot.innerHTML = `<strong style="color:#6d28d9;">${target.keyword}</strong>${verdict}`
+                    + (lines ? `<ul style="margin:5px 0 0 16px; padding:0;">${lines}</ul>` : ' <span style="color:#94a3b8;">근거 있는 설명 없음</span>');
+                } catch (chainErr) {
+                  const wait = slot.querySelector('span');
+                  if (wait) wait.textContent = '실패 — 넘어감';
+                }
+              }
+            }
           } catch (err) {
             box.innerHTML = `<div style="color:#ef4444; font-size:12px;">분석 실패: ${err?.message || err}</div>`;
           }
