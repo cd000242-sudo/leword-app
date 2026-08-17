@@ -1,0 +1,90 @@
+name: 실시간 브리프 제목 창고
+
+# 실시간 브리프 제목을 **구독**(클로드코드)으로 짓는다.
+#
+# 왜 사이트 저장소가 아니라 여기인가:
+#   사이트 크론은 15분마다 데이터를 통째로 다시 만들어서, 밖에서 제목을 고쳐
+#   넣어도 다음 회차에 지워진다. 붙이려면 만드는 자리에서 붙여야 하는데 사이트
+#   저장소에는 구독 자격(CLAUDE_CODE_OAUTH_TOKEN)이 없다 — 있는 곳이 여기다.
+#   그래서 여기서 키워드별 제목을 지어 brief-titles.json 으로 사이트에 얹어 두고,
+#   크론이 키워드로 찾아 쓴다. 창고가 비거나 낡아도 크론은 템플릿으로 버틴다.
+#
+# 사장님 손이 필요한 준비물은 없다 — 이 저장소의 시크릿만 쓴다.
+
+on:
+  schedule:
+    - cron: '10 * * * *'   # 매시 10분
+  workflow_dispatch:
+    inputs:
+      max:
+        description: '이번 실행에서 새로 지을 키워드 수 상한'
+        default: '40'
+
+# 앞 실행이 밀렸을 때 겹쳐 돌면 같은 파일을 두 번 밀어 넣는다.
+concurrency:
+  group: brief-titles
+  cancel-in-progress: false
+
+jobs:
+  titles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 구독 토큰 확인
+        env:
+          HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_TOKEN" != 'true' ]; then
+            echo '::error::CLAUDE_CODE_OAUTH_TOKEN 시크릿이 없습니다.'
+            exit 1
+          fi
+
+      - name: Claude Code 설치
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: 사이트 레포 체크아웃
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+
+      - name: 제목 창고 생성
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && break
+            echo "npm ci 재시도 $i/3"
+          done
+          # 사이트가 지금 띄우고 있는 실시간 신호를 그대로 재료로 쓴다.
+          node scripts/enrich-brief-titles.js \
+            --in=site/spa/public/data/source-signals.json \
+            --out=site/spa/public/data/brief-titles.json \
+            --max=${{ inputs.max || '40' }}
+
+      - name: 창고 커밋
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/brief-titles.json
+          if git diff --cached --quiet; then
+            echo '새로 지은 제목이 없다.'
+            exit 0
+          fi
+          git commit -m "chore(brief): 제목 창고 갱신 $(date -u '+%Y-%m-%d %H:%M UTC')"
+          # 15분 크론과 같은 파일 트리를 만지므로 밀어내기 경합이 잦다. 물러섰다 다시.
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            echo "푸시 재시도 $i/3"
+            sleep 10
+          done
+          echo '::error::창고 푸시 실패'
+          exit 1
