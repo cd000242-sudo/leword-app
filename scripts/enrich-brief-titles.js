@@ -227,7 +227,11 @@ function loadExisting(outPath) {
     if (!fs.existsSync(outPath)) return [];
     const raw = JSON.parse(fs.readFileSync(outPath, 'utf8'));
     const fresh = Date.now() - CACHE_TTL_MS;
-    return (raw.titles || []).filter((t) => Date.parse(String(t.at || '')) >= fresh);
+    return (raw.titles || [])
+      .filter((t) => Date.parse(String(t.at || '')) >= fresh)
+      // 요약이 없는 항목은 옛 형식이다 — 유지하면 그 키워드는 TTL 이 끝날
+      // 때까지 요약 없이 나간다. 즉시 만료시켜 다음 실행에서 다시 짓는다.
+      .filter((t) => typeof t.summary === 'string' && t.summary.length > 0);
   } catch {
     return [];
   }
