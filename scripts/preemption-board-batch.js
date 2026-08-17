@@ -42,6 +42,7 @@ const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limite
 const { buildBoardTitles } = require('../src/utils/title-forge/board-titles');
 const { pickProblemSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
 const { judgePlatformLane } = require('../src/utils/platform-lane');
+const { classifySearchIntent, resolveIntentFromSerp } = require('../src/utils/keyword-intent');
 
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
 const FEATURE = 'golden';
@@ -499,18 +500,35 @@ async function main() {
      * 판정은 SERP 실측 3중 증거(쇼핑 구획·상품명 카드·스마트블록)만 쓴다 —
      * 8/17 월요일 회차 28행으로 캘리브레이션했고, 브랜드명 추측은 쓰지 않는다.
      */
-    const laned = allJudged.map((e) => ({
-      ...e,
-      laneVerdict: judgePlatformLane({
-        keyword: e.input.keyword,
-        serpSections: e.input.serp ? (e.input.serp.sections || null) : null,
-        productNames: e.input.serp && e.input.serp.meaning
-          ? (e.input.serp.meaning.productNames || null) : null,
-        intentLabel: e.candidate.intentLabel || null,
-        adCount: e.input.serp ? (e.input.serp.adCount ?? null) : null,
-        cpc: e.candidate.cpc ?? null,
-      }),
-    }));
+    const laned = allJudged.map((e) => {
+      /*
+       * 의도는 어휘가 아니라 **SERP 구획 실측**으로 판정한다.
+       *
+       * 첫 수동 회차(2026-08-17) 실측: 어휘 의도는 132건 중 111건이
+       * '분류 안 됨'이라 AdSense 판정이 22건 미판정으로 죽었다. 게다가
+       * keywordstool 은 이런 롱테일에 CPC 를 안 돌려준다(0/132) — 남은
+       * 실측 근거는 구획뿐이고, 마침 제일 강한 근거다(지식iN·AI브리핑이
+       * 뜨는 검색 = 정보형이라는 네이버 자신의 판정).
+       */
+      const sections = e.input.serp ? (e.input.serp.sections || null) : null;
+      const resolvedIntent = resolveIntentFromSerp(
+        classifySearchIntent(e.input.keyword),
+        sections,
+      );
+      return {
+        ...e,
+        resolvedIntentLabel: resolvedIntent.intentLabel,
+        laneVerdict: judgePlatformLane({
+          keyword: e.input.keyword,
+          serpSections: sections,
+          productNames: e.input.serp && e.input.serp.meaning
+            ? (e.input.serp.meaning.productNames || null) : null,
+          intentLabel: resolvedIntent.intentLabel || e.candidate.intentLabel || null,
+          adCount: e.input.serp ? (e.input.serp.adCount ?? null) : null,
+          cpc: e.candidate.cpc ?? null,
+        }),
+      };
+    });
     for (const routed of laned.filter((e) => e.laneVerdict.lane === 'shopping')) {
       routedShopping.push({
         topic,

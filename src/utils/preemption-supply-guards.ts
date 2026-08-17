@@ -43,3 +43,27 @@ export function judgeEphemeralKeyword(keyword: string): EphemeralVerdict {
   }
   return { ephemeral: false, reason: '' };
 }
+
+/*
+ * 불법·회색 콘텐츠 유도 검색어 — '무료 영화 사이트 링크 모음'이 top3 로
+ * 두 회차 연속 통과했다(2026-08-17 실측). 자리가 비어 있어도 그 글은
+ * 불법 스트리밍 안내가 되거나 애드센스 정책 위반이 된다. 좁게 잡는다 —
+ * '영화관 무료 관람일'(정상 정보) 같은 것을 삼키면 가드가 독이 된다.
+ */
+const RESTRICTED_PATTERNS: ReadonlyArray<{ pattern: RegExp; label: string }> = [
+  {
+    pattern: /무료\s*(영화|드라마|애니|웹툰|만화|티비|TV)\s*(사이트|링크|스트리밍|다시\s*보기|보기\s*사이트)/i,
+    label: '무료 시청 사이트 유도 — 불법 스트리밍 안내 글이 된다',
+  },
+  { pattern: /누누티비|티비몬|티비착|누누tv/i, label: '불법 스트리밍 서비스명 — 다룰 수 없는 검색어다' },
+];
+
+export function judgeRestrictedKeyword(keyword: string): EphemeralVerdict {
+  const text = String(keyword || '');
+  for (const { pattern, label } of RESTRICTED_PATTERNS) {
+    if (pattern.test(text)) {
+      return { ephemeral: true, reason: label };
+    }
+  }
+  return { ephemeral: false, reason: '' };
+}

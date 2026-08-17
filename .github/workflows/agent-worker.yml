@@ -68,9 +68,48 @@ jobs:
           fi
           echo "✅ 에이전트 응답: $RESULT"
 
-      # 회차 보강은 다음 단계 — 자리를 잡아두되 있는 척하지 않는다.
-      - name: 회차 보강 (준비 중)
+      # 회차 보강 — 발행된 보드를 다시 보강해 재발행한다(어드민 버튼용).
+      # 정기 회차는 preemption-board.yml 안에서 발행 전에 자동 보강되므로,
+      # 이 모드는 "지금 떠 있는 보드를 더 채우고 싶다"는 온디맨드 용도다.
+      - name: 사이트 레포 체크아웃 (enrich)
         if: ${{ inputs.mode == 'enrich' }}
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+
+      - name: 회차 보강 (published board 재보강)
+        if: ${{ inputs.mode == 'enrich' }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: |
-          echo '::error::enrich 모드는 아직 배선 전입니다. 보강 파이프라인이 붙으면 열립니다.'
-          exit 1
+          for i in 1 2 3; do
+            timeout 600 npm ci && break
+            echo "npm ci 재시도 $i/3"
+          done
+          # 발행본은 이미 화면 형식이다 — 보강 스크립트는 서브·제목 필드만 얹으므로
+          # 재변환(publish) 없이 그대로 되쓴다. 발행 변환기를 다시 태우면 raw/공개
+          # 형식 차이(serp.sections vs serpSections)로 데이터가 망가진다.
+          node scripts/enrich-board.js --in=site/spa/public/data/preemption-board.json --out=enriched.json --maxAi=30
+          mv enriched.json site/spa/public/data/preemption-board.json
+
+      - name: 보강본 커밋 (enrich)
+        if: ${{ inputs.mode == 'enrich' }}
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/preemption-board.json
+          if git diff --cached --quiet; then
+            echo '보강으로 바뀐 것이 없다.'
+            exit 0
+          fi
+          git commit -m "chore(board): 에이전트 보강 $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push
