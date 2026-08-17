@@ -7184,9 +7184,42 @@
             if (rtBtn) { await laneLoadRealtime(rtBtn); return; }
           });
           renderGoldenLane();
+
+          /*
+           * 회차 보드를 뒤에서 불러온다 — 웹(leaderspro.kr)과 같은 데이터.
+           * 오면 레인이 보드 기준으로 다시 그려지고(서브·제목·수익 판정이
+           * 이미 실려 있다), 실패하면 로컬 발굴 결과 그대로 간다.
+           */
+          window.electronAPI.invoke('get-preemption-board').then((res) => {
+            if (res && res.success && Array.isArray(res.rows) && res.rows.length > 0) {
+              window.__lewordBoard = res;
+              if (goldenLanesEl) renderGoldenLane();
+            }
+          }).catch(() => { /* 폴백: 로컬 결과 */ });
         }
 
+        /*
+         * 레인의 데이터 소스. 회차 보드(웹과 동일)가 있으면 그것을 앱 카드가
+         * 아는 모양으로 맞춰 쓰고, 없으면 로컬 발굴 결과다.
+         */
         function laneRows() {
+          const board = window.__lewordBoard;
+          if (board && Array.isArray(board.rows) && board.rows.length > 0) {
+            return board.rows.map((r) => ({
+              keyword: r.keyword,
+              searchVolume: r.searchVolume ?? null,
+              documentCount: r.documentCount ?? 0,
+              goldenRatio: (r.searchVolume && r.documentCount) ? r.searchVolume / r.documentCount : null,
+              platformLane: r.layoutBestFor === 'shopping' ? 'shopping' : null,
+              adsenseFit: r.adsenseFit ?? null,
+              winnable: true, // 보드 행은 전부 자리 판정을 통과한 것들이다
+              category: r.topic || r.tierLabel || '기타',
+              titles: r.titles || null,
+              subKeywords: Array.isArray(r.subKeywords) ? r.subKeywords : [],
+              monetize: r.monetize || null,
+              fromBoard: true,
+            }));
+          }
           const store = window.lastGoldenResults;
           return store && Array.isArray(store.rows) ? store.rows : [];
         }
@@ -7196,15 +7229,55 @@
             : (Number(item.pcSearchVolume || 0) + Number(item.mobileSearchVolume || 0)) || null;
           const stats = `검색량 <b>${vol === null ? '-' : vol.toLocaleString()}</b> · 문서량 <b>${(item.documentCount ?? 0).toLocaleString()}</b>` +
             (item.goldenRatio ? ` · 비율 <b>${Number(item.goldenRatio).toFixed(1)}</b>` : '');
+
+          /*
+           * 보드 행은 서브·제목이 이미 실려 있다 — 버튼 대신 바로 보인다
+           * (웹과 동일). 없을 때만 🧠 버튼으로 온디맨드 생성한다.
+           */
+          const hasForge = (item.titles && (item.titles.seo || item.titles.home)) || (item.subKeywords || []).length > 0;
+          let forgeHtml = '';
+          if (hasForge) {
+            const t = item.titles || {};
+            const seoText = t.seo && (t.seo.text || t.seo);
+            const homeText = t.home && (t.home.text || t.home);
+            const subs = (item.subKeywords || []).map((s) =>
+              `<em style="font-style:normal; background:#f1f5f9; border-radius:6px; padding:2px 8px; margin-right:5px;">${laneEsc(s.keyword)}${typeof s.searchVolume === 'number' ? ` (${s.searchVolume.toLocaleString()})` : ''}</em>`).join('');
+            forgeHtml = `
+              <div style="margin-top:9px; padding:9px 12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; font-size:12px;">
+                ${seoText ? `<div style="margin-bottom:4px;"><b style="color:#92400e;">SEO 제목</b> ${laneEsc(String(seoText))}</div>` : ''}
+                ${homeText ? `<div style="margin-bottom:4px;"><b style="color:#92400e;">홈판 제목</b> ${laneEsc(String(homeText))}</div>` : ''}
+                ${subs ? `<div><b style="color:#92400e;">서브키워드</b> ${subs}</div>` : ''}
+              </div>`;
+          }
+
+          // 수익 판정 — 회차 보강의 결론. bad 는 애드센스 레인에서 이미 빠져 있다.
+          let moneyHtml = '';
+          if (item.monetize && Array.isArray(item.monetize.points)) {
+            const m = item.monetize;
+            const badge = m.verdict === 'good' ? ['#dcfce7', '#15803d', '✅ 쓸 만하다']
+              : m.verdict === 'bad' ? ['#fee2e2', '#b91c1c', '⛔ 광고 수익 안 나온다']
+                : ['#fef9c3', '#a16207', '⚖ 각도에 달렸다'];
+            moneyHtml = `
+              <div style="margin-top:8px; padding:9px 12px; background:#fafafa; border:1px solid #e5e7eb; border-radius:8px; font-size:12px;">
+                <div style="font-weight:800; color:#374151; margin-bottom:5px;">💰 광고 수익 관점
+                  <span style="margin-left:5px; padding:2px 8px; border-radius:999px; background:${badge[0]}; color:${badge[1]}; font-size:10px; font-weight:800;">${badge[2]}</span>
+                </div>
+                <ul style="margin:0 0 5px 16px; padding:0; color:#4b5563;">${m.points.slice(0, 2).map((p) => `<li style="margin-bottom:3px; line-height:1.55;">${laneEsc(p.text)}</li>`).join('')}</ul>
+                ${m.angle ? `<div style="color:#166534;"><b>쓴다면:</b> ${laneEsc(m.angle)}</div>` : ''}
+              </div>`;
+          }
+
           return `
             <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; margin-bottom:10px;">
               <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
                 <span style="font-size:15px; font-weight:800;">${laneEsc(item.keyword)}</span>
                 <span style="font-size:12px; color:#475569;">${stats}</span>
                 ${extraBadges}
-                <button data-lane-forge data-kw="${laneEsc(item.keyword)}" data-slot="lane-forge-${slotIdx}"
-                  style="margin-left:auto; border:1px solid #fbbf24; background:linear-gradient(135deg,#fef3c7,#fde68a); color:#92400e; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12px; font-weight:700;">🧠 서브·제목</button>
+                ${hasForge ? '' : `<button data-lane-forge data-kw="${laneEsc(item.keyword)}" data-slot="lane-forge-${slotIdx}"
+                  style="margin-left:auto; border:1px solid #fbbf24; background:linear-gradient(135deg,#fef3c7,#fde68a); color:#92400e; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12px; font-weight:700;">🧠 서브·제목</button>`}
               </div>
+              ${forgeHtml}
+              ${moneyHtml}
               <div id="lane-forge-${slotIdx}" style="display:none; margin-top:10px;"></div>
             </div>`;
         }
@@ -7234,8 +7307,10 @@
           let picked;
           let note;
           if (goldenLanesActive === 'adsense') {
-            // 정보형(광고 클릭이 나오는 검색)만. 거래형(adsenseFit false)·쇼핑판은 제외.
-            picked = rows.filter((r) => r.platformLane !== 'shopping' && r.adsenseFit !== false)
+            // 정보형(광고 클릭이 나오는 검색)만. 거래형(adsenseFit false)·쇼핑판 제외.
+            // 수익 판정 bad(웹과 동일 기준)도 탈락 — 이유는 카드에 남는다.
+            picked = rows.filter((r) => r.platformLane !== 'shopping' && r.adsenseFit !== false
+              && !(r.monetize && r.monetize.verdict === 'bad'))
               .sort((a, b) => (b.adsenseFit === true ? 1 : 0) - (a.adsenseFit === true ? 1 : 0));
             note = 'AdSense 배지 = 의도 실측 판정. 배지 없음은 "재료 부족(미판정)"이지 부적합이 아닙니다.';
           } else {
@@ -7251,7 +7326,12 @@
             byCategory.get(cat).push(r);
           });
 
-          let html = `<div style="font-size:12px; color:#64748b; margin-bottom:12px;">${note}</div>`;
+          // 어떤 데이터를 보고 있는지 명시한다 — 웹과 같은 회차 보드인지, 로컬 발굴인지.
+          const src = window.__lewordBoard && rows.length > 0 && rows[0].fromBoard
+            ? `🌐 웹과 같은 회차 보드 기준${window.__lewordBoard.publishedAt ? ` (발행 ${new Date(window.__lewordBoard.publishedAt).toLocaleString('ko-KR')})` : ''}`
+            : '💻 이 PC 의 발굴 결과 기준 (회차 보드를 못 불러왔습니다)';
+          let html = `<div style="font-size:11.5px; color:#0369a1; margin-bottom:6px; font-weight:700;">${src}</div>`
+            + `<div style="font-size:12px; color:#64748b; margin-bottom:12px;">${note}</div>`;
           let slot = 0;
           for (const [cat, items] of byCategory) {
             html += `<div style="font-size:13px; font-weight:800; color:#334155; margin:14px 0 8px;">📁 ${laneEsc(cat)} <span style="color:#94a3b8; font-weight:600;">(${items.length})</span></div>`;

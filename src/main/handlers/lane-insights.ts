@@ -27,6 +27,39 @@ export function setupLaneInsightsHandlers(): void {
     }
   });
 
+  /*
+   * 회차 보드 — 웹과 같은 데이터를 앱에서도 본다("앱은 되는데 웹은 안 되고
+   * 이러면 안 된다"의 역방향 격차: 보드는 웹이 더 좋았다). 발행본은 공개
+   * 정적 파일이므로 그대로 읽고, 10분 캐시로 사이트에 부담을 안 준다.
+   * 실패하면 success:false — 화면은 로컬 발굴 결과로 폴백한다.
+   */
+  let boardCache: { at: number; body: unknown } | null = null;
+  ipcMain.handle('get-preemption-board', async () => {
+    if (boardCache && Date.now() - boardCache.at < 10 * 60_000) {
+      return boardCache.body;
+    }
+    try {
+      const https = await import('https');
+      const body = await new Promise<string>((resolve, reject) => {
+        const req = https.get('https://leaderspro.kr/data/preemption-board.json', { timeout: 15_000 }, (res) => {
+          if ((res.statusCode || 0) >= 400) { reject(new Error(`HTTP ${res.statusCode}`)); return; }
+          const chunks: Buffer[] = [];
+          res.on('data', (c: Buffer) => chunks.push(c));
+          res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        });
+        req.on('timeout', () => { req.destroy(new Error('timeout')); });
+        req.on('error', reject);
+      });
+      const parsed = JSON.parse(body);
+      const result = { success: true, publishedAt: parsed.publishedAt || null, rows: parsed.rows || [] };
+      boardCache = { at: Date.now(), body: result };
+      return result;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, error: message };
+    }
+  });
+
   ipcMain.handle('forge-lane-insights', async (_event, payload: { keyword?: string } | string) => {
     const keyword = String(typeof payload === 'string' ? payload : payload?.keyword || '').trim();
     if (!keyword) {
