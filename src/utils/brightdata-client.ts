@@ -45,6 +45,11 @@ export interface BrightDataFetchResult {
   error?: string;
   /** 쿼터 거버너가 막아서 호출 자체를 안 한 경우. 네트워크 실패와 구분한다. */
   quotaBlocked?: boolean;
+  /**
+   * 재시도를 다 쓰고도 속도 제한으로 끝난 경우. 호출부가 이걸 보고 남은
+   * 회차의 호출 간격을 늘린다 — 같은 속도로 계속 가면 계속 맞는다.
+   */
+  rateLimited?: boolean;
 }
 
 type ReserveFn = (feature: BrightDataFeature, count: number) => { allowed: boolean; granted: number; reason?: string };
@@ -59,9 +64,13 @@ export interface BrightDataFetchOptions {
   transport?: BrightDataTransport;
   reserve?: ReserveFn;
   record?: RecordFn;
-  /** 속도 제한일 때만 쓰는 재시도 횟수. 기본 3. */
+  /**
+   * 속도 제한일 때만 쓰는 재시도 횟수. 기본 5.
+   * 2초에서 2배씩 늘어 최대 62초까지 기다린다 — 한 건을 건지려고 1분을 쓰는
+   * 셈인데, 그 한 건이 없어서 회차가 0행으로 끝나는 것보다 싸다.
+   */
   maxRetries?: number;
-  /** 재시도 첫 대기(밀리초). 회당 2배로 늘어난다. 기본 1500. 테스트에서 줄인다. */
+  /** 재시도 첫 대기(밀리초). 회당 2배로 늘어난다. 기본 2000. 테스트에서 줄인다. */
   retryDelayMs?: number;
 }
 
@@ -185,8 +194,8 @@ export async function brightDataFetch(
     return { ok: false, body: '', quotaBlocked: true, error: decision.reason || 'quota_denied' };
   }
 
-  const maxRetries = options.maxRetries ?? 3;
-  const baseDelayMs = options.retryDelayMs ?? 1_500;
+  const maxRetries = options.maxRetries ?? 5;
+  const baseDelayMs = options.retryDelayMs ?? 2_000;
   const payload = buildBrightDataPayload(url, zone, options.parse ?? 'html');
 
   /*
@@ -220,6 +229,7 @@ export async function brightDataFetch(
       body: raw.body,
       ...(verdict.status ? { status: verdict.status } : {}),
       ...(verdict.error ? { error: verdict.error } : {}),
+      ...(rateLimited ? { rateLimited: true } : {}),
     };
   }
 }

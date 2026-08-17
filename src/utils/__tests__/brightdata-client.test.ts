@@ -142,6 +142,8 @@ void (async () => {
     });
     assert('속도 제한은 사용량에서 차감하지 않는다', recorded === 0, `recorded=${recorded}`);
     assert('재시도를 다 써도 실패는 실패다', res.ok === false);
+    // 호출부가 이 신호를 보고 남은 회차를 느리게 돈다. 없으면 계속 같은 속도로 맞는다.
+    assert('속도 제한이었음을 호출부에 알린다', res.rateLimited === true, JSON.stringify(res));
     assert('속도 제한 사유가 보존된다', String(res.error).toLowerCase().includes('rate limit'), String(res.error));
   }
 

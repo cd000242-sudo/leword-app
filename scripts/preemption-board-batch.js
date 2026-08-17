@@ -38,7 +38,8 @@ const { brightDataQuotaSnapshot } = require('../src/utils/brightdata-quota-gover
 const { selectWithFill, TIER_ORDER, TIER_LABEL, DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
 const { BLOG_TOPIC_COVERAGE, topicsWithoutCoverage } = require('../src/utils/blog-topic-coverage');
 const { judgeTopicByEvidence } = require('../src/utils/topic-evidence');
-const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
+const { mapWithConcurrency } = require('../src/utils/rate-limited-pool');
+const { createAdaptivePacer } = require('../src/utils/adaptive-pacer');
 const { buildBoardTitles } = require('../src/utils/title-forge/board-titles');
 const { pickProblemSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
 const { judgePlatformLane } = require('../src/utils/platform-lane');
@@ -47,12 +48,15 @@ const { classifySearchIntent, resolveIntentFromSerp } = require('../src/utils/ke
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
 const FEATURE = 'golden';
 /*
- * 호출 간격. 400ms(초당 2.5건)로 돌던 2026-08-17 회차에서 189건 중 96건이
- * "exceeded the allowed rate limits" 로 죽어 보드가 0행이 됐다. 계정이 미인증
- * 상태라 허용 속도가 낮다 — 클라이언트의 재시도(brightdata-client)가 남은 것을
- * 건져 주지만, 애초에 덜 맞는 게 싸다.
+ * 호출 간격의 **시작값**. 여기서 시작해 맞을 때마다 스스로 늦춘다(adaptive-pacer).
+ *
+ * 400ms(초당 2.5건)로 돌던 2026-08-17 회차에서 189건 중 96건이 "exceeded the
+ * allowed rate limits" 로 죽어 보드가 0행이 됐다. 계정이 미인증 상태라 허용
+ * 속도가 낮다. 회차를 잃는 것보다 20~30분 더 걸리는 게 훨씬 싸므로(CI 상한
+ * 180분, 실패 회차 실측 64분) 넉넉하게 잡는다 — 사장님 지시 2026-08-18:
+ * "너무 빠르면 속도를 더 늦춰서 안정적으로 끝까지 잘 나오게".
  */
-const DELAY_MS = 800;
+const DELAY_MS = 1_500;
 
 /**
  * 회당 요청 상한. golden 월 3,000 ÷ 주2회(월 8.7회) ≈ 344.
@@ -248,15 +252,35 @@ function allTabUrl(keyword) {
  * AI 가 답을 대신하면 클릭이 안 온다. 그걸 유형 추론으로만 판단하다가
  * 실측으로 바꾸는 것이라 첫 회차에는 켜고 도는 것이 맞다.
  */
-async function verify(keyword, withStructure) {
+/*
+ * gate 는 **호출 하나마다** 통과해야 한다.
+ *
+ * 예전에는 키워드마다 한 번만 문지기를 지나고 안에서 BD 를 두 번 불렀다.
+ * 두 번째 호출이 간격 없이 곧장 나가므로 실제 초당 요청은 설정값의 두 배였고,
+ * 동시 검증까지 겹치면 짧은 순간 네 건이 몰렸다. 2026-08-17 회차가 96건을
+ * 속도 제한으로 잃은 진짜 이유가 여기다 — 간격을 늘려도 이 구멍이 남으면
+ * 같은 일이 반복된다.
+ */
+async function verify(keyword, withStructure, gate = async () => {}) {
   const res = await brightDataFetch(blogTabUrl(keyword), FEATURE, { zone: ZONE });
-  if (!res.ok) return { serp: null, quotaBlocked: Boolean(res.quotaBlocked), error: res.error || res.status };
+  if (!res.ok) {
+    return {
+      serp: null,
+      quotaBlocked: Boolean(res.quotaBlocked),
+      rateLimited: Boolean(res.rateLimited),
+      error: res.error || res.status,
+    };
+  }
   const serp = analyzeSerp(res.body, keyword);
 
-  if (!withStructure) return { serp, quotaBlocked: false };
+  if (!withStructure) return { serp, quotaBlocked: false, rateLimited: false };
 
+  await gate();
   const whole = await brightDataFetch(allTabUrl(keyword), FEATURE, { zone: ZONE });
-  if (whole.quotaBlocked) return { serp, quotaBlocked: true };
+  if (whole.quotaBlocked) return { serp, quotaBlocked: true, rateLimited: false };
+  // 두 번째 호출이 속도 제한을 맞아도 첫 화면은 건졌다 — 회차는 계속 가되
+  // 남은 호출은 느리게 돈다.
+  if (whole.rateLimited) return { serp, quotaBlocked: false, rateLimited: true };
   const structure = whole.ok ? readSerpStructure(whole.body) : null;
   if (structure) {
     // 못 본 것을 '없음'으로 적지 않는다. 판독 실패면 필드를 안 채운다.
@@ -271,7 +295,7 @@ async function verify(keyword, withStructure) {
      */
     serp.meaning = readSerpMeaning(whole.body);
   }
-  return { serp, quotaBlocked: false };
+  return { serp, quotaBlocked: false, rateLimited: false };
 }
 
 /**
@@ -383,7 +407,7 @@ async function main() {
   }
 
   const rows = [];
-  const stats = { verified: 0, passed: 0, rejected: 0, undetermined: 0, failed: 0 };
+  const stats = { verified: 0, passed: 0, rejected: 0, undetermined: 0, failed: 0, rateLimited: 0 };
   let blocked = false;
   /*
    * 동시에 몇 개를 검증할 것인가.
@@ -392,15 +416,27 @@ async function main() {
    * 그대로다 — 같은 요청을 순서만 겹쳐서 보낸다. Bright Data 는 프록시라
    * 동시 요청을 감당하지만, 간격기(bdGate)가 초당 요청 수를 원래대로 묶는다.
    */
-  const concurrency = Number(arg('concurrency')) || 3;
-  const bdGate = createInterval(DELAY_MS);
+  const concurrency = Number(arg('concurrency')) || 2;
+  /*
+   * 간격을 고정하지 않는다 — 400ms 로 돌던 회차가 통째로 죽었고(2026-08-17),
+   * 그럼 얼마가 맞는지는 **맞아 봐야** 안다. 안전한 값에서 시작해 속도 제한을
+   * 맞을 때마다 배로 늦추고, 한동안 조용하면 조금씩 회복한다.
+   */
+  const bdPacer = createAdaptivePacer({ baseMs: DELAY_MS, growth: 2, maxMs: DELAY_MS * 12, recoverAfter: 25, recovery: 0.7 });
+  const bdGate = () => bdPacer.wait();
   /*
    * 검증 한 건의 시간 상한. 클라이언트 자체 타임아웃(90s)이 있지만, 2026-08-11
    * 회차가 검증 도중 **아무 오류 없이 exit 0** 으로 죽었다 — 어딘가의 요청이
    * 핸들 없이 매달리면 이벤트 루프가 비면서 그렇게 된다. 여기서 한 번 더 감싸
    * 어떤 경우에도 그 키워드만 '수집 실패'로 치고 회차는 계속 가게 한다.
    */
-  const VERIFY_DEADLINE_MS = 150_000;
+  /*
+   * 150초였다가 늘렸다. 이제 이 안에서 문지기 대기(최대 18초 × 2)와 속도 제한
+   * 재시도(2·4·8·16·32초 × 2호출)가 일어나므로, 짧게 잡으면 **정상적으로
+   * 기다리는 중인 건**을 죽여서 오히려 수집 실패를 만든다. 매달린 요청을
+   * 잡는다는 원래 목적은 그대로다.
+   */
+  const VERIFY_DEADLINE_MS = 300_000;
   const withDeadline = (promise) => new Promise((resolve) => {
     const timer = setTimeout(() => resolve({ serp: null, quotaBlocked: false, error: `응답 없음 ${VERIFY_DEADLINE_MS / 1000}s` }), VERIFY_DEADLINE_MS);
     promise.then(
@@ -468,11 +504,22 @@ async function main() {
     const verified = await mapWithConcurrency(candidates, concurrency, async (candidate) => {
       if (blocked) return null;
       await bdGate();
-      const { serp, quotaBlocked, error } = await withDeadline(verify(candidate.keyword, withStructure));
+      const { serp, quotaBlocked, rateLimited, error } = await withDeadline(verify(candidate.keyword, withStructure, bdGate));
       if (quotaBlocked) {
         if (!blocked) console.log(`  쿼터 한도 도달 — 중단 (${stats.verified}건 처리됨)`);
         blocked = true;
         return null;
+      }
+      /*
+       * 속도 제한을 맞았으면 남은 회차를 느리게 돈다. 같은 속도로 계속 가면
+       * 계속 맞고, 그게 회차를 통째로 잃는 길이다(2026-08-17).
+       */
+      if (rateLimited) {
+        bdPacer.penalize();
+        stats.rateLimited += 1;
+        console.log(`  ~~ 속도 제한 — 호출 간격 ${bdPacer.currentIntervalMs()}ms 로 늦춘다`);
+      } else {
+        bdPacer.reward();
       }
       stats.verified += 1;
       if (!serp) {
@@ -689,6 +736,13 @@ async function main() {
   const after = brightDataQuotaSnapshot();
   console.log('\n' + '-'.repeat(72));
   console.log(`검증 ${stats.verified}건 → 통과 ${stats.passed} · 탈락 ${stats.rejected} · 판정불가 ${stats.undetermined} · 수집실패 ${stats.failed} · 쇼핑 라우팅 ${routedShopping.length}`);
+  /*
+   * 속도 조절 결과를 남긴다. 안 재면 다음 회차에도 간격을 추측하게 된다 —
+   * 맞은 횟수가 0이면 더 빠르게 가도 되고, 끝 간격이 상한에 붙어 있으면
+   * 기본값 자체를 올려야 한다는 뜻이다.
+   */
+  const pace = bdPacer.stats();
+  console.log(`속도 조절 — 시작 ${DELAY_MS}ms · 끝 ${pace.intervalMs}ms · 속도 제한 ${pace.penalties}회 · 회복 ${pace.recoveries}회`);
   /*
    * 주제 커버리지는 **진짜 주제만** 센다.
    * 되짚기로 라벨을 뗀 행('주제 선택 안 함')까지 세면 커버리지가 부풀려진다.
