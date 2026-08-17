@@ -31,7 +31,7 @@ function tokensOf(keyword: string): Set<string> {
   );
 }
 
-function sharesToken(left: string, right: string): boolean {
+export function sharesToken(left: string, right: string): boolean {
   const leftTokens = tokensOf(left);
   for (const token of tokensOf(right)) {
     if (leftTokens.has(token)) return true;

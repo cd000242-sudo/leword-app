@@ -33,7 +33,7 @@ const FRAME_PATTERNS: ReadonlyArray<{ frame: TitleFrame; pattern: RegExp }> = [
   { frame: 'compare', pattern: /비교|차이|vs\b|대신/i },
   { frame: 'price', pattern: /가격|비용|수리비|얼마|최저가|할인/ },
   { frame: 'schedule', pattern: /일정|날짜|언제|기간|편성표|시기/ },
-  { frame: 'mistake', pattern: /실수|실패|주의|안됨|안돼|해결|물러|원인|이유/ },
+  { frame: 'mistake', pattern: /실수|실패|주의|안됨|안돼|해결|물러|원인|이유|오류/ },
   { frame: 'recommend', pattern: /추천|순위|베스트|BEST|TOP/i },
   { frame: 'howto', pattern: /방법|하는법|만드는법|사용법|만들기/ },
   { frame: 'checklist', pattern: /총정리|정리|체크리스트|목록/ },

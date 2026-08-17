@@ -4009,6 +4009,29 @@
             <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
           </button>
 
+          <!-- 🧭 황금키워드 레인 (2026-08-17 재편: 용도별 분리 화면) -->
+          <button onclick="openGoldenLanesModal()" style="
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border: none;
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+            text-align: left;
+          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(245,158,11,0.4)'"
+             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(245,158,11,0.3)'">
+            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🧭</div>
+            <div style="flex: 1;">
+              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">황금키워드 레인</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">용도별 분리: 애드센스 · 네이버 블로그 · 홈판 실시간 — 서브키워드·제목까지</div>
+            </div>
+            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
+          </button>
+
           <!-- 🛒 쇼핑 커넥트 -->
           <button onclick="openShoppingConnectModal()" style="
             background: linear-gradient(135deg, #03c75a 0%, #02a94e 100%);
@@ -6921,6 +6944,10 @@
 
           console.log(`[KEYWORD-MASTER] displayGoldenResults 호출: ${results.length}개 키워드 표시 (쇼핑 라우팅 ${routedShoppingRows.length}건 제외)`);
 
+          // 레인 화면(황금키워드 레인 모달)이 같은 발굴 결과를 재사용한다.
+          // 다시 발굴을 돌리지 않기 위한 공유 지점 — 원본(쇼핑 포함)을 보관한다.
+          window.lastGoldenResults = { rows: results.concat(routedShoppingRows), at: Date.now() };
+
           // 테이블 형식으로 결과 표시
           let html = `
         <div style="margin-bottom: 16px; font-size: 18px; font-weight: 700; color: #92400e;">🎯 MDP v2.0 발굴 결과 (${results.length}개)</div>
@@ -7072,6 +7099,194 @@
       `;
 
           resultsDiv.innerHTML = html;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 🧭 황금키워드 레인 (2026-08-17 재편)
+        // 용도별 분리 화면: 애드센스 / 네이버 블로그 / 홈판 실시간.
+        // 발굴 엔진은 공유하되(마지막 발굴 결과 재사용) 화면은 완전히 분리한다 —
+        // "전부 하나에 뭉쳐 있으면 뭐가 뭔지 헷갈린다"(사장님 지시).
+        // 서브키워드·제목은 행 단위 온디맨드(forge-lane-insights, 실측 기반)로 만든다.
+        // ═══════════════════════════════════════════════════════════════
+        let goldenLanesEl = null;
+        let goldenLanesActive = 'adsense';
+        const laneEsc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        function closeGoldenLanesModal() {
+          if (goldenLanesEl) { goldenLanesEl.remove(); goldenLanesEl = null; }
+        }
+
+        function openGoldenLanesModal() {
+          closeGoldenLanesModal();
+          const overlay = document.createElement('div');
+          overlay.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.55); z-index:9000; display:flex; align-items:flex-start; justify-content:center; overflow-y:auto; padding:30px 16px;';
+          overlay.innerHTML = `
+            <div style="background:#f8fafc; border-radius:18px; width:min(1080px, 96vw); padding:22px 24px 28px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                <div style="font-size:19px; font-weight:800; color:#92400e;">🧭 황금키워드 레인</div>
+                <button data-lane-close style="border:none; background:#e2e8f0; border-radius:8px; padding:6px 14px; cursor:pointer; font-weight:700;">✕ 닫기</button>
+              </div>
+              <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+                <button data-lane-tab="adsense" style="flex:1; min-width:180px; border:2px solid transparent; border-radius:12px; padding:12px; cursor:pointer; background:white; text-align:left;"><b>🅖 애드센스용</b><br><small style="color:#64748b;">정보형 · CPC · 문제해결 서브 3</small></button>
+                <button data-lane-tab="naver" style="flex:1; min-width:180px; border:2px solid transparent; border-radius:12px; padding:12px; cursor:pointer; background:white; text-align:left;"><b>🅝 네이버 블로그용</b><br><small style="color:#64748b;">자리 실측 · 상위노출형 · 제목 2종</small></button>
+                <button data-lane-tab="home" style="flex:1; min-width:180px; border:2px solid transparent; border-radius:12px; padding:12px; cursor:pointer; background:white; text-align:left;"><b>🔥 홈판 실시간</b><br><small style="color:#64748b;">이슈 선점 · 서브+후킹 제목</small></button>
+              </div>
+              <div id="golden-lane-body"></div>
+            </div>`;
+          document.body.appendChild(overlay);
+          goldenLanesEl = overlay;
+
+          overlay.addEventListener('click', async (e) => {
+            if (e.target === overlay || e.target.closest('[data-lane-close]')) { closeGoldenLanesModal(); return; }
+            const tab = e.target.closest('[data-lane-tab]');
+            if (tab) { goldenLanesActive = tab.getAttribute('data-lane-tab'); renderGoldenLane(); return; }
+            const forgeBtn = e.target.closest('[data-lane-forge]');
+            if (forgeBtn) { await laneForgeInsights(forgeBtn); return; }
+            const rtBtn = e.target.closest('[data-lane-realtime]');
+            if (rtBtn) { await laneLoadRealtime(rtBtn); return; }
+          });
+          renderGoldenLane();
+        }
+
+        function laneRows() {
+          const store = window.lastGoldenResults;
+          return store && Array.isArray(store.rows) ? store.rows : [];
+        }
+
+        function laneRowCard(item, extraBadges, slotIdx) {
+          const vol = typeof item.searchVolume === 'number' ? item.searchVolume
+            : (Number(item.pcSearchVolume || 0) + Number(item.mobileSearchVolume || 0)) || null;
+          const stats = `검색량 <b>${vol === null ? '-' : vol.toLocaleString()}</b> · 문서량 <b>${(item.documentCount ?? 0).toLocaleString()}</b>` +
+            (item.goldenRatio ? ` · 비율 <b>${Number(item.goldenRatio).toFixed(1)}</b>` : '');
+          return `
+            <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; margin-bottom:10px;">
+              <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;">
+                <span style="font-size:15px; font-weight:800;">${laneEsc(item.keyword)}</span>
+                <span style="font-size:12px; color:#475569;">${stats}</span>
+                ${extraBadges}
+                <button data-lane-forge data-kw="${laneEsc(item.keyword)}" data-slot="lane-forge-${slotIdx}"
+                  style="margin-left:auto; border:1px solid #fbbf24; background:linear-gradient(135deg,#fef3c7,#fde68a); color:#92400e; border-radius:8px; padding:5px 12px; cursor:pointer; font-size:12px; font-weight:700;">🧠 서브·제목</button>
+              </div>
+              <div id="lane-forge-${slotIdx}" style="display:none; margin-top:10px;"></div>
+            </div>`;
+        }
+
+        function renderGoldenLane() {
+          if (!goldenLanesEl) return;
+          goldenLanesEl.querySelectorAll('[data-lane-tab]').forEach((b) => {
+            b.style.borderColor = b.getAttribute('data-lane-tab') === goldenLanesActive ? '#f59e0b' : 'transparent';
+          });
+          const body = goldenLanesEl.querySelector('#golden-lane-body');
+          if (!body) return;
+
+          if (goldenLanesActive === 'home') {
+            body.innerHTML = `
+              <div style="font-size:12.5px; color:#64748b; margin-bottom:12px;">실시간 검색어·이슈에서 출발 — 제목은 <b>이슈 키워드 + 서브키워드 + 후킹</b> 3부품 조립입니다.</div>
+              <button data-lane-realtime style="border:none; background:#dc2626; color:white; border-radius:10px; padding:10px 18px; cursor:pointer; font-weight:800;">⚡ 실시간 검색어 불러오기</button>
+              <div id="lane-home-list" style="margin-top:14px;"></div>`;
+            return;
+          }
+
+          const rows = laneRows();
+          if (rows.length === 0) {
+            body.innerHTML = '<div style="padding:26px; text-align:center; color:#64748b; background:white; border-radius:12px;">발굴 결과가 아직 없습니다.<br>먼저 <b>황금키워드 발굴</b>을 한 번 실행하면, 그 결과가 이 레인들로 자동 분류됩니다.</div>';
+            return;
+          }
+
+          let picked;
+          let note;
+          if (goldenLanesActive === 'adsense') {
+            // 정보형(광고 클릭이 나오는 검색)만. 거래형(adsenseFit false)·쇼핑판은 제외.
+            picked = rows.filter((r) => r.platformLane !== 'shopping' && r.adsenseFit !== false)
+              .sort((a, b) => (b.adsenseFit === true ? 1 : 0) - (a.adsenseFit === true ? 1 : 0));
+            note = 'AdSense 배지 = 의도 실측 판정. 배지 없음은 "재료 부족(미판정)"이지 부적합이 아닙니다.';
+          } else {
+            picked = rows.filter((r) => r.platformLane !== 'shopping')
+              .sort((a, b) => ((b.winnable === true ? 1 : 0) - (a.winnable === true ? 1 : 0)));
+            note = '자리(winnable)·블로그판(blogFriendly)은 SERP 실측 판정입니다.';
+          }
+
+          const byCategory = new Map();
+          picked.forEach((r) => {
+            const cat = r.category || r.classifyForFeed || '기타';
+            if (!byCategory.has(cat)) byCategory.set(cat, []);
+            byCategory.get(cat).push(r);
+          });
+
+          let html = `<div style="font-size:12px; color:#64748b; margin-bottom:12px;">${note}</div>`;
+          let slot = 0;
+          for (const [cat, items] of byCategory) {
+            html += `<div style="font-size:13px; font-weight:800; color:#334155; margin:14px 0 8px;">📁 ${laneEsc(cat)} <span style="color:#94a3b8; font-weight:600;">(${items.length})</span></div>`;
+            for (const item of items) {
+              let badges = '';
+              if (goldenLanesActive === 'adsense') {
+                if (item.adsenseFit === true) badges += `<span title="${laneEsc(item.adsenseReason)}" style="font-size:10px; font-weight:800; background:#1a73e8; color:white; padding:2px 7px; border-radius:5px;">AdSense</span>`;
+              } else {
+                if (item.winnable === true) badges += '<span style="font-size:10px; font-weight:800; background:#047857; color:white; padding:2px 7px; border-radius:5px;">자리 있음</span>';
+                if (item.blogFriendly === true) badges += '<span style="font-size:10px; font-weight:800; background:#03c75a; color:white; padding:2px 7px; border-radius:5px;">블로그판</span>';
+              }
+              html += laneRowCard(item, badges, slot++);
+            }
+          }
+          body.innerHTML = html;
+        }
+
+        async function laneLoadRealtime(btn) {
+          const list = goldenLanesEl && goldenLanesEl.querySelector('#lane-home-list');
+          if (!list) return;
+          btn.disabled = true;
+          list.innerHTML = '<div style="color:#64748b; padding:12px;">불러오는 중…</div>';
+          try {
+            const res = await sendIPCRequest('get-realtime-keywords', {});
+            const items = (res && (res.keywords || res.items || res.data)) || [];
+            if (!Array.isArray(items) || items.length === 0) {
+              list.innerHTML = '<div style="color:#64748b; padding:12px;">지금은 실시간 검색어를 가져오지 못했습니다.</div>';
+              return;
+            }
+            let html = '';
+            items.slice(0, 20).forEach((it, i) => {
+              const kw = typeof it === 'string' ? it : (it.keyword || it.title || '');
+              if (!kw) return;
+              html += laneRowCard({ keyword: kw, documentCount: it.documentCount ?? 0, searchVolume: it.searchVolume ?? null }, '<span style="font-size:10px; font-weight:800; background:#dc2626; color:white; padding:2px 7px; border-radius:5px;">실시간</span>', 1000 + i);
+            });
+            list.innerHTML = html;
+          } catch (err) {
+            list.innerHTML = `<div style="color:#dc2626; padding:12px;">실패: ${laneEsc(err && err.message)}</div>`;
+          } finally {
+            btn.disabled = false;
+          }
+        }
+
+        async function laneForgeInsights(btn) {
+          const keyword = btn.getAttribute('data-kw') || '';
+          const slot = document.getElementById(btn.getAttribute('data-slot') || '');
+          if (!keyword || !slot) return;
+          slot.style.display = 'block';
+          slot.innerHTML = '<div style="color:#64748b; font-size:12px;">실측 확장 중… (자동완성 → 검색량 → 프레임 선별)</div>';
+          btn.disabled = true;
+          try {
+            const res = await sendIPCRequest('forge-lane-insights', { keyword });
+            if (!res || !res.success) {
+              slot.innerHTML = `<div style="color:#dc2626; font-size:12px;">실패: ${laneEsc(res && res.error)}</div>`;
+              return;
+            }
+            const subsHtml = (res.subs && res.subs.length > 0)
+              ? res.subs.map((s) => `<div style="padding:2px 0; font-size:13px; color:#334155;">└ ${laneEsc(s.keyword)} <span style="color:#94a3b8; font-size:11px;">${s.searchVolume === null ? '검색량 미측정' : '검색량 ' + s.searchVolume.toLocaleString()}</span></div>`).join('')
+              : '<div style="font-size:12px; color:#94a3b8;">문제해결형 파생 실측 없음 — 지어내지 않습니다.</div>';
+            slot.innerHTML = `
+              <div style="border-left:3px solid #fde68a; padding-left:12px;">
+                <div style="font-size:11px; font-weight:700; color:#92400e; margin-bottom:4px;">문제해결 서브 (실측 파생 ${res.expansionCount}건 중 선별)</div>
+                ${subsHtml}
+              </div>
+              <div style="background:#f8fafc; border-radius:8px; padding:9px 13px; margin-top:8px; font-size:13px;">
+                <div><span style="font-size:10px; font-weight:800; color:#64748b; margin-right:6px;">SEO</span>${laneEsc(res.titles && res.titles.seo && res.titles.seo.text)}</div>
+                <div><span style="font-size:10px; font-weight:800; color:#64748b; margin-right:6px;">홈판</span>${laneEsc(res.titles && res.titles.home && res.titles.home.text)}</div>
+              </div>`;
+          } catch (err) {
+            slot.innerHTML = `<div style="color:#dc2626; font-size:12px;">실패: ${laneEsc(err && err.message)}</div>`;
+          } finally {
+            btn.disabled = false;
+          }
         }
 
         // v2.42.29: 안전 wrappers (다른 모달/패널에서도 재사용)
