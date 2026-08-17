@@ -68,6 +68,33 @@ jobs:
           fi
           echo "✅ 에이전트 응답: $RESULT"
 
+      # 위 단계는 CLI 를 **직접** 부른다. 실제 보강은 앱 래퍼(runClaude)를 타는데,
+      # 그 래퍼는 하위 프로세스 환경을 허용 목록으로 걸러서 종량 과금 API 키가
+      # 새지 않게 한다. 2026-08-18 회차는 그 목록에 구독 토큰 이름이 빠져 있어
+      # 30회 호출이 전부 not_logged_in 으로 죽었다 — 직접 호출만 테스트하면
+      # 이 구멍이 안 보인다. 그래서 래퍼 경로를 따로 못 박는다.
+      - name: 래퍼 경로 확인 (보강이 실제로 타는 길)
+        if: ${{ inputs.mode == 'test' }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && break
+            echo "npm ci 재시도 $i/3"
+          done
+          node -r ts-node/register/transpile-only -e "
+            const { runClaude } = require('./src/utils/agent-cli/claudeRunner');
+            runClaude('다음 단어를 그대로 한 번만 출력해라: 래퍼확인', { timeoutMs: 90000 })
+              .then((reply) => {
+                console.log('✅ 래퍼 응답:', String(reply).slice(0, 200));
+                process.exit(0);
+              })
+              .catch((error) => {
+                console.error('::error::래퍼 경로 실패 —', error && error.message);
+                process.exit(1);
+              });
+          "
+
       # 회차 보강 — 발행된 보드를 다시 보강해 재발행한다(어드민 버튼용).
       # 정기 회차는 preemption-board.yml 안에서 발행 전에 자동 보강되므로,
       # 이 모드는 "지금 떠 있는 보드를 더 채우고 싶다"는 온디맨드 용도다.

@@ -53,9 +53,16 @@ const SHARED_SUBSCRIPTION_ENV_KEYS = new Set([
   'ALL_PROXY',
 ]);
 
+// CLAUDE_CODE_OAUTH_TOKEN is *subscription* auth (issued by `claude setup-token`), not a
+// metered API key, so it belongs on this allowlist: headless runners such as GitHub Actions
+// have no interactive login and authenticate solely through it. Leaving it out stripped the
+// credential and every call came back not_logged_in — the 2026-08-18 board round produced
+// 0 proposals from 30 calls for exactly this reason. ANTHROPIC_API_KEY / _AUTH_TOKEN /
+// _BASE_URL stay denied, so the metered fallback this module exists to prevent is unchanged.
 const CLAUDE_SUBSCRIPTION_ENV_KEYS = new Set([
   ...SHARED_SUBSCRIPTION_ENV_KEYS,
   'CLAUDE_CONFIG_DIR',
+  'CLAUDE_CODE_OAUTH_TOKEN',
 ]);
 
 const CODEX_SUBSCRIPTION_ENV_KEYS = new Set([
