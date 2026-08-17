@@ -101,6 +101,69 @@ void (async () => {
     assert('실패는 ok=false 로 온다', res.ok === false);
   }
 
+  // ── 속도 제한 재시도 ───────────────────────────────────────────────
+  // 2026-08-17 회차 전멸의 원인. 189건 중 96건이 "exceeded the allowed rate
+  // limits" 로 죽어 보드가 0행이 됐다. 이건 한도 소진이 아니라 **초당 속도**라
+  // 잠깐 쉬었다 다시 부르면 통과한다.
+  {
+    let calls = 0;
+    const transport: BrightDataTransport = async () => {
+      calls++;
+      if (calls < 3) {
+        return { body: '', headers: { 'x-brd-error': 'Your account exceeded the allowed rate limits. Reduce requests rate and try again' } };
+      }
+      return { body: 'x'.repeat(5000), headers: {} };
+    };
+    const res = await brightDataFetch('https://example.test/rate', 'golden', {
+      token: 't',
+      transport,
+      reserve: () => ({ allowed: true, granted: 1 }),
+      record: () => undefined,
+      retryDelayMs: 1,
+    });
+    assert('속도 제한이면 재시도해서 살려낸다', res.ok === true, JSON.stringify({ calls, res: res.error }));
+    assert('재시도가 실제로 일어났다', calls === 3, `calls=${calls}`);
+  }
+
+  // BD 는 속도 제한 응답에 "You will not be charged" 라고 명시한다.
+  // 그걸 차감하면 쓰지도 않은 크레딧이 장부에서 사라진다.
+  {
+    let recorded = 0;
+    const transport: BrightDataTransport = async () => ({
+      body: '', headers: { 'x-brd-error': 'Your account exceeded the allowed rate limits. You will not be charged for this request.' },
+    });
+    const res = await brightDataFetch('https://example.test/rate2', 'golden', {
+      token: 't',
+      transport,
+      reserve: () => ({ allowed: true, granted: 1 }),
+      record: (_f, n) => { recorded += n; },
+      retryDelayMs: 1,
+      maxRetries: 2,
+    });
+    assert('속도 제한은 사용량에서 차감하지 않는다', recorded === 0, `recorded=${recorded}`);
+    assert('재시도를 다 써도 실패는 실패다', res.ok === false);
+    assert('속도 제한 사유가 보존된다', String(res.error).toLowerCase().includes('rate limit'), String(res.error));
+  }
+
+  // 속도 제한이 아닌 실패는 예전처럼 즉시 포기하고 차감한다(재시도해도 안 된다).
+  {
+    let calls = 0;
+    let recorded = 0;
+    const transport: BrightDataTransport = async () => {
+      calls++;
+      return { body: '', headers: { 'x-brd-error': 'parser_not_found' } };
+    };
+    await brightDataFetch('https://example.test/parse', 'golden', {
+      token: 't',
+      transport,
+      reserve: () => ({ allowed: true, granted: 1 }),
+      record: (_f, n) => { recorded += n; },
+      retryDelayMs: 1,
+    });
+    assert('일반 실패는 재시도하지 않는다', calls === 1, `calls=${calls}`);
+    assert('일반 실패는 사용량을 차감한다', recorded === 1, `recorded=${recorded}`);
+  }
+
   // 토큰이 없으면 네트워크를 부르지 않고 즉시 실패해야 한다.
   {
     let called = 0;

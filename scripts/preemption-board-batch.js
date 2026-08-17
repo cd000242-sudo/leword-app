@@ -46,7 +46,13 @@ const { classifySearchIntent, resolveIntentFromSerp } = require('../src/utils/ke
 
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
 const FEATURE = 'golden';
-const DELAY_MS = 400;
+/*
+ * 호출 간격. 400ms(초당 2.5건)로 돌던 2026-08-17 회차에서 189건 중 96건이
+ * "exceeded the allowed rate limits" 로 죽어 보드가 0행이 됐다. 계정이 미인증
+ * 상태라 허용 속도가 낮다 — 클라이언트의 재시도(brightdata-client)가 남은 것을
+ * 건져 주지만, 애초에 덜 맞는 게 싸다.
+ */
+const DELAY_MS = 800;
 
 /**
  * 회당 요청 상한. golden 월 3,000 ÷ 주2회(월 8.7회) ≈ 344.

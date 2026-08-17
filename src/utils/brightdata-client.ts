@@ -59,6 +59,10 @@ export interface BrightDataFetchOptions {
   transport?: BrightDataTransport;
   reserve?: ReserveFn;
   record?: RecordFn;
+  /** 속도 제한일 때만 쓰는 재시도 횟수. 기본 3. */
+  maxRetries?: number;
+  /** 재시도 첫 대기(밀리초). 회당 2배로 늘어난다. 기본 1500. 테스트에서 줄인다. */
+  retryDelayMs?: number;
 }
 
 /**
@@ -109,6 +113,20 @@ export function interpretBrightDataResponse(
   }
   return { ok: true, status };
 }
+
+/**
+ * 이 실패가 "잠깐 쉬면 풀리는 것"인지 판정한다.
+ *
+ * 2026-08-17 회차가 통째로 0행이 된 원인이다. 189건 중 96건이 이 오류로 죽었는데,
+ * 한도 소진이 아니라 **초당 요청 속도** 제한이라 잠깐 쉬었다 부르면 통과한다.
+ * BD 는 같은 응답에 "You will not be charged for this request" 라고 명시하므로
+ * 이건 사용량에서도 빼야 한다 — 안 그러면 쓰지도 않은 크레딧이 장부에서 사라진다.
+ */
+export function isRateLimitError(error: string | undefined): boolean {
+  return /rate limit|too many requests|429/i.test(String(error || ''));
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => { setTimeout(resolve, ms); });
 
 /** 기본 전송 — Node https. 테스트에서는 주입으로 대체된다. */
 const httpsTransport: BrightDataTransport = async (endpoint, payload, { token, timeoutMs }) => {
@@ -167,28 +185,41 @@ export async function brightDataFetch(
     return { ok: false, body: '', quotaBlocked: true, error: decision.reason || 'quota_denied' };
   }
 
-  let raw: BrightDataRawResponse;
-  try {
-    raw = await transport(
-      BRIGHT_DATA_ENDPOINT,
-      buildBrightDataPayload(url, zone, options.parse ?? 'html'),
-      { token, timeoutMs },
-    );
-  } catch (error) {
-    // 전송이 통째로 터져도 Bright Data 쪽에서는 이미 차감됐을 수 있다.
-    record(feature, 1);
-    const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, body: '', error: `transport:${message}` };
+  const maxRetries = options.maxRetries ?? 3;
+  const baseDelayMs = options.retryDelayMs ?? 1_500;
+  const payload = buildBrightDataPayload(url, zone, options.parse ?? 'html');
+
+  /*
+   * 속도 제한일 때만 다시 부른다. 파서 없음·타임아웃 같은 실패는 다시 불러도
+   * 같은 답이 오므로 크레딧만 태운다.
+   */
+  for (let attempt = 0; ; attempt += 1) {
+    let raw: BrightDataRawResponse;
+    try {
+      raw = await transport(BRIGHT_DATA_ENDPOINT, payload, { token, timeoutMs });
+    } catch (error) {
+      // 전송이 통째로 터져도 Bright Data 쪽에서는 이미 차감됐을 수 있다.
+      record(feature, 1);
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, body: '', error: `transport:${message}` };
+    }
+
+    const verdict = interpretBrightDataResponse(raw);
+    const rateLimited = !verdict.ok && isRateLimitError(verdict.error);
+
+    // 속도 제한은 BD 가 과금하지 않는다고 명시한다 — 그것만 빼고 전부 확정한다.
+    if (!rateLimited) record(feature, 1);
+
+    if (rateLimited && attempt < maxRetries) {
+      await wait(baseDelayMs * (2 ** attempt));
+      continue;
+    }
+
+    return {
+      ok: verdict.ok,
+      body: raw.body,
+      ...(verdict.status ? { status: verdict.status } : {}),
+      ...(verdict.error ? { error: verdict.error } : {}),
+    };
   }
-
-  // 성공·실패 무관하게 확정한다. 실패분을 안 세면 한도를 넘긴다.
-  record(feature, 1);
-
-  const verdict = interpretBrightDataResponse(raw);
-  return {
-    ok: verdict.ok,
-    body: raw.body,
-    ...(verdict.status ? { status: verdict.status } : {}),
-    ...(verdict.error ? { error: verdict.error } : {}),
-  };
 }
