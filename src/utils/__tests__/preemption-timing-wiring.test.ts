@@ -63,6 +63,16 @@ describe('제목·시기 배선 — 만든 것을 화면까지 나른다', () =>
         expect(/timingGroup:/.test(publishSource)).toBe(true);
         expect(/titles:\s*row\.titles/.test(publishSource)).toBe(true);
     });
+
+    it('배치가 문제해결 서브를 싣고 발행기가 통과시킨다', () => {
+        // 사이트 화면의 "메인 + 서브 3" 재료. 형제 실측뿐이고 없으면 빈 배열.
+        expect(/subKeywords:\s*pickProblemSubKeywords/.test(batchSource)).toBe(true);
+        const publishSource = fs.readFileSync(
+            path.join(root, 'scripts', 'publish-preemption-board.js'),
+            'utf8',
+        );
+        expect(/subKeywords:/.test(publishSource)).toBe(true);
+    });
 });
 
 describe('집계 — golden-ratio 층도 셈에 들어간다', () => {

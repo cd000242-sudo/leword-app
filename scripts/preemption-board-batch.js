@@ -40,6 +40,7 @@ const { BLOG_TOPIC_COVERAGE, topicsWithoutCoverage } = require('../src/utils/blo
 const { judgeTopicByEvidence } = require('../src/utils/topic-evidence');
 const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
 const { buildBoardTitles } = require('../src/utils/title-forge/board-titles');
+const { pickProblemSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
 const { judgePlatformLane } = require('../src/utils/platform-lane');
 
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
@@ -633,6 +634,15 @@ async function main() {
           { keyword: result.keyword, seed: candidate?.seed, timing: candidate?.timing || '' },
           byTopic.get(topic),
           (serp && serp.topTitles) || [],
+        ),
+        /*
+         * 문제해결 서브 — 마인드맵 확장의 시작점(사장님 지시: 메인+서브 3).
+         * 재료는 같은 회차 같은 주제의 형제 실측뿐이다. 없으면 빈 배열 —
+         * 지어내지 않는다. AI 보강분은 회차 후 어드민 파이프라인이 얹는다.
+         */
+        subKeywords: pickProblemSubKeywords(
+          result.keyword,
+          byTopic.get(topic).map((c) => ({ keyword: c.keyword, searchVolume: c.searchVolume, source: 'sibling' })),
         ),
         /*
          * 애드센스(티스토리/구글) 적합 — 의도·CPC 실측 기반(platform-lane).

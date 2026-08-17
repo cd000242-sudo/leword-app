@@ -128,6 +128,10 @@ function toPublicRow(row) {
      */
     adsenseFit: row.adsenseFit ?? null,
     adsenseReason: row.adsenseReason || '',
+    /* 문제해결 서브(형제 실측 선별). 빈 배열 = 실측 파생 없음(정직) — 화면은 줄을 숨긴다. */
+    subKeywords: Array.isArray(row.subKeywords)
+      ? row.subKeywords.map((s) => ({ keyword: s.keyword, searchVolume: s.searchVolume ?? null, frame: s.frame || '' }))
+      : [],
     /*
      * 이 숫자가 언제쩍 결과인지.
      *
