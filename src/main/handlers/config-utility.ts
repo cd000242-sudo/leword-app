@@ -1392,43 +1392,41 @@ export function setupConfigUtilityHandlers(): void {
         const { buildPurchaseDesireAngles, buildAiAnglePrompt } = await import('../../utils/shopping-purchase-angle');
         const ruleAngles = buildPurchaseDesireAngles(product, keyword);
 
-        const { callAI, RuleFallbackRequired, getAIMode } = await import('../../utils/pro-hunter-v12/ai-client');
-        const { hasClaudeKey } = await getAIMode();
-        if (!hasClaudeKey) {
-          return { success: false, needsKey: true, source: 'rule', angles: ruleAngles,
-            message: 'AI 키(ANTHROPIC_API_KEY) 미설정 — 환경설정에서 등록하면 AI 강화가 가능합니다. 지금은 규칙 문구를 유지합니다.' };
-        }
+        /*
+         * [2026-08-18] ANTHROPIC_API_KEY(종량 과금) 경로를 버리고 **구독 CLI**
+         * (클로드코드 → 코덱스 → 제미나이)로 간다. 사장님 원칙: "API 로 하면
+         * 따로 비용이 발생하니까 클로드코드를 연동해라". 세 개 다 없으면
+         * 규칙 문구를 유지하고 설치를 안내한다.
+         */
+        const { runClaude } = await import('../../utils/agent-cli/claudeRunner');
+        const { runCodex } = await import('../../utils/agent-cli/codexRunner');
+        const { runGemini } = await import('../../utils/agent-cli/geminiRunner');
+        const { runWithAnyAgent } = await import('../../utils/agent-cli/runAny');
+        const { tryExtractJson } = await import('../../utils/agent-cli/parse');
 
         const prompt = buildAiAnglePrompt(product, keyword, ruleAngles);
         try {
-          const { text, source } = await callAI(prompt, {
-            maxTokens: 512,
-            temperature: 0.8,
-            system: '너는 쇼츠·블로그 판매 카피라이터다. 과장/허위광고 없이 실제 상품 속성에 근거한 짧은 후킹 문구만 만든다.',
-          });
-          // JSON 배열 파싱 (앞뒤 잡텍스트 방어)
-          const match = text.match(/\[[\s\S]*\]/);
+          const run = await runWithAnyAgent(prompt, [
+            { provider: 'claude', run: runClaude },
+            { provider: 'codex', run: runCodex },
+            { provider: 'gemini', run: runGemini },
+          ], { timeoutMs: 60_000 });
+          const parsed = tryExtractJson(run.reply);
           let aiAngles: Array<{ text: string; kind: string; basis: string }> = [];
-          if (match) {
-            try {
-              const parsed = JSON.parse(match[0]);
-              if (Array.isArray(parsed)) {
-                aiAngles = parsed
-                  .filter((a: any) => a && typeof a.text === 'string' && a.text.trim())
-                  .map((a: any) => ({ text: String(a.text).trim().slice(0, 40), kind: String(a.kind || '구매욕구'), basis: 'AI 생성' }))
-                  .slice(0, 3);
-              }
-            } catch { /* fall through to rule */ }
+          if (Array.isArray(parsed)) {
+            aiAngles = parsed
+              .filter((a: any) => a && typeof a.text === 'string' && a.text.trim())
+              .map((a: any) => ({ text: String(a.text).trim().slice(0, 40), kind: String(a.kind || '구매욕구'), basis: `AI 생성(${run.provider} 구독)` }))
+              .slice(0, 3);
           }
           if (aiAngles.length === 0) {
             return { success: false, source: 'rule', angles: ruleAngles, message: 'AI 응답 파싱 실패 — 규칙 문구 유지' };
           }
-          return { success: true, source, angles: aiAngles };
+          return { success: true, source: `${run.provider}(구독)`, angles: aiAngles };
         } catch (err: any) {
-          if (err instanceof RuleFallbackRequired) {
-            return { success: false, source: 'rule', angles: ruleAngles, message: 'AI 사용 불가 — 규칙 문구 유지' };
-          }
-          throw err;
+          // 구독 CLI 가 하나도 없거나 전부 실패 — 규칙 문구로 버티고 연동을 안내한다.
+          return { success: false, needsKey: true, source: 'rule', angles: ruleAngles,
+            message: `AI 엔진 연동 필요 — 🤖 AI 엔진 연동에서 클로드코드/코덱스를 연동하면 내 구독으로 무료 강화됩니다. (${String(err?.message || '').slice(0, 80)})` };
         }
       } catch (err: any) {
         console.error('[SHOPPING-CONNECT] AI 앵글 오류:', err?.message ?? err);

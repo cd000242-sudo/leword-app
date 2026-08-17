@@ -41,6 +41,8 @@ export interface WebBridgeDeps {
   forgeInsights: (keyword: string) => Promise<unknown>;
   /** 마인드맵·수요 분석. 없으면 그 경로는 열리지 않는다(구버전 호환). */
   analyzeDemand?: (keyword: string) => Promise<unknown>;
+  /** 30일 트렌드(데이터랩 실측). 없으면 그 경로는 열리지 않는다. */
+  trend30?: (keyword: string) => Promise<unknown>;
   /**
    * 어드민 작업자(사장님 전용 UX: "토큰도 알아서, 자동 연동").
    * 브리지가 이 PC 의 gh 인증으로 GitHub 를 대신 부른다 — 토큰이 브라우저에
@@ -153,6 +155,27 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.analyzeDemand(keyword) });
+        return;
+      }
+
+      /*
+       * 30일 트렌드 — 앱의 그래프와 같은 실측(데이터랩)을 웹에도 준다.
+       * "앱은 되는데 웹은 안 되고 이러면 안 된다"(사장님, 2026-08-18).
+       */
+      if (deps.trend30 && req.method === 'POST' && req.url === '/v1/bridge/trend') {
+        let keyword = '';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          keyword = String(parsed?.keyword || '').trim();
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        if (!keyword || keyword.length > 60) {
+          json(res, 400, { ok: false, error: '키워드가 비었거나 너무 깁니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.trend30(keyword) });
         return;
       }
 

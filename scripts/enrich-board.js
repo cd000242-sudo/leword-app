@@ -154,6 +154,49 @@ async function verifyProposals(searchAd, proposals) {
   return verified;
 }
 
+/**
+ * 수익 결론 — 클릭할까·무슨 광고가 뜰까·머물까를 하나하나 따진다.
+ * keyword-demand-service 의 판정과 같은 원칙: 실측 검색어를 직접 인용해야
+ * 하고, 예상 수익·트래픽 숫자는 금지. 근거 없는 판정이면 null.
+ */
+async function judgeMonetization(keyword, verifiedSubs) {
+  const lines = verifiedSubs
+    .filter((s) => s && s.keyword)
+    .slice(0, 10)
+    .map((s) => `${s.keyword}${s.searchVolume ? ` (월 ${s.searchVolume})` : ''}`);
+  const run = await runWithAnyAgent([
+    '너는 애드센스 블로그 수익 분석가다. 아래는 실측 값이다.',
+    '',
+    `키워드: ${keyword}`,
+    `같이 검색되는 확인된 검색어: ${lines.join(', ') || '(없음)'}`,
+    '',
+    '이 키워드로 글을 쓸지 말지, 다음을 하나하나 따져 결론을 내라:',
+    '1) 검색자가 무엇을 손에 넣으면 만족하나 (도구 URL / 정보 / 구매처 / 절차)',
+    '2) 그 사람이 광고를 클릭할 상태인가 — 어떤 종류의 광고가 뜰 법한가',
+    '3) 글에 머무는 시간 — 한 줄 얻고 나가는 검색인가, 읽어야 풀리는 검색인가',
+    '4) 결론: good(써라)/bad(광고 수익 안 나온다)/mixed(각도에 달렸다)',
+    '',
+    '- 각 판단은 위 실측 검색어를 직접 인용해서 근거를 댄다',
+    '- 예상 수익·트래픽 숫자를 지어내지 마라. 뻔한 덕담 금지',
+    '',
+    'JSON 만 출력: {"verdict":"good|bad|mixed","points":[{"text":"..."}],"angle":"쓴다면 이런 각도"}',
+  ].join('\n'), AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
+  const parsed = tryExtractJson(run.reply);
+  if (!parsed || !['good', 'bad', 'mixed'].includes(String(parsed.verdict))) return null;
+  const points = (Array.isArray(parsed.points) ? parsed.points : [])
+    .map((p) => String((p && p.text) || '').replace(/\s+/g, ' ').trim())
+    .filter((t) => t.length >= 12)
+    .slice(0, 4)
+    .map((text) => ({ text }));
+  if (points.length === 0) return null;
+  return {
+    verdict: String(parsed.verdict),
+    points,
+    angle: String(parsed.angle || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+    provider: lastProvider || 'unknown',
+  };
+}
+
 async function main() {
   const inPath = arg('in');
   const outPath = arg('out');
@@ -169,7 +212,7 @@ async function main() {
   console.log(`보강 대상 ${rows.length}행 · AI 호출 상한 ${maxAi} · 검색광고 ${searchAd ? 'OK' : '없음(프로브만)'}`);
 
   let aiCalls = 0;
-  const stats = { enriched: 0, subsAdded: 0, titleUpgraded: 0, proposed: 0, verified: 0 };
+  const stats = { enriched: 0, subsAdded: 0, titleUpgraded: 0, proposed: 0, verified: 0, judged: 0, judgedBad: 0 };
 
   for (const row of rows) {
     const existingSubs = Array.isArray(row.subKeywords) ? row.subKeywords : [];
@@ -220,12 +263,32 @@ async function main() {
       row.enrichedBy = { provider: lastProvider || 'unknown', proposed: proposals.length, verified: verified.length };
       console.log(`  ✚ [${row.keyword}] 서브 ${merged.length}개${titleUpgraded ? ` · 제목 ${newTitles.seo.frame}` : ''} — ${merged.map((s) => s.keyword).join(' / ')}`);
     }
+
+    /*
+     * 수익 결론 — 애드센스 후보 행만. "인스타 폰트 변환처럼 광고 수익이 안
+     * 나오는 키워드는 황금키워드 탈락"(사장님, 2026-08-18). 실측 검색어를
+     * 인용한 판단만 남고, bad 판정 행은 애드센스 레인에서 빠진다(화면 필터).
+     * 조용히 지우지 않는다 — 행에는 남아 판정 이유가 보인다.
+     */
+    if (row.adsenseFit === true && !row.monetize) {
+      try {
+        const verdict = await judgeMonetization(row.keyword, [...existingSubs, ...verified]);
+        if (verdict) {
+          row.monetize = verdict;
+          stats.judged += 1;
+          if (verdict.verdict === 'bad') stats.judgedBad += 1;
+          console.log(`  ₩ [${row.keyword}] 수익 판정 ${verdict.verdict}${verdict.verdict === 'bad' ? ' — 애드센스 레인 탈락' : ''}`);
+        }
+      } catch (error) {
+        console.log(`  !! [${row.keyword}] 수익 판정 실패(없이 계속): ${String((error && error.message) || error).slice(0, 80)}`);
+      }
+    }
   }
 
   board.enrichedAt = new Date().toISOString();
   board.enrichStats = { ...stats, aiCalls };
   fs.writeFileSync(outPath, JSON.stringify(board, null, 2), 'utf8');
-  console.log(`\n보강 완료: AI ${aiCalls}회 → 제안 ${stats.proposed} → 검증 통과 ${stats.verified} → 보강 행 ${stats.enriched} (서브 +${stats.subsAdded} · 제목 승급 ${stats.titleUpgraded})`);
+  console.log(`\n보강 완료: AI ${aiCalls}회 → 제안 ${stats.proposed} → 검증 통과 ${stats.verified} → 보강 행 ${stats.enriched} (서브 +${stats.subsAdded} · 제목 승급 ${stats.titleUpgraded}) · 수익 판정 ${stats.judged}행(탈락 ${stats.judgedBad})`);
   console.log(`저장: ${outPath}`);
 }
 

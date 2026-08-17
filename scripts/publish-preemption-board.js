@@ -127,6 +127,8 @@ function toPublicRow(row) {
      * 배지를 안 그리면 된다. 네이버 적합 배지는 없다 — 본판 통과 자체가 그 증거다.
      */
     adsenseFit: row.adsenseFit ?? null,
+    // 수익 결론(클릭할까·무슨 광고·머물까). 보강이 붙인 행에만 있다.
+    monetize: row.monetize ?? null,
     adsenseReason: row.adsenseReason || '',
     /* 문제해결 서브(형제 실측 선별). 빈 배열 = 실측 파생 없음(정직) — 화면은 줄을 숨긴다. */
     subKeywords: Array.isArray(row.subKeywords)

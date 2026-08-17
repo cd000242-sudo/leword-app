@@ -64,6 +64,17 @@ export function startWebBridgeHost(): void {
       },
       forgeInsights: (keyword) => forgeLaneInsights(keyword),
       analyzeDemand: (keyword) => analyzeKeywordDemand(keyword),
+      trend30: async (keyword) => {
+        const { EnvironmentManager } = await import('../utils/environment-manager');
+        const { analyzeKeywordTrend } = await import('../utils/trend-type-classifier');
+        const env = EnvironmentManager.getInstance().getConfig();
+        const config = {
+          clientId: env.naverClientId || process.env['NAVER_CLIENT_ID'] || '',
+          clientSecret: env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '',
+        };
+        if (!config.clientId) return { success: false, error: 'Naver API 키 없음' };
+        return { success: true, ...(await analyzeKeywordTrend(keyword, config)) };
+      },
       adminWorker: {
         status: workerStatus,
         dispatchTest: workerDispatchTest,
