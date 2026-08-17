@@ -23,7 +23,7 @@ import { runCodex } from '../../utils/agent-cli/codexRunner';
 import { runGemini } from '../../utils/agent-cli/geminiRunner';
 import { installAgent, loginAgent } from '../../utils/agent-cli/installer';
 
-const PROVIDERS: readonly AgentProvider[] = ['claude', 'codex', 'gemini'];
+const PROVIDERS: readonly AgentProvider[] = ['claude', 'codex', 'gemini', 'grok'];
 
 /** 연동 테스트 프롬프트 — 짧고 결정적이라 요금 부담이 사실상 0이다. */
 const TEST_PROMPT = '다음 단어를 그대로 한 번만 출력해라: 연동확인';

@@ -23,6 +23,7 @@ import { tryExtractJson } from '../utils/agent-cli/parse';
 import { runClaude } from '../utils/agent-cli/claudeRunner';
 import { runCodex } from '../utils/agent-cli/codexRunner';
 import { runGemini } from '../utils/agent-cli/geminiRunner';
+import { runGrok } from '../utils/agent-cli/grokRunner';
 import type { AgentProvider } from '../utils/agent-cli/types';
 
 /** 검색량을 실측할 확장 상한 — 검색광고 쿼터를 아낀다(5개 묶음 3회). */
@@ -76,7 +77,7 @@ async function measureVolumes(searchAd: SearchAdConfig, keywords: string[]): Pro
 
 /** 감지된 첫 구독 CLI. 없으면 null — 규칙 결과로만 간다. */
 async function pickAvailableAgent(): Promise<AgentProvider | null> {
-  for (const provider of ['claude', 'codex', 'gemini'] as const) {
+  for (const provider of ['claude', 'codex', 'gemini', 'grok'] as const) {
     try {
       const status = await detectAgent(provider);
       if (status.available) return provider;
@@ -111,7 +112,10 @@ async function proposeAiSubKeywords(
     '- JSON 문자열 배열로만 출력: ["검색어1", "검색어2", ...]',
   ].join('\n');
 
-  const runner = provider === 'claude' ? runClaude : provider === 'codex' ? runCodex : runGemini;
+  const runner = provider === 'claude' ? runClaude
+    : provider === 'codex' ? runCodex
+      : provider === 'grok' ? runGrok
+        : runGemini;
   const reply = await runner(prompt, { timeoutMs: AI_TIMEOUT_MS });
   const parsed = tryExtractJson(reply);
   if (!Array.isArray(parsed)) return [];

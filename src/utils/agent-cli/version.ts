@@ -19,16 +19,22 @@ const CLAUDE_VERSION_PATTERNS = [
 const GEMINI_VERSION_PATTERNS = [
   new RegExp(`^(?:antigravity(?:-cli)?|agy)\\s+(?:version\\s+)?v?${SEMVER}$`, 'i'),
 ] as const;
+// grok --version 실측(1.0.4): "grok 1.0.4 (d846eb93d9)" — 커밋 해시 꼬리 허용.
+const GROK_VERSION_PATTERNS = [
+  new RegExp(`^grok\\s+(?:version\\s+)?v?${SEMVER}(?:\\s+\\([0-9a-f]+\\))?$`, 'i'),
+] as const;
 
 export function agentVersionFallbackLabel(provider: AgentProvider): string {
   if (provider === 'codex') return 'Codex CLI';
   if (provider === 'gemini') return 'Antigravity CLI';
+  if (provider === 'grok') return 'Grok Build';
   return 'Claude Code';
 }
 
 function providerVersionPatterns(provider: AgentProvider): readonly RegExp[] {
   if (provider === 'codex') return CODEX_VERSION_PATTERNS;
   if (provider === 'gemini') return GEMINI_VERSION_PATTERNS;
+  if (provider === 'grok') return GROK_VERSION_PATTERNS;
   return CLAUDE_VERSION_PATTERNS;
 }
 

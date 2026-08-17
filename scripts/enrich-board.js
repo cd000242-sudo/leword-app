@@ -32,6 +32,7 @@ const { forgeTitles } = require('../src/utils/title-forge/forge');
 const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
 const { runCodex } = require('../src/utils/agent-cli/codexRunner');
 const { runGemini } = require('../src/utils/agent-cli/geminiRunner');
+const { runGrok } = require('../src/utils/agent-cli/grokRunner');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 
@@ -41,17 +42,18 @@ const { tryExtractJson } = require('../src/utils/agent-cli/parse');
  * 원래 세 개를 차례로 시도하는데 이 스크립트만 클로드 하나였다.
  */
 /*
- * 배치 전용 모델 고정(2026-08-18). 사장님 클로드코드 기본 모델은 페이블5
- * (최상위 티어, 주간 한도가 따로 빡빡하다). 키워드 제안·수익 판정 같은
- * 배치 작업은 소네트면 충분하고, 최상위 한도는 사장님이 직접 쓰는 자리에
- * 남겨 둔다. 대화형(앱 분석기)은 기본 모델 그대로다.
+ * 배치 전용 모델 고정(2026-08-18). 사장님 클로드코드 기본 모델은 페이블5 —
+ * 최상위 티어라 그 한도는 사장님이 직접 쓰는 자리에 남겨 두고, 배치는
+ * 오푸스5 로 돌린다(사장님 선택: 소네트보다 품질 우선, 짧은 배치 호출이라
+ * 오푸스 주간 한도 안에서 충분히 감당된다. 실왕복 확인).
  */
-const BATCH_CLAUDE_MODEL = 'sonnet';
+const BATCH_CLAUDE_MODEL = 'opus';
 
 const AGENT_CHAIN = [
   { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: BATCH_CLAUDE_MODEL }) },
   { provider: 'codex', run: runCodex },
   { provider: 'gemini', run: runGemini },
+  { provider: 'grok', run: runGrok },
 ];
 
 function arg(name, fallback = '') {

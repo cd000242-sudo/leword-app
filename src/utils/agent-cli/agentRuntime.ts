@@ -87,6 +87,17 @@ export function getAgyInstallDirs(): readonly string[] {
   return localAppData ? [join(localAppData, 'agy', 'bin')] : [];
 }
 
+/**
+ * grok 실행 파일 위치. npm 셔이 가리키는 것은 확장자 없는 Node 트램펄린이라
+ * 우리 안전 셔 해석기(.js/.exe 만 허용)가 못 읽는다 — postinstall 이 실제
+ * 바이너리를 ~/.grok/bin/grok.exe 로 심는 것을 실측으로 확인했다(1.0.4).
+ * agy 와 같은 방식으로 그 폴더를 PATH 앞에 얹어 직접 해석되게 한다.
+ */
+export function getGrokInstallDirs(): readonly string[] {
+  const home = process.env.USERPROFILE || process.env.HOME;
+  return home ? [join(home, '.grok', 'bin')] : [];
+}
+
 function pathKeyOf(env: NodeJS.ProcessEnv): string {
   return Object.keys(env).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH';
 }

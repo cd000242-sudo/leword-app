@@ -22,6 +22,7 @@ import { getNaverSearchAdKeywordVolume } from '../utils/naver-searchad-api';
 import { runClaude } from '../utils/agent-cli/claudeRunner';
 import { runCodex } from '../utils/agent-cli/codexRunner';
 import { runGemini } from '../utils/agent-cli/geminiRunner';
+import { runGrok } from '../utils/agent-cli/grokRunner';
 import { runWithAnyAgent } from '../utils/agent-cli/runAny';
 import { detectAgent } from '../utils/agent-cli/detect';
 import { tryExtractJson } from '../utils/agent-cli/parse';
@@ -98,8 +99,8 @@ async function measureVolumes(
 }
 
 /** 감지된 첫 구독 CLI. 없으면 null — 규칙 결과만 돌려준다. */
-async function pickAgent(): Promise<'claude' | 'codex' | 'gemini' | null> {
-  for (const provider of ['claude', 'codex', 'gemini'] as const) {
+async function pickAgent(): Promise<'claude' | 'codex' | 'gemini' | 'grok' | null> {
+  for (const provider of ['claude', 'codex', 'gemini', 'grok'] as const) {
     try {
       const status = await detectAgent(provider);
       if (status.available) return provider;
@@ -168,11 +169,18 @@ export async function analyzeKeywordDemand(rawKeyword: string): Promise<KeywordD
     agent.error = 'no_agent';
   } else {
     agent.available = true;
-    const chain = provider === 'claude'
-      ? [{ provider: 'claude' as const, run: runClaude }, { provider: 'codex' as const, run: runCodex }]
-      : provider === 'codex'
-        ? [{ provider: 'codex' as const, run: runCodex }, { provider: 'gemini' as const, run: runGemini }]
-        : [{ provider: 'gemini' as const, run: runGemini }];
+    /*
+     * 감지된 첫 공급자부터 시작해 나머지를 예비로 잇는다 — 넷 중 무엇으로
+     * 시작하든 하나가 죽으면 다음으로 넘어간다(그록 포함, 2026-08-18).
+     */
+    const ALL_RUNNERS = [
+      { provider: 'claude' as const, run: runClaude },
+      { provider: 'codex' as const, run: runCodex },
+      { provider: 'gemini' as const, run: runGemini },
+      { provider: 'grok' as const, run: runGrok },
+    ];
+    const startIndex = ALL_RUNNERS.findIndex((r) => r.provider === provider);
+    const chain = [...ALL_RUNNERS.slice(startIndex), ...ALL_RUNNERS.slice(0, startIndex)];
     try {
       const volumeLines = [...volumes.entries()].slice(0, 8).map(([k, v]) => `${k} ${v}`);
       const run = await runWithAnyAgent(

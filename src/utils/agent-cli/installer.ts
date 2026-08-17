@@ -20,6 +20,7 @@ import {
   buildClaudeSubscriptionEnv,
   buildCodexSubscriptionEnv,
   buildGeminiSubscriptionEnv,
+  buildGrokSubscriptionEnv,
 } from './subscriptionEnv';
 import { resolveNpmInvocation } from './npmInvocation';
 import { AgentCliError, type AgentCliStatus, type AgentProvider } from './types';
@@ -31,6 +32,8 @@ export const AGENT_NPM_PACKAGES: Readonly<Record<AgentProvider, string>> = Objec
   codex: '@openai/codex',
   claude: '@anthropic-ai/claude-code',
   gemini: '@google/gemini-cli',
+  // xAI 공식 Grok Build. 웹 2회 교차 확인 + npm 실설치 검증(2026-08-18).
+  grok: '@xai-official/grok',
 });
 
 /**
@@ -44,6 +47,7 @@ export const AGENT_NPM_PACKAGE_VERSIONS: Readonly<Record<AgentProvider, string>>
   codex: '0.144.1',
   claude: '2.1.197',
   gemini: '0.51.0',
+  grok: '1.0.4',
 });
 
 const OFFICIAL_NPM_REGISTRY = 'https://registry.npmjs.org/';
@@ -51,6 +55,7 @@ const OFFICIAL_NPM_REGISTRY = 'https://registry.npmjs.org/';
 function packageScopeFor(provider: AgentProvider): string {
   if (provider === 'codex') return 'openai';
   if (provider === 'gemini') return 'google';
+  if (provider === 'grok') return 'xai-official';
   return 'anthropic-ai';
 }
 
@@ -129,6 +134,7 @@ export interface AgentLoginSessionControls {
 function buildAgentCommandEnv(provider: AgentProvider): NodeJS.ProcessEnv {
   if (provider === 'codex') return buildCodexSubscriptionEnv();
   if (provider === 'gemini') return buildGeminiSubscriptionEnv();
+  if (provider === 'grok') return buildGrokSubscriptionEnv();
   return buildClaudeSubscriptionEnv();
 }
 
@@ -222,6 +228,10 @@ export async function installAgent(provider: AgentProvider): Promise<{ version?:
 function loginCommand(provider: AgentProvider): { command: string; args: string[] } {
   if (provider === 'codex') return { command: 'codex', args: ['login'] };
   if (provider === 'gemini') return { command: 'gemini', args: [] };
+  // --device-code: 브라우저를 CLI 가 직접 못 여는 환경에서도 URL+코드를 찍어 준다
+  // (grok 1.0.4 실측 — 로그아웃 오류 메시지가 이 플래그를 직접 안내한다).
+  // 우리 로그인 세션은 그 URL 을 앱이 열고 코드를 보여주는 흐름이라 이쪽이 맞다.
+  if (provider === 'grok') return { command: 'grok', args: ['login', '--device-code'] };
   return { command: 'claude', args: ['auth', 'login'] };
 }
 
@@ -322,6 +332,7 @@ export async function loginAgent(
 function logoutCommand(provider: AgentProvider): { command: string; args: string[] } | undefined {
   if (provider === 'codex') return { command: 'codex', args: ['logout'] };
   if (provider === 'gemini') return undefined;
+  if (provider === 'grok') return { command: 'grok', args: ['logout'] };
   return { command: 'claude', args: ['auth', 'logout'] };
 }
 

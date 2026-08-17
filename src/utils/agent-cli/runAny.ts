@@ -14,7 +14,7 @@
  * 것을 품질 문제로 착각하게 된다(실제로 그렇게 한 회차를 잃었다).
  */
 
-export type AgentProviderName = 'claude' | 'codex' | 'gemini';
+export type AgentProviderName = 'claude' | 'codex' | 'gemini' | 'grok';
 
 export interface AgentAttempt {
   provider: AgentProviderName;

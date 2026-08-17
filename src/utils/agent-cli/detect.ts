@@ -12,6 +12,7 @@ import {
   buildClaudeSubscriptionEnv,
   buildCodexSubscriptionEnv,
   buildGeminiSubscriptionEnv,
+  buildGrokSubscriptionEnv,
 } from './subscriptionEnv';
 import type {
   AgentCliStatus,
@@ -63,6 +64,7 @@ export function clearAgentDetectionCache(provider?: AgentProvider): void {
   advanceDetectionRevision('codex');
   advanceDetectionRevision('claude');
   advanceDetectionRevision('gemini');
+  advanceDetectionRevision('grok');
 }
 
 function cacheStatus(status: AgentCliStatus, revision: number): AgentCliStatus {
@@ -83,7 +85,36 @@ function getCachedStatus(provider: AgentProvider): AgentCliStatus | undefined {
 function buildAgentSubscriptionEnv(provider: AgentProvider): NodeJS.ProcessEnv {
   if (provider === 'codex') return buildCodexSubscriptionEnv();
   if (provider === 'gemini') return buildGeminiSubscriptionEnv();
+  if (provider === 'grok') return buildGrokSubscriptionEnv();
   return buildClaudeSubscriptionEnv();
+}
+
+/**
+ * grok 은 전용 상태 명령이 없다. `grok models` 실측(1.0.4): 로그아웃 상태여도
+ * exit 0 으로 모델 목록을 찍되 첫 줄에 "You are not authenticated." 를 낸다.
+ * 그 문구가 없으면 로그인으로 본다.
+ */
+async function probeGrokLogin(): Promise<LoginProbe> {
+  try {
+    const res = await spawnCollect({
+      command: 'grok',
+      args: ['models'],
+      provider: 'grok',
+      timeoutMs: DETECT_TIMEOUT_MS,
+      env: buildGrokSubscriptionEnv(),
+    });
+    const out = `${res.stdout}\n${res.stderr}`.trim();
+    if (/not authenticated|not signed in/i.test(out)) {
+      return { loggedIn: false, errorCode: 'not_logged_in', detail: 'Grok 로그인이 필요합니다 (grok login).' };
+    }
+    if (res.code !== 0) {
+      return { loggedIn: false, errorCode: 'not_logged_in', detail: sanitizeUserVisibleError(out) };
+    }
+    const model = out.match(/default model:\s*(\S+)/i)?.[1];
+    return { loggedIn: true, detail: model ? `SuperGrok/X Premium 구독 (기본 ${model})` : 'SuperGrok/X Premium 구독' };
+  } catch {
+    return { loggedIn: false, errorCode: 'not_logged_in' };
+  }
 }
 
 /** Probe `<cli> --version`; ENOENT (or any error) means not installed. */
@@ -329,7 +360,9 @@ export async function detectAgent(
     ? await probeCodexLogin()
     : provider === 'gemini'
       ? await probeAgyLogin()
-      : await probeClaudeLogin();
+      : provider === 'grok'
+        ? await probeGrokLogin()
+        : await probeClaudeLogin();
   if (!login.loggedIn) {
     return cacheStatus({
       provider,

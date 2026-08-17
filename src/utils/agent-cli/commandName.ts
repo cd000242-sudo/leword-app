@@ -12,6 +12,8 @@ const COMMANDS: Readonly<Record<AgentProvider, string>> = Object.freeze({
   codex: 'codex',
   claude: 'claude',
   gemini: 'agy',
+  // xAI Grok Build (@xai-official/grok). SuperGrok/X Premium+ 구독 OAuth 로그인.
+  grok: 'grok',
 });
 
 /** Executable to spawn for a provider. Never assume it equals the provider id. */

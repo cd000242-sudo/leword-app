@@ -6,7 +6,7 @@
 // surfaces a typed error the UI can act on (install, login, rate-limit guidance).
 
 /** Supported agent CLIs. */
-export type AgentProvider = 'codex' | 'claude' | 'gemini';
+export type AgentProvider = 'codex' | 'claude' | 'gemini' | 'grok';
 
 /** Stable error codes so the renderer can branch (modal copy, install button, etc.). */
 export type AgentErrorCode =

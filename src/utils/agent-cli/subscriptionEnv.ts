@@ -7,7 +7,7 @@
 // deliberately never written into the system PATH. withAgentRuntimePath() prepends it, which
 // is what lets detect/login/generate find them; the inherited PATH still follows, so a CLI the
 // user installed globally themselves keeps resolving exactly as before.
-import { getAgyInstallDirs, withAgentRuntimePath, withPathEntries } from './agentRuntime';
+import { getAgyInstallDirs, getGrokInstallDirs, withAgentRuntimePath, withPathEntries } from './agentRuntime';
 
 const SHARED_SUBSCRIPTION_ENV_KEYS = new Set([
   'PATH',
@@ -77,6 +77,13 @@ const GEMINI_SUBSCRIPTION_ENV_KEYS = new Set([
   ...SHARED_SUBSCRIPTION_ENV_KEYS,
 ]);
 
+// Allowlist-only: XAI_API_KEY is deliberately absent — with it set, `grok` silently
+// falls back to metered API billing instead of the SuperGrok/X Premium+ subscription
+// (the CLI's own error message documents this fallback). Auth lives in ~/.grok.
+const GROK_SUBSCRIPTION_ENV_KEYS = new Set([
+  ...SHARED_SUBSCRIPTION_ENV_KEYS,
+]);
+
 const NPM_INSTALL_ENV_KEYS = new Set([
   ...SHARED_SUBSCRIPTION_ENV_KEYS,
   // Preserve the user's chosen global install location without forwarding npm
@@ -118,6 +125,16 @@ export function buildCodexSubscriptionEnv(
   source: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
   return withAgentRuntimePath(pickSubscriptionEnv(source, CODEX_SUBSCRIPTION_ENV_KEYS));
+}
+
+export function buildGrokSubscriptionEnv(
+  source: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
+  // npm 셔은 확장자 없는 트램펄린이라 안전 해석기가 못 읽는다 — 실제 바이너리
+  // (~/.grok/bin/grok.exe)의 폴더를 agy 처럼 PATH 에 직접 얹는다.
+  return withAgentRuntimePath(
+    withPathEntries(pickSubscriptionEnv(source, GROK_SUBSCRIPTION_ENV_KEYS), getGrokInstallDirs()),
+  );
 }
 
 export function buildGeminiSubscriptionEnv(

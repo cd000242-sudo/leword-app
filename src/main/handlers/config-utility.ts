@@ -1401,6 +1401,7 @@ export function setupConfigUtilityHandlers(): void {
         const { runClaude } = await import('../../utils/agent-cli/claudeRunner');
         const { runCodex } = await import('../../utils/agent-cli/codexRunner');
         const { runGemini } = await import('../../utils/agent-cli/geminiRunner');
+        const { runGrok } = await import('../../utils/agent-cli/grokRunner');
         const { runWithAnyAgent } = await import('../../utils/agent-cli/runAny');
         const { tryExtractJson } = await import('../../utils/agent-cli/parse');
 
@@ -1410,6 +1411,7 @@ export function setupConfigUtilityHandlers(): void {
             { provider: 'claude', run: runClaude },
             { provider: 'codex', run: runCodex },
             { provider: 'gemini', run: runGemini },
+            { provider: 'grok', run: runGrok },
           ], { timeoutMs: 60_000 });
           const parsed = tryExtractJson(run.reply);
           let aiAngles: Array<{ text: string; kind: string; basis: string }> = [];

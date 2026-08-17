@@ -51,7 +51,7 @@ export function startWebBridgeHost(): void {
     startWebBridge({
       appVersion: app.getVersion(),
       getAgentStatuses: async () => {
-        const providers = ['claude', 'codex', 'gemini'] as const;
+        const providers = ['claude', 'codex', 'gemini', 'grok'] as const;
         const statuses = await Promise.all(providers.map(async (provider) => {
           try {
             const s = await detectAgent(provider);

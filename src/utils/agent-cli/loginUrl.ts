@@ -22,6 +22,11 @@ const EXACT_LOGIN_ENDPOINTS: Readonly<Record<AgentProvider, Readonly<{
     origin: 'https://accounts.google.com',
     pathname: '/o/oauth2/v2/auth',
   }),
+  // grok login --device-code 실측(1.0.4): https://accounts.x.ai/oauth2/device?user_code=…
+  grok: Object.freeze({
+    origin: 'https://accounts.x.ai',
+    pathname: '/oauth2/device',
+  }),
 });
 
 /** Validate an OAuth URL before it can reach the operating-system browser. */

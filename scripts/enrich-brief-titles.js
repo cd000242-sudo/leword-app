@@ -28,6 +28,7 @@ const fs = require('fs');
 const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
 const { runCodex } = require('../src/utils/agent-cli/codexRunner');
 const { runGemini } = require('../src/utils/agent-cli/geminiRunner');
+const { runGrok } = require('../src/utils/agent-cli/grokRunner');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 
@@ -36,9 +37,10 @@ const { tryExtractJson } = require('../src/utils/agent-cli/parse');
  * 태우면 사장님이 직접 쓸 한도가 줄어든다. 소네트로 충분한 일이다.
  */
 const AGENT_CHAIN = [
-  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'sonnet' }) },
+  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'opus' }) },
   { provider: 'codex', run: runCodex },
   { provider: 'gemini', run: runGemini },
+  { provider: 'grok', run: runGrok },
 ];
 
 const AI_TIMEOUT_MS = 120_000;
