@@ -30,7 +30,21 @@ const { pickProblemSubKeywords } = require('../src/utils/title-forge/subkeyword-
 const { sharesToken } = require('../src/utils/title-forge/board-titles');
 const { forgeTitles } = require('../src/utils/title-forge/forge');
 const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
+const { runCodex } = require('../src/utils/agent-cli/codexRunner');
+const { runGemini } = require('../src/utils/agent-cli/geminiRunner');
+const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
+
+/*
+ * 구독 CLI 는 하나만 믿지 않는다. 2026-08-18 회차는 클로드 로그인이 끊겨
+ * 30회가 전부 죽었는데, 코덱스 구독은 멀쩡히 살아 있었다 — 데스크톱 경로는
+ * 원래 세 개를 차례로 시도하는데 이 스크립트만 클로드 하나였다.
+ */
+const AGENT_CHAIN = [
+  { provider: 'claude', run: runClaude },
+  { provider: 'codex', run: runCodex },
+  { provider: 'gemini', run: runGemini },
+];
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -39,6 +53,9 @@ function arg(name, fallback = '') {
 
 const AI_TIMEOUT_MS = 60_000;
 const AI_PROPOSAL_CAP = 5;
+
+/** 마지막으로 답한 구독 CLI. 어느 배선이 이 결과를 만들었는지 행에 남긴다. */
+let lastProvider = '';
 
 function buildSearchAdConfig() {
   const env = EnvironmentManager.getInstance().getConfig();
@@ -80,8 +97,9 @@ async function proposeSubKeywords(mainKeyword) {
     '- 예시 형태: "여권사진 안경", "여권사진 반려 사유" (이 키워드가 아니라 형태만 참고)',
     '- JSON 문자열 배열로만 출력: ["검색어1", "검색어2", ...]',
   ].join('\n');
-  const reply = await runClaude(prompt, { timeoutMs: AI_TIMEOUT_MS });
-  const parsed = tryExtractJson(reply);
+  const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
+  lastProvider = run.provider;
+  const parsed = tryExtractJson(run.reply);
   if (!Array.isArray(parsed)) return [];
   return parsed
     .filter((item) => typeof item === 'string')
@@ -172,7 +190,7 @@ async function main() {
     if (titleUpgraded || gotNewSubs) { row.titles = newTitles; if (titleUpgraded) stats.titleUpgraded += 1; }
     if (gotNewSubs || titleUpgraded) {
       stats.enriched += 1;
-      row.enrichedBy = { provider: 'claude', proposed: proposals.length, verified: verified.length };
+      row.enrichedBy = { provider: lastProvider || 'unknown', proposed: proposals.length, verified: verified.length };
       console.log(`  ✚ [${row.keyword}] 서브 ${merged.length}개${titleUpgraded ? ` · 제목 ${newTitles.seo.frame}` : ''} — ${merged.map((s) => s.keyword).join(' / ')}`);
     }
   }
