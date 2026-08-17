@@ -7400,12 +7400,21 @@
               return;
             }
             const subsHtml = (res.subs && res.subs.length > 0)
-              ? res.subs.map((s) => `<div style="padding:2px 0; font-size:13px; color:#334155;">└ ${laneEsc(s.keyword)} <span style="color:#94a3b8; font-size:11px;">${s.searchVolume === null ? '검색량 미측정' : '검색량 ' + s.searchVolume.toLocaleString()}</span></div>`).join('')
+              ? res.subs.map((s) => {
+                  const aiBadge = s.source === 'ai-verified'
+                    ? '<span title="구독 AI 제안 → 검색광고 검색량 실존 검증 통과" style="font-size:9.5px; font-weight:800; background:#334155; color:white; padding:1px 6px; border-radius:4px; margin-left:4px;">🤖 AI+실측</span>'
+                    : '';
+                  return `<div style="padding:2px 0; font-size:13px; color:#334155;">└ ${laneEsc(s.keyword)}${aiBadge} <span style="color:#94a3b8; font-size:11px;">${s.searchVolume === null ? '검색량 미측정' : '검색량 ' + s.searchVolume.toLocaleString()}</span></div>`;
+                }).join('')
               : '<div style="font-size:12px; color:#94a3b8;">문제해결형 파생 실측 없음 — 지어내지 않습니다.</div>';
+            const aiNote = res.ai && res.ai.used
+              ? `<div style="font-size:10.5px; color:#64748b; margin-top:3px;">🤖 ${laneEsc(res.ai.provider)} 제안 ${res.ai.proposed}건 → 실측 검증 통과 ${res.ai.verified}건 합류</div>`
+              : '';
             slot.innerHTML = `
               <div style="border-left:3px solid #fde68a; padding-left:12px;">
                 <div style="font-size:11px; font-weight:700; color:#92400e; margin-bottom:4px;">문제해결 서브 (실측 파생 ${res.expansionCount}건 중 선별)</div>
                 ${subsHtml}
+                ${aiNote}
               </div>
               <div style="background:#f8fafc; border-radius:8px; padding:9px 13px; margin-top:8px; font-size:13px;">
                 <div><span style="font-size:10px; font-weight:800; color:#64748b; margin-right:6px;">SEO</span>${laneEsc(res.titles && res.titles.seo && res.titles.seo.text)}</div>

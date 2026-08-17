@@ -16,11 +16,14 @@ export interface SubKeyword {
   keyword: string;
   searchVolume: number | null;
   frame: TitleFrame;
+  /** 어디서 온 실측인가 — autocomplete(확장 실측) | ai-verified(AI 제안 후 검색량 실존 검증). */
+  source?: string;
 }
 
 export interface ExpansionCandidate {
   keyword: string;
   searchVolume: number | null;
+  source?: string;
 }
 
 /** 문제를 해결하러 온 검색 — 애드센스 글감으로 정보 수요가 가장 진하다. */
@@ -36,7 +39,7 @@ export function pickProblemSubKeywords(
     .filter((candidate) => candidate.keyword && candidate.keyword !== mainKeyword)
     .filter((candidate) => sharesToken(candidate.keyword, mainKeyword))
     .map((candidate) => ({
-      keyword: candidate.keyword,
+      ...candidate,
       searchVolume: candidate.searchVolume ?? null,
       frame: classifyTitleFrame(candidate.keyword),
     }))
