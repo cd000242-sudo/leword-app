@@ -1,26 +1,27 @@
 /**
- * AI 엔진(구독 CLI) 연동 IPC — Claude Code · Codex · Gemini(agy).
+ * AI 엔진(구독 CLI) 연동 IPC — Claude Code · Codex · Gemini.
  *
- * 사장님 지시(2026-08-17): "연동된 걸 어디서 확인할 수 있니? 배선까지 해놔야
- * 연동됐는지 알 거 아냐. 로그인이 필요하면 로그인도 넣어줘야지."
+ * 사장님 UX(2026-08-17): "깔려 있으면 로그인만 하면 연동. 안 깔려 있으면
+ * 자동으로 설치해 주고 로그인만 시키면 되지 않니." 그대로 만든다:
+ *   미설치 → agent-cli-install (앱 소유 프리픽스에 npm 설치 — 관리자 권한·
+ *            사용자 Node 불필요, 시스템 PATH 안 건드림)
+ *   로그인 필요 → agent-cli-login-start (CLI 를 헤드리스로 띄우고 OAuth URL 을
+ *            기본 브라우저로 직접 연다. 승인하면 자동 감지로 완료 확인)
+ *   연동됨 → agent-cli-test 실왕복이 증거
  *
- * 세 채널:
- *   agent-cli-status — 설치·로그인·요금제 실측 감지(모델 턴 소비 없음)
- *   agent-cli-test   — 실제 프롬프트 1회를 러너로 보내 응답을 받는 실증.
- *                      상태 배지가 아니라 왕복 응답이 연동의 증거다.
- *   agent-cli-login  — 터미널을 열어 해당 CLI 로그인으로 안내(OAuth 는 CLI 몫)
- *
- * 러너는 사용자 본인의 구독 세션으로 돈다(subscriptionEnv 가 API 키를 차단해
- * 종량 과금으로 새는 것을 막는다). 앱이 대신 로그인하거나 키를 만지지 않는다.
+ * 로그인은 폴링 모델이다: start → (renderer 가 2초 간격) state → 필요 시
+ * code 제출 → done. 렌더러 push 채널을 새로 뚫지 않아 preload 무변경.
+ * OAuth URL 은 메인에서만 연다 — loginUrl.ts 주석의 지시(렌더러 전송 금지).
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, shell } from 'electron';
 import { spawn } from 'child_process';
 import { detectAgent, clearAgentDetectionCache } from '../../utils/agent-cli/detect';
-import type { AgentProvider } from '../../utils/agent-cli/types';
+import type { AgentProvider, AgentCliStatus } from '../../utils/agent-cli/types';
 import { runClaude } from '../../utils/agent-cli/claudeRunner';
 import { runCodex } from '../../utils/agent-cli/codexRunner';
 import { runGemini } from '../../utils/agent-cli/geminiRunner';
+import { installAgent, loginAgent } from '../../utils/agent-cli/installer';
 
 const PROVIDERS: readonly AgentProvider[] = ['claude', 'codex', 'gemini'];
 
@@ -32,6 +33,18 @@ const TEST_TIMEOUT_MS = 60_000;
 function isProvider(value: unknown): value is AgentProvider {
   return typeof value === 'string' && (PROVIDERS as readonly string[]).includes(value);
 }
+
+interface LoginSessionState {
+  stage: 'starting' | 'waiting_browser' | 'code_required' | 'done' | 'failed';
+  attempt?: number;
+  /** 완료 시의 최종 상태. */
+  status?: AgentCliStatus;
+  error?: string;
+  writeLine?: (value: string) => Promise<'accepted' | 'busy' | 'closed'>;
+  cancel?: () => void;
+}
+
+const loginSessions = new Map<AgentProvider, LoginSessionState>();
 
 export function setupAgentCliHandlers(): void {
   ipcMain.handle('agent-cli-status', async (_event, payload?: { forceRefresh?: boolean }) => {
@@ -47,6 +60,103 @@ export function setupAgentCliHandlers(): void {
       console.error('[AGENT-CLI] 상태 감지 실패:', message);
       return { success: false, error: message };
     }
+  });
+
+  /*
+   * 자동 설치 — 앱 소유 프리픽스(userData/agent-runtime)에 npm 글로벌 설치.
+   * 진행 콜백이 없는 API 라(installer 원설계) "설치 중" 단일 상태로 감싼다.
+   * 최대 5분. 성공 기준은 설치 후 detect 재검증까지 통과한 것(installer 내부).
+   */
+  ipcMain.handle('agent-cli-install', async (_event, payload: { provider?: string }) => {
+    const provider = payload?.provider;
+    if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
+    const started = Date.now();
+    try {
+      const result = await installAgent(provider);
+      clearAgentDetectionCache(provider);
+      return { success: true, provider, version: result.version || '', elapsedMs: Date.now() - started };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[AGENT-CLI] ${provider} 설치 실패:`, message);
+      return { success: false, provider, error: message, elapsedMs: Date.now() - started };
+    }
+  });
+
+  ipcMain.handle('agent-cli-login-start', async (_event, payload: { provider?: string }) => {
+    const provider = payload?.provider;
+    if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
+    const existing = loginSessions.get(provider);
+    if (existing && (existing.stage === 'starting' || existing.stage === 'waiting_browser' || existing.stage === 'code_required')) {
+      return { success: true, provider, alreadyRunning: true };
+    }
+
+    const state: LoginSessionState = { stage: 'starting' };
+    loginSessions.set(provider, state);
+
+    void loginAgent(provider, {
+      onLoginUrl: (url) => {
+        state.stage = 'waiting_browser';
+        // OAuth URL 은 메인에서만 연다(loginUrl.ts 지시). 렌더러로 보내지 않는다.
+        void shell.openExternal(url);
+      },
+      onSessionReady: (controls) => {
+        state.writeLine = controls.writeLine;
+        state.cancel = controls.cancel;
+      },
+      onCodeRequired: (attempt) => {
+        state.stage = 'code_required';
+        state.attempt = attempt;
+      },
+      onSessionClosed: () => {
+        if (state.stage !== 'done' && state.stage !== 'failed') state.stage = 'starting';
+      },
+    }).then((status) => {
+      state.stage = 'done';
+      state.status = status;
+      clearAgentDetectionCache(provider);
+    }).catch((error: unknown) => {
+      state.stage = 'failed';
+      state.error = error instanceof Error ? error.message : String(error);
+    });
+
+    return { success: true, provider };
+  });
+
+  ipcMain.handle('agent-cli-login-state', (_event, payload: { provider?: string }) => {
+    const provider = payload?.provider;
+    if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
+    const state = loginSessions.get(provider);
+    if (!state) return { success: true, provider, stage: 'idle' };
+    return {
+      success: true,
+      provider,
+      stage: state.stage,
+      attempt: state.attempt ?? null,
+      loginAction: state.status?.loginAction ?? null,
+      detail: state.status?.detail || '',
+      error: state.error || '',
+    };
+  });
+
+  ipcMain.handle('agent-cli-login-code', async (_event, payload: { provider?: string; code?: string }) => {
+    const provider = payload?.provider;
+    const code = String(payload?.code || '').trim();
+    if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
+    const state = loginSessions.get(provider);
+    if (!state?.writeLine) return { success: false, error: '진행 중인 로그인이 없습니다.' };
+    if (!code) return { success: false, error: '코드가 비어 있습니다.' };
+    const result = await state.writeLine(code);
+    if (result === 'accepted' && state.stage === 'code_required') state.stage = 'waiting_browser';
+    return { success: result === 'accepted', result };
+  });
+
+  ipcMain.handle('agent-cli-login-cancel', (_event, payload: { provider?: string }) => {
+    const provider = payload?.provider;
+    if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
+    const state = loginSessions.get(provider);
+    state?.cancel?.();
+    loginSessions.delete(provider);
+    return { success: true };
   });
 
   ipcMain.handle('agent-cli-test', async (_event, payload: { provider?: string }) => {
@@ -71,19 +181,14 @@ export function setupAgentCliHandlers(): void {
     }
   });
 
+  /*
+   * 구버전 채널 호환 — 예전 UI 의 '로그인 열기'(터미널 스폰). 새 UI 는
+   * login-start 를 쓰지만, 열린 창이 옛 번들일 수 있어 채널은 남긴다.
+   */
   ipcMain.handle('agent-cli-login', async (_event, payload: { provider?: string }) => {
     const provider = payload?.provider;
-    if (!isProvider(provider)) {
-      return { success: false, error: '알 수 없는 프로바이더입니다.' };
-    }
-    /*
-     * 로그인 OAuth 는 CLI 자신의 일이다 — 앱이 자격증명을 만지면 안 된다.
-     * 보이는 터미널을 열어 로그인 명령을 띄우고, 사용자가 끝내면 화면의
-     * [다시 감지] 가 결과를 확인한다.
-     */
-    const command = provider === 'codex' ? 'codex login'
-      : provider === 'gemini' ? 'agy login'
-        : 'claude';
+    if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
+    const command = provider === 'codex' ? 'codex login' : provider === 'gemini' ? 'agy login' : 'claude';
     try {
       if (process.platform === 'win32') {
         spawn('cmd', ['/c', 'start', `${provider} 로그인`, 'cmd', '/k', command], {
@@ -95,14 +200,7 @@ export function setupAgentCliHandlers(): void {
         }).unref();
       }
       clearAgentDetectionCache(provider);
-      return {
-        success: true,
-        provider,
-        // Claude Code 는 셸 로그인 명령이 따로 없다 — 대화창에서 /login 을 친다.
-        guide: provider === 'claude'
-          ? '터미널에 Claude Code 가 열립니다. 창 안에서 /login 을 입력해 로그인하세요.'
-          : '터미널에서 로그인을 완료한 뒤 [다시 감지]를 누르세요.',
-      };
+      return { success: true, provider, guide: '터미널에서 로그인 완료 후 [다시 감지]를 누르세요.' };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       return { success: false, provider, error: message };

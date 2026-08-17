@@ -123,6 +123,7 @@
     "puppeteer": "^21.5.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "tar": "^7.5.22",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

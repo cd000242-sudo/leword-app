@@ -84,7 +84,8 @@
 - [x] agentCli 이식 완료(13파일 → src/utils/agent-cli, 임포트만 조정·로직 무변경): 감지+3사 러너. 이 PC 실측 — claude(MAX)·codex(ChatGPT)·agy 전부 설치+로그인. **실왕복 증명**: claude 3.7초·codex 6.9초에 테스트 프롬프트 정답 응답
 - [x] 🤖 AI 엔진 연동 화면: 독립 카드+모달 — 3사 상태 배지(CLI 실측)·다시 감지·로그인 열기(터미널)·⚡연동 테스트(실왕복). IPC agent-cli-status/test/login. subscriptionEnv 가 API 키를 차단해 구독 과금 밖으로 새지 않음
 - [x] 추론 체인 v1 배선(forge-lane-insights): 규칙 서브 <3 이면 구독 CLI(claude→codex→gemini 감지순)가 제안 → **2단 실존 결재**(검색광고 검색량>0, 아니면 자동완성 프로브 echo) 통과분만 합류(🤖 AI+실측 배지). 실증: '민증사진 규칙'(자동완성 0건) → AI 5건 제안 → '민증사진 여권사진 차이'(월 20회 실측) 1건 합류, 4건 정직 탈락. 프롬프트 교훈: "자연스러운 검색어"만 말하면 질문 문장이 나온다 — 짧은 명사구 형태를 못 박아야 함
-- [ ] BYOK 폴백(구독 CLI 없는 사용자용 API 키 경로) + 환경설정 입력칸 (autocomplete=new-password + 형식 가드)
+- [x] 자동 설치+로그인 완성(사장님 UX: "깔려 있으면 로그인만, 없으면 자동 설치"): installer/npmBootstrap/npmInvocation/loginUrl 이식(+validation·geminiAuthConfig, tar 런타임 의존 추가). 설치=앱 소유 프리픽스(관리자 권한·Node 불필요), 로그인=CLI 헤드리스+OAuth URL 앱이 직접 브라우저 오픈+완료 자동감지(+codex 일회용 코드 입력 UI). IPC 5종(install/login-start/state/code/cancel) + 카드 버튼 상태별 분기
+- [ ] BYOK 폴백(구독 CLI 없는 사용자용 API 키 경로) + 환경설정 입력칸 (autocomplete=new-password + 형식 가드) — 사이트 쪽은 안내 재정렬로 완료(구독 무료=앱 1순위)
 - [ ] 환경설정 BYOK 입력칸(autocomplete=new-password + 형식 가드 필수 — 크롬 자동완성 사고 재발 방지)
 - [ ] 단계별 에이전트 두뇌 훅: 씨앗 선정(회차 전)·판정 해석·폐순환. 어드민 "AI 작업자" 패널 실배선(현재 localStorage 껍데기)
 - [ ] 폐순환 적중률: 보드에서 쓴 키워드 → 내 노출 추적 자동 등록 → 회차별 적중률 리포트 (수익화 확률 주장을 실측 숫자로)
