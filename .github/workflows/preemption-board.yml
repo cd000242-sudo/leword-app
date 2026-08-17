@@ -149,7 +149,11 @@ jobs:
             exit 0
           fi
           npm install -g @anthropic-ai/claude-code
-          node scripts/enrich-board.js --in=board.json --out=board-enriched.json --maxAi=30
+          # 상한 30 은 보드가 24행이던 시절 값이다. 2026-08-17 회차는 37행이라
+          # 7행이 보강 없이 발행됐다("AI 호출 상한 도달"). 구독 호출이라 건당
+          # 비용이 없으므로 행 수보다 넉넉하게 둔다 — 상한은 사고 방지용이지
+          # 절약 수단이 아니다.
+          node scripts/enrich-board.js --in=board.json --out=board-enriched.json --maxAi=80
           # 보강본이 만들어졌을 때만 원본을 교체한다.
           if [ -s board-enriched.json ]; then mv board-enriched.json board.json; fi
 
