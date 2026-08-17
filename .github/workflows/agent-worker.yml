@@ -1,0 +1,76 @@
+name: AI 에이전트 작업자
+
+# 사이트는 서버가 없다(Vultr 폐지) — 에이전트 작업자는 GitHub Actions 가 맡는다.
+# Claude Code 를 **구독 OAuth 토큰**(claude setup-token 으로 발급)으로 돌린다.
+# API 종량 과금이 아니라 사장님 구독(MAX) 안에서 도는 실행이다.
+#
+# 수동 테스트: Actions 탭 → "AI 에이전트 작업자" → Run workflow (mode=test).
+# 응답이 로그에 찍히면 연동이 산 것이다.
+#
+# 사전 준비(1회): 사장님 PC 터미널에서 `claude setup-token` 실행 → 나온 토큰을
+#   gh secret set CLAUDE_CODE_OAUTH_TOKEN -R cd000242-sudo/leword-app
+# 로 등록. 토큰을 채팅·코드에 붙여넣지 말 것.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'test(연동 테스트) | enrich(회차 보강 — 준비 중)'
+        default: 'test'
+      prompt:
+        description: 'test 모드에서 보낼 프롬프트(비우면 기본 문장)'
+        default: ''
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 토큰 없이는 CLI 설치조차 낭비다 — 먼저 확인하고 안내를 남긴다.
+      - name: 구독 토큰 확인
+        env:
+          HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_TOKEN" != 'true' ]; then
+            echo '::error::CLAUDE_CODE_OAUTH_TOKEN 시크릿이 없습니다.'
+            echo '사장님 PC 에서: claude setup-token 실행 → 토큰을 시크릿으로 등록:'
+            echo '  gh secret set CLAUDE_CODE_OAUTH_TOKEN -R cd000242-sudo/leword-app'
+            exit 1
+          fi
+          echo '구독 토큰 확인됨.'
+
+      - name: Claude Code 설치
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: 연동 테스트 (구독 세션 실왕복)
+        if: ${{ inputs.mode == 'test' }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          PROMPT="${{ inputs.prompt }}"
+          if [ -z "$PROMPT" ]; then
+            PROMPT='다음 단어를 그대로 한 번만 출력해라: 연동확인'
+          fi
+          echo "프롬프트: $PROMPT"
+          # -p 헤드리스 + default 모드. plan 모드는 계획만 답하고 산출물을 안 낸다(실측 함정).
+          REPLY=$(printf '%s' "$PROMPT" | claude -p --output-format json --permission-mode default --disallowedTools '*' 2>/dev/null | head -c 4000)
+          echo "원본 응답 봉투: $REPLY"
+          RESULT=$(printf '%s' "$REPLY" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.result||'');}catch{console.log('');}})")
+          if [ -z "$RESULT" ]; then
+            echo '::error::응답을 받지 못했습니다 — 토큰 만료 또는 요금제 한도를 확인하세요.'
+            exit 1
+          fi
+          echo "✅ 에이전트 응답: $RESULT"
+
+      # 회차 보강은 다음 단계 — 자리를 잡아두되 있는 척하지 않는다.
+      - name: 회차 보강 (준비 중)
+        if: ${{ inputs.mode == 'enrich' }}
+        run: |
+          echo '::error::enrich 모드는 아직 배선 전입니다. 보강 파이프라인이 붙으면 열립니다.'
+          exit 1
