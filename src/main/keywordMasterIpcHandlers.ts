@@ -13,6 +13,7 @@ import { setupKeyWizardHandlers } from './handlers/key-wizard';
 import { setupKeywordBlueprintHandlers } from './handlers/keyword-blueprint';
 import { setupExposureTrackingHandlers } from './handlers/exposure-tracking';
 import { setupLaneInsightsHandlers } from './handlers/lane-insights';
+import { setupAgentCliHandlers } from './handlers/agent-cli-handlers';
 import { startRefreshScheduler, stopRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker, stopLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
 import { startRankTracker, stopRankTracker } from '../utils/pro-hunter-v12/rank-tracker';
@@ -136,6 +137,7 @@ export function setupKeywordMasterHandlers() {
   setupKeywordBlueprintHandlers();
   setupExposureTrackingHandlers();
   setupLaneInsightsHandlers();
+  setupAgentCliHandlers();
 
   // v2.42.98: 백그라운드 워커 옵트인 — 기본 OFF (CPU/RAM 성능 우선)
   //   환경설정의 enableBackgroundWorkers=true 일 때만 활성화

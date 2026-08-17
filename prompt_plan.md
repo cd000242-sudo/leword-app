@@ -81,7 +81,9 @@
 - [x] `subkeyword-forge.ts`: 문제해결형 서브 3 — 하드코딩 접미사 금지, 실측 확장 중 프레임 선별(어절 공유·문제형만·검색량순·부족하면 있는 만큼), vitest 5/5
 - [x] IPC `forge-lane-insights`(lane-insights.ts 신설): 자동완성 확장(무료)→검색광고 검색량(상위 15개만, 쿼터 절약)→서브 선별+제목 2종. 키 없으면 검색량 null 로 계속
 - [x] UI v1: 🧭 황금키워드 레인 카드 + 3탭 모달(발굴 결과 재사용·카테고리 그룹·행별 온디맨드 서브·제목, 홈판은 실시간 검색어 + 같은 조립). 검증: tsc 2종 0오류·vitest 45/45·ui-count 62/62·인라인 스크립트 10블록 vm 파싱 0오류
-- [ ] agentCli 이식(리더 네이버 자동화 → LEWORD): 구독 CLI(Claude/Codex/Gemini) 감지+러너 → 추론 체인 ①구독 CLI ②BYOK ③규칙(Ollama 는 신규 기능에서 제외, 기존 마인드맵만 유지)
+- [x] agentCli 이식 완료(13파일 → src/utils/agent-cli, 임포트만 조정·로직 무변경): 감지+3사 러너. 이 PC 실측 — claude(MAX)·codex(ChatGPT)·agy 전부 설치+로그인. **실왕복 증명**: claude 3.7초·codex 6.9초에 테스트 프롬프트 정답 응답
+- [x] 🤖 AI 엔진 연동 화면: 독립 카드+모달 — 3사 상태 배지(CLI 실측)·다시 감지·로그인 열기(터미널)·⚡연동 테스트(실왕복). IPC agent-cli-status/test/login. subscriptionEnv 가 API 키를 차단해 구독 과금 밖으로 새지 않음
+- [ ] 추론 체인 배선: forge-lane-insights 등 추론 지점이 ①구독 CLI ②BYOK ③규칙 순서로 폴백 (Ollama 는 신규 기능에서 제외, 기존 마인드맵만 유지)
 - [ ] 환경설정 BYOK 입력칸(autocomplete=new-password + 형식 가드 필수 — 크롬 자동완성 사고 재발 방지)
 - [ ] 단계별 에이전트 두뇌 훅: 씨앗 선정(회차 전)·판정 해석·폐순환. 어드민 "AI 작업자" 패널 실배선(현재 localStorage 껍데기)
 - [ ] 폐순환 적중률: 보드에서 쓴 키워드 → 내 노출 추적 자동 등록 → 회차별 적중률 리포트 (수익화 확률 주장을 실측 숫자로)
