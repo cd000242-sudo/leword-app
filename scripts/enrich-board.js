@@ -40,8 +40,16 @@ const { tryExtractJson } = require('../src/utils/agent-cli/parse');
  * 30회가 전부 죽었는데, 코덱스 구독은 멀쩡히 살아 있었다 — 데스크톱 경로는
  * 원래 세 개를 차례로 시도하는데 이 스크립트만 클로드 하나였다.
  */
+/*
+ * 배치 전용 모델 고정(2026-08-18). 사장님 클로드코드 기본 모델은 페이블5
+ * (최상위 티어, 주간 한도가 따로 빡빡하다). 키워드 제안·수익 판정 같은
+ * 배치 작업은 소네트면 충분하고, 최상위 한도는 사장님이 직접 쓰는 자리에
+ * 남겨 둔다. 대화형(앱 분석기)은 기본 모델 그대로다.
+ */
+const BATCH_CLAUDE_MODEL = 'sonnet';
+
 const AGENT_CHAIN = [
-  { provider: 'claude', run: runClaude },
+  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: BATCH_CLAUDE_MODEL }) },
   { provider: 'codex', run: runCodex },
   { provider: 'gemini', run: runGemini },
 ];

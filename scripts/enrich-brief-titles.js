@@ -31,8 +31,12 @@ const { runGemini } = require('../src/utils/agent-cli/geminiRunner');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 
+/*
+ * 배치 전용 모델 고정 — 기본 모델(페이블5, 최상위 티어)을 매시간 제목 짓기에
+ * 태우면 사장님이 직접 쓸 한도가 줄어든다. 소네트로 충분한 일이다.
+ */
 const AGENT_CHAIN = [
-  { provider: 'claude', run: runClaude },
+  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'sonnet' }) },
   { provider: 'codex', run: runCodex },
   { provider: 'gemini', run: runGemini },
 ];
