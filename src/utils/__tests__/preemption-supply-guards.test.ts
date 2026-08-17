@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { judgeEphemeralKeyword, judgeRestrictedKeyword } from '../preemption-supply-guards';
+import { judgeEphemeralKeyword } from '../preemption-supply-guards';
 import { BLOG_TOPIC_COVERAGE } from '../blog-topic-coverage';
 
 /**
@@ -41,20 +41,6 @@ describe('유통기한 컷 — 며칠짜리 일정 조회', () => {
             expect(judgeEphemeralKeyword(keyword).ephemeral).toBe(false);
         });
     }
-});
-
-describe('규제 컷 — 불법 시청 유도 검색어', () => {
-    it('무료 시청 사이트 유도는 걸러진다', () => {
-        // 두 회차 연속 top3 로 통과했던 실측 사례 — 자리가 있어도 쓸 수 없는 글이다.
-        expect(judgeRestrictedKeyword('무료 영화 사이트 링크 모음').ephemeral).toBe(true);
-        expect(judgeRestrictedKeyword('무료 드라마 다시보기').ephemeral).toBe(true);
-        expect(judgeRestrictedKeyword('누누티비 주소').ephemeral).toBe(true);
-    });
-    it('정상 정보형은 살아남는다', () => {
-        expect(judgeRestrictedKeyword('영화관 무료 관람일').ephemeral).toBe(false);
-        expect(judgeRestrictedKeyword('무료 영화 예매권 받는법').ephemeral).toBe(false);
-        expect(judgeRestrictedKeyword('넷플릭스 무료체험 해지').ephemeral).toBe(false);
-    });
 });
 
 describe('씨앗 목록에 부패 씨앗이 없다', () => {

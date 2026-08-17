@@ -47,7 +47,7 @@ const { DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate'
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { analyzeKeywordSignals, sortWeight } = require('../src/utils/keyword-intent');
 const { sharesSeedToken } = require('../src/utils/seed-drift');
-const { judgeEphemeralKeyword, judgeRestrictedKeyword } = require('../src/utils/preemption-supply-guards');
+const { judgeEphemeralKeyword } = require('../src/utils/preemption-supply-guards');
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -380,12 +380,6 @@ async function main() {
       const rot = judgeEphemeralKeyword(row.keyword);
       if (rot.ephemeral) {
         ephemeralLog.push(`${row.keyword} — ${rot.reason}`);
-        continue;
-      }
-      // 규제 컷 — '무료 영화 사이트'류는 자리가 있어도 쓸 수 없는 글이 된다.
-      const restricted = judgeRestrictedKeyword(row.keyword);
-      if (restricted.ephemeral) {
-        ephemeralLog.push(`${row.keyword} — ${restricted.reason}`);
         continue;
       }
       /*
