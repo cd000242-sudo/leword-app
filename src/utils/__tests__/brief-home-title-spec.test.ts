@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRequire } from 'node:module';
+import path from 'node:path';
 
 /**
  * 홈판 제목 규격 — 메인키워드 + 서브키워드 + 후킹.
@@ -12,8 +13,10 @@ import { createRequire } from 'node:module';
  * 기사 사실 문장에 나온 말. 지어낸 말은 서브가 아니다.
  */
 
-const require_ = createRequire(import.meta.url);
-const { homeTitleHasSub, subKeywordCandidates } = require_('../../../scripts/enrich-brief-titles.js');
+// 대상은 CommonJS 스크립트다. import.meta 는 이 프로젝트의 tsc 설정에서 못 쓰므로
+// cwd 기준 절대 경로로 만든다(vitest 는 레포 루트에서 돈다).
+const require_ = createRequire(path.join(process.cwd(), 'package.json'));
+const { homeTitleHasSub, subKeywordCandidates } = require_('./scripts/enrich-brief-titles.js');
 
 const FACTS = [
   '경남 거제에 570㎜ 넘는 비가 내려 도로 아스팔트가 뜯겨나갔다',

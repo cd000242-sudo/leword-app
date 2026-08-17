@@ -7581,9 +7581,104 @@
                 <button onclick="event.stopPropagation(); rfShowTrendGraph('${safe}', ${Number(k.searchVolume) || 0})" title="트렌드" style="padding:3px 6px; background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; border-radius:4px; cursor:pointer; font-size:10px;">📈</button>
               </div>`;
             }).join('');
-            content.innerHTML = `<div style="font-weight:700; color:#475569; margin-bottom:8px;">🔗 "${kw}" 확장 키워드 (클릭 → LEWORD 재검색)</div>${items}`;
+            content.innerHTML = `<div style="font-weight:700; color:#475569; margin-bottom:8px;">🔗 "${kw}" 확장 키워드 (클릭 → LEWORD 재검색)</div>${items}
+              <div id="demand-${idx}" style="margin-top:10px;">
+                <button onclick="analyzeDemand('${String(kw).replace(/'/g, "\\'")}', ${idx})"
+                        style="padding:7px 12px; background:#f5f3ff; color:#6d28d9; border:1px solid #ddd6fe; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700;">
+                  🧠 왜 검색하는지 분석 (내 클로드코드·코덱스)
+                </button>
+              </div>`;
           } catch (err) {
             content.innerHTML = `<div style="color:#ef4444;">조회 실패: ${err?.message || err}</div>`;
+          }
+        };
+
+        /*
+         * 키워드 수요 분석 — 규칙 확장 위에 사용자 **본인 구독**을 얹는다.
+         * 지어낸 설명이 화면에 오르지 않도록, 실측 신호를 짚지 못한 문장은
+         * 메인 프로세스에서 이미 걸러져서 온다. 여기서는 온 것만 그린다.
+         */
+        window.analyzeDemand = async function(kw, idx) {
+          const box = document.getElementById('demand-' + idx);
+          if (!box) return;
+          box.innerHTML = '<div style="color:#64748b; font-size:12px;">⏳ 내 구독으로 분석 중… (최대 1분)</div>';
+          try {
+            const res = await sendIPCRequest('analyze-keyword-demand', { keyword: kw });
+            if (!res || res.success === false) {
+              box.innerHTML = `<div style="color:#ef4444; font-size:12px;">분석 실패: ${res?.error || '알 수 없음'}</div>`;
+              return;
+            }
+
+            // 구독이 하나도 없다 — 설치를 권한다(버튼 한 번).
+            if (res.agent && res.agent.error === 'no_agent') {
+              box.innerHTML = `
+                <div style="padding:10px 12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px;">
+                  <div style="font-weight:700; color:#92400e; font-size:12px; margin-bottom:4px;">AI 엔진이 없습니다</div>
+                  <div style="color:#78350f; font-size:11px; line-height:1.6; margin-bottom:8px;">
+                    클로드코드나 코덱스를 연동하면 <strong>내 구독</strong>으로 분석합니다 — 추가 비용이 없습니다.
+                  </div>
+                  <button onclick="installAgentFromDemand('claude', '${String(kw).replace(/'/g, "\\'")}', ${idx})"
+                          style="padding:6px 12px; background:#7c3aed; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700;">
+                    ⬇ 클로드코드 설치하기
+                  </button>
+                </div>`;
+              return;
+            }
+
+            const reasons = Array.isArray(res.reasons) ? res.reasons : [];
+            const aiFound = (res.expansions || []).filter(e => e.source === 'ai-verified');
+
+            const reasonHtml = reasons.length > 0
+              ? reasons.map(r => `<li style="margin-bottom:6px; line-height:1.6;">${r.text}
+                   <span style="font-size:10px; color:#7c3aed; background:#f5f3ff; padding:1px 5px; border-radius:4px; margin-left:4px;">${r.basis} 실측</span></li>`).join('')
+              : '<li style="color:#94a3b8;">실측으로 뒷받침되는 설명을 찾지 못했습니다.</li>';
+
+            const aiHtml = aiFound.length > 0
+              ? aiFound.map(e => {
+                  const safe = String(e.keyword).replace(/'/g, "\\'");
+                  const vol = e.searchVolume ? `sv ${e.searchVolume.toLocaleString()}` : '자동완성 확인';
+                  return `<span onclick="searchKeyword('${safe}', true)" style="display:inline-block; padding:4px 9px; margin:0 4px 4px 0; background:#f5f3ff; color:#5b21b6; border:1px solid #ddd6fe; border-radius:999px; font-size:11px; font-weight:700; cursor:pointer;">${e.keyword} <span style="font-weight:400; opacity:.7;">${vol}</span></span>`;
+                }).join('')
+              : '<span style="color:#94a3b8; font-size:11px;">실존이 확인된 추가 검색어가 없습니다.</span>';
+
+            box.innerHTML = `
+              <div style="padding:11px 13px; background:#fafaff; border:1px solid #e9e5ff; border-radius:8px;">
+                <div style="font-weight:800; color:#5b21b6; font-size:12px; margin-bottom:7px;">
+                  🧠 왜 검색하나 <span style="font-weight:500; color:#8b7fb8; font-size:10px;">${res.agent?.provider || ''} · 근거 ${(res.signals || []).join('·') || '없음'}</span>
+                </div>
+                <ul style="margin:0 0 10px 16px; padding:0; color:#3f3f5f; font-size:12px;">${reasonHtml}</ul>
+                <div style="font-weight:800; color:#5b21b6; font-size:12px; margin-bottom:6px;">
+                  🔎 AI 가 더 찾아 실측으로 확인된 검색어
+                  <span style="font-weight:500; color:#8b7fb8; font-size:10px;">제안 ${res.agent?.proposed || 0} → 통과 ${aiFound.length}</span>
+                </div>
+                <div>${aiHtml}</div>
+              </div>`;
+          } catch (err) {
+            box.innerHTML = `<div style="color:#ef4444; font-size:12px;">분석 실패: ${err?.message || err}</div>`;
+          }
+        };
+
+        /** 설치 → 로그인 안내 → 분석 재시도. 버튼 한 번으로 이어지게 한다. */
+        window.installAgentFromDemand = async function(provider, kw, idx) {
+          const box = document.getElementById('demand-' + idx);
+          if (!box) return;
+          box.innerHTML = '<div style="color:#64748b; font-size:12px;">⏳ 설치 중… (1분 정도 걸립니다)</div>';
+          try {
+            const res = await sendIPCRequest('agent-cli-install', { provider });
+            if (!res || res.success === false) {
+              box.innerHTML = `<div style="color:#ef4444; font-size:12px;">설치 실패: ${res?.error || '알 수 없음'}</div>`;
+              return;
+            }
+            box.innerHTML = `
+              <div style="padding:10px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">
+                <div style="font-weight:700; color:#15803d; font-size:12px; margin-bottom:6px;">설치 완료 — 이제 로그인만 하면 됩니다</div>
+                <button onclick="openAgentCliModal && openAgentCliModal()"
+                        style="padding:6px 12px; background:#16a34a; color:white; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700; margin-right:6px;">🔑 로그인 하기</button>
+                <button onclick="analyzeDemand('${String(kw).replace(/'/g, "\\'")}', ${idx})"
+                        style="padding:6px 12px; background:white; color:#15803d; border:1px solid #bbf7d0; border-radius:6px; cursor:pointer; font-size:12px; font-weight:700;">다시 분석</button>
+              </div>`;
+          } catch (err) {
+            box.innerHTML = `<div style="color:#ef4444; font-size:12px;">설치 실패: ${err?.message || err}</div>`;
           }
         };
 
