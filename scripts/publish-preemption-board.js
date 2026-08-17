@@ -123,6 +123,12 @@ function toPublicRow(row) {
       home: { text: row.titles.home.text, frame: row.titles.home.frame, basis: row.titles.home.basis },
     } : null,
     /*
+     * 애드센스(티스토리/구글) 적합 배지. null = 재료 부족(미판정) — 화면은
+     * 배지를 안 그리면 된다. 네이버 적합 배지는 없다 — 본판 통과 자체가 그 증거다.
+     */
+    adsenseFit: row.adsenseFit ?? null,
+    adsenseReason: row.adsenseReason || '',
+    /*
      * 이 숫자가 언제쩍 결과인지.
      *
      * 검색량은 지난 한 달의 총합이라, 정점이 1년 전인 키워드와 지금이 정점인

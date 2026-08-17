@@ -35,6 +35,8 @@ import { enrichKeywordsWithVacancy, isVacancyReliable } from '../../utils/pro-hu
 import type { VacancyResult } from '../../utils/pro-hunter-v12/vacancy-detector';
 import { enrichKeywordsWithContentBrief, isContentBriefReliable } from '../../utils/pro-hunter-v12/content-brief-enricher';
 import type { SerpAnalysis } from '../../utils/pro-hunter-v12/serp-content-analyzer';
+import { judgePlatformLane } from '../../utils/platform-lane';
+import { classifySearchIntent } from '../../utils/keyword-intent';
 import { uploadGoldenBoardCandidates } from '../../utils/live-board-uploader';
 import { getNaverBlogDocumentCount, normalizeNaverBlogBroadQuery } from '../../utils/naver-blog-api';
 
@@ -1050,6 +1052,18 @@ export function setupKeywordDiscoveryHandlers(): void {
               // C2: 실측 SERP 부가필드(측정된 상위 후보만). 코어 등급/score 미변경(불변 새 객체).
               const serp = serpMap.get(item.keyword);
               if (!serp || !serp.measured) return withValue;
+              /*
+               * 플랫폼 레인(사장님 지시 2026-08-17): 쇼핑판 키워드는 쇼핑 커넥트
+               * 소관 — UI 가 이 라벨로 본판에서 뺀다. 애드센스 적합은 의도 실측만
+               * 쓴다(desktop 의 cpc 는 카테고리 추정값이라 판정에 넣지 않는다 —
+               * 추정치를 게이트에 누수시키지 않는 원칙).
+               */
+              const laneVerdict = judgePlatformLane({
+                keyword: item.keyword,
+                shoppingDominant: serp.shoppingDominant ?? null,
+                intentLabel: classifySearchIntent(item.keyword).intentLabel,
+                cpc: null,
+              });
               return {
                 ...withValue,
                 winnable: applySerpDifficulty(item, serp, 0).winnable,
@@ -1061,6 +1075,10 @@ export function setupKeywordDiscoveryHandlers(): void {
                 hasViewSection: serp.hasViewSection,
                 hasInfluencer: serp.hasInfluencer,
                 serpMeasured: true,
+                platformLane: laneVerdict.lane,
+                laneReasons: laneVerdict.laneReasons,
+                adsenseFit: laneVerdict.adsenseFit,
+                adsenseReason: laneVerdict.adsenseReason,
               };
             });
 

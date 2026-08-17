@@ -318,13 +318,25 @@ async function main() {
       if (added === 0) break;
     }
     const volumes = new Map();
+    /*
+     * CPC·광고 경쟁도는 같은 응답에 이미 실려 온다 — 예전엔 검색량만 꺼내고
+     * 버렸다. 애드센스 레인 판정(platform-lane)이 CPC 실측을 근거로 쓰므로
+     * 이제 보존한다. 추가 호출·쿼터 소모 없음.
+     */
+    const adSignals = new Map();
     for (let i = 0; i < phraseList.length; i += 5) {
       const chunk = phraseList.slice(i, i + 5).map((row) => row.keyword);
       try {
         const rows = await getNaverSearchAdKeywordVolume(searchAd, chunk);
         for (const row of rows) {
           const total = Number(row.pcSearchVolume || 0) + Number(row.mobileSearchVolume || 0);
-          if (total > 0) volumes.set(String(row.keyword).replace(/\s+/g, ''), total);
+          const compact = String(row.keyword).replace(/\s+/g, '');
+          if (total > 0) volumes.set(compact, total);
+          adSignals.set(compact, {
+            cpc: Number.isFinite(Number(row.monthlyAveCpc)) && Number(row.monthlyAveCpc) > 0
+              ? Number(row.monthlyAveCpc) : null,
+            competition: row.competition || null,
+          });
         }
       } catch { /* 측정 실패분은 후보에서 빠진다 — 지어내지 않는다 */ }
     }
@@ -541,6 +553,9 @@ async function main() {
         trendEvidence: trend.evidence,
         monthsToPeak: trend.monthsToPeak,
         timing: trend.timing,
+        // 검색량 응답에 같이 온 실측 — 애드센스 레인 판정 재료. 없으면 null.
+        cpc: adSignals.get(row.keyword.replace(/\s+/g, ''))?.cpc ?? null,
+        adCompetition: adSignals.get(row.keyword.replace(/\s+/g, ''))?.competition ?? null,
         // 언제 잰 값인지. 없으면 화면이 "언제쩍 숫자인지" 를 말할 수 없다.
         measuredAt: new Date().toISOString(),
         demandAsOf: recency.asOf,

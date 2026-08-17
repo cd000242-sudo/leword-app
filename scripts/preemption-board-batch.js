@@ -40,6 +40,7 @@ const { BLOG_TOPIC_COVERAGE, topicsWithoutCoverage } = require('../src/utils/blo
 const { judgeTopicByEvidence } = require('../src/utils/topic-evidence');
 const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
 const { buildBoardTitles } = require('../src/utils/title-forge/board-titles');
+const { judgePlatformLane } = require('../src/utils/platform-lane');
 
 const ZONE = process.env.BRIGHTDATA_ZONE || '77';
 const FEATURE = 'golden';
@@ -99,6 +100,9 @@ function loadCandidates(inPath) {
       trendLabel: row.trendLabel || '',
       // 제목 배선용 — 같은 씨앗 형제를 찾는 열쇠다. 없으면 어절 공유로 대신한다.
       seed: row.seed || null,
+      // 애드센스 레인 판정 재료(검색량 응답에 같이 온 실측). 없으면 null.
+      cpc: Number.isFinite(Number(row.cpc)) && Number(row.cpc) > 0 ? Number(row.cpc) : null,
+      adCompetition: row.adCompetition || null,
       monthsToPeak: Number.isFinite(Number(row.monthsToPeak)) ? Number(row.monthsToPeak) : null,
       timing: row.timing || '',
       longTail: Boolean(row.longTail),
@@ -402,6 +406,12 @@ async function main() {
   const shortTopics = [];
   const rejectionLog = [];
   /*
+   * 쇼핑 레인으로 라우팅한 행 — 이 보드의 오염이 아니라 쇼핑 커넥트의 소관이다
+   * (사장님 지시 2026-08-17: "쇼핑은 이미 탭에 있는데 여기 있을 필요가 없죠").
+   * 조용히 버리지 않는다 — 무엇이 어떤 실측 근거로 빠졌는지 원장에 남긴다.
+   */
+  const routedShopping = [];
+  /*
    * 체크포인트 — 주제 하나 끝날 때마다 지금까지의 결과를 통째로 저장한다.
    *
    * 2026-08-11 회차: 20주제를 검증해 놓고 프로세스가 조용히 죽어 **크레딧 ~80건의
@@ -424,6 +434,7 @@ async function main() {
       topicVerdicts: topicVerdictTotals,
       verified: stats.verified,
       rejections: rejectionLog,
+      routedShopping,
       rows,
     };
     fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
@@ -477,7 +488,39 @@ async function main() {
       console.log(`  ?? [${topic}] ${candidate.keyword} — ${String(error && error.message || error).slice(0, 70)}`);
     });
     // 순서는 후보 순 그대로다(mapWithConcurrency 가 보장한다) — 회차 간 대조를 위해서다.
-    const judgedInputs = verified.filter(Boolean);
+    const allJudged = verified.filter(Boolean);
+    if (allJudged.length === 0) continue;
+
+    /*
+     * 레인 분리 — 상품판 키워드는 **선발 전에** 뺀다.
+     *
+     * 선발 후에 빼면 상품 키워드가 자리를 차지한 채 빠져서 목표 미달이 된다.
+     * 판정은 SERP 실측 3중 증거(쇼핑 구획·상품명 카드·스마트블록)만 쓴다 —
+     * 8/17 월요일 회차 28행으로 캘리브레이션했고, 브랜드명 추측은 쓰지 않는다.
+     */
+    const laned = allJudged.map((e) => ({
+      ...e,
+      laneVerdict: judgePlatformLane({
+        keyword: e.input.keyword,
+        serpSections: e.input.serp ? (e.input.serp.sections || null) : null,
+        productNames: e.input.serp && e.input.serp.meaning
+          ? (e.input.serp.meaning.productNames || null) : null,
+        intentLabel: e.candidate.intentLabel || null,
+        adCount: e.input.serp ? (e.input.serp.adCount ?? null) : null,
+        cpc: e.candidate.cpc ?? null,
+      }),
+    }));
+    for (const routed of laned.filter((e) => e.laneVerdict.lane === 'shopping')) {
+      routedShopping.push({
+        topic,
+        keyword: routed.input.keyword,
+        searchVolume: routed.input.searchVolume ?? null,
+        documentCount: routed.input.documentCount ?? null,
+        reasons: routed.laneVerdict.laneReasons,
+      });
+      console.log(`  ~> [${topic}] ${routed.input.keyword} — 쇼핑 레인 (${routed.laneVerdict.laneReasons[0]})`);
+    }
+    const judgedInputs = laned.filter((e) => e.laneVerdict.lane === 'content');
     if (judgedInputs.length === 0) continue;
 
     const outcome = selectWithFill(judgedInputs.map((e) => e.input), { target: targetPerTopic });
@@ -591,6 +634,13 @@ async function main() {
           byTopic.get(topic),
           (serp && serp.topTitles) || [],
         ),
+        /*
+         * 애드센스(티스토리/구글) 적합 — 의도·CPC 실측 기반(platform-lane).
+         * null 은 '재료 부족' 이지 '부적합' 이 아니다. 네이버 적합은 따로 안 싣는다 —
+         * 이 보드의 통과 자체가 네이버 자리 실측이다.
+         */
+        adsenseFit: source ? source.laneVerdict.adsenseFit : null,
+        adsenseReason: source ? source.laneVerdict.adsenseReason : '',
         firstSeenAt: observedSince(firstSeen, addedKeywords, result.keyword),
       });
     }
@@ -604,7 +654,7 @@ async function main() {
 
   const after = brightDataQuotaSnapshot();
   console.log('\n' + '-'.repeat(72));
-  console.log(`검증 ${stats.verified}건 → 통과 ${stats.passed} · 탈락 ${stats.rejected} · 판정불가 ${stats.undetermined} · 수집실패 ${stats.failed}`);
+  console.log(`검증 ${stats.verified}건 → 통과 ${stats.passed} · 탈락 ${stats.rejected} · 판정불가 ${stats.undetermined} · 수집실패 ${stats.failed} · 쇼핑 라우팅 ${routedShopping.length}`);
   /*
    * 주제 커버리지는 **진짜 주제만** 센다.
    * 되짚기로 라벨을 뗀 행('주제 선택 안 함')까지 세면 커버리지가 부풀려진다.

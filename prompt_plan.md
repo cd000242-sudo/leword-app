@@ -62,6 +62,19 @@
 - [ ] `publish-preemption-board.js` 발행 스키마: 시기 그룹(`지금 적기 / N주 후 정점 / 연중 상시`) + 행별 `titles: {seo, home}` 부착 (하위호환 — 필드 추가만)
 - [ ] 사이트(naver 레포) 보드 화면: 시기별 묶음 + 제목 2종 표시 (별도 커밋, 스키마 먼저 → 화면 나중)
 
+## Phase 5 — 플랫폼 레인 분리 (사장님 지시 2026-08-17, 보드+데스크톱 동시)
+
+황금키워드 산출물을 용도로 가른다. 쇼핑/상업 키워드는 이 보드의 오염이 아니라
+쇼핑 황금키워드 탭의 소관 — 브랜드 꼬리표 문제는 브랜드 판별이 아니라
+**상업 레인 라우팅**으로 푼다.
+
+- [x] 공용 판정 모듈 `platform-lane.ts` `judgePlatformLane`: 쇼핑 실측 3중 증거(SERP 쇼핑 구획 / 상품명 카드 2+ / 스마트블록 쇼핑 상위3) 중 하나면 shopping 레인. 광고 수·브랜드명 추측으로는 안 자름(을왕리 펜션 오폭 방지). 애드센스 적합 = 거래형 false / 정보형 true / 불명+CPC 실측 ≥300 true / 그 외 null. vitest 12/12
+- [x] 선점보드 배선: candidates 가 버리던 CPC·광고경쟁도 보존(추가 호출 0) → batch 가 **선발 전** 레인 분리(`routedShopping` 원장, 조용히 안 버림) + 행에 `adsenseFit`/`adsenseReason` → publish 통과
+- [x] 데스크톱 배선: find-golden-keywords SERP 측정 행에 `platformLane`/`adsenseFit`(추정 CPC 는 판정에 안 씀 — 누수 금지), displayGoldenResults 가 쇼핑 레인 제외+하단 고지, AdSense 배지(미판정은 배지 없음)
+- [x] 검증: 월요일 실회차 28행 재판정 — 쇼핑 5행(세라원·페이스타올·케어덴·은나노스텝4·슬로벨라) 정확 라우팅, 오폭 0. 페피릴리프·포유는 구획 미측정이라 원칙대로 잔류(다음 회차부터 포착). 빌드 0오류·신규 vitest 87/87·ui-count 62/62
+- [ ] 사이트(naver 레포) 화면: adsenseFit 배지·routedShopping 표시 (스키마는 이미 나감)
+- [ ] CPC 실측이 쌓이면 ADSENSE_CPC_FLOOR(300원) 분포 캘리브레이션
+
 ## Phase 4 — 검증 (반나절)
 
 - [ ] 신규 테스트 + 기존 특성화 테스트 전체 통과 (증거: 통과 수치)
