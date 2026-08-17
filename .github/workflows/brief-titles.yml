@@ -13,7 +13,10 @@ name: 실시간 브리프 제목 창고
 
 on:
   schedule:
-    - cron: '10 * * * *'   # 매시 10분
+    # 20분 간격. 매시 1회로는 실시간 검색어 회전을 못 따라가 새 키워드가
+    # 최대 75분간 템플릿 제목으로 보였다(2026-08-18 실측 — "김민석 만찬").
+    # 이미 지은 키워드는 창고 캐시로 건너뛰므로 잦아도 호출이 안 늘어난다.
+    - cron: '*/20 * * * *'
   workflow_dispatch:
     inputs:
       max:
@@ -63,11 +66,15 @@ jobs:
             timeout 600 npm ci && break
             echo "npm ci 재시도 $i/3"
           done
-          # 사이트가 지금 띄우고 있는 실시간 신호를 그대로 재료로 쓴다.
+          # 재료는 **최신 커밋본**을 새로 받는다. 체크아웃 시점의 파일을 쓰면
+          # 그 사이 크론이 갱신한 키워드를 놓친다(창고-화면 어긋남의 한 축).
+          curl -fsSL -m 30 \
+            https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/source-signals.json \
+            -o fresh-signals.json || cp site/spa/public/data/source-signals.json fresh-signals.json
           node scripts/enrich-brief-titles.js \
-            --in=site/spa/public/data/source-signals.json \
+            --in=fresh-signals.json \
             --out=site/spa/public/data/brief-titles.json \
-            --max=${{ inputs.max || '40' }}
+            --max=${{ inputs.max || '60' }}
 
       - name: 창고 커밋
         working-directory: site
