@@ -24,7 +24,7 @@ require('./load-project-env').loadProjectEnv();
 
 const fs = require('fs');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
-const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+const { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions } = require('../src/utils/naver-searchad-api');
 const { probeNaverAutocompleteSuggestions } = require('../src/utils/naver-autocomplete');
 const { pickSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
 const { sharesToken } = require('../src/utils/title-forge/board-titles');
@@ -98,8 +98,58 @@ async function measureVolumes(searchAd, keywords) {
   return volumes;
 }
 
+/**
+ * 연관 키워드 실측 수확 — 검색광고 keywordstool 은 시드 하나에 연관 키워드를
+ * 검색량과 함께 돌려준다. **지어낼 필요가 없는 100% 실존 풀**이라 통과율
+ * 문제가 아예 없다(사장님 지시 2026-08-18: "통과율을 좀 더 올려서 키워드를
+ * 최대치로"). AI 는 이 실측이 못 잡는 것(구어·줄임말·막히는 지점)만 채운다.
+ */
+async function harvestRelated(searchAd, mainKeyword) {
+  if (!searchAd) return { tokenMatched: [], candidates: [] };
+  try {
+    const suggestions = await getNaverSearchAdKeywordSuggestions(searchAd, mainKeyword, 200);
+    if (suggestions.length === 0) {
+      // 조용한 0 은 진단 불가다 — 쿼터 소프트 상한이거나 15자 초과 시드다.
+      console.log(`  ~~ [${mainKeyword}] 연관 실측 0건 (쿼터 상한 또는 시드 제한) — AI 로 계속`);
+    }
+    const compact = (t) => String(t || '').replace(/\s+/g, '').toLowerCase();
+    const compactMain = compact(mainKeyword);
+    const mainTokens = mainKeyword.split(/\s+/).filter((t) => t.length >= 2).map(compact);
+    const rows = suggestions
+      // 띄어쓰기만 다른 메인 자신은 뺀다 — 풀에 넣어 봐야 같은 키워드다.
+      .filter((s) => s.keyword && compact(s.keyword) !== compactMain)
+      .map((s) => ({
+        keyword: s.keyword,
+        searchVolume: s.totalSearchVolume ?? null,
+        source: 'searchad-related',
+      }))
+      .sort((a, b) => (b.searchVolume ?? -1) - (a.searchVolume ?? -1));
+    /*
+     * 연관어는 붙여 쓴 형태가 많아('소워니놀이터무료도안') 어절 단위 비교가
+     * 전량 빗나간다(실측: tokenMatched 0). 공백을 걷은 포함 비교로 잡는다.
+     */
+    const sharesMain = (keyword) => {
+      const c = compact(keyword);
+      return sharesToken(keyword, mainKeyword) || mainTokens.some((t) => c.includes(t));
+    };
+    /*
+     * 연관 목록은 **주제 연관**이라 어절을 공유하지 않는 진짜 연관이 많다
+     * ('소워니놀이터' → '스퀴시만들기' 실측). 어절 공유분은 자동 합류,
+     * 나머지는 AI 가 "이 키워드로 글 쓰는 사람이 같이 노릴 것"만 고른다 —
+     * 고르는 대상이 전부 실측이라 통과율 문제가 없다.
+     */
+    return {
+      tokenMatched: rows.filter((r) => sharesMain(r.keyword)).slice(0, 20),
+      candidates: rows.filter((r) => !sharesMain(r.keyword)).slice(0, 40),
+    };
+  } catch (error) {
+    console.log(`  !! 연관 실측 실패(AI 로 계속): ${String((error && error.message) || error).slice(0, 80)}`);
+    return { tokenMatched: [], candidates: [] };
+  }
+}
+
 /** 클로드에 문제해결형 파생 제안을 받는다 — 반환은 미검증 후보다. */
-async function proposeSubKeywords(mainKeyword) {
+async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandidates) {
   /*
    * 2026-08-18 실측: "문제해결형만" 을 강요했더니 제안 142건 중 3건만 실존
    * 확인을 통과했다(2%). 각도를 좁게 못 박으면 AI 가 **말이 되는 검색어를
@@ -125,21 +175,58 @@ async function proposeSubKeywords(mainKeyword) {
     '- 막히는 지점 (안 됨·반려·오류·취소·환불)',
     '- 바로 옆 대안 (비교 대상, 대체 서비스, 다음 단계)',
     '',
-    '형식:',
-    `- "${mainKeyword}" 의 핵심 명사를 포함`,
-    '- 검색창에 치는 짧은 명사구: 2~4어절, 공백 제외 15자 이내. 질문 문장 금지',
-    '- JSON 문자열 배열로만 출력: ["검색어1", "검색어2", ...]',
+    ...(groundingExamples && groundingExamples.length > 0 ? [
+      // 실측 예시를 보여주면 모델이 실제 검색 패턴에 닻을 내린다 — 통과율이 오른다.
+      `참고 — 이 키워드와 같이 검색되는 것으로 이미 확인된 검색어: ${groundingExamples.slice(0, 8).join(', ')}`,
+      '위 목록에 이미 있는 것은 다시 내지 마라. 저 패턴 옆의 빈틈을 채워라.',
+      '',
+    ] : []),
+    ...(relatedCandidates && relatedCandidates.length > 0 ? [
+      /*
+       * 실측 연관 목록에서의 **선별**. 이 목록은 네이버가 실제로 같이
+       * 검색된다고 잰 것들이라 통과율이 100%다 — AI 의 역할은 발명이 아니라
+       * "이 키워드로 글 쓰는 사람이 같이 노릴 것"을 골라내는 것뿐이다.
+       */
+      `추가 임무 — 아래는 "${mainKeyword}" 와 같이 검색되는 것으로 **실측된** 연관 검색어다.`,
+      `이 중 "${mainKeyword}" 로 글을 쓰는 사람이 같은 글이나 다음 글에서 노릴 만한 것만 골라라.`,
+      '주제가 다른 것(우연히 같이 검색된 유행어·무관한 브랜드)은 버려라. 최대 8개.',
+      `목록: ${relatedCandidates.slice(0, 40).join(', ')}`,
+      '',
+      'JSON 만 출력: {"new":["새 검색어",...], "picked":["목록에서 고른 것",...]}',
+    ] : [
+      '형식:',
+      `- "${mainKeyword}" 의 핵심 명사를 포함`,
+      '- 검색창에 치는 짧은 명사구: 2~4어절, 공백 제외 15자 이내. 질문 문장 금지',
+      'JSON 만 출력: {"new":["검색어1","검색어2",...], "picked":[]}',
+    ]),
+    ...(relatedCandidates && relatedCandidates.length > 0 ? [
+      '',
+      '새 검색어(new) 형식:',
+      `- "${mainKeyword}" 의 핵심 명사를 포함, 2~4어절, 공백 제외 15자 이내, 질문 문장 금지`,
+    ] : []),
   ].join('\n');
   const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
   lastProvider = run.provider;
   const parsed = tryExtractJson(run.reply);
-  if (!Array.isArray(parsed)) return [];
-  return parsed
+  const candidateSet = new Set(relatedCandidates || []);
+  const asClean = (list) => (Array.isArray(list) ? list : [])
     .filter((item) => typeof item === 'string')
     .map((item) => item.trim())
-    .filter((item) => item.length >= 4 && item.replace(/\s+/g, '').length <= 15 && item !== mainKeyword)
-    .filter((item) => sharesToken(item, mainKeyword))
-    .slice(0, AI_PROPOSAL_CAP);
+    .filter(Boolean);
+
+  // 옛 형태(배열만) 응답도 받아 준다 — 형식이 어긋났다고 결과를 버리진 않는다.
+  if (Array.isArray(parsed)) {
+    return { proposals: asClean(parsed).filter((k) => k !== mainKeyword && sharesToken(k, mainKeyword)).slice(0, AI_PROPOSAL_CAP), picked: [] };
+  }
+  if (!parsed || typeof parsed !== 'object') return { proposals: [], picked: [] };
+  return {
+    proposals: asClean(parsed.new)
+      .filter((k) => k.length >= 4 && k.replace(/\s+/g, '').length <= 15 && k !== mainKeyword)
+      .filter((k) => sharesToken(k, mainKeyword))
+      .slice(0, AI_PROPOSAL_CAP),
+    // 고른 것은 반드시 준 목록 안에 있어야 한다 — 목록 밖 발명은 버린다.
+    picked: asClean(parsed.picked).filter((k) => candidateSet.has(k)).slice(0, 8),
+  };
 }
 
 /** 실존 결재 2단: 검색량>0 이 강한 증거, "<10" 롱테일은 자동완성 프로브. */
@@ -222,17 +309,32 @@ async function main() {
   console.log(`보강 대상 ${rows.length}행 · AI 호출 상한 ${maxAi} · 검색광고 ${searchAd ? 'OK' : '없음(프로브만)'}`);
 
   let aiCalls = 0;
-  const stats = { enriched: 0, subsAdded: 0, titleUpgraded: 0, proposed: 0, verified: 0, judged: 0, judgedBad: 0 };
+  const stats = { enriched: 0, subsAdded: 0, titleUpgraded: 0, proposed: 0, verified: 0, judged: 0, judgedBad: 0, related: 0, picked: 0, pooled: 0 };
 
   for (const row of rows) {
     const existingSubs = Array.isArray(row.subKeywords) ? row.subKeywords : [];
     if (existingSubs.length >= 3) continue;
     if (aiCalls >= maxAi) { console.log('  AI 호출 상한 도달 — 남은 행은 다음 보강으로.'); break; }
 
+    /*
+     * ① 실측 수확이 먼저다. 연관 실측은 통과율 100%(이미 잰 값)이고,
+     * AI 는 그 실측을 예시로 받아 빈틈만 채운다 — 통과율이 함께 오른다.
+     */
+    const related = await harvestRelated(searchAd, row.keyword);
+    stats.related += related.tokenMatched.length;
+
     aiCalls += 1;
     let proposals = [];
+    let picked = [];
     try {
-      proposals = await proposeSubKeywords(row.keyword);
+      const result = await proposeSubKeywords(
+        row.keyword,
+        related.tokenMatched.map((r) => r.keyword),
+        related.candidates.map((r) => r.keyword),
+      );
+      proposals = result.proposals;
+      picked = result.picked;
+      stats.picked += picked.length;
     } catch (error) {
       console.log(`  !! [${row.keyword}] AI 제안 실패: ${String(error && error.message || error).slice(0, 80)}`);
       continue;
@@ -249,8 +351,26 @@ async function main() {
      * 문제해결형 우선, 모자라면 실존 검색어로 채운다. 엄격한 판정만 쓰면
      * 실측 통과 61건을 쥐고도 보강 0행이 된다(2026-08-18 실측).
      */
-    const merged = pickSubKeywords(row.keyword, [...existingSubs, ...verified]);
+    /*
+     * 풀 = 연관 실측 + AI 검증분. 서브 3개는 이 풀에서 고르고,
+     * 풀 자체도 행에 싣는다(keywordPool) — 사장님 지시 "키워드를 최대치로".
+     * 전부 실측이 붙은 검색어라 지어낸 것이 없다.
+     */
+    const pickedRows = related.candidates.filter((r) => picked.includes(r.keyword));
+    const pool = [...related.tokenMatched, ...pickedRows, ...verified];
+    const merged = pickSubKeywords(row.keyword, [...existingSubs, ...pool]);
     const gotNewSubs = merged.length > existingSubs.length;
+
+    const seenPool = new Set();
+    const keywordPool = pool
+      .filter((p) => p.keyword && !seenPool.has(p.keyword) && seenPool.add(p.keyword))
+      .sort((a, b) => (b.searchVolume ?? -1) - (a.searchVolume ?? -1))
+      .slice(0, 12)
+      .map((p) => ({ keyword: p.keyword, searchVolume: p.searchVolume ?? null, source: p.source }));
+    if (keywordPool.length > 0) {
+      row.keywordPool = keywordPool;
+      stats.pooled += keywordPool.length;
+    }
 
     /*
      * 제목 재조립 — 이제 파생 근거가 있으니 프레임이 살고, SERP 상위 10개
@@ -259,7 +379,7 @@ async function main() {
     const serpTitles = (row.serp && Array.isArray(row.serp.topTitles)) ? row.serp.topTitles : [];
     const newTitles = forgeTitles({
       keyword: row.keyword,
-      derivedKeywords: [...existingSubs, ...verified],
+      derivedKeywords: [...existingSubs, ...pool],
       serpTitles,
       timing: row.timing || '',
     });
@@ -282,7 +402,7 @@ async function main() {
      */
     if (row.adsenseFit === true && !row.monetize) {
       try {
-        const verdict = await judgeMonetization(row.keyword, [...existingSubs, ...verified]);
+        const verdict = await judgeMonetization(row.keyword, [...existingSubs, ...pool]);
         if (verdict) {
           row.monetize = verdict;
           stats.judged += 1;
@@ -298,7 +418,7 @@ async function main() {
   board.enrichedAt = new Date().toISOString();
   board.enrichStats = { ...stats, aiCalls };
   fs.writeFileSync(outPath, JSON.stringify(board, null, 2), 'utf8');
-  console.log(`\n보강 완료: AI ${aiCalls}회 → 제안 ${stats.proposed} → 검증 통과 ${stats.verified} → 보강 행 ${stats.enriched} (서브 +${stats.subsAdded} · 제목 승급 ${stats.titleUpgraded}) · 수익 판정 ${stats.judged}행(탈락 ${stats.judgedBad})`);
+  console.log(`\n보강 완료: 연관 실측 ${stats.related} + AI 선별 ${stats.picked} + AI 신규(제안 ${stats.proposed} → 통과 ${stats.verified}) → 풀 ${stats.pooled}개 · 보강 행 ${stats.enriched} (서브 +${stats.subsAdded} · 제목 승급 ${stats.titleUpgraded}) · 수익 판정 ${stats.judged}행(탈락 ${stats.judgedBad}) · AI ${aiCalls}회`);
   console.log(`저장: ${outPath}`);
 }
 
