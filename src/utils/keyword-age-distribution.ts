@@ -15,6 +15,7 @@
  */
 
 import type { NaverDatalabConfig } from './naver-datalab-api';
+import { naverApiFetch } from './naver-api-hub';
 
 export type AgeBucketKey = 'teen' | 'youngAdult' | 'middle' | 'senior';
 
@@ -55,7 +56,7 @@ async function fetchBucketStrength(
   endDate: string,
 ): Promise<number> {
   try {
-    const response = await fetch('https://openapi.naver.com/v1/datalab/search', {
+    const response = await naverApiFetch('https://openapi.naver.com/v1/datalab/search', {
       method: 'POST',
       headers: {
         'X-Naver-Client-Id': config.clientId,

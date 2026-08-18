@@ -6,6 +6,7 @@ import * as licenseManager from '../utils/licenseManager';
 import { benchmarkSniperPro } from '../utils/benchmark-sniper';
 import { getExtractorInstance } from '../utils/accurate-blog-index-extractor';
 import { browserPool } from '../utils/puppeteer-pool';
+import { naverApiFetch } from '../utils/naver-api-hub';
 
 let electronRuntime: typeof Electron | null = null;
 try {
@@ -88,7 +89,7 @@ async function checkAllMonitoringKeywords() {
       if (naverClientId && naverClientSecret) {
         try {
           const searchUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=100&sort=sim`;
-          const response = await fetch(searchUrl, {
+          const response = await naverApiFetch(searchUrl, {
             headers: {
               'X-Naver-Client-Id': naverClientId,
               'X-Naver-Client-Secret': naverClientSecret

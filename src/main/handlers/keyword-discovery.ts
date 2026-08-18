@@ -39,6 +39,7 @@ import { judgePlatformLane } from '../../utils/platform-lane';
 import { classifySearchIntent } from '../../utils/keyword-intent';
 import { uploadGoldenBoardCandidates } from '../../utils/live-board-uploader';
 import { getNaverBlogDocumentCount, normalizeNaverBlogBroadQuery } from '../../utils/naver-blog-api';
+import { naverApiFetch } from '../../utils/naver-api-hub';
 
 // v4.0: 외부 신호 캐시 (앱 lifetime, 30분 TTL)
 let _v4SignalCache: { map: Map<string, ExternalSignals>; expiresAt: number } | null = null;
@@ -1183,7 +1184,7 @@ export function setupKeywordDiscoveryHandlers(): void {
               sort: 'sim' // 정확도순
             });
 
-            const newsResponse = await fetch(`${newsApiUrl}?${newsParams}`, {
+            const newsResponse = await naverApiFetch(`${newsApiUrl}?${newsParams}`, {
               headers: {
                 'X-Naver-Client-Id': naverClientId,
                 'X-Naver-Client-Secret': naverClientSecret

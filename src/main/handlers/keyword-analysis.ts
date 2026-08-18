@@ -17,6 +17,7 @@ import {
   measureDocumentCount,
   type DcMeasurement,
 } from '../../utils/measure-dc';
+import { naverApiFetch } from '../../utils/naver-api-hub';
 
 
 export function setupKeywordAnalysisHandlers(): void {
@@ -42,7 +43,7 @@ export function setupKeywordAnalysisHandlers(): void {
       // 1) Naver Open API blog.json 테스트
       if (clientId && clientSecret) {
         try {
-          const r = await fetch('https://openapi.naver.com/v1/search/blog.json?query=%ED%85%8C%EC%8A%A4%ED%8A%B8&display=1', {
+          const r = await naverApiFetch('https://openapi.naver.com/v1/search/blog.json?query=%ED%85%8C%EC%8A%A4%ED%8A%B8&display=1', {
             headers: { 'X-Naver-Client-Id': clientId, 'X-Naver-Client-Secret': clientSecret },
           });
           const body = await r.text().catch(() => '');
@@ -194,7 +195,7 @@ export function setupKeywordAnalysisHandlers(): void {
     let totalResults = 0;
     for (let start = 1; start <= 401; start += 100) {
       const url = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(data.keyword)}&display=100&start=${start}&sort=sim`;
-      const res = await fetch(url, {
+      const res = await naverApiFetch(url, {
         headers: {
           'X-Naver-Client-Id': clientId,
           'X-Naver-Client-Secret': clientSecret,
@@ -272,7 +273,7 @@ export function setupKeywordAnalysisHandlers(): void {
       const encodedQuery = encodeURIComponent(keyword);
       const apiUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodedQuery}&display=10&sort=sim`;
 
-      const response = await fetch(apiUrl, {
+      const response = await naverApiFetch(apiUrl, {
         headers: {
           'X-Naver-Client-Id': naverClientId,
           'X-Naver-Client-Secret': naverClientSecret
@@ -940,7 +941,7 @@ export function setupKeywordAnalysisHandlers(): void {
           // 2단계: 네이버 블로그 검색에서 추가 카테고리 키워드 추출
           try {
             const blogSearchUrl = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(trimmedKeyword)}&display=100&sort=sim`;
-            const blogRes = await fetch(blogSearchUrl, {
+            const blogRes = await naverApiFetch(blogSearchUrl, {
               headers: {
                 'X-Naver-Client-Id': naverClientId,
                 'X-Naver-Client-Secret': naverClientSecret
@@ -1216,7 +1217,7 @@ export function setupKeywordAnalysisHandlers(): void {
             sort: 'sim'
           });
 
-          const response = await fetch(`${apiUrl}?${params}`, {
+          const response = await naverApiFetch(`${apiUrl}?${params}`, {
             method: 'GET',
             headers: headers
           });

@@ -6,6 +6,7 @@ import * as cheerio from 'cheerio';
 import * as path from 'path';
 import * as fs from 'fs';
 import { rankExposureGrowthSeeds } from '../../utils/exposure-growth-loop';
+import { transformNaverRequest } from '../../utils/naver-api-hub';
 
 interface BlogPost {
   url: string;
@@ -310,13 +311,16 @@ async function checkSerpRankNaverApi(keyword: string, blogId: string, postNo: st
     const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
     if (!clientId || !clientSecret) return { rank: null, status: 'error' }; // 키 없으면 폴백
 
-    const url = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=30&sort=sim`;
-    const resp = await axios.get(url, {
-      timeout: 10000,
-      headers: {
+    const { url, headers } = transformNaverRequest(
+      `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=30&sort=sim`,
+      {
         'X-Naver-Client-Id': clientId,
         'X-Naver-Client-Secret': clientSecret,
-      },
+      }
+    );
+    const resp = await axios.get(url, {
+      timeout: 10000,
+      headers,
       validateStatus: () => true,
     });
     if (resp.status === 429) return { rank: null, status: 'blocked' };

@@ -12,6 +12,13 @@
  * 점수·확률을 만들지 않는다. 자료가 모자라면 모양을 지어내지 않고 unknown 이다.
  */
 
+import { naverApiFetch } from './naver-api-hub';
+
+// 기본 fetch — API HUB 키가 설정되면 자동으로 HUB 주소·헤더로 변환된다.
+// 테스트는 fetchImpl 주입으로 그대로 우회한다(주입 계약 불변).
+const defaultNaverFetch: typeof fetch = ((url: any, init: any) =>
+  naverApiFetch(String(url), init)) as typeof fetch;
+
 export type DemandShape = 'seasonal' | 'evergreen' | 'rising' | 'declining' | 'volatile' | 'unknown';
 
 export const DEMAND_SHAPE_LABEL: Record<DemandShape, string> = {
@@ -285,7 +292,7 @@ export function readDemandRecency(points: DemandPoint[]): DemandRecency {
 export async function fetchMonthlyDemandPoints(
   keyword: string,
   config: DemandShapeConfig,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = defaultNaverFetch,
 ): Promise<DemandPoint[]> {
   const end = new Date();
   const start = new Date(end);
@@ -321,7 +328,7 @@ export async function fetchMonthlyDemandPoints(
 export async function fetchMonthlyDemand(
   keyword: string,
   config: DemandShapeConfig,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = defaultNaverFetch,
 ): Promise<number[]> {
   /*
    * **24개월**을 받는다. 12개월로는 "작년 이맘때 성수기였고 곧 다시 온다"와
@@ -365,7 +372,7 @@ export async function analyzeDemandShape(
   keyword: string,
   config: DemandShapeConfig,
   thresholds: DemandShapeThresholds = DEFAULT_DEMAND_SHAPE_THRESHOLDS,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = defaultNaverFetch,
 ): Promise<DemandShapeResult> {
   return classifyDemandShape(await fetchMonthlyDemand(keyword, config, fetchImpl), thresholds);
 }
@@ -379,7 +386,7 @@ export async function analyzeDemandWithRecency(
   keyword: string,
   config: DemandShapeConfig,
   thresholds: DemandShapeThresholds = DEFAULT_DEMAND_SHAPE_THRESHOLDS,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl: typeof fetch = defaultNaverFetch,
 ): Promise<{ shape: DemandShapeResult; recency: DemandRecency }> {
   const points = await fetchMonthlyDemandPoints(keyword, config, fetchImpl);
   return {

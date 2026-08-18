@@ -41,8 +41,14 @@ export async function fetchKeywordTimeseries30Day(
     const fmt = (d: Date) => d.toISOString().split('T')[0];
 
     try {
+        const { transformNaverRequest } = await import('./naver-api-hub');
+        const hubReq = transformNaverRequest('https://openapi.naver.com/v1/datalab/search', {
+            'X-Naver-Client-Id': config.clientId,
+            'X-Naver-Client-Secret': config.clientSecret,
+            'Content-Type': 'application/json',
+        });
         const res = await axios.post(
-            'https://openapi.naver.com/v1/datalab/search',
+            hubReq.url,
             {
                 startDate: fmt(start),
                 endDate: fmt(end),
@@ -50,11 +56,7 @@ export async function fetchKeywordTimeseries30Day(
                 keywordGroups: [{ groupName: keyword, keywords: [keyword] }],
             },
             {
-                headers: {
-                    'X-Naver-Client-Id': config.clientId,
-                    'X-Naver-Client-Secret': config.clientSecret,
-                    'Content-Type': 'application/json',
-                },
+                headers: hubReq.headers,
                 timeout: 8000,
             }
         );

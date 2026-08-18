@@ -15,6 +15,7 @@ import type {
   MobileRankTrackingSnapshot,
 } from './contracts';
 import { extractNaverBlogPostIdentity } from '../utils/pro-hunter-v12/rank-url-normalizer';
+import { naverApiFetch } from '../utils/naver-api-hub';
 
 interface RankTrackingOptions {
   exposureTrackedFile?: string;
@@ -230,7 +231,7 @@ async function checkRankWithNaverOpenApi(keyword: string, postUrl: string): Prom
   const clientSecret = process.env['NAVER_CLIENT_SECRET'] || process.env['NAVER_SEARCH_CLIENT_SECRET'] || '';
   if (!clientId || !clientSecret) return { rank: null, status: 'error' };
 
-  const response = await fetch(`https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=30&sort=sim`, {
+  const response = await naverApiFetch(`https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=30&sort=sim`, {
     headers: {
       'X-Naver-Client-Id': clientId,
       'X-Naver-Client-Secret': clientSecret,

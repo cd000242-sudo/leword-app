@@ -59,12 +59,14 @@ export async function fetchSearchTrend12M(
 
   try {
     const axios = (await import('axios')).default;
-    const res = await axios.post('https://openapi.naver.com/v1/datalab/search', body, {
-      headers: {
-        'X-Naver-Client-Id': env.naverClientId,
-        'X-Naver-Client-Secret': env.naverClientSecret,
-        'Content-Type': 'application/json',
-      },
+    const { transformNaverRequest } = await import('../naver-api-hub');
+    const hubReq = transformNaverRequest('https://openapi.naver.com/v1/datalab/search', {
+      'X-Naver-Client-Id': env.naverClientId || '',
+      'X-Naver-Client-Secret': env.naverClientSecret || '',
+      'Content-Type': 'application/json',
+    });
+    const res = await axios.post(hubReq.url, body, {
+      headers: hubReq.headers,
       timeout: 10000,
     });
 

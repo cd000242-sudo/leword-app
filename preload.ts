@@ -310,6 +310,7 @@ const api: BloggerApi = {
   },
 
   getEnv: () => ipcRenderer.invoke('get-env'),
+  probeNaverApiHub: (payload: { keyId: string; key: string }) => ipcRenderer.invoke('probe-naver-api-hub', payload),
   setSettingsProtection: (protectedMode: boolean) => ipcRenderer.invoke('set-settings-protection', protectedMode),
   isSettingsProtected: () => ipcRenderer.invoke('is-settings-protected'),
   validateEnv: () => ipcRenderer.invoke('validate-env'),

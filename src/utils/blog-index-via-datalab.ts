@@ -14,6 +14,7 @@
  */
 
 import { EnvironmentManager } from './environment-manager';
+import { naverApiFetch } from './naver-api-hub';
 
 export interface BlogIndexViaApiResult {
   blogId: string;
@@ -259,7 +260,7 @@ export class BlogIndexViaDatalab {
         sort: 'date' // 최신순
       });
       
-      const response = await fetch(`${apiUrl}?${params}`, {
+      const response = await naverApiFetch(`${apiUrl}?${params}`, {
         headers: {
           'X-Naver-Client-Id': this.config.clientId,
           'X-Naver-Client-Secret': this.config.clientSecret
@@ -298,7 +299,7 @@ export class BlogIndexViaDatalab {
         sort: 'date'
       });
       
-      const response = await fetch(`${apiUrl}?${params}`, {
+      const response = await naverApiFetch(`${apiUrl}?${params}`, {
         headers: {
           'X-Naver-Client-Id': this.config.clientId,
           'X-Naver-Client-Secret': this.config.clientSecret
@@ -361,7 +362,7 @@ export class BlogIndexViaDatalab {
         sort: 'sim'
       });
       
-      const response = await fetch(`${apiUrl}?${params}`, {
+      const response = await naverApiFetch(`${apiUrl}?${params}`, {
         headers: {
           'X-Naver-Client-Id': this.config.clientId,
           'X-Naver-Client-Secret': this.config.clientSecret
@@ -455,7 +456,7 @@ export class BlogIndexViaDatalab {
         sort: 'sim'
       });
       
-      const response = await fetch(`${apiUrl}?${params}`, {
+      const response = await naverApiFetch(`${apiUrl}?${params}`, {
         headers: {
           'X-Naver-Client-Id': this.config.clientId,
           'X-Naver-Client-Secret': this.config.clientSecret
@@ -1036,7 +1037,7 @@ export class BlogIndexViaDatalab {
         sort: 'date'
       });
       
-      const response = await fetch(`${apiUrl}?${params}`, {
+      const response = await naverApiFetch(`${apiUrl}?${params}`, {
         headers: {
           'X-Naver-Client-Id': this.config.clientId,
           'X-Naver-Client-Secret': this.config.clientSecret

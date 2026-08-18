@@ -4464,6 +4464,29 @@
                       onfocus="this.style.borderColor='#10b981'; this.style.background='rgba(255, 255, 255, 0.15)'"
                       onblur="this.style.borderColor='rgba(255, 255, 255, 0.2)'; this.style.background='rgba(255, 255, 255, 0.1)'">
                   </div>
+                  <div style="border-top: 1px dashed rgba(255, 255, 255, 0.15); padding-top: 12px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                      <label style="font-weight: 600; font-size: 14px; color: rgba(255, 255, 255, 0.9);">NAVER API HUB 키
+                        <span style="font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 400;">(네이버클라우드 — 2027년 6월 개발자센터 종료 대비)</span>
+                      </label>
+                      <button onclick="window.probeNaverApiHubKeys && window.probeNaverApiHubKeys()"
+                        style="padding: 6px 12px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); border-radius: 6px; color: #6ee7b7; font-size: 12px; font-weight: 600; cursor: pointer;">연결
+                        확인</button>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                      <input type="text" id="keywordNaverApiHubKeyId" placeholder="API HUB Key ID (X-NCP-APIGW-API-KEY-ID)"
+                        autocomplete="off"
+                        style="width: 100%; padding: 12px 16px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; font-size: 14px; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='#10b981'; this.style.background='rgba(255, 255, 255, 0.15)'"
+                        onblur="this.style.borderColor='rgba(255, 255, 255, 0.2)'; this.style.background='rgba(255, 255, 255, 0.1)'">
+                      <input type="password" id="keywordNaverApiHubKey" placeholder="API HUB Key (X-NCP-APIGW-API-KEY)"
+                        autocomplete="new-password"
+                        style="width: 100%; padding: 12px 16px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; font-size: 14px; transition: all 0.3s ease;"
+                        onfocus="this.style.borderColor='#10b981'; this.style.background='rgba(255, 255, 255, 0.15)'"
+                        onblur="this.style.borderColor='rgba(255, 255, 255, 0.2)'; this.style.background='rgba(255, 255, 255, 0.1)'">
+                      <div id="naverApiHubProbeStatus" style="font-size: 12px; color: rgba(255, 255, 255, 0.6); min-height: 16px;"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -14178,6 +14201,11 @@
               naverSecretInput.value = naverSecretValue;
               console.log('[KEYWORD-SETTINGS] ✅ Naver Client Secret 설정:', naverSecretValue ? `${naverSecretValue.substring(0, 10)}...` : '빈 값');
             }
+            // NAVER API HUB 키 (개발자센터 종료 대비 신규 체계)
+            const hubKeyIdInput = document.getElementById('keywordNaverApiHubKeyId');
+            const hubKeyInput = document.getElementById('keywordNaverApiHubKey');
+            if (hubKeyIdInput) hubKeyIdInput.value = apiKeys.naverApiHubKeyId || '';
+            if (hubKeyInput) hubKeyInput.value = apiKeys.naverApiHubKey || '';
             if (youtubeKeyInput) {
               youtubeKeyInput.value = youtubeKeyValue;
               console.log('[KEYWORD-SETTINGS] ✅ YouTube API Key 설정:', youtubeKeyValue ? `${youtubeKeyValue.substring(0, 10)}...` : '빈 값');
@@ -14335,6 +14363,35 @@
           }
         };
 
+        // NAVER API HUB 키 연결 확인 — 게이트웨이 후보를 실측해 작동 조합을 잠근다
+        window.probeNaverApiHubKeys = async function probeNaverApiHubKeys() {
+          const statusEl = document.getElementById('naverApiHubProbeStatus');
+          const keyId = document.getElementById('keywordNaverApiHubKeyId')?.value?.trim() || '';
+          const key = document.getElementById('keywordNaverApiHubKey')?.value?.trim() || '';
+          if (!keyId || !key) {
+            if (statusEl) { statusEl.textContent = 'Key ID 와 Key 를 모두 입력해주세요.'; statusEl.style.color = '#fca5a5'; }
+            return;
+          }
+          if (statusEl) { statusEl.textContent = '게이트웨이 실측 중…'; statusEl.style.color = 'rgba(255, 255, 255, 0.6)'; }
+          try {
+            const api = window.electronAPI || window.blogger;
+            const result = api?.probeNaverApiHub
+              ? await api.probeNaverApiHub({ keyId, key })
+              : await api?.invoke?.('probe-naver-api-hub', { keyId, key });
+            if (result?.ok) {
+              if (statusEl) {
+                statusEl.textContent = '✅ ' + (result.detail || '연결 성공') + ' — 저장 완료, 이후 호출은 API HUB 로 나갑니다.';
+                statusEl.style.color = '#6ee7b7';
+              }
+            } else if (statusEl) {
+              statusEl.textContent = '❌ ' + (result?.detail || '연결 실패');
+              statusEl.style.color = '#fca5a5';
+            }
+          } catch (error) {
+            if (statusEl) { statusEl.textContent = '❌ 확인 실패: ' + (error?.message || error); statusEl.style.color = '#fca5a5'; }
+          }
+        };
+
         // 키워드 설정 저장
         window.saveKeywordSettings = async function saveKeywordSettings() {
           try {
@@ -14367,6 +14424,8 @@
               coupangAccessKey: coupangAccessInput?.value?.trim() || '',
               coupangSecretKey: coupangSecretInput?.value?.trim() || '',
               coupangSubId: coupangSubInput?.value?.trim() || '',
+              naverApiHubKeyId: document.getElementById('keywordNaverApiHubKeyId')?.value?.trim() || '',
+              naverApiHubKey: document.getElementById('keywordNaverApiHubKey')?.value?.trim() || '',
             };
 
             console.log('[KEYWORD-SETTINGS] 저장할 설정:', {

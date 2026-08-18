@@ -5334,15 +5334,17 @@ async function fetchKinOpenApiFallbackQuestions(
   if (queryRoots.length === 0) return [];
 
   const axios = (await import('axios')).default;
+  const { transformNaverRequest } = await import('../utils/naver-api-hub');
+  const kinReq = transformNaverRequest('https://openapi.naver.com/v1/search/kin.json', {
+    'X-Naver-Client-Id': config.clientId,
+    'X-Naver-Client-Secret': config.clientSecret,
+  });
   const out: Array<{ title: string; honeyPotScore: number; honeyPotReason: string; category: string }> = [];
   const seen = new Set<string>();
   const settled = await Promise.allSettled(queryRoots.map((root) =>
-    axios.get('https://openapi.naver.com/v1/search/kin.json', {
+    axios.get(kinReq.url, {
       params: { query: root, display: 20, sort: 'point' },
-      headers: {
-        'X-Naver-Client-Id': config.clientId,
-        'X-Naver-Client-Secret': config.clientSecret,
-      },
+      headers: kinReq.headers,
       timeout: 8000,
       validateStatus: (s: number) => s < 500,
     }).then((res) => ({ root, items: Array.isArray(res.data?.items) ? res.data.items : [] }))

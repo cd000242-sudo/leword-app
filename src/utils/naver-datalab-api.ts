@@ -19,6 +19,7 @@ import {
   normalizeNaverBlogBroadQuery,
   peekCachedNaverBlogDocumentCountMeasurement,
 } from './naver-blog-api';
+import { naverApiFetch } from './naver-api-hub';
 
 export interface NaverDatalabConfig {
   clientId: string;
@@ -124,7 +125,7 @@ export async function checkKeywordRecencyBatch(
           keywordGroups: cleaned.map(kw => ({ groupName: kw, keywords: [kw] })),
         };
         const res = await ErrorHandler.withTimeout(
-          async () => fetch('https://openapi.naver.com/v1/datalab/search', {
+          async () => naverApiFetch('https://openapi.naver.com/v1/datalab/search', {
             method: 'POST',
             headers: {
               'X-Naver-Client-Id': config.clientId,
@@ -228,7 +229,7 @@ export async function getKeywordDailyTrend30d(
     async () => {
       try {
         const res = await ErrorHandler.withTimeout(
-          async () => fetch('https://openapi.naver.com/v1/datalab/search', {
+          async () => naverApiFetch('https://openapi.naver.com/v1/datalab/search', {
             method: 'POST',
             headers: {
               'X-Naver-Client-Id': config.clientId,
@@ -428,7 +429,7 @@ export async function getNaverTrendKeywords(
         const response = await ErrorHandler.withRetry(
           async () => {
             return await ErrorHandler.withTimeout(
-              async () => fetch(apiUrl, {
+              async () => naverApiFetch(apiUrl, {
                 method: 'POST',
                 headers: headers,
                 body: JSON.stringify(requestBody)
@@ -689,7 +690,7 @@ export async function getNaverRankingKeywords(
 
         // PC 검색량
         try {
-          const pcResponse = await fetch(`${apiUrl}?${params}`, {
+          const pcResponse = await naverApiFetch(`${apiUrl}?${params}`, {
             method: 'GET',
             headers: headers
           });
@@ -711,7 +712,7 @@ export async function getNaverRankingKeywords(
         }
 
         try {
-          const mobileResponse = await fetch(`${apiUrl}?${mobileParams}`, {
+          const mobileResponse = await naverApiFetch(`${apiUrl}?${mobileParams}`, {
             method: 'GET',
             headers: headers
           });
@@ -724,7 +725,7 @@ export async function getNaverRankingKeywords(
           console.warn(`[NAVER-RANK] 모바일 검색량 조회 실패 (${keyword}):`, error);
           // 모바일 조회 실패 시 PC만 사용
           if (totalSearchVolume === 0) {
-            const pcResponse = await fetch(`${apiUrl}?${params}`, {
+            const pcResponse = await naverApiFetch(`${apiUrl}?${params}`, {
               method: 'GET',
               headers: headers
             });
@@ -819,7 +820,7 @@ export async function getBlogSearchFallback(
       sort: 'sim'
     });
 
-    const response = await fetch(`${apiUrl}?${params.toString()}`, {
+    const response = await naverApiFetch(`${apiUrl}?${params.toString()}`, {
       headers: {
         'X-Naver-Client-Id': config.clientId,
         'X-Naver-Client-Secret': config.clientSecret
@@ -1225,7 +1226,7 @@ export async function getNaverRelatedKeywords(
             sort: 'sim'
           });
 
-          const spiderResponse = await fetch(`${apiUrl}?${spiderParams}`, {
+          const spiderResponse = await naverApiFetch(`${apiUrl}?${spiderParams}`, {
             method: 'GET',
             headers: headers
           });
@@ -1286,7 +1287,7 @@ export async function getNaverRelatedKeywords(
       });
 
       try {
-        const response = await fetch(`${apiUrl}?${params}`, {
+        const response = await naverApiFetch(`${apiUrl}?${params}`, {
           method: 'GET',
           headers: headers
         });

@@ -6,6 +6,7 @@
 import { browserPool } from './puppeteer-pool';
 import { setupStealthPage } from './stealth-browser';
 import { getNaverBlogDocumentCount } from './naver-blog-api';
+import { naverApiFetch } from './naver-api-hub';
 
 export interface NaverApiConfig {
   clientId: string;
@@ -408,7 +409,7 @@ export async function analyzeNaverBlogSmartBlocks(
     const waitMs = lastOpenApiRequestAt - now;
     if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
 
-    const response = await fetch(`${apiUrl}?${params}`, {
+    const response = await naverApiFetch(`${apiUrl}?${params}`, {
       headers: {
         'X-Naver-Client-Id': config.clientId,
         'X-Naver-Client-Secret': config.clientSecret

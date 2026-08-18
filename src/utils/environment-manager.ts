@@ -24,6 +24,10 @@ export interface EnvConfig {
   dalleApiKey?: string;
   naverClientId?: string;
   naverClientSecret?: string;
+  // NAVER API HUB (네이버클라우드) — 개발자센터 종료 대비 신규 키 체계
+  naverApiHubKeyId?: string;   // X-NCP-APIGW-API-KEY-ID
+  naverApiHubKey?: string;     // X-NCP-APIGW-API-KEY
+  naverApiHubBase?: string;    // probeApiHub 실측으로 잠근 게이트웨이 URL
   naverSearchAdAccessLicense?: string;
   naverSearchAdSecretKey?: string;
   naverSearchAdCustomerId?: string; // 고객 ID (X-Customer 헤더용)
@@ -258,6 +262,9 @@ export class EnvironmentManager {
         dalleApiKey: envFileConfig['DALLE_API_KEY'] || envFileConfig['OPENAI_API_KEY'] || process.env['DALLE_API_KEY'] || process.env['OPENAI_API_KEY'] || '',
         naverClientId: envFileConfig['NAVER_CLIENT_ID'] || process.env['NAVER_CLIENT_ID'] || '',
         naverClientSecret: envFileConfig['NAVER_CLIENT_SECRET'] || process.env['NAVER_CLIENT_SECRET'] || '',
+        naverApiHubKeyId: envFileConfig['NAVER_APIHUB_KEY_ID'] || process.env['NAVER_APIHUB_KEY_ID'] || '',
+        naverApiHubKey: envFileConfig['NAVER_APIHUB_KEY'] || process.env['NAVER_APIHUB_KEY'] || '',
+        naverApiHubBase: envFileConfig['NAVER_APIHUB_BASE'] || process.env['NAVER_APIHUB_BASE'] || '',
         naverSearchAdAccessLicense: envFileConfig['NAVER_SEARCH_AD_ACCESS_LICENSE'] || envFileConfig['naverSearchAdAccessLicense'] || envFileConfig['naver_search_ad_access_license'] ||
           process.env['NAVER_SEARCH_AD_ACCESS_LICENSE'] || process.env['naverSearchAdAccessLicense'] || process.env['naver_search_ad_access_license'] || '',
         naverSearchAdSecretKey: envFileConfig['NAVER_SEARCH_AD_SECRET_KEY'] || envFileConfig['naverSearchAdSecretKey'] || envFileConfig['naver_search_ad_secret_key'] ||

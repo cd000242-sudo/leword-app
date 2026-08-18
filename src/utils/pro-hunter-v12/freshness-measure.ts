@@ -86,13 +86,15 @@ async function measureBlogPublishCount24h(
 ): Promise<{ value: number } | null> {
     if (!options.naverClientId || !options.naverClientSecret) return null;
     try {
-        const res = await axios.get(NAVER_BLOG_API, {
+        const { transformNaverRequest } = await import('../naver-api-hub');
+        const hubReq = transformNaverRequest(NAVER_BLOG_API, {
+            'X-Naver-Client-Id': options.naverClientId,
+            'X-Naver-Client-Secret': options.naverClientSecret,
+            'User-Agent': UA,
+        });
+        const res = await axios.get(hubReq.url, {
             timeout: FETCH_TIMEOUT,
-            headers: {
-                'X-Naver-Client-Id': options.naverClientId,
-                'X-Naver-Client-Secret': options.naverClientSecret,
-                'User-Agent': UA,
-            },
+            headers: hubReq.headers,
             params: { query: keyword, display: 100, sort: 'date' },
             validateStatus: s => s < 500,
         });

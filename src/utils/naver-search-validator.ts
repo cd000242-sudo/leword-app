@@ -2,6 +2,8 @@
  * 네이버 검색 API를 사용한 실시간 링크 검색 및 유효성 검증
  */
 
+import { naverApiFetch } from './naver-api-hub';
+
 export interface ValidatedLink {
   url: string;
   title: string;
@@ -41,7 +43,7 @@ export async function searchNaverWithApi(
 
     const apiUrl = `https://openapi.naver.com/v1/search/webkr.json?query=${encodeURIComponent(keyword)}&display=${display}&sort=sim`;
     
-    const response = await fetch(apiUrl, {
+    const response = await naverApiFetch(apiUrl, {
       headers: {
         'X-Naver-Client-Id': credentials.clientId,
         'X-Naver-Client-Secret': credentials.clientSecret,

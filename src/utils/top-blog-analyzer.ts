@@ -562,17 +562,19 @@ export async function fetchNaverBlogSearchResults(
 }>> {
   try {
     const axios = (await import('axios')).default;
+    const { transformNaverRequest } = await import('./naver-api-hub');
+    const hubReq = transformNaverRequest('https://openapi.naver.com/v1/search/blog.json', {
+      'X-Naver-Client-Id': clientId,
+      'X-Naver-Client-Secret': clientSecret,
+    });
 
-    const response = await axios.get('https://openapi.naver.com/v1/search/blog.json', {
+    const response = await axios.get(hubReq.url, {
       params: {
         query: keyword,
         display,
         sort: 'sim',
       },
-      headers: {
-        'X-Naver-Client-Id': clientId,
-        'X-Naver-Client-Secret': clientSecret,
-      },
+      headers: hubReq.headers,
       timeout: 10000,
     });
 

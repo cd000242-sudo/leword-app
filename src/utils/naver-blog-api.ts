@@ -9,6 +9,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { naverApiFetch } from './naver-api-hub';
 
 const NAVER_BLOG_OPENAPI_RATE_LIMIT_BACKOFF_MS = 2_500;
 const NAVER_BLOG_OPENAPI_MIN_REQUEST_INTERVAL_MS = 250;
@@ -840,7 +841,7 @@ async function fetchNaverBlogDocumentCount(
       // placed the previously selected credential into quota cooldown.
       const activeCredential = selectNaverBlogOpenApiCredential(fallbackConfig);
       if (!activeCredential) return null;
-      const response = await fetch(apiUrl, {
+      const response = await naverApiFetch(apiUrl, {
         method: 'GET',
         headers: {
           'X-Naver-Client-Id': activeCredential.clientId,

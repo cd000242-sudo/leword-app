@@ -372,6 +372,34 @@ export function setupConfigUtilityHandlers(): void {
     console.log('[KEYWORD-MASTER] ✅ save-env 핸들러 등록 완료');
   }
 
+  // NAVER API HUB 키 실측 확인 — 게이트웨이 후보를 시험해 작동 조합을 잠근다.
+  // 성공 시 키+게이트웨이를 저장하므로 이후 모든 검색/데이터랩 호출이 HUB 로 나간다.
+  if (!ipcMain.listenerCount('probe-naver-api-hub')) {
+    ipcMain.handle('probe-naver-api-hub', async (_event, payload: { keyId?: string; key?: string }) => {
+      try {
+        const { probeApiHub, resetApiHubSessionState } = await import('../../utils/naver-api-hub');
+        const keyId = String(payload?.keyId || '').trim();
+        const key = String(payload?.key || '').trim();
+        const result = await probeApiHub(keyId, key);
+        if (result.ok && result.base) {
+          const envManager = EnvironmentManager.getInstance();
+          await envManager.saveConfig({
+            naverApiHubKeyId: keyId,
+            naverApiHubKey: key,
+            naverApiHubBase: result.base,
+          });
+          envManager.reloadConfig();
+          resetApiHubSessionState();
+        }
+        return { ok: result.ok, detail: result.detail, base: result.base || '', datalabOk: !!result.datalabOk };
+      } catch (error: any) {
+        console.error('[KEYWORD-MASTER] probe-naver-api-hub 오류:', error);
+        return { ok: false, detail: error?.message || String(error) };
+      }
+    });
+    console.log('[KEYWORD-MASTER] ✅ probe-naver-api-hub 핸들러 등록 완료');
+  }
+
   // v2.44.0: 저사양 모드 get/set
   // v2.44.1 보안: 시스템 프로파일 raw 값(totalMemGB, cpuCount) 노출 X
   //   → 렌더러 XSS 시 시스템 타겟팅 정보 누출 방지. boolean만 노출.
@@ -470,6 +498,9 @@ export function setupConfigUtilityHandlers(): void {
         if (settings.coupangAccessKey !== undefined) envConfig.coupangAccessKey = settings.coupangAccessKey;
         if (settings.coupangSecretKey !== undefined) envConfig.coupangSecretKey = settings.coupangSecretKey;
         if (settings.coupangSubId !== undefined) envConfig.coupangSubId = settings.coupangSubId;
+        // NAVER API HUB — 개발자센터 종료 대비 신규 키 (probe 로 게이트웨이 실측 후 잠금)
+        if (settings.naverApiHubKeyId !== undefined) envConfig.naverApiHubKeyId = settings.naverApiHubKeyId;
+        if (settings.naverApiHubKey !== undefined) envConfig.naverApiHubKey = settings.naverApiHubKey;
 
         // 설정 저장
         await envManager.saveConfig(envConfig);

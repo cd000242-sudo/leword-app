@@ -33,6 +33,7 @@ import {
   HOME_HUNTER_MIN_SPLUS_RESULTS,
   HOME_NEED_SPLUS_SCORE,
 } from '../../utils/pro-hunter-v12/home-keyword-intent';
+import { naverApiFetch } from '../../utils/naver-api-hub';
 
 
 export function setupPremiumHuntingHandlers(): void {
@@ -184,7 +185,7 @@ export function setupPremiumHuntingHandlers(): void {
             sort: 'sim'
           });
 
-          const response = await fetch(`${blogApiUrl}?${params}`, {
+          const response = await naverApiFetch(`${blogApiUrl}?${params}`, {
             method: 'GET',
             headers: {
               'X-Naver-Client-Id': naverClientId,
@@ -1819,7 +1820,7 @@ export function setupPremiumHuntingHandlers(): void {
               sort: 'sim'
             });
 
-            const response = await fetch(`${blogApiUrl}?${params}`, {
+            const response = await naverApiFetch(`${blogApiUrl}?${params}`, {
               method: 'GET',
               headers
             });

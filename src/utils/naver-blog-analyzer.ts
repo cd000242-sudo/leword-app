@@ -3,6 +3,8 @@
  * 키워드 입력 → 검색결과/블로그지수/작성일 분석
  */
 
+import { naverApiFetch } from './naver-api-hub';
+
 export interface NaverApiConfig {
   clientId: string;
   clientSecret: string;
@@ -88,7 +90,7 @@ export class NaverBlogSearchAPI {
         sort: 'sim', // sim(정확도순) 또는 date(날짜순)
       });
 
-      const response = await fetch(`${url}?${params}`, {
+      const response = await naverApiFetch(`${url}?${params}`, {
         headers: {
           'X-Naver-Client-Id': this.config.clientId,
           'X-Naver-Client-Secret': this.config.clientSecret,

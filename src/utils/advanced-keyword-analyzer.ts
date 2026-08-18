@@ -4,6 +4,7 @@
  */
 
 import { EnvironmentManager } from './environment-manager';
+import { naverApiFetch } from './naver-api-hub';
 
 export interface AdvancedKeywordAnalysis {
   keyword: string;
@@ -149,7 +150,7 @@ export class AdvancedKeywordAnalyzer {
       
       if (naverClientId && naverClientSecret) {
         try {
-          const response = await fetch(`${apiUrl}?${params}`, {
+          const response = await naverApiFetch(`${apiUrl}?${params}`, {
             headers: {
               'X-Naver-Client-Id': naverClientId,
               'X-Naver-Client-Secret': naverClientSecret

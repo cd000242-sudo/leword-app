@@ -3,6 +3,8 @@
  * 실제 구현이 필요한 경우 여기에 추가
  */
 
+import { naverApiFetch } from './utils/naver-api-hub';
+
 export async function searchNaverWithApi(
   query: string,
   credentials?: any,
@@ -27,7 +29,7 @@ export async function searchNaverWithApi(
     const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
 
     const apiUrl = `https://openapi.naver.com/v1/search/${finalType}.json?query=${encodeURIComponent(query)}&display=${display}&start=${start}&sort=${encodeURIComponent(sort)}`;
-    const response = await fetch(apiUrl, {
+    const response = await naverApiFetch(apiUrl, {
       headers: {
         'X-Naver-Client-Id': clientId,
         'X-Naver-Client-Secret': clientSecret,
