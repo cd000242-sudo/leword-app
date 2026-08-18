@@ -33,6 +33,7 @@ const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { adviseFromLayout } = require('../src/utils/serp-layout-advice');
 const { referenceRowReason } = require('../src/utils/reference-row-reason');
 const { judgeTimingGroup } = require('../src/utils/preemption-timing-group');
+const { mergeCarryRows } = require('../src/utils/board-carry');
 
 const DEFAULT_DEST = path.join(
   __dirname, '..', 'tmp', 'leaderspro-admin-work', 'spa', 'public', 'data', 'preemption-board.json',
@@ -302,13 +303,40 @@ function main() {
     }))
     .filter((row) => row.note);
 
+  /*
+   * 누적(이월) 병합 — 회차가 돌 때마다 보드가 쌓인다 (목표 2,000키워드+).
+   * 직전 발행본(dest)의 행 중 신규에 없는 것을 carryDays 안에서 이월하고,
+   * 같은 키워드는 신규가 이기되 기존 AI 보강 자산을 접붙인다(재보강 콜 절약).
+   * --noCarry 로 끄면 예전처럼 대체 발행한다.
+   */
+  const carryDays = Number(arg('carryDays')) || 90;
+  let prevPayload = null;
+  if (!hasFlag('noCarry') && fs.existsSync(dest)) {
+    try {
+      prevPayload = JSON.parse(fs.readFileSync(dest, 'utf8'));
+    } catch {
+      prevPayload = null; // 못 읽으면 이월 없이 — 회차를 죽이지 않는다
+    }
+  }
+  const merged = mergeCarryRows(withEvidence.map(toPublicRow), prevPayload, {
+    carryDays,
+    nowMs: Date.now(),
+  });
+  console.log(
+    `  누적        신규 ${merged.fresh} + 이월 ${merged.carried}(≤${carryDays}일)`
+    + `${merged.expired > 0 ? ` · 만료 ${merged.expired}` : ''}`
+    + `${merged.grafted > 0 ? ` · 보강 접붙임 ${merged.grafted}` : ''}`
+    + ` = 총 ${merged.rows.length}행 (목표 2,000)`,
+  );
+
+  const mergedTopics = new Set(merged.rows.map((row) => row.topic).filter(Boolean));
   const payload = {
     publishedAt: new Date().toISOString(),
     generator: 'preemption-board-batch',
     topicsTotal: board.topicsTotal ?? 32,
-    topicsWithRows: byTopic.size,
+    topicsWithRows: mergedTopics.size,
     verified: board.verified ?? null,
-    rows: withEvidence.map(toPublicRow),
+    rows: merged.rows,
     reference,
     /*
      * 쇼핑 레인으로 라우팅된 키워드 — 조용히 사라지면 "왜 줄었나"를 화면이
