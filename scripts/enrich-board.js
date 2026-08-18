@@ -373,7 +373,16 @@ async function main() {
 
   for (const row of rows) {
     const existingSubs = Array.isArray(row.subKeywords) ? row.subKeywords : [];
-    if (existingSubs.length >= 3) continue;
+    /*
+     * "다 됐다"의 기준(2026-08-18 재적용 — stash 복구 사고로 이 조건이 옛
+     * 버전으로 되돌아간 채 커밋돼, 3차 재보강이 31행을 완제품으로 오판하고
+     * 4행만 돌았다). 서브 3개만으로는 안 끝난다: AI 제목이 붙었고 풀에
+     * 문서수까지 실려 있어야 완제품이다.
+     */
+    const hasAiTitles = Boolean(row.titles && row.titles.seo && row.titles.seo.frame === 'ai');
+    const poolHasDocs = Array.isArray(row.keywordPool)
+      && row.keywordPool.some((p) => typeof p.documentCount === 'number');
+    if (existingSubs.length >= 3 && hasAiTitles && poolHasDocs) continue;
     if (aiCalls >= maxAi) { console.log('  AI 호출 상한 도달 — 남은 행은 다음 보강으로.'); break; }
 
     /*
@@ -550,4 +559,11 @@ async function main() {
   console.log(`저장: ${outPath}`);
 }
 
-main().catch((error) => { console.error('보강 실패:', error); process.exit(1); });
+/*
+ * 명시적 종료 — 3차 재보강이 "저장:" 을 찍고도 150분 매달렸다(실측).
+ * 어딘가의 열린 핸들(keep-alive 소켓·타이머)이 이벤트 루프를 붙잡는다.
+ * 결과 파일은 이미 저장됐으므로 종료를 미룰 이유가 없다.
+ */
+main()
+  .then(() => process.exit(0))
+  .catch((error) => { console.error('보강 실패:', error); process.exit(1); });
