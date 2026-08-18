@@ -131,6 +131,8 @@ function toPublicRow(row) {
     monetize: row.monetize ?? null,
     // 실측 키워드 풀(연관 실측 + AI 검증분, 검색량 순 최대 12) — 전부 실존.
     keywordPool: Array.isArray(row.keywordPool) ? row.keywordPool : null,
+    // 30일 트렌드(데이터랩 상대값 실측) — 폰에서도 카드 안에서 그려진다.
+    trend: row.trend && Array.isArray(row.trend.series) ? row.trend : null,
     adsenseReason: row.adsenseReason || '',
     /* 문제해결 서브(형제 실측 선별). 빈 배열 = 실측 파생 없음(정직) — 화면은 줄을 숨긴다. */
     subKeywords: Array.isArray(row.subKeywords)

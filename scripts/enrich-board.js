@@ -25,6 +25,8 @@ require('./load-project-env').loadProjectEnv();
 const fs = require('fs');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions } = require('../src/utils/naver-searchad-api');
+const { getNaverKeywordSearchVolumeSeparate } = require('../src/utils/naver-datalab-api');
+const { analyzeKeywordTrend } = require('../src/utils/trend-type-classifier');
 const { probeNaverAutocompleteSuggestions } = require('../src/utils/naver-autocomplete');
 const { pickSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
 const { sharesToken } = require('../src/utils/title-forge/board-titles');
@@ -294,6 +296,59 @@ async function judgeMonetization(keyword, verifiedSubs) {
   };
 }
 
+/** 아무 키워드에나 붙는 상투구 — 이게 나오면 제목이 아니라 라벨이다. */
+const TITLE_CLICHES = /핵심\s*정리|핵심만|총정리|확인할\s*점|알아보|한눈에|정리해\s*봤/;
+
+/**
+ * 제목을 AI 가 실측 근거로 짓는다(사장님 지적 2026-08-18: "'마키나락스 주가
+ * 핵심 정리'가 클릭하고 싶을까? 내가 분명 어떻게 하라고 명령했을 텐데").
+ *
+ * 규격은 브리프와 동일한 사장님 명령이다:
+ *   SEO  = 메인키워드로 시작 + 상위노출을 노리는 구체 정보(숫자·비교·시점)
+ *   홈판 = 메인키워드 + 서브키워드 + 클릭할 수밖에 없는 후킹
+ * 재료는 실측 풀(검색량·문서수 붙은 검색어들)뿐 — 지어낸 수치 금지.
+ * 검증 실패(메인 미포함·상투구·서브 미포함)면 버리고 규칙 제목을 유지한다.
+ */
+async function forgeAiTitles(mainKeyword, keywordPool, subKeywords) {
+  const poolLines = (keywordPool || []).slice(0, 10)
+    .map((p) => `${p.keyword}${p.searchVolume ? ` (월 ${p.searchVolume}${typeof p.documentCount === 'number' ? ` · 문서 ${p.documentCount}` : ''})` : ''}`);
+  const subs = (subKeywords || []).map((s) => s.keyword);
+  const run = await runWithAnyAgent([
+    '너는 한국 블로그 제목 전문가다. 아래는 실측 값이다.',
+    '',
+    `메인 키워드: ${mainKeyword}`,
+    `같이 검색되는 확인된 검색어: ${poolLines.join(', ') || '(없음)'}`,
+    subs.length ? `서브키워드: ${subs.join(', ')}` : '',
+    '',
+    '- seo: **메인 키워드로 시작**하고, 뒤는 상위노출을 노리는 구체 정보',
+    '  (실측 검색어가 보여주는 궁금증 — 숫자·비교·시점·조건)를 잇는다. 40자 이내.',
+    '- home: 홈 목록에서 누를 수밖에 없게. **메인 키워드 + 서브키워드 중 하나 +',
+    '  후킹** 세 가지가 반드시 들어간다. 38자 이내. 후킹은 실측 검색어에서 읽히는',
+    '  가장 궁금한 지점 — 없는 수치·결과를 지어내면 안 된다.',
+    '- "핵심 정리", "핵심만 추렸습니다", "총정리", "확인할 점" 같은 상투구 금지.',
+    '  아무 키워드에나 붙일 수 있는 문장이면 실패다.',
+    '',
+    'JSON 만 출력: {"seo":"...","home":"..."}',
+  ].filter(Boolean).join('\n'), AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
+  const parsed = tryExtractJson(run.reply);
+  if (!parsed || typeof parsed !== 'object') return null;
+
+  const head = mainKeyword.split(/\s+/)[0] || '';
+  const clean = (t, max) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, max + 10);
+  const seo = clean(parsed.seo, 40);
+  const home = clean(parsed.home, 38);
+  const subTokens = subs.flatMap((s) => s.split(/\s+/)).filter((t) => t.length >= 2 && !mainKeyword.includes(t));
+
+  const seoOk = seo.length >= 10 && seo.includes(head) && !TITLE_CLICHES.test(seo);
+  const homeOk = home.length >= 10 && home.includes(head) && !TITLE_CLICHES.test(home)
+    && (subTokens.length === 0 || subTokens.some((t) => home.includes(t)));
+  if (!seoOk && !homeOk) return null;
+  return {
+    ...(seoOk ? { seo: { text: seo, frame: 'ai', basis: '실측 풀 근거 AI 작성' } } : {}),
+    ...(homeOk ? { home: { text: home, frame: 'ai', basis: '메인+서브+후킹 (실측 근거)' } } : {}),
+  };
+}
+
 async function main() {
   const inPath = arg('in');
   const outPath = arg('out');
@@ -306,10 +361,15 @@ async function main() {
   const board = JSON.parse(fs.readFileSync(inPath, 'utf8'));
   const rows = Array.isArray(board.rows) ? board.rows : [];
   const searchAd = buildSearchAdConfig();
+  const envConfig = EnvironmentManager.getInstance().getConfig();
+  const openApi = {
+    clientId: envConfig.naverClientId || process.env.NAVER_CLIENT_ID || '',
+    clientSecret: envConfig.naverClientSecret || process.env.NAVER_CLIENT_SECRET || '',
+  };
   console.log(`보강 대상 ${rows.length}행 · AI 호출 상한 ${maxAi} · 검색광고 ${searchAd ? 'OK' : '없음(프로브만)'}`);
 
   let aiCalls = 0;
-  const stats = { enriched: 0, subsAdded: 0, titleUpgraded: 0, proposed: 0, verified: 0, judged: 0, judgedBad: 0, related: 0, picked: 0, pooled: 0 };
+  const stats = { enriched: 0, subsAdded: 0, titleUpgraded: 0, proposed: 0, verified: 0, judged: 0, judgedBad: 0, related: 0, picked: 0, pooled: 0, aiTitled: 0, trended: 0 };
 
   for (const row of rows) {
     const existingSubs = Array.isArray(row.subKeywords) ? row.subKeywords : [];
@@ -367,7 +427,27 @@ async function main() {
       .sort((a, b) => (b.searchVolume ?? -1) - (a.searchVolume ?? -1))
       .slice(0, 12)
       .map((p) => ({ keyword: p.keyword, searchVolume: p.searchVolume ?? null, source: p.source }));
+
+    /*
+     * 풀에 문서수 실측을 붙인다(사장님 지시 2026-08-18: "검색량만 있네,
+     * 문서수도 같이 — 177500/2345 이런 식으로"). 검색량÷문서수가 황금
+     * 비율의 눈이다 — 검색량만 보이면 경쟁이 안 보인다.
+     */
     if (keywordPool.length > 0) {
+      try {
+        const docRows = await getNaverKeywordSearchVolumeSeparate(
+          openApi,
+          keywordPool.map((p) => p.keyword),
+          { includeDocumentCount: true },
+        );
+        const docByKeyword = new Map(docRows.map((d) => [String(d.keyword).replace(/\s+/g, ''), d.documentCount]));
+        for (const p of keywordPool) {
+          const dc = docByKeyword.get(p.keyword.replace(/\s+/g, ''));
+          if (typeof dc === 'number' && dc >= 0) p.documentCount = dc;
+        }
+      } catch (error) {
+        console.log(`  !! 풀 문서수 실측 실패(검색량만): ${String((error && error.message) || error).slice(0, 70)}`);
+      }
       row.keywordPool = keywordPool;
       stats.pooled += keywordPool.length;
     }
@@ -383,15 +463,54 @@ async function main() {
       serpTitles,
       timing: row.timing || '',
     });
-    const titleUpgraded = newTitles.seo.frame !== 'generic'
+    let titleUpgraded = newTitles.seo.frame !== 'generic'
       && (!row.titles || !row.titles.seo || row.titles.seo.frame === 'generic');
 
     if (gotNewSubs) { row.subKeywords = merged; stats.subsAdded += 1; }
     if (titleUpgraded || gotNewSubs) { row.titles = newTitles; if (titleUpgraded) stats.titleUpgraded += 1; }
+
+    /*
+     * 규칙 제목 위에 AI 제목을 덮는다 — 규칙 폴백("핵심 정리")은 아무 키워드에나
+     * 붙는 라벨이지 클릭을 부르는 제목이 아니다(사장님 지적). 검증을 통과한
+     * 것만 덮고, 실패하면 규칙 제목이 남는다.
+     */
+    try {
+      const aiTitles = await forgeAiTitles(row.keyword, row.keywordPool || [], merged);
+      if (aiTitles) {
+        row.titles = { ...(row.titles || newTitles), ...aiTitles };
+        stats.aiTitled += 1;
+        titleUpgraded = true;
+      }
+    } catch (error) {
+      console.log(`  !! [${row.keyword}] AI 제목 실패(규칙 유지): ${String((error && error.message) || error).slice(0, 70)}`);
+    }
+
     if (gotNewSubs || titleUpgraded) {
       stats.enriched += 1;
       row.enrichedBy = { provider: lastProvider || 'unknown', proposed: proposals.length, verified: verified.length };
-      console.log(`  ✚ [${row.keyword}] 서브 ${merged.length}개${titleUpgraded ? ` · 제목 ${newTitles.seo.frame}` : ''} — ${merged.map((s) => s.keyword).join(' / ')}`);
+      console.log(`  ✚ [${row.keyword}] 서브 ${merged.length}개 · 제목 ${row.titles && row.titles.seo ? row.titles.seo.frame : '-'} — ${merged.map((s) => s.keyword).join(' / ')}`);
+    }
+
+    /*
+     * 30일 트렌드를 행에 굽는다(2026-08-18). 웹 그래프는 브리지(사용자 PC 앱)
+     * 로만 그렸는데, 폰에서는 127.0.0.1 이 닿을 수 없어 데이터랩 새 창으로
+     * 튕겼다("그래프가 광고 사이트로 간다" — 사장님 실측). 데이터에 실으면
+     * 어느 기기에서든 카드 안에서 바로 그려진다. 데이터랩 상대값 실측이다.
+     */
+    if (!row.trend || !Array.isArray(row.trend.series) || row.trend.series.length === 0) {
+      try {
+        const trend = await analyzeKeywordTrend(row.keyword, openApi);
+        if (trend && Array.isArray(trend.series) && trend.series.length > 0) {
+          row.trend = {
+            series: trend.series.map((v) => Math.round(v)),
+            label: (trend.analysis && trend.analysis.label) || '',
+            recommendation: (trend.analysis && trend.analysis.recommendation) || '',
+          };
+          stats.trended += 1;
+        }
+      } catch (error) {
+        console.log(`  !! [${row.keyword}] 트렌드 실측 실패(그래프 없이): ${String((error && error.message) || error).slice(0, 60)}`);
+      }
     }
 
     /*
@@ -418,7 +537,7 @@ async function main() {
   board.enrichedAt = new Date().toISOString();
   board.enrichStats = { ...stats, aiCalls };
   fs.writeFileSync(outPath, JSON.stringify(board, null, 2), 'utf8');
-  console.log(`\n보강 완료: 연관 실측 ${stats.related} + AI 선별 ${stats.picked} + AI 신규(제안 ${stats.proposed} → 통과 ${stats.verified}) → 풀 ${stats.pooled}개 · 보강 행 ${stats.enriched} (서브 +${stats.subsAdded} · 제목 승급 ${stats.titleUpgraded}) · 수익 판정 ${stats.judged}행(탈락 ${stats.judgedBad}) · AI ${aiCalls}회`);
+  console.log(`\n보강 완료: 연관 실측 ${stats.related} + AI 선별 ${stats.picked} + AI 신규(제안 ${stats.proposed} → 통과 ${stats.verified}) → 풀 ${stats.pooled}개 · AI 제목 ${stats.aiTitled}행 · 보강 행 ${stats.enriched} (서브 +${stats.subsAdded}) · 수익 판정 ${stats.judged}행(탈락 ${stats.judgedBad}) · AI ${aiCalls}회`);
   console.log(`저장: ${outPath}`);
 }
 
