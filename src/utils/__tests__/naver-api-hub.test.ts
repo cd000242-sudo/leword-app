@@ -23,10 +23,16 @@ describe('mapLegacyUrlToHub', () => {
     );
   });
 
-  it('데이터랩: /v1/datalab/search → /datalab/v1/search', () => {
+  it('데이터랩: /v1/datalab/search → /search-trend/v1/search (실측 경로)', () => {
     expect(mapLegacyUrlToHub('https://openapi.naver.com/v1/datalab/search', BASE)).toBe(
-      `${BASE}/datalab/v1/search`
+      `${BASE}/search-trend/v1/search`
     );
+  });
+
+  it('쇼핑인사이트(datalab/shopping)는 HUB 경로 미실측 — 변환하지 않는다', () => {
+    expect(
+      mapLegacyUrlToHub('https://openapi.naver.com/v1/datalab/shopping/categories', BASE)
+    ).toBeNull();
   });
 
   it('완전 종료된 쇼핑 검색은 HUB 에도 없다 — 변환하지 않는다', () => {

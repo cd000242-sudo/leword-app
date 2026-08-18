@@ -41,15 +41,17 @@ export function isApiHubConfigured(): boolean {
 
 /**
  * legacy openapi URL → HUB URL. 매핑 불가능한 URL 은 null (변환하지 않음).
- *   /v1/search/{type}.json → /search/v1/{type}
- *   /v1/datalab/search     → /datalab/v1/search
+ *   /v1/search/{type}.json → /search/v1/{type}       (2026-08-18 실측 200)
+ *   /v1/datalab/search     → /search-trend/v1/search  (2026-08-18 실측 200 —
+ *     문서 추정 경로 /datalab/v1/search 는 실제 404였다)
  * 쇼핑·책·전문자료는 HUB 에도 없다(완전 종료) — 변환 대상에서 제외.
+ * datalab/shopping(쇼핑인사이트)은 HUB 경로 미실측 — 변환하지 않고 legacy 로 둔다.
  */
 export function mapLegacyUrlToHub(legacyUrl: string, base: string): string | null {
   const search = legacyUrl.match(/^https:\/\/openapi\.naver\.com\/v1\/search\/(blog|news|webkr|kin|cafearticle|image|local|doc|encyc)\.json(\?.*)?$/);
   if (search) return `${base}/search/v1/${search[1]}${search[2] || ''}`;
-  const datalab = legacyUrl.match(/^https:\/\/openapi\.naver\.com\/v1\/datalab\/(search|shopping\/[a-z/]+)(\?.*)?$/);
-  if (datalab) return `${base}/datalab/v1/${datalab[1]}${datalab[2] || ''}`;
+  const datalab = legacyUrl.match(/^https:\/\/openapi\.naver\.com\/v1\/datalab\/search(\?.*)?$/);
+  if (datalab) return `${base}/search-trend/v1/search${datalab[1] || ''}`;
   return null;
 }
 
@@ -167,7 +169,7 @@ export async function probeApiHub(keyId: string, key: string): Promise<ApiHubPro
     if (!searchOk) continue;
 
     try {
-      const datalabRes = await fetch(`${base}/datalab/v1/search`, {
+      const datalabRes = await fetch(`${base}/search-trend/v1/search`, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
