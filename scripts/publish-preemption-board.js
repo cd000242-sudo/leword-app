@@ -326,7 +326,7 @@ function main() {
     `  누적        신규 ${merged.fresh} + 이월 ${merged.carried}(≤${carryDays}일)`
     + `${merged.expired > 0 ? ` · 만료 ${merged.expired}` : ''}`
     + `${merged.grafted > 0 ? ` · 보강 접붙임 ${merged.grafted}` : ''}`
-    + ` = 총 ${merged.rows.length}행 (목표 2,000)`,
+    + ` = 총 ${merged.rows.length}행 (목표 200)`,
   );
 
   const mergedTopics = new Set(merged.rows.map((row) => row.topic).filter(Boolean));
