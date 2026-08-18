@@ -136,9 +136,20 @@ async function analyze(items, creds) {
   }
 
   // 블로그: 6개씩 + 800ms — 오픈 API 는 이보다 빠르면 429 를 준다(실측).
+  // NAVER API HUB 대응: HUB 키가 env 에 있으면 새 게이트웨이로 나간다.
+  const hubKeyId = (process.env.NAVER_APIHUB_KEY_ID || '').trim();
+  const hubKey = (process.env.NAVER_APIHUB_KEY || '').trim();
+  const hubBase = (process.env.NAVER_APIHUB_BASE || 'https://naverapihub.apigw.ntruss.com').trim();
+  const useHub = hubKeyId && hubKey;
   const blog = (keyword) => new Promise((resolve) => {
-    https.get(`https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=10`, {
-      headers: { 'X-Naver-Client-Id': creds.naverClientId, 'X-Naver-Client-Secret': creds.naverClientSecret },
+    const blogUrl = useHub
+      ? `${hubBase}/search/v1/blog?query=${encodeURIComponent(keyword)}&display=10`
+      : `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=10`;
+    const blogHeaders = useHub
+      ? { 'X-NCP-APIGW-API-KEY-ID': hubKeyId, 'X-NCP-APIGW-API-KEY': hubKey }
+      : { 'X-Naver-Client-Id': creds.naverClientId, 'X-Naver-Client-Secret': creds.naverClientSecret };
+    https.get(blogUrl, {
+      headers: blogHeaders,
     }, (res) => {
       let data = '';
       res.on('data', (c) => { data += c; });

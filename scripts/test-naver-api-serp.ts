@@ -39,10 +39,14 @@ function loadKeys() {
   const queries = ['고유가 피해지원금', '부모급여 신청', '소상공인 지원금', '재테크 입문'];
 
   for (const q of queries) {
-    const url = `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(q)}&display=30&sort=sim`;
+    const { transformNaverRequest } = await import('../src/utils/naver-api-hub');
+    const hubReq = transformNaverRequest(
+      `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(q)}&display=30&sort=sim`,
+      { 'X-Naver-Client-Id': keys.id, 'X-Naver-Client-Secret': keys.secret }
+    );
     try {
-      const r = await axios.get(url, {
-        headers: { 'X-Naver-Client-Id': keys.id, 'X-Naver-Client-Secret': keys.secret },
+      const r = await axios.get(hubReq.url, {
+        headers: hubReq.headers,
         timeout: 10000, validateStatus: () => true,
       });
       if (r.status !== 200) { console.log(`[${q}] status=${r.status}`); continue; }

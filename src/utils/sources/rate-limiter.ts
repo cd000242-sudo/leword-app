@@ -16,6 +16,9 @@ const DEFAULT_RATE: Record<string, { max: number; per: number }> = {
     // domain → max tokens per `per` ms
     'datalab.naver.com': { max: 5, per: 1000 },
     'openapi.naver.com': { max: 10, per: 1000 },
+    // NAVER API HUB 게이트웨이 — openapi 와 같은 한도로 시작(실측 후 조정)
+    'naverapihub.apigw.ntruss.com': { max: 10, per: 1000 },
+    'naveropenapi.apigw.ntruss.com': { max: 10, per: 1000 },
     'wikimedia.org': { max: 100, per: 1000 },
     'www.youtube.com': { max: 30, per: 1000 },
     'www.ppomppu.co.kr': { max: 5, per: 1000 },

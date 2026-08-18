@@ -209,6 +209,9 @@ class EnvironmentManager {
                 dalleApiKey: envFileConfig['DALLE_API_KEY'] || envFileConfig['OPENAI_API_KEY'] || process.env['DALLE_API_KEY'] || process.env['OPENAI_API_KEY'] || '',
                 naverClientId: envFileConfig['NAVER_CLIENT_ID'] || process.env['NAVER_CLIENT_ID'] || '',
                 naverClientSecret: envFileConfig['NAVER_CLIENT_SECRET'] || process.env['NAVER_CLIENT_SECRET'] || '',
+                naverApiHubKeyId: envFileConfig['NAVER_APIHUB_KEY_ID'] || process.env['NAVER_APIHUB_KEY_ID'] || '',
+                naverApiHubKey: envFileConfig['NAVER_APIHUB_KEY'] || process.env['NAVER_APIHUB_KEY'] || '',
+                naverApiHubBase: envFileConfig['NAVER_APIHUB_BASE'] || process.env['NAVER_APIHUB_BASE'] || '',
                 naverSearchAdAccessLicense: envFileConfig['NAVER_SEARCH_AD_ACCESS_LICENSE'] || envFileConfig['naverSearchAdAccessLicense'] || envFileConfig['naver_search_ad_access_license'] ||
                     process.env['NAVER_SEARCH_AD_ACCESS_LICENSE'] || process.env['naverSearchAdAccessLicense'] || process.env['naver_search_ad_access_license'] || '',
                 naverSearchAdSecretKey: envFileConfig['NAVER_SEARCH_AD_SECRET_KEY'] || envFileConfig['naverSearchAdSecretKey'] || envFileConfig['naver_search_ad_secret_key'] ||
