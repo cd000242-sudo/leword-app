@@ -179,6 +179,27 @@ export function simplifyProductTitleForSearch(rawTitle: string, brand?: string):
 const CACHE_TTL = 5 * 60_000;
 const shoppingCache = new Map<string, { result: ShoppingSearchResult; expiresAt: number }>();
 
+// 2026-07-31 API HUB 개편으로 쇼핑 검색 API 완전 종료(대체 API 없음, 404 실측).
+// 한 번 404 를 확인하면 세션 내내 죽은 엔드포인트를 두드리지 않고 폴백으로 직행한다.
+let shopOpenApiDead = false;
+
+async function searchViaUnifiedFallback(
+  keyword: string,
+  display: number,
+  start: number,
+  sort: ShoppingSort,
+  key: string
+): Promise<ShoppingSearchResult> {
+  const { fetchShoppingFromUnifiedSearch } = await import('./naver-shopping-unified-fallback');
+  const result = await fetchShoppingFromUnifiedSearch(keyword, { display, start, sort });
+  shoppingCache.set(key, { result, expiresAt: Date.now() + CACHE_TTL });
+  if (shoppingCache.size > 100) {
+    const oldest = Array.from(shoppingCache.entries()).sort((a, b) => a[1].expiresAt - b[1].expiresAt)[0];
+    if (oldest) shoppingCache.delete(oldest[0]);
+  }
+  return result;
+}
+
 function cacheKey(keyword: string, display: number, start: number, sort: ShoppingSort): string {
   return `${keyword.toLowerCase().trim()}|${display}|${start}|${sort}`;
 }
@@ -215,6 +236,10 @@ export async function searchNaverShopping(
     return cached.result;
   }
 
+  if (shopOpenApiDead) {
+    return searchViaUnifiedFallback(keyword, display, start, sort, key);
+  }
+
   const url = `https://openapi.naver.com/v1/search/shop.json?query=${encodeURIComponent(keyword)}&display=${display}&start=${start}&sort=${sort}`;
 
   // v2.43.55: 10팀 — 8초 AbortController hard timeout (IPC 영구 hang 차단)
@@ -238,6 +263,17 @@ export async function searchNaverShopping(
   }
 
   if (!response.ok) {
+    if (response.status === 404 || response.status === 410) {
+      // 엔드포인트 자체가 사라진 것 — 이번 세션은 다시 두드리지 않는다.
+      shopOpenApiDead = true;
+      console.warn('[SHOPPING-API] 쇼핑 검색 API 종료 감지(' + response.status + ') — 통합검색 폴백으로 전환');
+      return searchViaUnifiedFallback(keyword, display, start, sort, key);
+    }
+    if (response.status === 429) {
+      // 일일 쿼터 소진 — 내일 풀리므로 영구 플래그는 안 세우고 이번 호출만 폴백.
+      console.warn('[SHOPPING-API] 쿼터 소진(429) — 통합검색 폴백으로 이번 호출 우회');
+      return searchViaUnifiedFallback(keyword, display, start, sort, key);
+    }
     const body = await response.text();
     throw new Error(`네이버 쇼핑 API 오류 (${response.status}): ${body.slice(0, 200)}`);
   }
