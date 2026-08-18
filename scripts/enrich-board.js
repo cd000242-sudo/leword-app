@@ -206,6 +206,17 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
       '새 검색어(new) 형식:',
       `- "${mainKeyword}" 의 핵심 명사를 포함, 2~4어절, 공백 제외 15자 이내, 질문 문장 금지`,
     ] : []),
+    '',
+    /*
+     * 제목도 같은 콜에서 받는다(2026-08-18 속도 병합 — 행당 AI 콜을 줄인다).
+     * 근거는 위 실측 목록뿐. 검증(메인 포함·상투구·서브 포함)은 밖에서 한다.
+     */
+    '마지막 임무 — 위 실측 검색어들을 근거로 블로그 제목 두 개도 함께 지어라:',
+    `- seo: "${mainKeyword}" 로 시작 + 상위노출을 노리는 구체 정보(숫자·비교·시점). 40자 이내.`,
+    `- home: "${mainKeyword}" + 서브키워드 하나 + 클릭할 수밖에 없는 후킹. 38자 이내.`,
+    '- "핵심 정리", "총정리", "확인할 점" 같은 상투구 금지. 없는 수치 금지.',
+    '',
+    '최종 출력(JSON 하나만): {"new":[...], "picked":[...], "seo":"...", "home":"..."}',
   ].join('\n');
   const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
   lastProvider = run.provider;
@@ -218,9 +229,9 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
 
   // 옛 형태(배열만) 응답도 받아 준다 — 형식이 어긋났다고 결과를 버리진 않는다.
   if (Array.isArray(parsed)) {
-    return { proposals: asClean(parsed).filter((k) => k !== mainKeyword && sharesToken(k, mainKeyword)).slice(0, AI_PROPOSAL_CAP), picked: [] };
+    return { proposals: asClean(parsed).filter((k) => k !== mainKeyword && sharesToken(k, mainKeyword)).slice(0, AI_PROPOSAL_CAP), picked: [], seoRaw: '', homeRaw: '' };
   }
-  if (!parsed || typeof parsed !== 'object') return { proposals: [], picked: [] };
+  if (!parsed || typeof parsed !== 'object') return { proposals: [], picked: [], seoRaw: '', homeRaw: '' };
   return {
     proposals: asClean(parsed.new)
       .filter((k) => k.length >= 4 && k.replace(/\s+/g, '').length <= 15 && k !== mainKeyword)
@@ -228,6 +239,8 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
       .slice(0, AI_PROPOSAL_CAP),
     // 고른 것은 반드시 준 목록 안에 있어야 한다 — 목록 밖 발명은 버린다.
     picked: asClean(parsed.picked).filter((k) => candidateSet.has(k)).slice(0, 8),
+    seoRaw: typeof parsed.seo === 'string' ? parsed.seo : '',
+    homeRaw: typeof parsed.home === 'string' ? parsed.home : '',
   };
 }
 
@@ -309,34 +322,17 @@ const TITLE_CLICHES = /핵심\s*정리|핵심만|총정리|확인할\s*점|알�
  * 재료는 실측 풀(검색량·문서수 붙은 검색어들)뿐 — 지어낸 수치 금지.
  * 검증 실패(메인 미포함·상투구·서브 미포함)면 버리고 규칙 제목을 유지한다.
  */
-async function forgeAiTitles(mainKeyword, keywordPool, subKeywords) {
-  const poolLines = (keywordPool || []).slice(0, 10)
-    .map((p) => `${p.keyword}${p.searchVolume ? ` (월 ${p.searchVolume}${typeof p.documentCount === 'number' ? ` · 문서 ${p.documentCount}` : ''})` : ''}`);
+/**
+ * AI 가 낸 제목의 **검증만** 한다(2026-08-18 속도 병합 — 제목 생성이 제안
+ * 콜에 합쳐져 행당 AI 콜이 줄었다). 규격은 그대로: 메인 포함·상투구 금지·
+ * 홈판은 서브 포함. 실패한 쪽은 버려 규칙 제목이 남는다.
+ */
+function validateAiTitles(mainKeyword, subKeywords, seoRaw, homeRaw) {
   const subs = (subKeywords || []).map((s) => s.keyword);
-  const run = await runWithAnyAgent([
-    '너는 한국 블로그 제목 전문가다. 아래는 실측 값이다.',
-    '',
-    `메인 키워드: ${mainKeyword}`,
-    `같이 검색되는 확인된 검색어: ${poolLines.join(', ') || '(없음)'}`,
-    subs.length ? `서브키워드: ${subs.join(', ')}` : '',
-    '',
-    '- seo: **메인 키워드로 시작**하고, 뒤는 상위노출을 노리는 구체 정보',
-    '  (실측 검색어가 보여주는 궁금증 — 숫자·비교·시점·조건)를 잇는다. 40자 이내.',
-    '- home: 홈 목록에서 누를 수밖에 없게. **메인 키워드 + 서브키워드 중 하나 +',
-    '  후킹** 세 가지가 반드시 들어간다. 38자 이내. 후킹은 실측 검색어에서 읽히는',
-    '  가장 궁금한 지점 — 없는 수치·결과를 지어내면 안 된다.',
-    '- "핵심 정리", "핵심만 추렸습니다", "총정리", "확인할 점" 같은 상투구 금지.',
-    '  아무 키워드에나 붙일 수 있는 문장이면 실패다.',
-    '',
-    'JSON 만 출력: {"seo":"...","home":"..."}',
-  ].filter(Boolean).join('\n'), AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
-  const parsed = tryExtractJson(run.reply);
-  if (!parsed || typeof parsed !== 'object') return null;
-
   const head = mainKeyword.split(/\s+/)[0] || '';
   const clean = (t, max) => String(t || '').replace(/\s+/g, ' ').trim().slice(0, max + 10);
-  const seo = clean(parsed.seo, 40);
-  const home = clean(parsed.home, 38);
+  const seo = clean(seoRaw, 40);
+  const home = clean(homeRaw, 38);
   const subTokens = subs.flatMap((s) => s.split(/\s+/)).filter((t) => t.length >= 2 && !mainKeyword.includes(t));
 
   const seoOk = seo.length >= 10 && seo.includes(head) && !TITLE_CLICHES.test(seo);
@@ -371,7 +367,15 @@ async function main() {
   let aiCalls = 0;
   const stats = { enriched: 0, subsAdded: 0, titleUpgraded: 0, proposed: 0, verified: 0, judged: 0, judgedBad: 0, related: 0, picked: 0, pooled: 0, aiTitled: 0, trended: 0 };
 
-  for (const row of rows) {
+  /*
+   * 행 3개 동시 처리(2026-08-18 — 사장님: "좀 빠르게 안 될까"). 행끼리는
+   * 독립이고, 공용 API 들은 각자 내부 간격기(검색광고 500ms 등)가 초당
+   * 호출을 그대로 묶는다 — 기다리는 시간만 겹쳐 사라진다. AI 3콜 동시는
+   * 구독 사용량 자체를 늘리지 않는다(같은 콜 수를 겹쳐 보낼 뿐).
+   */
+  let capReached = false;
+  const processRow = async (row) => {
+    if (capReached) return;
     const existingSubs = Array.isArray(row.subKeywords) ? row.subKeywords : [];
     /*
      * "다 됐다"의 기준(2026-08-18 재적용 — stash 복구 사고로 이 조건이 옛
@@ -382,8 +386,12 @@ async function main() {
     const hasAiTitles = Boolean(row.titles && row.titles.seo && row.titles.seo.frame === 'ai');
     const poolHasDocs = Array.isArray(row.keywordPool)
       && row.keywordPool.some((p) => typeof p.documentCount === 'number');
-    if (existingSubs.length >= 3 && hasAiTitles && poolHasDocs) continue;
-    if (aiCalls >= maxAi) { console.log('  AI 호출 상한 도달 — 남은 행은 다음 보강으로.'); break; }
+    if (existingSubs.length >= 3 && hasAiTitles && poolHasDocs) return;
+    if (aiCalls >= maxAi) {
+      if (!capReached) console.log('  AI 호출 상한 도달 — 남은 행은 다음 보강으로.');
+      capReached = true;
+      return;
+    }
 
     /*
      * ① 실측 수확이 먼저다. 연관 실측은 통과율 100%(이미 잰 값)이고,
@@ -395,6 +403,7 @@ async function main() {
     aiCalls += 1;
     let proposals = [];
     let picked = [];
+    let titlesRaw = { seoRaw: '', homeRaw: '' };
     try {
       const result = await proposeSubKeywords(
         row.keyword,
@@ -403,10 +412,11 @@ async function main() {
       );
       proposals = result.proposals;
       picked = result.picked;
+      titlesRaw = { seoRaw: result.seoRaw || '', homeRaw: result.homeRaw || '' };
       stats.picked += picked.length;
     } catch (error) {
       console.log(`  !! [${row.keyword}] AI 제안 실패: ${String(error && error.message || error).slice(0, 80)}`);
-      continue;
+      return;
     }
     stats.proposed += proposals.length;
     const verified = await verifyProposals(searchAd, proposals);
@@ -483,15 +493,11 @@ async function main() {
      * 붙는 라벨이지 클릭을 부르는 제목이 아니다(사장님 지적). 검증을 통과한
      * 것만 덮고, 실패하면 규칙 제목이 남는다.
      */
-    try {
-      const aiTitles = await forgeAiTitles(row.keyword, row.keywordPool || [], merged);
-      if (aiTitles) {
-        row.titles = { ...(row.titles || newTitles), ...aiTitles };
-        stats.aiTitled += 1;
-        titleUpgraded = true;
-      }
-    } catch (error) {
-      console.log(`  !! [${row.keyword}] AI 제목 실패(규칙 유지): ${String((error && error.message) || error).slice(0, 70)}`);
+    const aiTitles = validateAiTitles(row.keyword, merged, titlesRaw.seoRaw, titlesRaw.homeRaw);
+    if (aiTitles) {
+      row.titles = { ...(row.titles || newTitles), ...aiTitles };
+      stats.aiTitled += 1;
+      titleUpgraded = true;
     }
 
     if (gotNewSubs || titleUpgraded) {
@@ -550,7 +556,12 @@ async function main() {
     board.enrichedAt = new Date().toISOString();
     board.enrichStats = { ...stats, aiCalls, partial: true };
     fs.writeFileSync(outPath, JSON.stringify(board, null, 2), 'utf8');
-  }
+  };
+
+  const { mapWithConcurrency } = require('../src/utils/rate-limited-pool');
+  await mapWithConcurrency(rows, 3, processRow, (error, row) => {
+    console.log(`  !! [${row && row.keyword}] 행 처리 예외(계속): ${String((error && error.message) || error).slice(0, 80)}`);
+  });
 
   board.enrichedAt = new Date().toISOString();
   board.enrichStats = { ...stats, aiCalls, partial: false };
