@@ -24,7 +24,7 @@ jobs:
     # 90분이면 모자란다 — 2026-08-11 회차가 정확히 90분에 잘렸다.
     # 실측 배분: 후보 발굴 63분(무료 API 구간) + Bright Data 27분에 29주제 중 14주제.
     # 전 주제를 도려면 BD 만 60분쯤 필요하다. 여유를 두고 3시간으로 둔다.
-    timeout-minutes: 180
+    timeout-minutes: 300
     # 최초 관측 장부를 이 레포에 되돌려 커밋하기 위해 필요하다(아래 마지막 스텝).
     permissions:
       contents: write
