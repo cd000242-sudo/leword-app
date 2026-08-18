@@ -136,11 +136,13 @@ async function analyze(items, creds) {
   }
 
   // 블로그: 6개씩 + 800ms — 오픈 API 는 이보다 빠르면 429 를 준다(실측).
-  // NAVER API HUB 대응: HUB 키가 env 에 있으면 새 게이트웨이로 나간다.
-  const hubKeyId = (process.env.NAVER_APIHUB_KEY_ID || '').trim();
-  const hubKey = (process.env.NAVER_APIHUB_KEY || '').trim();
-  const hubBase = (process.env.NAVER_APIHUB_BASE || 'https://naverapihub.apigw.ntruss.com').trim();
+  // NAVER API HUB 대응: env 또는 앱 설정(config.json)에 HUB 키가 있으면 새 게이트웨이로.
+  // 로컬 실행은 env 가 아니라 앱 설정에 키가 있다 — 둘 다 본다.
+  const hubKeyId = (process.env.NAVER_APIHUB_KEY_ID || creds.naverApiHubKeyId || '').trim();
+  const hubKey = (process.env.NAVER_APIHUB_KEY || creds.naverApiHubKey || '').trim();
+  const hubBase = (process.env.NAVER_APIHUB_BASE || creds.naverApiHubBase || 'https://naverapihub.apigw.ntruss.com').trim();
   const useHub = hubKeyId && hubKey;
+  console.log(`실측 경로: ${useHub ? 'NAVER API HUB (' + hubBase + ')' : '개발자센터 legacy'}`);
   const blog = (keyword) => new Promise((resolve) => {
     const blogUrl = useHub
       ? `${hubBase}/search/v1/blog?query=${encodeURIComponent(keyword)}&display=10`
@@ -183,6 +185,51 @@ const verdictGroup = (item) => {
   return 2;
 };
 
+/**
+ * 니즈 검색어 실측 부착 — 상품명 검색어(sv 0~140)로는 유입이 없다.
+ * 후보(need-keywords.ts 도출)를 검색광고로 실측해 최고 수요 하나를 고르고,
+ * 수수료율이 있는 레인은 건당 수익(가격×요율 단순 산술)을 함께 싣는다.
+ */
+async function attachNeedKeywords(items, creds) {
+  const { deriveNeedKeywordCandidates, perSaleCommission } = require('../src/utils/need-keywords');
+  const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+  const searchAd = {
+    accessLicense: creds.naverSearchAdAccessLicense,
+    secretKey: creds.naverSearchAdSecretKey,
+    customerId: creds.naverSearchAdCustomerId,
+  };
+
+  const candidatesByItem = items.map((item) => deriveNeedKeywordCandidates(item.name, item.brand));
+  const uniq = [...new Set(candidatesByItem.flat().map((k) => k.trim()).filter(Boolean))];
+  const volumes = new Map();
+  for (let i = 0; i < uniq.length; i += 5) {
+    try {
+      const rows = await getNaverSearchAdKeywordVolume(searchAd, uniq.slice(i, i + 5));
+      for (const row of rows || []) {
+        const total = (row.pcSearchVolume || 0) + (row.mobileSearchVolume || 0);
+        if (total > 0) volumes.set(String(row.keyword).replace(/\s+/g, ''), total);
+      }
+    } catch (error) {
+      console.log(`  !! 니즈 실측 실패(${i / 5 + 1}번째 묶음) — ${String(error.message).slice(0, 60)}`);
+    }
+    await sleep(300);
+  }
+
+  return items.map((item, index) => {
+    let best = null;
+    for (const candidate of candidatesByItem[index]) {
+      const volume = volumes.get(candidate.replace(/\s+/g, '')) || 0;
+      if (volume > 0 && (!best || volume > best.volume)) best = { keyword: candidate, volume };
+    }
+    return {
+      ...item,
+      needKeyword: best ? best.keyword : null,
+      needVolume: best ? best.volume : null,
+      perSaleWon: perSaleCommission(item.price, item.reward),
+    };
+  });
+}
+
 async function main() {
   const limit = Number(arg('limit', '24'));
   const { EnvironmentManager } = require('../src/utils/environment-manager');
@@ -205,19 +252,28 @@ async function main() {
     }
     console.log(`■ ${site.label} — 원문 ${site.items.length}건 → 분석 대상 ${prepared.length}건`);
     site.items = await analyze(prepared, creds);
+    site.items = await attachNeedKeywords(site.items, creds);
 
     const before = site.items.length;
+    /*
+     * 정렬 교체(2026-08-19): 상품명 검색어의 자리 순 → **니즈 수요 순**.
+     * 실측 근거 — 상품명 검색어 sv 는 0~140 이라 1위여도 유입이 없다. 성과는
+     * 니즈 검색어(드리미 로봇청소기 24,940 등)로 들어가 상품을 답으로 팔 때
+     * 난다. 자리 판정은 배지로 남는다. 포화(정면 6+) 제외는 유지 — 상품명조차
+     * 포화면 레드오션 신호다.
+     */
     site.items = site.items
       .filter((item) => verdictGroup(item) !== 2)
-      .sort((a, b) => {
-        const va = verdictGroup(a);
-        const vb = verdictGroup(b);
-        if (va !== vb) return va - vb;
-        return (b.searchVolume || 0) - (a.searchVolume || 0);
-      });
+      .sort((a, b) => (b.needVolume || 0) - (a.needVolume || 0)
+        || (b.perSaleWon || 0) - (a.perSaleWon || 0)
+        || (b.searchVolume || 0) - (a.searchVolume || 0));
     const green = site.items.filter((item) => verdictGroup(item) === 0).length;
-    console.log(`  → 포화 ${before - site.items.length}건 제외 · 남은 ${site.items.length}건(자리 있음 ${green})`);
-    site.items.slice(0, 3).forEach((item) => console.log(`    · ${item.keyword} | sv ${item.searchVolume ?? '—'} · dc ${item.documentCount ?? '—'} · 정면 ${item.serpTop ? item.serpTop.exact : '—'} | ${item.reward}`));
+    const withNeed = site.items.filter((item) => item.needVolume).length;
+    console.log(`  → 포화 ${before - site.items.length}건 제외 · 남은 ${site.items.length}건(자리 있음 ${green} · 니즈 실측 ${withNeed})`);
+    site.items.slice(0, 3).forEach((item) => console.log(
+      `    · ${item.keyword} | 니즈 ${item.needKeyword ?? '—'}(${item.needVolume ? item.needVolume.toLocaleString('ko-KR') : '—'})`
+      + `${item.perSaleWon ? ` · 건당 ${item.perSaleWon.toLocaleString('ko-KR')}원` : ''} | sv ${item.searchVolume ?? '—'} · dc ${item.documentCount ?? '—'}`,
+    ));
   }
 
   const payload = { collectedAt: new Date().toISOString(), sites };
