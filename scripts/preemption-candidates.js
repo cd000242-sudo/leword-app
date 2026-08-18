@@ -60,6 +60,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const wordCount = (keyword) => String(keyword).trim().split(/\s+/).filter(Boolean).length;
 
 /** 지금 실시간에 올라와 있는 것은 선점이 아니다. */
+/** 직전 발행 보드 로드 — URL 이면 fetch, 아니면 파일. 실패는 호출측이 처리. */
+async function loadBoardForPromotion(source) {
+  if (/^https?:/.test(source)) {
+    const res = await fetch(source, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) throw new Error(`보드 조회 실패 (${res.status})`);
+    return await res.json();
+  }
+  return JSON.parse(fs.readFileSync(path.resolve(source), 'utf8'));
+}
+
 function loadRealtime(signalsPath) {
   if (!signalsPath || !fs.existsSync(signalsPath)) return new Set();
   try {
@@ -197,6 +207,8 @@ async function main() {
     const driftLog = [];
     /** BD 태우기 전에 무료로 걸러낸 것. 예산을 어디에 아꼈는지 남긴다. */
     const preScreened = [];
+    /** 게이트 전부 통과했지만 정원(perTopic)에 밀린 것 — 스필오버로 추가 승격된다. */
+    const overflow = [];
     /** 유통기한 며칠짜리 일정 조회. 자리가 비어 있어도 글이 바로 부패한다. */
     const ephemeralLog = [];
     let expansionWarned = false;
@@ -530,11 +542,14 @@ async function main() {
       }
       await trendGate();
 
-      // 원장을 뜨느라 끝까지 재는 중이어도, 내보내는 후보 수는 평소와 같게 둔다.
-      if (measured.length >= perTopic) continue;
-
       const signals = analyzeKeywordSignals(row.keyword);
-      measured.push({
+      /*
+       * 정원(perTopic)에 밀린 것도 버리지 않는다 — 여기 도달한 후보는 게이트를
+       * **전부** 통과한 동급 품질이다. 2026-08-18 회차가 21행으로 끝난 뒤 부검:
+       * 행수를 늘릴 가장 싼 공급이 바로 이 "정원 밀림"이었다. 스필오버로 모아
+       * 회차 말미에 황금비 순으로 목표 행수까지 추가 승격한다(--targetTotal).
+       */
+      const candidateRow = {
         keyword: row.keyword,
         intent: signals.intent.intent,
         intentLabel: signals.intent.intentLabel,
@@ -562,7 +577,12 @@ async function main() {
         latestVsPeakPct: recency.latestVsPeakPct,
         monthsSincePeak: recency.monthsSincePeak,
         recencySummary: recency.summary,
-      });
+      };
+      if (measured.length >= perTopic) {
+        overflow.push({ ...candidateRow, topic });
+        continue;
+      }
+      measured.push(candidateRow);
     }
 
     /*
@@ -579,6 +599,7 @@ async function main() {
     return {
       topic,
       measured,
+      overflow,
       report: {
       topic, seeds: expansionSeeds.size, phrases: phrases.size,
       incomplete: incompleteLog.length, drift: driftLog.length, shortlist: shortlist.length,
@@ -599,10 +620,167 @@ async function main() {
    * 콜백 안에서 byTopic 에 바로 쓰면 키 순서가 완료 순이 되어, 회차마다 순서가
    * 바뀌고 다음 단계(예산 배분)가 다른 결과를 낸다.
    */
+  const spillover = [];
   for (const result of perTopicResults) {
     if (!result) continue;
     if (result.measured.length > 0) byTopic[result.topic] = result.measured;
+    if (Array.isArray(result.overflow) && result.overflow.length > 0) spillover.push(...result.overflow);
     report.push(result.report);
+  }
+
+  /*
+   * 스필오버 추가 승격 — "탈락한 것 중 승격될 뻔한 걸 순위별로" (사장님 지시).
+   *
+   * 여기 담긴 것은 게이트(문서수·비율·수요 유형·무료선별)를 전부 통과하고도
+   * 주제당 정원에 밀려 떨어진 동급 품질이다. 황금비(검색량/문서수) 내림차순으로
+   * 목표 행수까지 채운다. 자리의 최종 판정은 여전히 다음 단계 BD SERP 가 하고,
+   * BD 예산 거버너가 앞순위부터 태우다 한도에서 멈추므로 후보가 많아도 안전하다.
+   */
+  const targetTotal = Number(arg('targetTotal')) || 0;
+  let baseTotal = Object.values(byTopic).reduce((sum, rows) => sum + rows.length, 0);
+  if (targetTotal > baseTotal && spillover.length > 0) {
+    const ratioOf = (c) => (c.documentCount ? (c.searchVolume || 0) / c.documentCount : 0);
+    const ranked = [...spillover].sort((a, b) => ratioOf(b) - ratioOf(a));
+    let added = 0;
+    for (const cand of ranked) {
+      if (baseTotal >= targetTotal) break;
+      const { topic, ...row } = cand;
+      if (!byTopic[topic]) byTopic[topic] = [];
+      byTopic[topic].push(row);
+      baseTotal += 1;
+      added += 1;
+    }
+    console.log(`스필오버 추가 승격: 정원 밀림 ${spillover.length}건 중 ${added}건 (황금비 순, 목표 ${targetTotal}행)`);
+  } else if (spillover.length > 0) {
+    console.log(`스필오버 대기: 정원 밀림 ${spillover.length}건 (targetTotal 미설정 또는 이미 충족)`);
+  }
+
+  /*
+   * 승격 큐 — 직전 발행 보드의 실측 풀·서브를 후보로 되먹인다(폐순환).
+   *
+   * 보강 단계가 행마다 연관 키워드 ~12개의 검색량(일부 문서수까지)을 이미 재
+   * 놓는다. 승자의 인접 지대는 저경쟁일 확률이 높은데 그 실측 자산이 회차마다
+   * 버려지고 있었다. 추출은 pool-promotion.ts(순수·테스트됨)가 하고, 여기서는
+   * 기존 후보와 **똑같은 게이트**(문서수 상한·비율·황금비 예외·무료선별·수요
+   * 유형)를 태운다 — 승격이라고 봐주지 않는다. 실패해도 회차는 죽지 않는다.
+   */
+  const boardArg = arg('board');
+  const promotedPerTopic = Number(arg('promotedPerTopic')) || 8;
+  if (boardArg) {
+    try {
+      const boardJson = await loadBoardForPromotion(boardArg);
+      const { extractPromotableSeeds } = require('../src/utils/pool-promotion');
+      const existing = new Set(
+        Object.values(byTopic).flat().map((c) => String(c.keyword).replace(/\s+/g, '').toLowerCase()),
+      );
+      const rawSeeds = extractPromotableSeeds(boardJson)
+        .filter((s) => !existing.has(s.keyword.replace(/\s+/g, '').toLowerCase()));
+      // 검색량은 보드에 실린 실측값을 그대로 쓴다 — 없는 것은 태우지 않는다(호출 절약).
+      const withSv = rawSeeds.filter((s) => (s.searchVolume || 0) >= minVolume);
+      const rankOf = (s) => (s.documentCount ? (s.searchVolume || 0) / s.documentCount : (s.searchVolume || 0) / 100000);
+      withSv.sort((a, b) => rankOf(b) - rankOf(a));
+
+      const promotedByTopic = {};
+      const promotedRows = [];
+      const promoScreened = [];
+      const promoDeclining = [];
+      await mapWithConcurrency(withSv, concurrency, async (seedRow) => {
+        if ((promotedByTopic[seedRow.topic] || 0) >= promotedPerTopic) return;
+        let documentCount = null;
+        try {
+          documentCount = await getNaverBlogDocumentCount(seedRow.keyword, { config: openApi });
+        } catch {
+          documentCount = null;
+        }
+        await docGate();
+        if (documentCount !== null && !Number.isFinite(documentCount)) documentCount = null;
+        if (documentCount !== null && documentCount > maxDocumentCount) return;
+        if (documentCount === 0) return;
+        if (documentCount !== null && (seedRow.searchVolume || 0) / documentCount < minRatio) return;
+
+        const goldenRatio = documentCount !== null && (seedRow.searchVolume || 0) > documentCount;
+        const freeTitles = takeRecentBlogTitles(seedRow.keyword);
+        if (!goldenRatio && Array.isArray(freeTitles) && freeTitles.length >= 5) {
+          const facing = freeTitles.filter(
+            (title) => titleCoverage(title, seedRow.keyword) >= SERP_THRESHOLDS.exactCoverage,
+          ).length;
+          if (facing >= 2) {
+            promoScreened.push(`${seedRow.keyword} — 무료 판정 정면 ${facing}건`);
+            return;
+          }
+        }
+
+        let trend = { type: 'unknown', label: '', evidence: '', monthsToPeak: null, timing: '' };
+        let recency = { asOf: null, latestVsPeakPct: null, monthsSincePeak: null, summary: '' };
+        try {
+          const analyzed = await analyzeDemandWithRecency(seedRow.keyword, openApi);
+          recency = analyzed.recency;
+          const shape = analyzed.shape;
+          trend = {
+            type: shape.shape,
+            label: shape.label,
+            evidence: shape.evidence,
+            monthsToPeak: Number.isFinite(shape.monthsToPeak) ? shape.monthsToPeak : null,
+            timing: shape.timing || '',
+          };
+          if (shape.shape === 'declining') {
+            promoDeclining.push(`${seedRow.keyword} — ${shape.evidence}`);
+            return;
+          }
+        } catch {
+          // 유형 미상은 라벨만 비운다 — 승격 자체를 막지 않는다(본 발굴과 동일).
+        }
+        await trendGate();
+
+        if ((promotedByTopic[seedRow.topic] || 0) >= promotedPerTopic) return;
+        promotedByTopic[seedRow.topic] = (promotedByTopic[seedRow.topic] || 0) + 1;
+        const signals = analyzeKeywordSignals(seedRow.keyword);
+        promotedRows.push({
+          topic: seedRow.topic,
+          row: {
+            keyword: seedRow.keyword,
+            intent: signals.intent.intent,
+            intentLabel: signals.intent.intentLabel,
+            briefingRisk: signals.briefing.risk,
+            briefingReason: signals.briefing.reason,
+            regulatoryRisk: signals.regulatory.risk,
+            regulatoryLabel: signals.regulatory.label,
+            searchVolume: seedRow.searchVolume,
+            documentCount,
+            seed: `승격:${seedRow.fromKeyword}`,
+            longTail: seedRow.keyword.split(/\s+/).filter(Boolean).length >= minWords,
+            inRealtime: false,
+            promoted: true,
+            trendType: trend.type,
+            trendShape: trend.type,
+            trendLabel: trend.label,
+            trendEvidence: trend.evidence,
+            monthsToPeak: trend.monthsToPeak,
+            timing: trend.timing,
+            cpc: null,
+            adCompetition: null,
+            measuredAt: new Date().toISOString(),
+            demandAsOf: recency.asOf,
+            latestVsPeakPct: recency.latestVsPeakPct,
+            monthsSincePeak: recency.monthsSincePeak,
+            recencySummary: recency.summary,
+          },
+        });
+      }, (error, seedRow) => {
+        console.log(`  !! 승격 실측 실패 ${seedRow && seedRow.keyword} — ${String(error && error.message || error).slice(0, 80)}`);
+      });
+
+      for (const p of promotedRows) {
+        if (!byTopic[p.topic]) byTopic[p.topic] = [];
+        byTopic[p.topic].push(p.row);
+      }
+      console.log(
+        `승격 큐: 풀·서브 ${rawSeeds.length} → 검색량 확보 ${withSv.length}`
+        + ` → 승격 ${promotedRows.length}건 (무료선별 ${promoScreened.length}·식음 ${promoDeclining.length} 제외, 주제당 ≤${promotedPerTopic})`,
+      );
+    } catch (error) {
+      console.log(`승격 큐 건너뜀 — ${String(error && error.message || error).slice(0, 90)}`);
+    }
   }
 
   const total = Object.values(byTopic).reduce((sum, rows) => sum + rows.length, 0);

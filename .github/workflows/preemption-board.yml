@@ -107,13 +107,17 @@ jobs:
         # perTopic 은 표본 폭(perTopic × 12)도 같이 정한다. 6 이면 주제당 72개만
         # 재고 끝나서 후보가 얕다. 10 으로 두면 120개를 재고, 그중 좋은 6개를
         # 다음 스텝이 고른다 — BD 비용은 그대로다(자르는 개수가 예산을 정한다).
-        run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=10 --perSeed=8 --signals=signals.json
+        # 초대량 공급(2026-08-18, 사장님 지시 "씨앗공급 초대대량"): 정원·스캔폭 상향
+        # + 스필오버(정원 밀림 전량 순위 승격) + 승격 큐(직전 보드 실측 풀 되먹임).
+        # 후보가 많아도 BD 예산 거버너가 앞순위부터 태우다 한도에서 멈춘다.
+        run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=30 --perSeed=10 --scanWidth=60 --secondarySeeds=30 --targetTotal=500 --promotedPerTopic=20 --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json --signals=signals.json
 
       # 예산 절단 — 뽑은 만큼 그대로 넘기면 크레딧을 넘긴다(한 번 겪었다).
       - name: 예산에 맞춰 자르기
         # keep 6 → 9 (2026-08-18): 회당 상한 520콜 상향에 맞춘 공급 확대.
         # 사장님 목표 보드 100행 — 통과율 40% 실측 기준 검증 ~250건이 필요하다.
-        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=9
+        # keep 9→20: 초대량 공급에 맞춰 주제당 정원 확대. 총량은 BD 거버너가 지킨다.
+        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=20
 
       - name: 자리 판정 (Bright Data)
         env:
@@ -164,7 +168,8 @@ jobs:
           # 7행이 보강 없이 발행됐다("AI 호출 상한 도달"). 구독 호출이라 건당
           # 비용이 없으므로 행 수보다 넉넉하게 둔다 — 상한은 사고 방지용이지
           # 절약 수단이 아니다.
-          node scripts/enrich-board.js --in=board.json --out=board-enriched.json --maxAi=80
+          # maxAi 80→150: 행 3개 동시 처리(행당 33초)로 150행도 약 80분 — 스텝 제한(150분) 안이다.
+          node scripts/enrich-board.js --in=board.json --out=board-enriched.json --maxAi=150
 
       # 보강이 시간에 잘렸어도 체크포인트(행마다 저장)를 줍는다 — 부분본 > 빈손.
       # 같은 스텝 안에 mv 를 두면 스텝이 죽는 순간 반영도 같이 죽는다(실측).
