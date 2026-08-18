@@ -532,10 +532,19 @@ async function main() {
         console.log(`  !! [${row.keyword}] 수익 판정 실패(없이 계속): ${String((error && error.message) || error).slice(0, 80)}`);
       }
     }
+
+    /*
+     * 체크포인트 — 행 하나 끝날 때마다 통째로 저장한다(2026-08-18).
+     * 재보강이 CI 시간제한에 잘리면 끝의 한 번 저장으로는 **전부** 잃는다
+     * (run 32084322753: 20분 제한에 4행 작업분 증발 실측). 부분본 > 빈손.
+     */
+    board.enrichedAt = new Date().toISOString();
+    board.enrichStats = { ...stats, aiCalls, partial: true };
+    fs.writeFileSync(outPath, JSON.stringify(board, null, 2), 'utf8');
   }
 
   board.enrichedAt = new Date().toISOString();
-  board.enrichStats = { ...stats, aiCalls };
+  board.enrichStats = { ...stats, aiCalls, partial: false };
   fs.writeFileSync(outPath, JSON.stringify(board, null, 2), 'utf8');
   console.log(`\n보강 완료: 연관 실측 ${stats.related} + AI 선별 ${stats.picked} + AI 신규(제안 ${stats.proposed} → 통과 ${stats.verified}) → 풀 ${stats.pooled}개 · AI 제목 ${stats.aiTitled}행 · 보강 행 ${stats.enriched} (서브 +${stats.subsAdded}) · 수익 판정 ${stats.judged}행(탈락 ${stats.judgedBad}) · AI ${aiCalls}회`);
   console.log(`저장: ${outPath}`);

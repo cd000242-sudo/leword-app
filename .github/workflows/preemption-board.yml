@@ -138,6 +138,8 @@ jobs:
       - name: 에이전트 보강 (클로드 구독)
         if: always()
         continue-on-error: true
+        # 스텝 제한: 잘려도 체크포인트(행마다 저장)가 남아 아래 반영 스텝이 줍는다.
+        timeout-minutes: 150
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
@@ -156,8 +158,13 @@ jobs:
           # 비용이 없으므로 행 수보다 넉넉하게 둔다 — 상한은 사고 방지용이지
           # 절약 수단이 아니다.
           node scripts/enrich-board.js --in=board.json --out=board-enriched.json --maxAi=80
-          # 보강본이 만들어졌을 때만 원본을 교체한다.
-          if [ -s board-enriched.json ]; then mv board-enriched.json board.json; fi
+
+      # 보강이 시간에 잘렸어도 체크포인트(행마다 저장)를 줍는다 — 부분본 > 빈손.
+      # 같은 스텝 안에 mv 를 두면 스텝이 죽는 순간 반영도 같이 죽는다(실측).
+      - name: 보강본 반영
+        if: always()
+        run: |
+          if [ -s board-enriched.json ]; then mv board-enriched.json board.json; echo '보강본 반영됨.'; else echo '보강본 없음 — 규칙 보드 그대로.'; fi
 
       # 원장을 아티팩트로 남긴다.
       #

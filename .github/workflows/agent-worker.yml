@@ -108,6 +108,11 @@ jobs:
 
       - name: 회차 보강 (published board 재보강)
         if: ${{ inputs.mode == 'enrich' }}
+        # 스텝 자체 제한 + 계속 진행: 여기서 잘려도 아래 커밋 스텝이 체크포인트
+        # (행마다 저장되는 enriched.json)를 주워 부분본이라도 발행한다.
+        # 잡 제한(170분)에 걸리면 커밋 스텝까지 죽으므로 스텝 제한을 더 짧게 둔다.
+        timeout-minutes: 150
+        continue-on-error: true
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
@@ -124,12 +129,17 @@ jobs:
           # 재변환(publish) 없이 그대로 되쓴다. 발행 변환기를 다시 태우면 raw/공개
           # 형식 차이(serp.sections vs serpSections)로 데이터가 망가진다.
           node scripts/enrich-board.js --in=site/spa/public/data/preemption-board.json --out=enriched.json --maxAi=60
-          mv enriched.json site/spa/public/data/preemption-board.json
 
       - name: 보강본 커밋 (enrich)
         if: ${{ inputs.mode == 'enrich' }}
-        working-directory: site
         run: |
+          # 보강이 시간에 잘렸어도 체크포인트가 남는다 — 부분본 > 빈손.
+          if [ ! -s enriched.json ]; then
+            echo '보강본이 없다(시작 전에 죽음) — 커밋할 것 없음.'
+            exit 0
+          fi
+          cp enriched.json site/spa/public/data/preemption-board.json
+          cd site
           git config user.name 'leword-bot'
           git config user.email 'bot@leaderspro.kr'
           git add spa/public/data/preemption-board.json
