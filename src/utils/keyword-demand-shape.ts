@@ -387,10 +387,16 @@ export async function analyzeDemandWithRecency(
   config: DemandShapeConfig,
   thresholds: DemandShapeThresholds = DEFAULT_DEMAND_SHAPE_THRESHOLDS,
   fetchImpl: typeof fetch = defaultNaverFetch,
-): Promise<{ shape: DemandShapeResult; recency: DemandRecency }> {
+): Promise<{ shape: DemandShapeResult; recency: DemandRecency; points: DemandPoint[] }> {
   const points = await fetchMonthlyDemandPoints(keyword, config, fetchImpl);
   return {
     shape: classifyDemandShape(points.map((point) => point.ratio), thresholds),
     recency: readDemandRecency(points),
+    /*
+     * 실측 월별 시계열을 그대로 돌려준다(2026-08-19). 지금까지는 분류 결과만 남기고
+     * 원본을 버려서, 화면의 '그래프보기'가 빈 데이터랩 폼으로 링크나 보내고 있었다.
+     * 이미 재 놓은 것을 버리지 않고 싣는 것뿐이다 — 추가 API 호출 없음.
+     */
+    points,
   };
 }

@@ -499,11 +499,13 @@ async function main() {
        * 정점이 1년 전인 키워드와 지금이 정점인 키워드가 똑같아 보인다.
        * 실측 시계열의 마지막 달과 정점 대비 비율을 같이 싣는다(단순 나눗셈).
        */
+      let demandPoints = [];
       let recency = { asOf: null, latestVsPeakPct: null, monthsSincePeak: null, summary: '' };
       try {
         const analyzed = await analyzeDemandWithRecency(row.keyword, openApi);
         const shape = analyzed.shape;
         recency = analyzed.recency;
+        demandPoints = analyzed.points || [];
         /*
          * monthsToPeak·timing 을 여기서 안 옮기면 계산해 놓고 버리는 것이다 —
          * 배치 로더(preemption-board-batch.js loadCandidates)가 읽을 원본이
@@ -577,6 +579,11 @@ async function main() {
         latestVsPeakPct: recency.latestVsPeakPct,
         monthsSincePeak: recency.monthsSincePeak,
         recencySummary: recency.summary,
+        /*
+         * 데이터랩 24개월 실측 시계열(2026-08-19). 재 놓고 버리던 것을 싣는다 —
+         * 화면 '그래프보기'가 외부 링크 대신 이 실측을 그린다. 추가 호출 없음.
+         */
+        demandSeries: demandPoints.map((pt) => ({ period: pt.period, ratio: Math.round(pt.ratio * 10) / 10 })),
       };
       if (measured.length >= perTopic) {
         overflow.push({ ...candidateRow, topic });
@@ -711,10 +718,12 @@ async function main() {
         }
 
         let trend = { type: 'unknown', label: '', evidence: '', monthsToPeak: null, timing: '' };
-        let recency = { asOf: null, latestVsPeakPct: null, monthsSincePeak: null, summary: '' };
+        let demandPoints = [];
+          let recency = { asOf: null, latestVsPeakPct: null, monthsSincePeak: null, summary: '' };
         try {
           const analyzed = await analyzeDemandWithRecency(seedRow.keyword, openApi);
           recency = analyzed.recency;
+          demandPoints = analyzed.points || [];
           const shape = analyzed.shape;
           trend = {
             type: shape.shape,
@@ -764,6 +773,7 @@ async function main() {
             latestVsPeakPct: recency.latestVsPeakPct,
             monthsSincePeak: recency.monthsSincePeak,
             recencySummary: recency.summary,
+            demandSeries: demandPoints.map((pt) => ({ period: pt.period, ratio: Math.round(pt.ratio * 10) / 10 })),
           },
         });
       }, (error, seedRow) => {

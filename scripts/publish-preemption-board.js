@@ -155,6 +155,8 @@ function toPublicRow(row) {
     latestVsPeakPct: row.latestVsPeakPct ?? null,
     monthsSincePeak: row.monthsSincePeak ?? null,
     recencySummary: row.recencySummary || '',
+    // 실측 시계열 — 화면이 '그래프보기'에서 그대로 그린다(추정 아님, 데이터랩 실측).
+    demandSeries: Array.isArray(row.demandSeries) ? row.demandSeries : [],
     // 화면이 "이게 뭔데" 를 보여줄 재료. 전부 검색결과에서 그대로 옮긴 글자다.
     meaning: serp.meaning ? {
       citedTitles: serp.meaning.citedTitles || [],

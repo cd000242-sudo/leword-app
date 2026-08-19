@@ -130,6 +130,9 @@ function loadCandidates(inPath) {
       latestVsPeakPct: Number.isFinite(Number(row.latestVsPeakPct)) ? Number(row.latestVsPeakPct) : null,
       monthsSincePeak: Number.isFinite(Number(row.monthsSincePeak)) ? Number(row.monthsSincePeak) : null,
       recencySummary: row.recencySummary || '',
+      // 데이터랩 24개월 실측 시계열 — 화면 그래프 재료. 여기서 떨어뜨리면
+      // 후보 단계에서 재 놓고 보드까지 못 간다(모든 필드가 그랬듯).
+      demandSeries: Array.isArray(row.demandSeries) ? row.demandSeries : [],
     });
   };
 
@@ -683,6 +686,7 @@ async function main() {
         latestVsPeakPct: candidate?.latestVsPeakPct ?? null,
         monthsSincePeak: candidate?.monthsSincePeak ?? null,
         recencySummary: candidate?.recencySummary || '',
+        demandSeries: Array.isArray(candidate?.demandSeries) ? candidate.demandSeries : [],
         tier: result.tier,
         tierLabel: result.tierLabel,
         openSlot: result.openSlot,
