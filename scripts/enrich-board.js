@@ -215,8 +215,10 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
     `- seo: "${mainKeyword}" 로 시작 + 상위노출을 노리는 구체 정보(숫자·비교·시점). 40자 이내.`,
     `- home: "${mainKeyword}" + 서브키워드 하나 + 클릭할 수밖에 없는 후킹. 38자 이내.`,
     '- "핵심 정리", "총정리", "확인할 점" 같은 상투구 금지. 없는 수치 금지.',
+    `- why: 사람들이 지금 "${mainKeyword}" 를 검색하는 이유 한 문장(60자 이내).`,
+    '  위 실측 검색어들에서 읽히는 의도만 근거로 써라. 근거 없는 사건·날짜를 지어내지 마라.',
     '',
-    '최종 출력(JSON 하나만): {"new":[...], "picked":[...], "seo":"...", "home":"..."}',
+    '최종 출력(JSON 하나만): {"new":[...], "picked":[...], "seo":"...", "home":"...", "why":"..."}',
   ].join('\n');
   const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
   lastProvider = run.provider;
@@ -229,9 +231,9 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
 
   // 옛 형태(배열만) 응답도 받아 준다 — 형식이 어긋났다고 결과를 버리진 않는다.
   if (Array.isArray(parsed)) {
-    return { proposals: asClean(parsed).filter((k) => k !== mainKeyword && sharesToken(k, mainKeyword)).slice(0, AI_PROPOSAL_CAP), picked: [], seoRaw: '', homeRaw: '' };
+    return { proposals: asClean(parsed).filter((k) => k !== mainKeyword && sharesToken(k, mainKeyword)).slice(0, AI_PROPOSAL_CAP), picked: [], seoRaw: '', homeRaw: '', whyRaw: '' };
   }
-  if (!parsed || typeof parsed !== 'object') return { proposals: [], picked: [], seoRaw: '', homeRaw: '' };
+  if (!parsed || typeof parsed !== 'object') return { proposals: [], picked: [], seoRaw: '', homeRaw: '', whyRaw: '' };
   return {
     proposals: asClean(parsed.new)
       .filter((k) => k.length >= 4 && k.replace(/\s+/g, '').length <= 15 && k !== mainKeyword)
@@ -241,6 +243,7 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
     picked: asClean(parsed.picked).filter((k) => candidateSet.has(k)).slice(0, 8),
     seoRaw: typeof parsed.seo === 'string' ? parsed.seo : '',
     homeRaw: typeof parsed.home === 'string' ? parsed.home : '',
+    whyRaw: typeof parsed.why === 'string' ? parsed.why : '',
   };
 }
 
@@ -409,7 +412,7 @@ async function main() {
     aiCalls += 1;
     let proposals = [];
     let picked = [];
-    let titlesRaw = { seoRaw: '', homeRaw: '' };
+    let titlesRaw = { seoRaw: '', homeRaw: '', whyRaw: '' };
     try {
       const result = await proposeSubKeywords(
         row.keyword,
@@ -418,7 +421,7 @@ async function main() {
       );
       proposals = result.proposals;
       picked = result.picked;
-      titlesRaw = { seoRaw: result.seoRaw || '', homeRaw: result.homeRaw || '' };
+      titlesRaw = { seoRaw: result.seoRaw || '', homeRaw: result.homeRaw || '', whyRaw: result.whyRaw || '' };
       stats.picked += picked.length;
     } catch (error) {
       console.log(`  !! [${row.keyword}] AI 제안 실패: ${String(error && error.message || error).slice(0, 80)}`);
@@ -506,6 +509,17 @@ async function main() {
       titleUpgraded = true;
     }
 
+    /*
+     * "지금 왜 검색되는가" — 에이전트 추론 한 문장(사장님 지시 2026-08-19).
+     * 근거는 프롬프트에 실은 실측 연관뿐이고, 화면에는 'AI 추론' 라벨을 명시해
+     * 실측 지표와 구분한다. 10자 미만·70자 초과·상투구는 버린다.
+     */
+    const why = String(titlesRaw.whyRaw || '').replace(/^["']|["']$/g, '').replace(/\s+/g, ' ').trim();
+    if (why.length >= 10 && why.length <= 70 && !TITLE_CLICHES.test(why)) {
+      row.whySearch = { text: why, basis: 'AI 추론 — 실측 연관 검색어 근거' };
+      stats.whyAdded = (stats.whyAdded || 0) + 1;
+    }
+
     if (gotNewSubs || titleUpgraded) {
       stats.enriched += 1;
       row.enrichedBy = { provider: lastProvider || 'unknown', proposed: proposals.length, verified: verified.length };
@@ -531,6 +545,27 @@ async function main() {
         }
       } catch (error) {
         console.log(`  !! [${row.keyword}] 트렌드 실측 실패(그래프 없이): ${String((error && error.message) || error).slice(0, 60)}`);
+      }
+    }
+
+    /*
+     * 지식인 질문 수(사장님 지시 2026-08-19) — 질문이 많으면 사람들이 답을
+     * 못 찾고 있다는 실측 신호다. HUB 배선(naverApiFetch)이라 쿼터도 새 풀.
+     */
+    if (typeof row.kinCount !== 'number') {
+      try {
+        const { naverApiFetch } = require('../src/utils/naver-api-hub');
+        const kinRes = await naverApiFetch(
+          `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(row.keyword)}&display=1`,
+          { headers: { 'X-Naver-Client-Id': envConfig.naverClientId || '', 'X-Naver-Client-Secret': envConfig.naverClientSecret || '' } },
+        );
+        if (kinRes.ok) {
+          const kinBody = await kinRes.json();
+          const total = Number(kinBody && kinBody.total);
+          if (Number.isFinite(total)) row.kinCount = total;
+        }
+      } catch (error) {
+        console.log(`  !! [${row.keyword}] 지식인 실측 실패(빈 채로): ${String((error && error.message) || error).slice(0, 60)}`);
       }
     }
 
