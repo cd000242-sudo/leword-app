@@ -403,17 +403,26 @@ async function main() {
      * 지식인 수는 AI 콜이 아니라 무료 실측이라 스킵보다 먼저 잰다 — 완성 행도
      * 이 값은 새로 받아야 한다.
      */
-    if (typeof row.kinCount !== 'number') {
+    if (typeof row.kinCount !== 'number' || !Array.isArray(row.kinTop)) {
       try {
         const { naverApiFetch } = require('../src/utils/naver-api-hub');
+        // sort=point(추천·채택 순) — 조회수는 API 가 안 준다. 반응 많은 질문 순의
+        // 실측 대용이고, 제목·링크를 같이 실어 화면에서 질문으로 바로 간다.
         const kinRes = await naverApiFetch(
-          `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(row.keyword)}&display=1`,
+          `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(row.keyword)}&display=3&sort=point`,
           { headers: { 'X-Naver-Client-Id': envConfig.naverClientId || '', 'X-Naver-Client-Secret': envConfig.naverClientSecret || '' } },
         );
         if (kinRes.ok) {
           const kinBody = await kinRes.json();
           const total = Number(kinBody && kinBody.total);
           if (Number.isFinite(total)) row.kinCount = total;
+          const items = Array.isArray(kinBody && kinBody.items) ? kinBody.items : [];
+          row.kinTop = items
+            .map((item) => ({
+              title: String(item.title || '').replace(/<[^>]*>/g, '').trim(),
+              link: String(item.link || ''),
+            }))
+            .filter((item) => item.title && item.link.startsWith('https://kin.naver.com'));
         }
       } catch (error) {
         console.log(`  !! [${row.keyword}] 지식인 실측 실패(빈 채로): ${String((error && error.message) || error).slice(0, 60)}`);

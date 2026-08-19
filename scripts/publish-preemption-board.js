@@ -133,6 +133,7 @@ function toPublicRow(row) {
     // "지금 왜 검색되는가" AI 추론 + 지식인 질문 수 실측 (2026-08-19 사장님 지시)
     whySearch: row.whySearch ?? null,
     kinCount: typeof row.kinCount === 'number' ? row.kinCount : null,
+    kinTop: Array.isArray(row.kinTop) ? row.kinTop : null,
     // 실측 키워드 풀(연관 실측 + AI 검증분, 검색량 순 최대 12) — 전부 실존.
     keywordPool: Array.isArray(row.keywordPool) ? row.keywordPool : null,
     // 30일 트렌드(데이터랩 상대값 실측) — 폰에서도 카드 안에서 그려진다.
