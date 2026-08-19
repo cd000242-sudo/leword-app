@@ -134,6 +134,8 @@ function toPublicRow(row) {
     whySearch: row.whySearch ?? null,
     kinCount: typeof row.kinCount === 'number' ? row.kinCount : null,
     kinTop: Array.isArray(row.kinTop) ? row.kinTop : null,
+    // kinMode 마커가 발행본에 남아야 다음 보강이 재조회 여부를 안다.
+    kinMode: typeof row.kinMode === 'string' ? row.kinMode : undefined,
     // 실측 키워드 풀(연관 실측 + AI 검증분, 검색량 순 최대 12) — 전부 실존.
     keywordPool: Array.isArray(row.keywordPool) ? row.keywordPool : null,
     // 30일 트렌드(데이터랩 상대값 실측) — 폰에서도 카드 안에서 그려진다.

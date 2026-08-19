@@ -73,6 +73,31 @@ const AI_PROPOSAL_CAP = 10;
 /** 마지막으로 답한 구독 CLI. 어느 배선이 이 결과를 만들었는지 행에 남긴다. */
 let lastProvider = '';
 
+/**
+ * 지식인 질문 페이지에서 조회수·답변수를 실측한다 — 실패하면 null(정렬 맨 뒤).
+ * 검색 API 가 둘 다 안 주므로 이 실측이 "조회수 높은 순"과 황금질문 판별
+ * (조회 많고 답변 적음)의 유일한 근거다. 마크업 실측: '조회수 37,956' ·
+ * 'answerCount">8<' 형태가 페이지에 실린다.
+ */
+async function fetchKinStats(link) {
+  try {
+    const res = await fetch(link, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return { views: null, answers: null };
+    const html = await res.text();
+    const viewsMatch = html.match(/조회수\s*([\d,]+)/);
+    const answersMatch = html.match(/answerCount"\s*>\s*([\d,]+)\s*</);
+    return {
+      views: viewsMatch ? Number(viewsMatch[1].replace(/,/g, '')) : null,
+      answers: answersMatch ? Number(answersMatch[1].replace(/,/g, '')) : null,
+    };
+  } catch {
+    return { views: null, answers: null };
+  }
+}
+
 function buildSearchAdConfig() {
   const env = EnvironmentManager.getInstance().getConfig();
   const accessLicense = env.naverSearchAdAccessLicense || '';
@@ -213,8 +238,13 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
      */
     '마지막 임무 — 위 실측 검색어들을 근거로 블로그 제목 두 개도 함께 지어라:',
     `- seo: "${mainKeyword}" 로 시작 + 상위노출을 노리는 구체 정보(숫자·비교·시점). 40자 이내.`,
-    `- home: "${mainKeyword}" + 서브키워드 하나 + 클릭할 수밖에 없는 후킹. 38자 이내.`,
-    '- "핵심 정리", "총정리", "확인할 점" 같은 상투구 금지. 없는 수치 금지.',
+    `- home: "${mainKeyword}" + 서브키워드 하나로, 홈판을 스치던 독자가 멈추는 제목. 38자 이내.`,
+    '  이 키워드의 실측 사실에 맞는 후킹 프레임을 골라 써라:',
+    '  반전형(알던 것과 다르다) · 공감형(같은 상황인 사람을 부른다) · 경고형(모르면 손해본다)',
+    '  · 궁금증형(결말을 숨긴다) · 경험형(직접 해 보니). 사실이 받쳐주는 프레임만.',
+    '  짓고 나서 독자가 되어 자문하라: "나라면 이걸 클릭하나?" 아니면 다른 프레임으로 다시 지어라.',
+    '- "핵심 정리", "핵심만 추렸습니다", "총정리", "확인할 점" 같은 라벨형 문장은 제목이',
+    '  아니다 — 금지. 없는 수치·없는 사건을 지어내는 낚시도 금지(본문이 약속을 못 지킨다).',
     `- why: 사람들이 지금 "${mainKeyword}" 를 검색하는 이유 한 문장(60자 이내).`,
     '  위 실측 검색어들에서 읽히는 의도만 근거로 써라. 근거 없는 사건·날짜를 지어내지 마라.',
     '',
@@ -403,13 +433,19 @@ async function main() {
      * 지식인 수는 AI 콜이 아니라 무료 실측이라 스킵보다 먼저 잰다 — 완성 행도
      * 이 값은 새로 받아야 한다.
      */
-    if (typeof row.kinCount !== 'number' || !Array.isArray(row.kinTop)) {
+    if (typeof row.kinCount !== 'number' || row.kinMode !== 'date-views-v2') {
       try {
         const { naverApiFetch } = require('../src/utils/naver-api-hub');
-        // sort=point(추천·채택 순) — 조회수는 API 가 안 준다. 반응 많은 질문 순의
-        // 실측 대용이고, 제목·링크를 같이 실어 화면에서 질문으로 바로 간다.
+        /*
+         * sort=date(최신 질문) — 사장님 지시 2026-08-19 "제일 최신 질문을
+         * 바탕으로 조회수 높은 순". API 는 조회수를 안 주므로 질문 페이지에서
+         * 실측한다(페이지에 '조회수 37,956' 형태로 정확히 한 번 실림 — 검증됨).
+         * point 순은 관련성보다 인기를 앞세워 "김부장 결말"에 코난 질문이
+         * 섞였던 실사고가 있어 토큰 필터는 유지한다. kinMode 마커로 옛 방식
+         * (추천순·조회수 없음)으로 구운 칩도 전부 재조회된다.
+         */
         const kinRes = await naverApiFetch(
-          `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(row.keyword)}&display=3&sort=point`,
+          `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(row.keyword)}&display=10&sort=date`,
           { headers: { 'X-Naver-Client-Id': envConfig.naverClientId || '', 'X-Naver-Client-Secret': envConfig.naverClientSecret || '' } },
         );
         if (kinRes.ok) {
@@ -417,12 +453,35 @@ async function main() {
           const total = Number(kinBody && kinBody.total);
           if (Number.isFinite(total)) row.kinCount = total;
           const items = Array.isArray(kinBody && kinBody.items) ? kinBody.items : [];
-          row.kinTop = items
+          const kwTokens = row.keyword.split(/\s+/).filter((t) => t.length >= 2);
+          const compactKw = row.keyword.replace(/\s+/g, '');
+          const seenKinDocs = new Set();
+          const candidates = items
             .map((item) => ({
               title: String(item.title || '').replace(/<[^>]*>/g, '').trim(),
               link: String(item.link || ''),
             }))
-            .filter((item) => item.title && item.link.startsWith('https://kin.naver.com'));
+            .filter((item) => item.title && item.link.startsWith('https://kin.naver.com'))
+            .filter((item) => {
+              const compactTitle = item.title.replace(/\s+/g, '');
+              return kwTokens.some((t) => compactTitle.includes(t)) || compactTitle.includes(compactKw);
+            })
+            // 같은 질문이 answerNo 만 다른 링크로 두 번 온다(실측) — docId 로 걸러낸다.
+            .filter((item, _idx, _arr) => {
+              const docId = (item.link.match(/docId=(\d+)/) || [])[1] || item.link;
+              if (seenKinDocs.has(docId)) return false;
+              seenKinDocs.add(docId);
+              return true;
+            });
+          const withViews = [];
+          for (const item of candidates) {
+            withViews.push({ ...item, ...(await fetchKinStats(item.link)) });
+          }
+          // 최대 5개(사장님 지시 2026-08-19) — 최신 질문을 조회수 높은 순으로.
+          row.kinTop = withViews
+            .sort((a, b) => (b.views ?? -1) - (a.views ?? -1))
+            .slice(0, 5);
+          row.kinMode = 'date-views-v2';
         }
       } catch (error) {
         console.log(`  !! [${row.keyword}] 지식인 실측 실패(빈 채로): ${String((error && error.message) || error).slice(0, 60)}`);
@@ -541,6 +600,15 @@ async function main() {
       row.titles = { ...(row.titles || newTitles), ...aiTitles };
       stats.aiTitled += 1;
       titleUpgraded = true;
+    }
+
+    /*
+     * 상투구 홈판 생존 구멍(2026-08-20 실측 31행): AI 홈판이 검증에서 떨어지고
+     * 서브도 안 늘면 titles 가 안 갈려서 옛 폴백("핵심만 추렸습니다")이 남는다.
+     * 현행 대장간 홈판으로 강제 교체 — 금지 목록 위반 제목은 화면에 못 간다.
+     */
+    if (row.titles && row.titles.home && TITLE_CLICHES.test(row.titles.home.text) && newTitles.home) {
+      row.titles = { ...row.titles, home: newTitles.home };
     }
 
     /*
