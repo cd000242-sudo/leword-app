@@ -191,7 +191,7 @@ const verdictGroup = (item) => {
  * 수수료율이 있는 레인은 건당 수익(가격×요율 단순 산술)을 함께 싣는다.
  */
 async function attachNeedKeywords(items, creds) {
-  const { deriveNeedKeywordCandidates, perSaleCommission } = require('../src/utils/need-keywords');
+  const { deriveNeedKeywordCandidates, pickNeedKeyword, perSaleCommission } = require('../src/utils/need-keywords');
   const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
   const searchAd = {
     accessLicense: creds.naverSearchAdAccessLicense,
@@ -216,11 +216,11 @@ async function attachNeedKeywords(items, creds) {
   }
 
   return items.map((item, index) => {
-    let best = null;
-    for (const candidate of candidatesByItem[index]) {
-      const volume = volumes.get(candidate.replace(/\s+/g, '')) || 0;
-      if (volume > 0 && (!best || volume > best.volume)) best = { keyword: candidate, volume };
-    }
+    // 구매 의도 우선 선택 — 최고 수요가 아니라 "쓸 수 있는 것 중 의도가 깊은" 후보.
+    const best = pickNeedKeyword(
+      candidatesByItem[index],
+      (candidate) => volumes.get(candidate.replace(/\s+/g, '')),
+    );
     return {
       ...item,
       needKeyword: best ? best.keyword : null,

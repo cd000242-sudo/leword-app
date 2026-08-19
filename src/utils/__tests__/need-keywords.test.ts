@@ -1,6 +1,47 @@
 /** 니즈 검색어 도출 테스트 — 2026-08-19 실제 캠페인 상품명 17건 기반 */
 import { describe, it, expect } from 'vitest';
-import { extractCategoryPhrase, extractCategoryPhrases, deriveNeedKeywordCandidates, parseCommissionRate, perSaleCommission } from '../need-keywords';
+import { extractCategoryPhrase, extractCategoryPhrases, deriveNeedKeywordCandidates, pickNeedKeyword, parseCommissionRate, perSaleCommission } from '../need-keywords';
+
+describe('pickNeedKeyword — 구매 의도 우선 (사장님 지적: 사람들은 제품을 검색한다)', () => {
+  const volumes: Record<string, number> = {
+    '드리미 로봇청소기': 24940,
+    '로봇청소기 추천': 8990,
+    '로봇청소기': 139100,
+  };
+  const volumeOf = (k: string) => volumes[k] ?? null;
+
+  it('수요가 최고인 헤드("로봇청소기" 139,100)가 아니라 구매 직전 검색어를 고른다', () => {
+    const picked = pickNeedKeyword(['드리미 로봇청소기', '로봇청소기 추천', '로봇청소기'], volumeOf);
+    expect(picked!.keyword).toBe('드리미 로봇청소기');
+    expect(picked!.volume).toBe(24940);
+  });
+
+  it('브랜드형이 하한(300) 미달이면 다음 의도 층으로 내려간다', () => {
+    const picked = pickNeedKeyword(['무명 손풍기', '손풍기 추천', '손풍기'], (k) =>
+      ({ '무명 손풍기': 40, '손풍기 추천': 2100, '손풍기': 66100 } as Record<string, number>)[k] ?? null);
+    expect(picked!.keyword).toBe('손풍기 추천');
+  });
+
+  it('전부 하한 미달이면 그중 최고 수요 폴백, 전부 0이면 null', () => {
+    const picked = pickNeedKeyword(['a', 'b'], (k) => (k === 'a' ? 50 : 120), 300);
+    expect(picked!.keyword).toBe('b');
+    expect(pickNeedKeyword(['a'], () => 0)).toBeNull();
+  });
+
+  it('후보 순서 자체가 의도 순이다 — 브랜드형이 추천형보다 앞', () => {
+    const candidates = deriveNeedKeywordCandidates('드리미 X60 Ultra 로봇청소기', '드리미');
+    expect(candidates.indexOf('드리미 로봇청소기')).toBeLessThan(candidates.indexOf('로봇청소기 추천'));
+    expect(candidates.indexOf('로봇청소기 추천')).toBeLessThan(candidates.indexOf('로봇청소기'));
+  });
+
+  it('brand 필드가 영문이어도 상품명 첫 한글 토큰이 브랜드형 1순위 (Dreame 410 vs 드리미 24,940 실사고)', () => {
+    const candidates = deriveNeedKeywordCandidates('[여름특가]드리미 X60 Ultra 올인원 로봇청소기', 'Dreame');
+    const hangul = candidates.findIndex((c) => c.startsWith('드리미 '));
+    const english = candidates.findIndex((c) => c.startsWith('Dreame '));
+    expect(hangul).toBeGreaterThanOrEqual(0);
+    expect(english).toBeGreaterThan(hangul);
+  });
+});
 
 describe('오탐 회귀 (2026-08-19 실사고 — 니즈가 플로우·선물·증정으로 나감)', () => {
   it('시리즈명 꼬리("빈다르 플로우")에 속지 않고 선풍기를 잡는다', () => {

@@ -94,14 +94,31 @@ export function extractCategoryPhrase(name: string): string {
 export function deriveNeedKeywordCandidates(name: string, brand?: string): string[] {
   const categories = extractCategoryPhrases(name);
   if (categories.length === 0) return [];
+  /*
+   * 브랜드 두 갈래 — 상품명 첫 한글 토큰이 먼저다. 데이터의 brand 필드가
+   * 영문('Dreame')이라 "Dreame 로봇청소기"(410)를 고르고 한글 "드리미
+   * 로봇청소기"(24,940)를 놓친 실사고. 한국에서 구매 검색은 한글 브랜드다.
+   */
   const cleanBrand = String(brand || '').trim();
+  const firstToken = stripOptions(name).split(/\s+/)[0] || '';
+  const nameBrand = /^[가-힣]{2,}$/.test(firstToken) && !CATEGORY_MODIFIERS.has(firstToken)
+    && !CATEGORY_SUFFIX.test(firstToken) ? firstToken : '';
+  const brands = [...new Set([nameBrand, cleanBrand].filter(Boolean))];
   const candidates: string[] = [];
+  /*
+   * 순서가 곧 구매 의도 순위다 (pickNeedKeyword 가 이 순서를 우선한다):
+   *   ① 브랜드+카테고리 — "드리미 로봇청소기"(24,940). 구매 직전 사람이 치는,
+   *      말 그대로 **제품을 검색하는** 검색어. 노출 가능성·전환 최고.
+   *   ② 추천형 — 비교·구매 검토 의도.
+   *   ③ 카테고리 단독 — 수요는 최대지만("선풍기" 292,600) 초거대 헤드라
+   *      상위노출이 불가능하고 의도도 얕다. 최후 폴백.
+   */
   for (const category of categories.slice(0, 3)) {
     candidates.push(
+      ...brands.map((b) => (category.includes(b) ? '' : `${b} ${category}`)),
       `${category} 추천`,
-      cleanBrand && !category.includes(cleanBrand) ? `${cleanBrand} ${category}` : '',
-      category,
       CONSUMABLE_SUFFIX.test(category.replace(/\s+/g, '')) ? `${category} 효능` : '',
+      category,
     );
   }
   const seen = new Set<string>();
@@ -113,6 +130,26 @@ export function deriveNeedKeywordCandidates(name: string, brand?: string): strin
     seen.add(key);
     return true;
   }).slice(0, 8);
+}
+
+/**
+ * 후보 → 최종 니즈 선택. 후보 순서(=구매 의도 순)를 우선하되, 유의미 수요
+ * 하한(기본 300)을 넘는 첫 후보를 고른다. 전부 하한 미달이면 최고 수요 폴백.
+ * "제일 큰 수요"가 아니라 "쓸 수 있는 것 중 의도가 제일 깊은 수요"를 고른다.
+ */
+export function pickNeedKeyword(
+  candidates: string[],
+  volumeOf: (keyword: string) => number | null | undefined,
+  floor: number = 300
+): { keyword: string; volume: number } | null {
+  let fallback: { keyword: string; volume: number } | null = null;
+  for (const candidate of candidates) {
+    const volume = volumeOf(candidate) || 0;
+    if (volume <= 0) continue;
+    if (volume >= floor) return { keyword: candidate, volume };
+    if (!fallback || volume > fallback.volume) fallback = { keyword: candidate, volume };
+  }
+  return fallback;
 }
 
 /** "수수료 8%" → 0.08. 할인율("47% 할인")은 내 수익이 아니다 — null. */
