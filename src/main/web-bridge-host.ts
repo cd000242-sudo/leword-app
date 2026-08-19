@@ -75,6 +75,44 @@ export function startWebBridgeHost(): void {
         if (!config.clientId) return { success: false, error: 'Naver API 키 없음' };
         return { success: true, ...(await analyzeKeywordTrend(keyword, config)) };
       },
+      /*
+       * 지식인 답변 초안(사장님 확정 2026-08-20) — 답변 교리를 프롬프트에 박아
+       * 본인 구독으로 생성한다. 게시는 안 한다: 초안만 돌려주고 사용자가 직접
+       * 하나씩 단다(자동화는 효과 실측 후 결정).
+       */
+      kinAnswer: async ({ title, body, withLink, blogUrl }) => {
+        const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
+        const { runClaude } = await import('../utils/agent-cli/claudeRunner');
+        const { runCodex } = await import('../utils/agent-cli/codexRunner');
+        const { runGemini } = await import('../utils/agent-cli/geminiRunner');
+        const { runGrok } = await import('../utils/agent-cli/grokRunner');
+        const prompt = [
+          '너는 네이버 지식인에서 답변을 다는 평범한 사람이다. 아래 질문에 답해라.',
+          '',
+          `질문 제목: ${title}`,
+          ...(body ? [`질문 내용: ${body}`] : []),
+          '',
+          '규칙 — 하나라도 어기면 실패다:',
+          '- AI 가 쓴 티가 0 이어야 한다: 목록·번호·헤더·굵은 글씨 금지, 인사·자기소개 금지,',
+          '  "도움이 되셨길 바랍니다"류 맺음말 금지. 아는 사람이 말해 주듯 문단 1~2개.',
+          '- 깔끔·담백·정확: 질문이 물은 것만 답한다. 장황하면 실패.',
+          '- 모르는 것을 지어내지 마라. 확실한 것만 쓰고, 불확실한 부분은 빼라.',
+          '- 말하듯 쓴다: ~돼요/~합니다 혼용, "생각보다 금방 됩니다" 같은 체감 표현 허용.',
+          withLink
+            ? `- 답변 끝에 이 주소를 사람 말투 한 문장으로 자연스럽게 붙여라: ${blogUrl}`
+              + ' (예: "절차 정리해 둔 글이 있어서 남깁니다: …"). 광고 문구 금지.'
+            : '- 링크·홍보 문구를 넣지 마라.',
+          '',
+          '답변 본문만 출력해라 — 따옴표·머리말 없이.',
+        ].join('\n');
+        const run = await runWithAnyAgent(prompt, [
+          { provider: 'claude', run: runClaude },
+          { provider: 'codex', run: runCodex },
+          { provider: 'gemini', run: runGemini },
+          { provider: 'grok', run: runGrok },
+        ], { timeoutMs: 90_000 });
+        return { answer: String(run.reply || '').trim(), provider: run.provider };
+      },
       adminWorker: {
         status: workerStatus,
         dispatchTest: workerDispatchTest,

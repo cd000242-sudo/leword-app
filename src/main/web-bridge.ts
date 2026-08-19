@@ -31,7 +31,11 @@ const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
   'http://localhost:4173',
 ]);
 
-const MAX_BODY_BYTES = 4096;
+/*
+ * 지식인 답변 생성은 질문 전문(최대 3,000자 ≈ 9KB UTF-8)을 싣는다 —
+ * 4KB 로는 본문이 잘려 400 이 났을 것이다. 여전히 로컬 왕복의 작은 몸집이다.
+ */
+const MAX_BODY_BYTES = 32768;
 
 export interface WebBridgeDeps {
   appVersion: string;
@@ -43,6 +47,12 @@ export interface WebBridgeDeps {
   analyzeDemand?: (keyword: string, light?: boolean) => Promise<unknown>;
   /** 30일 트렌드(데이터랩 실측). 없으면 그 경로는 열리지 않는다. */
   trend30?: (keyword: string) => Promise<unknown>;
+  /**
+   * 지식인 답변 생성(사장님 확정 2026-08-20) — 고정 템플릿(답변 교리)에 질문을
+   * 끼워 본인 구독으로 돌린다. 임의 프롬프트 통로가 아닌 것은 다른 경로와 같다.
+   * 게시는 하지 않는다 — 초안 텍스트만 돌려주고 사용자가 직접 단다.
+   */
+  kinAnswer?: (input: { title: string; body: string; withLink: boolean; blogUrl: string }) => Promise<unknown>;
   /**
    * 어드민 작업자(사장님 전용 UX: "토큰도 알아서, 자동 연동").
    * 브리지가 이 PC 의 gh 인증으로 GitHub 를 대신 부른다 — 토큰이 브라우저에
@@ -178,6 +188,33 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.trend30(keyword) });
+        return;
+      }
+
+      if (deps.kinAnswer && req.method === 'POST' && req.url === '/v1/bridge/kin-answer') {
+        let title = '';
+        let body = '';
+        let withLink = false;
+        let blogUrl = '';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          title = String(parsed?.title || '').trim().slice(0, 200);
+          body = String(parsed?.body || '').trim().slice(0, 4000);
+          withLink = parsed?.withLink === true;
+          blogUrl = String(parsed?.blogUrl || '').trim().slice(0, 300);
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        if (!title) {
+          json(res, 400, { ok: false, error: '질문 제목이 비었습니다.' });
+          return;
+        }
+        if (withLink && !blogUrl) {
+          json(res, 400, { ok: false, error: '링크 추가를 켰는데 글 주소가 비었습니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.kinAnswer({ title, body, withLink, blogUrl }) });
         return;
       }
 
