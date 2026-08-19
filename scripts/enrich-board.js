@@ -395,7 +395,32 @@ async function main() {
       && row.titles.home && row.titles.home.frame === 'ai');
     const poolHasDocs = Array.isArray(row.keywordPool)
       && row.keywordPool.some((p) => typeof p.documentCount === 'number');
-    if (existingSubs.length >= 3 && hasAiTitles && poolHasDocs) return;
+    // whySearch 도 완제품 조건이다(2026-08-19) — 빼먹으면 기존 완성 행이 영영
+    // "왜 지금?"을 못 받는다(사장님 실측: 화면에 안 보임).
+    const hasWhy = Boolean(row.whySearch && row.whySearch.text);
+
+    /*
+     * 지식인 수는 AI 콜이 아니라 무료 실측이라 스킵보다 먼저 잰다 — 완성 행도
+     * 이 값은 새로 받아야 한다.
+     */
+    if (typeof row.kinCount !== 'number') {
+      try {
+        const { naverApiFetch } = require('../src/utils/naver-api-hub');
+        const kinRes = await naverApiFetch(
+          `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(row.keyword)}&display=1`,
+          { headers: { 'X-Naver-Client-Id': envConfig.naverClientId || '', 'X-Naver-Client-Secret': envConfig.naverClientSecret || '' } },
+        );
+        if (kinRes.ok) {
+          const kinBody = await kinRes.json();
+          const total = Number(kinBody && kinBody.total);
+          if (Number.isFinite(total)) row.kinCount = total;
+        }
+      } catch (error) {
+        console.log(`  !! [${row.keyword}] 지식인 실측 실패(빈 채로): ${String((error && error.message) || error).slice(0, 60)}`);
+      }
+    }
+
+    if (existingSubs.length >= 3 && hasAiTitles && poolHasDocs && hasWhy) return;
     if (aiCalls >= maxAi) {
       if (!capReached) console.log('  AI 호출 상한 도달 — 남은 행은 다음 보강으로.');
       capReached = true;
@@ -548,26 +573,7 @@ async function main() {
       }
     }
 
-    /*
-     * 지식인 질문 수(사장님 지시 2026-08-19) — 질문이 많으면 사람들이 답을
-     * 못 찾고 있다는 실측 신호다. HUB 배선(naverApiFetch)이라 쿼터도 새 풀.
-     */
-    if (typeof row.kinCount !== 'number') {
-      try {
-        const { naverApiFetch } = require('../src/utils/naver-api-hub');
-        const kinRes = await naverApiFetch(
-          `https://openapi.naver.com/v1/search/kin.json?query=${encodeURIComponent(row.keyword)}&display=1`,
-          { headers: { 'X-Naver-Client-Id': envConfig.naverClientId || '', 'X-Naver-Client-Secret': envConfig.naverClientSecret || '' } },
-        );
-        if (kinRes.ok) {
-          const kinBody = await kinRes.json();
-          const total = Number(kinBody && kinBody.total);
-          if (Number.isFinite(total)) row.kinCount = total;
-        }
-      } catch (error) {
-        console.log(`  !! [${row.keyword}] 지식인 실측 실패(빈 채로): ${String((error && error.message) || error).slice(0, 60)}`);
-      }
-    }
+    // 지식인 수는 위(스킵 전)에서 이미 잰다 — 완성 행도 받아야 하는 값이라서다.
 
     /*
      * 수익 결론 — 애드센스 후보 행만. "인스타 폰트 변환처럼 광고 수익이 안
