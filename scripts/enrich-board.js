@@ -238,15 +238,17 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
      */
     '마지막 임무 — 위 실측 검색어들을 근거로 블로그 제목 두 개도 함께 지어라:',
     `- seo: "${mainKeyword}" 로 시작 + 상위노출을 노리는 구체 정보(숫자·비교·시점). 40자 이내.`,
-    `- home: "${mainKeyword}" + 서브키워드 하나로, 홈판을 스치던 독자가 멈추는 제목. 38자 이내.`,
-    '  홈판 제목은 요약이 아니라 미끼다. 다음 세 수 중 하나가 반드시 들어가야 한다:',
-    '  ① 미러링 — 독자가 지금 겪는 상황을 그대로 불러 준다 ("어제까지 되던 게 갑자기 안 될 때")',
-    '  ② 뒤집기 — 독자가 믿는 원인·통념을 부정한다 ("폰이 아니라 계정 문제였습니다")',
-    '  ③ 결말 숨기기 — 답이 있다고 알리되 답은 감춘다 ("원인은 딱 하나였습니다")',
-    '  근거는 위 실측 검색어·질문에서 읽히는 사실만. 없는 수치·없는 사건을 지어내는 낚시 금지.',
-    '  짓고 나서 독자가 되어 자문하라: "스치다가 멈출 만큼 내 얘기인가, 아니면 그냥 설명문인가?"',
-    '  설명문이면 버리고 다른 수로 다시 지어라. "~하는 방법"·"~해 보세요" 식 서술형 어미로',
-    '  끝나는 밋밋한 문장, "핵심 정리"·"총정리"·"확인할 점" 같은 라벨형 문장은 전부 탈락이다.',
+    `- home: "${mainKeyword}" 가 문장 속에 자연스럽게 녹은, 홈판을 스치던 독자가 멈추는 제목. 38자 이내.`,
+    '  홈판 제목의 승부처는 "AI 가 지은 티"의 완전 제거다. 네이버 노출 판정과 독자 둘 다',
+    '  제목에서 AI 냄새를 맡으면 본문이 아무리 좋아도 열지 않는다.',
+    '  기준 문장(이 결 그대로 지어라): "포켓몬고 위치정보 오류 이러니까 바로 풀리네요"',
+    '  ① 말하듯 쓴다 — ~네요/~어요/~더라고요. 문어체 완결문, 대구·대칭 리듬 금지.',
+    '  ② "키워드, 후킹문" 쉼표 이분법 금지 — 그 틀 자체가 AI 서명이다.',
+    '  ③ 답의 존재만 알리고 내용은 숨긴다 — "이러니까"의 정체는 본문에만. 무엇이 아닌지까지는',
+    '     말해도 되지만, 무엇인지 적는 순간 독자는 제목만 보고 가 버린다.',
+    '  ④ 사람의 흔적 — 삽질·후기·실제 오류 문구 인용. 단 없는 수치·없는 경험 디테일 금지.',
+    '  짓고 나서 자문하라: "AI 가 지었다고 눈치챌 구석이 하나라도 있나? 누구나 다 하는 제목인가?"',
+    '  하나라도 그렇다면 버리고 다시. "~하는 방법" 서술형·"핵심 정리"류 라벨형은 전부 탈락이다.',
     `- why: 사람들이 지금 "${mainKeyword}" 를 검색하는 이유 한 문장(60자 이내).`,
     '  위 실측 검색어들에서 읽히는 의도만 근거로 써라. 근거 없는 사건·날짜를 지어내지 마라.',
     '',
@@ -372,8 +374,18 @@ function validateAiTitles(mainKeyword, subKeywords, seoRaw, homeRaw) {
   const home = clean(homeRaw, 38);
   const subTokens = subs.flatMap((s) => s.split(/\s+/)).filter((t) => t.length >= 2 && !mainKeyword.includes(t));
 
+  /*
+   * "키워드, 후킹문" 쉼표 이분법은 AI 서명이다(사장님 확정 2026-08-20 — 네이버
+   * 봇이 제목에서 AI 티를 잡으면 본문과 무관하게 노출이 막힌다). 첫 쉼표가
+   * 키워드 직후에 오는 구조를 기계적으로 자른다 — 프롬프트만 믿지 않는다.
+   */
+  const commaTellOf = (t) => {
+    const firstComma = t.indexOf(',');
+    return firstComma > -1 && firstComma <= mainKeyword.length + 6 && t.slice(0, firstComma).includes(head);
+  };
   const seoOk = seo.length >= 10 && seo.includes(head) && !TITLE_CLICHES.test(seo);
   const homeOk = home.length >= 10 && home.includes(head) && !TITLE_CLICHES.test(home)
+    && !commaTellOf(home)
     && (subTokens.length === 0 || subTokens.some((t) => home.includes(t)));
   if (!seoOk && !homeOk) return null;
   return {
