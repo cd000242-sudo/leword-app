@@ -56,10 +56,16 @@ const COST_CHANNELS = 1;
 //   22=People&Blogs, 23=Comedy, 24=Entertainment, 25=News, 26=Howto&Style,
 //   27=Education, 28=Tech, 29=NonProfit
 export const KR_CATEGORY_PRESETS: Record<string, string[]> = {
-  kcontent: ['10', '24', '23'],   // 음악 + 엔터 + 코미디
+  kcontent: ['10', '24', '23'],   // 음악 + 엔터 + 코미디 (구 호환)
   game: ['20'],
   life: ['22', '26'],              // People & Blogs + 스타일
   tech: ['28'],
+  // v2.49.x (2026-08-19): 블로그 글 재료 프리셋 — 사장님 지시로 확장.
+  // 음악 급상승은 글로벌 팝 뮤비뿐이라 재료가 안 돼(실측) 스타·연예에서 뺐다.
+  // sports/autos/comedy 는 아래에 이미 있다 — 중복 선언 금지(TS1117).
+  star: ['24'],                    // 스타·연예 이슈
+  news: ['25'],                    // 뉴스·이슈
+  film: ['1'],                     // 영화·애니 단독(movie 는 엔터 머지라 별도)
   beauty: ['26', '22'],            // Howto&Style 우선 (뷰티 콘텐츠)
   food: ['26', '22'],              // 레시피/먹방
   fashion: ['26', '24'],
