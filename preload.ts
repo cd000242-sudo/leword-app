@@ -69,6 +69,12 @@ export type BloggerApi = {
 
   saveEnv(env: EnvConfig): Promise<RunResult>;
   getEnv(): Promise<GetEnvResult>;
+  /*
+   * API HUB 프로브(2f7391e0) — 구현(아래 313행 부근)만 있고 타입 선언이 빠져
+   * 일렉트론 tsc 가 릴리즈 빌드에서 깨졌다(v2.49.97 릴리즈 실측). 반환 모양은
+   * config-utility 의 probe-naver-api-hub 핸들러와 짝.
+   */
+  probeNaverApiHub(payload: { keyId: string; key: string }): Promise<{ ok: boolean; detail?: string; base?: string; datalabOk?: boolean }>;
   setSettingsProtection(protectedMode: boolean): Promise<RunResult>;
   isSettingsProtected(): Promise<{ ok: boolean; protected?: boolean }>;
   validateEnv(): Promise<RunResult>;
