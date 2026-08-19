@@ -46,20 +46,21 @@ export interface ForgedTitles {
 const SEO_MAX = 40;
 const HOME_MAX = 38;
 
-const SEO_SUFFIX: Record<TitleFrame, string> = {
+// 회귀 테스트가 전 프레임 문구를 금지 정규식과 대조한다 — export 는 그 용도다.
+export const SEO_SUFFIX: Record<TitleFrame, string> = {
   recipe: '따라하기 쉬운 순서',
   review: '직접 써본 기록',
-  compare: '한눈에 비교',
+  compare: '무엇이 어떻게 다른가',
   price: '실제 비용 정리',
-  schedule: '시기 총정리',
+  schedule: '언제부터 언제까지',
   mistake: '원인과 해결법',
   recommend: '고르는 기준',
   howto: '단계별 방법',
-  checklist: '총정리',
-  generic: '핵심 정리',
+  checklist: '빠뜨리기 쉬운 것들',
+  generic: '기본 정보와 최근 소식',
 };
 
-const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => string> = {
+export const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => string> = {
   recipe: (kw) => `${kw}, 이 순서대로만 하면 됩니다`,
   review: (kw) => `${kw} 직접 써보고 알게 된 것들`,
   compare: (kw, extra) => `${kw} ${extra}, 기준은 하나면 됩니다`,
@@ -69,8 +70,16 @@ const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => string> =
   recommend: (kw) => `${kw} 고르다 지쳤다면 볼 것`,
   howto: (kw) => `${kw}, 어렵게 할 필요 없습니다`,
   checklist: (kw) => `${kw}, 이 글 하나로 끝냅니다`,
-  generic: (kw) => `${kw}, 핵심만 추렸습니다`,
+  generic: (kw) => `${kw}, 지금 왜 찾는 사람이 많을까`,
 };
+
+/**
+ * 금지 상투구 — 사장님 확정("'핵심 정리'가 클릭하고 싶을까?"). 검증기(enrich)와
+ * 대장간이 같은 정규식을 봐야 한다. 2026-08-19 실사고: 대장간의 폴백 문구
+ * 자체가 이 목록에 걸리는 말이라("핵심 정리"·"총정리"·"한눈에") 검증기가
+ * AI 제목만 지키고 규칙 제목은 그대로 화면까지 갔다. 발원지 SSoT 로 옮긴다.
+ */
+export const TITLE_CLICHES = /핵심\s*정리|핵심만|총정리|확인할\s*점|알아보|한눈에|정리해\s*봤/;
 
 /** 파생 키워드에서 본 키워드 어절을 뺀 나머지 — 제목에 실을 추가 표현. */
 function extraTokens(derived: string, keyword: string): string {

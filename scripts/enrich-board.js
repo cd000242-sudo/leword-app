@@ -310,7 +310,9 @@ async function judgeMonetization(keyword, verifiedSubs) {
 }
 
 /** 아무 키워드에나 붙는 상투구 — 이게 나오면 제목이 아니라 라벨이다. */
-const TITLE_CLICHES = /핵심\s*정리|핵심만|총정리|확인할\s*점|알아보|한눈에|정리해\s*봤/;
+// 금지 상투구는 대장간이 단일 출처다 — 발원지와 검증기가 갈라지면 이번처럼
+// 규칙 폴백이 금지 문구를 만들어 화면까지 간다(2026-08-19 실사고).
+const { TITLE_CLICHES } = require('../src/utils/title-forge/forge');
 
 /**
  * 제목을 AI 가 실측 근거로 짓는다(사장님 지적 2026-08-18: "'마키나락스 주가
@@ -383,7 +385,11 @@ async function main() {
      * 4행만 돌았다). 서브 3개만으로는 안 끝난다: AI 제목이 붙었고 풀에
      * 문서수까지 실려 있어야 완제품이다.
      */
-    const hasAiTitles = Boolean(row.titles && row.titles.seo && row.titles.seo.frame === 'ai');
+    // SEO·홈판 **둘 다** AI 여야 완제품 — SEO 만 보면 홈판이 규칙 폴백(상투구)인
+    // 행이 완제품으로 오인돼 영영 재보강이 안 된다(2026-08-19 노각무침 실사고).
+    const hasAiTitles = Boolean(row.titles
+      && row.titles.seo && row.titles.seo.frame === 'ai'
+      && row.titles.home && row.titles.home.frame === 'ai');
     const poolHasDocs = Array.isArray(row.keywordPool)
       && row.keywordPool.some((p) => typeof p.documentCount === 'number');
     if (existingSubs.length >= 3 && hasAiTitles && poolHasDocs) return;
