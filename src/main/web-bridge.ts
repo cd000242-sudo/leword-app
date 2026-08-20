@@ -52,7 +52,11 @@ export interface WebBridgeDeps {
    * 끼워 본인 구독으로 돌린다. 임의 프롬프트 통로가 아닌 것은 다른 경로와 같다.
    * 게시는 하지 않는다 — 초안 텍스트만 돌려주고 사용자가 직접 단다.
    */
-  kinAnswer?: (input: { title: string; body: string; withLink: boolean; blogUrl: string }) => Promise<unknown>;
+  kinAnswer?: (input: {
+    title: string; body: string; withLink: boolean; blogUrl: string;
+    /** 사용자가 고른 엔진. 빈 값이면 순서대로 시도한다. */
+    provider?: string;
+  }) => Promise<unknown>;
   /**
    * CLI 로그인 시작(사장님 지시 2026-08-20 "나머지도 버튼으로 바로 연동") —
    * 코덱스·제미나이·그록은 OAuth 리다이렉트가 이 PC 로 오므로 사이트가 직접
@@ -203,12 +207,16 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
         let body = '';
         let withLink = false;
         let blogUrl = '';
+        let provider = '';
         try {
           const parsed = JSON.parse((await readBody(req)) || '{}');
           title = String(parsed?.title || '').trim().slice(0, 200);
           body = String(parsed?.body || '').trim().slice(0, 4000);
           withLink = parsed?.withLink === true;
           blogUrl = String(parsed?.blogUrl || '').trim().slice(0, 300);
+          // 허용목록 밖 값은 버린다 — 임의 문자열이 실행 경로로 흘러가지 않게.
+          const wanted = String(parsed?.provider || '').trim();
+          provider = ['claude', 'codex', 'gemini', 'grok'].includes(wanted) ? wanted : '';
         } catch {
           json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
           return;
@@ -221,7 +229,7 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           json(res, 400, { ok: false, error: '링크 추가를 켰는데 글 주소가 비었습니다.' });
           return;
         }
-        json(res, 200, { ok: true, result: await deps.kinAnswer({ title, body, withLink, blogUrl }) });
+        json(res, 200, { ok: true, result: await deps.kinAnswer({ title, body, withLink, blogUrl, provider }) });
         return;
       }
 

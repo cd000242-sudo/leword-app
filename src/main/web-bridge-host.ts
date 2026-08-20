@@ -80,7 +80,7 @@ export function startWebBridgeHost(): void {
        * 본인 구독으로 생성한다. 게시는 안 한다: 초안만 돌려주고 사용자가 직접
        * 하나씩 단다(자동화는 효과 실측 후 결정).
        */
-      kinAnswer: async ({ title, body, withLink, blogUrl }) => {
+      kinAnswer: async ({ title, body, withLink, blogUrl, provider }) => {
         const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
         const { runClaude } = await import('../utils/agent-cli/claudeRunner');
         const { runCodex } = await import('../utils/agent-cli/codexRunner');
@@ -105,12 +105,18 @@ export function startWebBridgeHost(): void {
           '',
           '답변 본문만 출력해라 — 따옴표·머리말 없이.',
         ].join('\n');
-        const run = await runWithAnyAgent(prompt, [
-          { provider: 'claude', run: runClaude },
-          { provider: 'codex', run: runCodex },
-          { provider: 'gemini', run: runGemini },
-          { provider: 'grok', run: runGrok },
-        ], { timeoutMs: 90_000 });
+        /*
+         * 사용자가 고른 엔진 하나만 쓴다(사장님 확정 2026-08-20 "선택해서 연동하고
+         * 쓰는 건데 폴백은 그다음 문제"). 고르지 않았을 때만 순서대로 시도한다.
+         */
+        const chain = [
+          { provider: 'claude' as const, run: runClaude },
+          { provider: 'codex' as const, run: runCodex },
+          { provider: 'gemini' as const, run: runGemini },
+          { provider: 'grok' as const, run: runGrok },
+        ];
+        const picked = provider ? chain.filter((item) => item.provider === provider) : chain;
+        const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 90_000 });
         return { answer: String(run.reply || '').trim(), provider: run.provider };
       },
       /*
