@@ -76,13 +76,18 @@ function parseToss() {
       for (const entry of section.items || []) {
         const view = entry && entry.taca && entry.taca.productView;
         if (!view || !view.displayName) continue;
-        // 상품 주소가 응답에 없다 — productId 로 만든다(쉐어링크는 콘솔에서 발급).
+        /*
+         * 상품 주소를 만들지 않는다(2026-08-20). 응답에 주소가 없어서
+         * shopping.toss.im/product/{id} 를 조립했는데 그 호스트는 어떤 경로든
+         * 403 AccessDenied 였다(사장님 실측 + 5가지 모양 전수 확인). 토스 쇼핑은
+         * 공개 상품 페이지가 없다 — 빈 주소로 두면 화면이 콘솔+이름복사로 안내한다.
+         */
         const productId = view.productId || entry.productId;
         items.push({
           name: String(view.displayName),
           brand: String(entry.categoryName || ''),
           image: String(view.thumbnailUrl || ''),
-          url: productId ? `https://shopping.toss.im/product/${productId}` : '',
+          url: '',
           reward: view.discountRate ? `${view.discountRate}% 할인` : '',
           price: Number(view.displayPrice || 0) || null,
         });
