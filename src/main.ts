@@ -194,6 +194,16 @@ function createKeywordWindow() {
     if (isUpdating()) {
       console.log('[LEWORD] update flow active; keep main window visible');
     }
+    /*
+     * 윈도우 시작 시 자동 실행(--hidden)으로 뜬 경우엔 창을 띄우지 않는다 —
+     * 트레이에만 올라가 연동을 살려 둔다(사장님 지시 2026-08-20). 사용자가
+     * 직접 실행했을 때는 예전처럼 무조건 보여 준다.
+     */
+    if (process.argv.includes('--hidden')) {
+      console.log('[LEWORD] 자동 시작(--hidden) — 트레이 상주, 창은 띄우지 않음');
+      flushPendingSecondInstance();
+      return;
+    }
     keywordWindow?.show();
     console.log('[LEWORD] 메인창 표시 완료 (update flow 는 백그라운드 진행)');
     flushPendingSecondInstance();
@@ -1217,9 +1227,32 @@ if (!gotSingleInstanceLock) {
 }
 
 // 앱 초기화
+/**
+ * 윈도우 시작 시 자동 실행(사장님 지시 2026-08-20 "왜 자꾸 앱을 열라고 하니").
+ *
+ * 코덱스·제미나이·그록 구독은 로그인이 이 PC 안에서만 끝나므로 그 실행을
+ * 앱이 대신한다 — 앱이 항상 떠 있으면 사용자는 앱을 '여는' 일이 없다.
+ * `--hidden` 으로 시작하면 창 없이 트레이에만 올라간다. 끄고 싶으면
+ * 윈도우 [설정 > 앱 > 시작 프로그램]에서 LEWORD 를 꺼면 된다.
+ */
+function ensureAutoLaunch(): void {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  try {
+    const current = app.getLoginItemSettings({ args: ['--hidden'] });
+    if (!current.openAtLogin) {
+      app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] });
+      console.log('[AUTOSTART] 윈도우 시작 시 자동 실행 등록 — 트레이 상주');
+    }
+  } catch (error: any) {
+    console.warn('[AUTOSTART] 등록 실패(앱 동작에는 영향 없음):', error?.message);
+  }
+}
+
 app.whenReady().then(async () => {
   // 락을 얻지 못한 경우 whenReady가 호출되더라도 추가 작업 안 함 (app.quit()이 이미 진행 중)
   if (!gotSingleInstanceLock) return;
+
+  ensureAutoLaunch();
 
   // v2.43.67: 시작 splash 즉시 표시 — 사용자가 빈 화면 보는 시간 0
   //   업데이트 후 NSIS 진행창이 사라진 직후 곧바로 동일 디자인 splash 가 떠서
