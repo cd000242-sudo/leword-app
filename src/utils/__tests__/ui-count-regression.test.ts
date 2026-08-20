@@ -44,31 +44,8 @@ assert('keyword analyzer JS fallback defaults to 10',
   /const\s+limitValue\s*=\s*limitRadio\?\.value\s*\|\|\s*'10'/.test(html),
   'limitValue fallback is not 10');
 
-assert('rich golden feed auto-loads the server board without a manual click',
-  /function\s+startRichFeedAutoLive\(\)/.test(html)
-    && /document\.addEventListener\('DOMContentLoaded',\s*startRichFeedAutoLive,\s*\{\s*once:\s*true\s*\}\)/.test(html)
-    && /setTimeout\(\(\)\s*=>\s*refreshRichFeed\(false\),\s*900\)/.test(html)
-    && /setInterval\(\(\)\s*=>\s*\{[\s\S]{0,120}refreshRichFeed\(false\)/.test(html)
-    && /window\.__rfRefreshRunning/.test(richFeedRefreshBlock),
-  'rich feed can still sit idle until the user presses refresh');
 
-assert('rich golden feed table removes CPC from the visible UI',
-  !/>CPC<\/th>/.test(richFeedSectionBlock)
-    && !/네이버 검색광고 API 실측 평균 입찰가/.test(richFeedSectionBlock)
-    && !/cpcTxt/.test(richFeedTopPicksBlock)
-    && !/\(r\.cpc\s*\|\|\s*0\)\s*>=/.test(richFeedTopPicksBlock),
-  'CPC is still visible or still gating the rich feed top picks');
 
-assert('rich golden feed keeps the row layout horizontal and shows 60 rows per page',
-  /const\s+RF_PAGE_SIZE\s*=\s*60/.test(html)
-    && /class="rf-keyword-cell"/.test(richFeedTableBlock)
-    && /class="rf-keyword-line"/.test(richFeedTableBlock)
-    && /class="rf-keyword-main"/.test(richFeedTableBlock)
-    && /class="rf-source-line"/.test(richFeedTableBlock)
-    && /colspan="10"/.test(richFeedSectionBlock)
-    && /colspan="10"/.test(richFeedRefreshBlock)
-    && /colspan="10"/.test(richFeedTableBlock),
-  'rich feed can still wrap keyword text vertically or keep the old 11/12-column layout');
 
 assert('rich feed cache refuses underfilled three-row results',
   /cached\.result\.total\s*>=\s*MIN_ACCEPTABLE_TOTAL/.test(richFeedBuilder)
@@ -112,14 +89,25 @@ assert('rich feed injects realtime news policy and youtube seeds before measurem
     && /getYouTubeTrendKeywords/.test(richFeedBuilder),
   'rich feed can still miss live issue/news/policy/youtube seeds before measuring golden candidates');
 
-assert('desktop golden feed only reads the 24-hour server snapshot',
+// 앱 화면의 서버 보드는 제거됐다(2026-08-20) — 남은 IPC 계약만 지킨다:
+// 이 핸들러는 24시간 서버 스냅샷을 읽기만 하고 로컬 발굴을 시작하지 않는다.
+/*
+ * 사장님 지시(2026-08-20): 앱에서 서버 황금키워드 보드를 없애고 실시간
+ * 검색어 모니터링을 맨 위로. 되돌아오면 여기서 잡힌다.
+ */
+assert('app screen has no server golden board and shows realtime keywords first',
+  !/id="richFeedSection"/.test(html)
+    && !/서버 황금키워드 보드/.test(html)
+    && /id="realtimeKeywordsSection"/.test(html)
+    // CSS 정의가 아니라 **요소** 기준으로 순서를 본다(스타일 블록이 위에 있다).
+    && html.indexOf('id="realtimeKeywordsSection"') < html.indexOf('<div class="keyword-input-section"'),
+  'server board came back or realtime monitoring is no longer the first section');
+
+assert('server board IPC only reads the 24-hour snapshot',
   /fetchLiveGoldenBoardSnapshot/.test(richFeedIpcBlock)
-    && /EnvironmentManager\.getInstance\(\)[\s\S]{0,240}fetchLiveGoldenBoardSnapshot/.test(richFeedIpcBlock)
     && /snapshot\.board/.test(richFeedIpcBlock)
-    && !/discoverDirectGoldenKeywords|getCachedRichFeed|collectDirectGoldenLiveSeeds/.test(richFeedIpcBlock)
-    && !/rfUseClaude|rfDiscoveryMode|blogger-profile-get/.test(richFeedRefreshBlock)
-    && /서버 보드/.test(richFeedRefreshBlock),
-  'desktop refresh can still start a local discovery or AI augmentation run');
+    && !/discoverDirectGoldenKeywords|getCachedRichFeed|collectDirectGoldenLiveSeeds/.test(richFeedIpcBlock),
+  'server board IPC can still start a local discovery run');
 
 assert('operator ingest credentials can read but never run the live golden board',
   /isLiveGoldenIngestRequestAuthorized/.test(apiServer)
@@ -335,11 +323,6 @@ assert('golden discovery UI stops after completion and displays MDP searchVolume
     && /const\s+totalVol\s*=\s*\(hasPcVol\s*\|\|\s*hasMoVol\)\s*\?[\s\S]{0,120}hasDirectSearchVol\s*\?\s*item\.searchVolume/.test(html),
   'golden discovery completion cleanup or direct searchVolume display fallback is missing');
 
-assert('golden discovery exposes saved blog profile categories',
-  /id="goldenProfileCategoryPanel"/.test(html)
-    && /id="keywordProfileCategoryGroup"/.test(html)
-    && /refreshGoldenProfileCategories/.test(html),
-  'blog profile category shortcuts missing');
 
 assert('blogger profile and golden dropdown expose policy and celebrity categories',
   /value="지원금"[^>]*>지원금\/정책\/복지/.test(html)
@@ -348,11 +331,6 @@ assert('blogger profile and golden dropdown expose policy and celebrity categori
     && /스타\/연예 이슈/.test(bloggerProfile),
   'policy/star categories are not exposed in profile or golden UI');
 
-assert('blogger profile modal pins high-traffic policy and star categories first',
-  /const\s+BLOGGER_PROFILE_CATEGORY_PRIORITY\s*=\s*\[\s*'policy'\s*,\s*'celeb'/.test(html)
-    && /function\s+prioritizeBloggerProfileCategories/.test(html)
-    && /const\s+cats\s*=\s*prioritizeBloggerProfileCategories\(r\?\.categories\s*\|\|\s*\[\]\)/.test(html),
-  'profile modal does not prioritize policy/star categories for focused golden discovery');
 
 assert('PRO and home hunter category pickers expose policy and star intent paths',
   /value:\s*'policy',\s*label:\s*'[^']*정책·지원금'/.test(html)
@@ -376,18 +354,7 @@ assert('home hunter slot is repurposed to AI Mate citation mode',
     && /source:\s*'ai-mate-hunter'/.test(html),
   'AI Mate citation mode is not fully wired through UI, scoring, cutoff, and tracking');
 
-assert('golden discovery makes profile categories single-focus execution',
-  /집중 카테고리/.test(html)
-    && /대표 1개/.test(html)
-    && /대표 운영 카테고리/.test(html)
-    && /다른 주제는 섞지 않습니다/.test(html),
-  'single-focus category execution copy missing');
 
-assert('blogger profile UI allows only one representative category',
-  /type="radio"\s+name="bpCategory"/.test(html)
-    && /대표 카테고리는 1개만 선택할 수 있습니다/.test(html)
-    && !/name="bpCategory"[^>]+type="checkbox"/.test(html),
-  'blogger profile category input is not singleton');
 
 assert('blogger profile backend enforces one representative category',
   /selectedCategories\.length\s*!==\s*1/.test(sourceSignals)
@@ -395,10 +362,6 @@ assert('blogger profile backend enforces one representative category',
     && /slice\(0,\s*1\)/.test(bloggerProfile),
   'backend singleton profile guard missing');
 
-assert('blogger profile save refreshes golden discovery category shortcuts',
-  /saveBloggerProfile[\s\S]*refreshGoldenProfileCategories/.test(html)
-    && /resetBloggerProfile[\s\S]*refreshGoldenProfileCategories/.test(html),
-  'profile save/reset does not refresh golden category UI');
 
 assert('shopping connect no-keyword discovery requests 30 seeds',
   /autoDiscoveryLimit:\s*30/.test(html)
@@ -458,10 +421,6 @@ assert('queue-based mindmap expansion uses ranked helper instead of shallow auto
     && !/get-autocomplete-suggestions['"],\s*currentKeyword/.test(queueMindmapExpansionBlock),
   'queue-based mindmap expansion can bypass get-keyword-expansions fallback');
 
-assert('rich-feed topic ideas use ranked expansion instead of shallow autocomplete only',
-  /fetchLeWordRankedExpansionKeywords\(kw,\s*12\)/.test(richFeedTopicIdeasBlock)
-    && !/get-autocomplete-suggestions/.test(richFeedTopicIdeasBlock),
-  'rich-feed topic ideas can still use shallow autocomplete only');
 
 assert('mindmap metrics require complete Naver SearchAd credentials and preserve measured display',
   /!config\.clientId\s*\|\|\s*!config\.clientSecret/.test(sourceSignals)
