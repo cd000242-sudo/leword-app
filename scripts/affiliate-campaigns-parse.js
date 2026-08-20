@@ -311,11 +311,20 @@ async function main() {
      * 그 안에서 건당 수익, 그 다음 수요. 비율을 못 잰 것은 뒤로 민다 —
      * 안 잰 것을 자리 있는 것처럼 앞에 두면 그게 거짓말이다.
      */
+    /*
+     * 두 단짜리 정렬이다. 합성 점수를 만들지 않는다 — 실측 두 개를 순서대로 쓴다.
+     *   ① 자리가 있나(비율 1 이상) — 노출이 안 되면 수수료가 몇 %든 의미가 없다
+     *   ② 그 안에서 검색량 큰 순 — "노출은 되는데 검색량이 없으면 노출돼도
+     *      의미가 있나"(사장님 2026-08-20). 맞는 말이다. 비율만으로 줄 세우면
+     *      월 1,140 짜리가 1등이 된다.
+     * 자리 없는 것들도 같은 규칙으로 뒤에 붙는다 — 지우지는 않는다.
+     */
+    const hasSlot = (item) => typeof item.needRatio === 'number' && item.needRatio >= 1;
     site.items = site.items
       .filter((item) => verdictGroup(item) !== 2)
-      .sort((a, b) => (b.needRatio ?? -1) - (a.needRatio ?? -1)
-        || (b.perSaleWon || 0) - (a.perSaleWon || 0)
-        || (b.needVolume || 0) - (a.needVolume || 0));
+      .sort((a, b) => (Number(hasSlot(b)) - Number(hasSlot(a)))
+        || (b.needVolume || 0) - (a.needVolume || 0)
+        || (b.perSaleWon || 0) - (a.perSaleWon || 0));
     const green = site.items.filter((item) => verdictGroup(item) === 0).length;
     const withNeed = site.items.filter((item) => item.needVolume).length;
     console.log(`  → 포화 ${before - site.items.length}건 제외 · 남은 ${site.items.length}건(자리 있음 ${green} · 니즈 실측 ${withNeed})`);
