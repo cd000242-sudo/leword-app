@@ -73,6 +73,8 @@ function parseToss() {
   for (const dump of readDump('toss', /curation-sections/)) {
     const sections = (dump.body && dump.body.success && dump.body.success.sections) || [];
     for (const section of sections) {
+      // 콘솔 홈의 구획 제목 — "이 상품이 콘솔 어디에 떠 있는가"의 실측 주소다.
+      const sectionName = String(section.displayName || '').slice(0, 40);
       for (const entry of section.items || []) {
         const view = entry && entry.taca && entry.taca.productView;
         if (!view || !view.displayName) continue;
@@ -90,6 +92,13 @@ function parseToss() {
           url: '',
           reward: view.discountRate ? `${view.discountRate}% 할인` : '',
           price: Number(view.displayPrice || 0) || null,
+          /*
+           * 발급은 콘솔 홈에서 된다(실측: 카드 클릭 → 모달 → 발급 버튼,
+           * toss-issue-links.js 가 이 길로 실제 발급함). 상품 딥링크는 없지만
+           * 구획 제목+순위가 있으면 홈에서 눈으로 바로 찾는다.
+           */
+          consoleSection: sectionName,
+          consoleRank: Number(entry.rank || 0) || null,
         });
       }
     }
