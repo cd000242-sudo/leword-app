@@ -60,7 +60,15 @@ function toPublicShape(sites) {
 
 const TARGETS = [
   { id: 'toss', label: '토스 쉐어링크', url: 'https://sharelink.toss.im/home' },
-  { id: 'brandconnect', label: '네이버 브랜드커넥트', url: 'https://brandconnect.naver.com/' },
+  {
+    id: 'brandconnect', label: '네이버 브랜드커넥트',
+    /*
+     * 홈이 아니라 **상품 찾기 화면**으로 바로 간다(2026-08-20). 홈에서는 목록
+     * API(recommend-by-display-category)가 아예 안 불려 4건 채집에 그쳤다.
+     * 스페이스 ID 는 사장님 계정 것 — 정산정보 응답에서 확인된 값이다.
+     */
+    url: 'https://brandconnect.naver.com/876491907827712/affiliate/products',
+  },
 ];
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
@@ -166,8 +174,12 @@ async function scrapeMode() {
     }
     await sleep(4000);
 
-    const loggedOut = await page.evaluate(() => /로그인|login/i.test(document.body?.innerText?.slice(0, 3000) || ''))
-      .catch(() => false);
+    /*
+     * 로그아웃 판정은 본문 글자가 아니라 **주소**로 한다. 로그인된 화면에도
+     * "로그인" 글자는 흔해서(헤더·팝업) 매번 오탐했다 — 세션이 살아 있는데
+     * "풀린 것으로 보임" 이 찍혔다(실사고 2026-08-20, 정산정보까지 온 상태).
+     */
+    const loggedOut = /nid\.naver\.com|business\.toss\.im\/account|\/login/.test(page.url());
 
     // 채집된 JSON 에서 목록 후보를 추린다.
     const candidates = [];
