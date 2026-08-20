@@ -54,6 +54,13 @@ export interface WebBridgeDeps {
    */
   kinAnswer?: (input: { title: string; body: string; withLink: boolean; blogUrl: string }) => Promise<unknown>;
   /**
+   * CLI 로그인 시작(사장님 지시 2026-08-20 "나머지도 버튼으로 바로 연동") —
+   * 코덱스·제미나이·그록은 OAuth 리다이렉트가 이 PC 로 오므로 사이트가 직접
+   * 받을 수 없다. 앱이 CLI 로그인을 띄우고 브라우저를 여는 것이 유일한 길이다.
+   * 결과는 상태(로그인 여부)로만 돌려준다 — 자격증명은 앱 밖으로 안 나간다.
+   */
+  agentLogin?: (provider: string) => Promise<unknown>;
+  /**
    * 어드민 작업자(사장님 전용 UX: "토큰도 알아서, 자동 연동").
    * 브리지가 이 PC 의 gh 인증으로 GitHub 를 대신 부른다 — 토큰이 브라우저에
    * 갈 일이 없다. 방문자 PC 에는 gh 인증이 없으므로 그냥 실패할 뿐이다.
@@ -215,6 +222,24 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.kinAnswer({ title, body, withLink, blogUrl }) });
+        return;
+      }
+
+      if (deps.agentLogin && req.method === 'POST' && req.url === '/v1/bridge/agent-login') {
+        let provider = '';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          provider = String(parsed?.provider || '').trim();
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        // 허용목록 밖 문자열이 셸로 흘러가지 않게 여기서 못박는다.
+        if (!['claude', 'codex', 'gemini', 'grok'].includes(provider)) {
+          json(res, 400, { ok: false, error: '알 수 없는 제공자입니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.agentLogin(provider) });
         return;
       }
 

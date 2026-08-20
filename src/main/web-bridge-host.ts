@@ -113,6 +113,42 @@ export function startWebBridgeHost(): void {
         ], { timeoutMs: 90_000 });
         return { answer: String(run.reply || '').trim(), provider: run.provider };
       },
+      /*
+       * CLI 로그인 시작 — 사이트 버튼이 이 PC 의 CLI 로그인을 띄운다.
+       * OAuth URL 은 메인 프로세스에서만 열고(loginUrl.ts 규칙) 브라우저로도
+       * 보내지 않는다. 사이트에는 "시작됨/이미 로그인됨"만 알린다.
+       */
+      agentLogin: async (provider: string) => {
+        const { loginAgent } = await import('../utils/agent-cli/installer');
+        const { shell } = await import('electron');
+        const { isAllowedAgentLoginUrl } = await import('../utils/agent-cli/loginUrl');
+        const target = provider as 'claude' | 'codex' | 'gemini' | 'grok';
+        let opened = false;
+        const finished = loginAgent(target, {
+          onLoginUrl: (url) => {
+            if (!isAllowedAgentLoginUrl(target, url)) return;
+            opened = true;
+            void shell.openExternal(url);
+          },
+        });
+        /*
+         * 로그인은 사람이 브라우저에서 끝내야 해서 오래 걸린다. 8초만 기다려
+         * "이미 로그인됨"인지 "브라우저 열림"인지 알려 주고, 나머지는 상태
+         * 조회(/status)로 확인하게 한다 — 웹 요청을 몇 분씩 붙잡지 않는다.
+         */
+        const raced = await Promise.race([
+          finished.then((status) => ({ done: true, status })).catch((error: unknown) => ({
+            done: true,
+            error: error instanceof Error ? error.message : String(error),
+          })),
+          new Promise((resolve) => { setTimeout(() => resolve({ done: false }), 8000); }),
+        ]) as { done: boolean; status?: { loggedIn?: boolean; loginAction?: string }; error?: string };
+        if (raced.done && raced.status) {
+          return { state: raced.status.loginAction === 'already_authenticated' ? 'already' : 'done', loggedIn: Boolean(raced.status.loggedIn) };
+        }
+        if (raced.done && raced.error) return { state: 'failed', message: raced.error.slice(0, 200) };
+        return { state: opened ? 'browser-opened' : 'starting' };
+      },
       adminWorker: {
         status: workerStatus,
         dispatchTest: workerDispatchTest,
