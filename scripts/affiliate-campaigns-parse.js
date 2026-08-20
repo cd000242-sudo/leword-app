@@ -324,10 +324,19 @@ async function main() {
      *      월 1,140 짜리가 1등이 된다.
      * 자리 없는 것들도 같은 규칙으로 뒤에 붙는다 — 지우지는 않는다.
      */
+    const hasSlot = (item) => typeof item.needRatio === 'number' && item.needRatio >= 1;
+    site.items = site.items
+      .filter((item) => verdictGroup(item) !== 2)
+      .sort((a, b) => (Number(hasSlot(b)) - Number(hasSlot(a)))
+        || (b.needVolume || 0) - (a.needVolume || 0)
+        || (b.perSaleWon || 0) - (a.perSaleWon || 0));
+
     /*
      * 토스 — 사장님이 콘솔에서 발급해 둔 링크(toss-sync-issued.js 결과)를 병합한다.
      * 이름이 같으면 그 상품의 url 이 되고(→ 화면의 [제휴링크 복사]), 목록에 없는
-     * 발급본은 행으로 추가한다. 발급 자동화는 접었다 — 링크 관리에 삭제가 없어
+     * 발급본은 행으로 추가한다. **포화 필터 뒤**에서 한다 — 발급해 둔 상품이 포화로
+     * 걸러져 화면에서 사라졌다(실사고: 디핀다트·제육불고기). 이미 발급한
+     * 상품은 어차피 미는 것이라 측정과 무관하게 보여야 한다. 발급 자동화는 접었다 — 링크 관리에 삭제가 없어
      * 되돌릴 수 없는 동작이라서다(2026-08-20).
      */
     if (id === 'toss') {
@@ -353,15 +362,26 @@ async function main() {
       } catch { /* 동기화 파일이 없으면 그냥 지나간다 */ }
     }
 
-    const hasSlot = (item) => typeof item.needRatio === 'number' && item.needRatio >= 1;
-    site.items = site.items
-      .filter((item) => verdictGroup(item) !== 2)
-      .sort((a, b) => (Number(hasSlot(b)) - Number(hasSlot(a)))
-        || (b.needVolume || 0) - (a.needVolume || 0)
-        || (b.perSaleWon || 0) - (a.perSaleWon || 0));
+
     const green = site.items.filter((item) => verdictGroup(item) === 0).length;
     const withNeed = site.items.filter((item) => item.needVolume).length;
     console.log(`  → 포화 ${before - site.items.length}건 제외 · 남은 ${site.items.length}건(자리 있음 ${green} · 니즈 실측 ${withNeed})`);
+
+    /*
+     * AI 제목(사장님 지시 2026-08-20: "제품 스펙과 내용을 보고 추론해서 제목
+     * 방향을 정하고 생성"). 구독 CLI 추론 → 검증 통과분만 aiTitle 로 실린다.
+     * 실패·미설치면 화면의 규칙 조립 제목이 폴백 — 스냅샷 발행은 막지 않는다.
+     */
+    if (!process.argv.includes('--noAi')) {
+      try {
+        const { attachAiTitles } = require('./affiliate-ai-titles');
+        const enriched = await attachAiTitles(site.items, { label: site.label });
+        site.items = enriched.items;
+        console.log(`  → AI 제목 ${enriched.attached}건 부착`);
+      } catch (error) {
+        console.log(`  !! AI 제목 단계 실패(규칙 폴백 유지): ${String(error.message || error).slice(0, 80)}`);
+      }
+    }
     site.items.slice(0, 3).forEach((item) => console.log(
       `    · ${item.keyword} | 니즈 ${item.needKeyword ?? '—'}(${item.needVolume ? item.needVolume.toLocaleString('ko-KR') : '—'})`
       + `${item.perSaleWon ? ` · 건당 ${item.perSaleWon.toLocaleString('ko-KR')}원` : ''} | sv ${item.searchVolume ?? '—'} · dc ${item.documentCount ?? '—'}`,
