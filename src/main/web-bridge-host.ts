@@ -124,11 +124,27 @@ export function startWebBridgeHost(): void {
        * OAuth URL 은 메인 프로세스에서만 열고(loginUrl.ts 규칙) 브라우저로도
        * 보내지 않는다. 사이트에는 "시작됨/이미 로그인됨"만 알린다.
        */
-      agentLogin: async (provider: string) => {
-        const { loginAgent } = await import('../utils/agent-cli/installer');
+      agentLogin: async (provider: string, switchAccount = false) => {
+        const { loginAgent, logoutAgent } = await import('../utils/agent-cli/installer');
         const { shell } = await import('electron');
         const { isAllowedAgentLoginUrl } = await import('../utils/agent-cli/loginUrl');
         const target = provider as 'claude' | 'codex' | 'gemini' | 'grok';
+        /*
+         * 계정 바꾸기 — 로그아웃부터 한다.
+         *
+         * loginAgent 는 이미 로그인돼 있으면 'already_authenticated' 로 즉시
+         * 끝난다(installer.ts). 그래서 [다시 로그인]을 눌러도 "이미 로그인돼
+         * 있습니다"만 뜨고 계정이 안 바뀌었다(사장님 실측 2026-08-20).
+         * 다른 플랜의 계정으로 갈아타려면 기존 자격증명을 먼저 지워야 한다.
+         */
+        if (switchAccount) {
+          try {
+            await logoutAgent(target);
+          } catch (error) {
+            // 로그아웃이 실패해도 로그인은 시도한다 — 이미 안 돼 있을 수도 있다.
+            console.warn('[WEB-BRIDGE] 계정 바꾸기 로그아웃 실패(로그인은 계속):', error);
+          }
+        }
         let opened = false;
         const finished = loginAgent(target, {
           onLoginUrl: (url) => {

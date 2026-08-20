@@ -63,7 +63,7 @@ export interface WebBridgeDeps {
    * 받을 수 없다. 앱이 CLI 로그인을 띄우고 브라우저를 여는 것이 유일한 길이다.
    * 결과는 상태(로그인 여부)로만 돌려준다 — 자격증명은 앱 밖으로 안 나간다.
    */
-  agentLogin?: (provider: string) => Promise<unknown>;
+  agentLogin?: (provider: string, switchAccount?: boolean) => Promise<unknown>;
   /**
    * 어드민 작업자(사장님 전용 UX: "토큰도 알아서, 자동 연동").
    * 브리지가 이 PC 의 gh 인증으로 GitHub 를 대신 부른다 — 토큰이 브라우저에
@@ -235,9 +235,12 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
 
       if (deps.agentLogin && req.method === 'POST' && req.url === '/v1/bridge/agent-login') {
         let provider = '';
+        // 계정 바꾸기 — 기존 자격증명을 지우고 로그인을 새로 띄운다.
+        let switchAccount = false;
         try {
           const parsed = JSON.parse((await readBody(req)) || '{}');
           provider = String(parsed?.provider || '').trim();
+          switchAccount = parsed?.switchAccount === true;
         } catch {
           json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
           return;
@@ -247,7 +250,7 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           json(res, 400, { ok: false, error: '알 수 없는 제공자입니다.' });
           return;
         }
-        json(res, 200, { ok: true, result: await deps.agentLogin(provider) });
+        json(res, 200, { ok: true, result: await deps.agentLogin(provider, switchAccount) });
         return;
       }
 
