@@ -3621,11 +3621,27 @@ export async function huntAdsenseKeywords(
     console.log('[ADSENSE-HUNTER v3] 🚀 PRO Primary + 직접라우팅 보강:', { category, count });
     const stages: StageStatus[] = [];
 
+    /*
+     * 무한대기 차단(사장님 실사고 2026-08-20: "1단계에서 무한루프, 작업 진전이
+     * 없어"). PRO 헌터의 딥마이닝은 원격 소스가 죽으면 영영 안 돌아올 수 있다
+     * — 이 경계에서 마감시한을 건다. 늦으면 아래 직접 시드 폴백이 이어받는다.
+     * 폴백 자체도 같은 이유로 마감이 있다. 결과를 지어내는 게 아니라, 안
+     * 오는 소스를 포기하고 오는 소스로 계속하는 것이다.
+     */
+    const withDeadline = <T>(work: Promise<T>, ms: number, label: string): Promise<T> =>
+        Promise.race([
+            work,
+            new Promise<never>((_, reject) => {
+                const timer = setTimeout(() => reject(new Error(`${label} ${Math.round(ms / 1000)}초 마감 초과`)), ms);
+                (timer as unknown as { unref?: () => void }).unref?.();
+            }),
+        ]);
+
     // ===== STEP 1: PRO 헌터 PRIMARY 호출 (rich-feed-builder + 다단계 확장 활용) =====
     let proKeywords: any[] = [];
     const t1 = Date.now();
     try {
-        const proResult = await huntProTrafficKeywords({
+        const proResult = await withDeadline(huntProTrafficKeywords({
             mode: 'category',
             seedKeywords,
             category,
@@ -3635,7 +3651,7 @@ export async function huntAdsenseKeywords(
             useDeepMining: true,            // 🔥 deep-mining 활성화 (autocomplete + related)
             count: Math.min(count * 5, 100), // 평가 후 필터될 것 고려해 5배 요청
             forceRefresh: true,
-        });
+        }), 90_000, 'PRO 헌터');
         if (proResult.keywords && proResult.keywords.length > 0) {
             proKeywords = proResult.keywords;
             console.log(`[ADSENSE-HUNTER v3] ✅ PRO 시드 ${proKeywords.length}개 (검색량/문서수 자동 보강됨)`);
@@ -3651,7 +3667,7 @@ export async function huntAdsenseKeywords(
     const t2 = Date.now();
     let directSeedsRaw: Awaited<ReturnType<typeof collectAdsenseSeeds>> = [];
     try {
-        directSeedsRaw = await collectAdsenseSeeds(category);
+        directSeedsRaw = await withDeadline(collectAdsenseSeeds(category), 60_000, '직접 시드 수집');
         stages.push({ name: 'direct-routing', status: directSeedsRaw.length > 0 ? 'success' : 'partial', durationMs: Date.now() - t2, contributedKeywords: directSeedsRaw.length });
     } catch (err: any) {
         console.warn('[ADSENSE-HUNTER v3] ⚠️ 직접 라우팅 실패:', err?.message);
