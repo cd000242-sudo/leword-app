@@ -324,6 +324,35 @@ async function main() {
      *      월 1,140 짜리가 1등이 된다.
      * 자리 없는 것들도 같은 규칙으로 뒤에 붙는다 — 지우지는 않는다.
      */
+    /*
+     * 토스 — 사장님이 콘솔에서 발급해 둔 링크(toss-sync-issued.js 결과)를 병합한다.
+     * 이름이 같으면 그 상품의 url 이 되고(→ 화면의 [제휴링크 복사]), 목록에 없는
+     * 발급본은 행으로 추가한다. 발급 자동화는 접었다 — 링크 관리에 삭제가 없어
+     * 되돌릴 수 없는 동작이라서다(2026-08-20).
+     */
+    if (id === 'toss') {
+      try {
+        const issuedPath = path.join(__dirname, '..', 'tmp', 'toss-issued-links.json');
+        const issued = JSON.parse(fs.readFileSync(issuedPath, 'utf8')).pairs || [];
+        const norm = (v) => String(v || '').replace(/\s+/g, '');
+        let linked = 0;
+        for (const item of site.items) {
+          const hit = issued.find((p) => norm(p.name) === norm(item.name));
+          if (hit) { item.url = hit.link; linked += 1; }
+        }
+        const have = new Set(site.items.map((i) => norm(i.name)));
+        for (const p of issued) {
+          if (have.has(norm(p.name))) continue;
+          site.items.push({
+            name: p.name, url: p.link, price: p.price ?? null,
+            reward: p.commissionRate ? `수수료 ${p.commissionRate}%` : '수수료 10%',
+            image: '', keyword: '', issuedOnly: true,
+          });
+        }
+        console.log(`  발급 링크 병합: 연결 ${linked} · 추가 ${issued.length - linked}`);
+      } catch { /* 동기화 파일이 없으면 그냥 지나간다 */ }
+    }
+
     const hasSlot = (item) => typeof item.needRatio === 'number' && item.needRatio >= 1;
     site.items = site.items
       .filter((item) => verdictGroup(item) !== 2)
