@@ -123,6 +123,71 @@ async function crawlViaHttp(): Promise<PopularNews[]> {
   }));
   for (const arr of catResults) allNews.push(...arr);
 
+  /*
+   * 3) 소분류(사장님 지적 2026-08-20 "서브탭이 하나도 안 나온다").
+   *
+   * 화면의 서브탭은 '모바일'·'건강정보' 같은 소분류 이름으로 거르는데, 위
+   * 대분류 수집은 항목에 '거대분류' 이름만 달아 준다 — 그래서 서브탭이 항상
+   * 0건이었다. 네이버는 소분류마다 별도 목록 주소를 준다(실측 200):
+   *   https://news.naver.com/breakingnews/section/{sid1}/{sid2}
+   * 그 주소로 직접 받아 항목에 소분류 이름을 달아 준다. 서브탭 이름과
+   * 여기 name 이 정확히 같아야 걸린다 — 화면의 categorySubMap 과 짝이다.
+   */
+  const subSections = [
+    { sid1: '103', sid2: '241', name: '건강정보' },
+    { sid1: '103', sid2: '239', name: '여행레저' },
+    { sid1: '103', sid2: '240', name: '음식맛집' },
+    { sid1: '103', sid2: '376', name: '패션뷰티' },
+    { sid1: '103', sid2: '237', name: '자동차' },
+    { sid1: '103', sid2: '238', name: '공연전시' },
+    { sid1: '103', sid2: '242', name: '책' },
+    { sid1: '101', sid2: '259', name: '금융' },
+    { sid1: '101', sid2: '260', name: '부동산' },
+    { sid1: '101', sid2: '258', name: '주식' },
+    { sid1: '101', sid2: '261', name: '산업재계' },
+    { sid1: '101', sid2: '262', name: '글로벌경제' },
+    { sid1: '105', sid2: '731', name: '모바일' },
+    { sid1: '105', sid2: '226', name: '인터넷SNS' },
+    { sid1: '105', sid2: '229', name: '게임리뷰' },
+    { sid1: '105', sid2: '228', name: '과학일반' },
+  ];
+  const subResults = await Promise.all(subSections.map(async sub => {
+    try {
+      const r = await axios.get(`https://news.naver.com/breakingnews/section/${sub.sid1}/${sub.sid2}`, {
+        headers: { 'User-Agent': DESKTOP_UA, 'Accept-Language': 'ko-KR,ko;q=0.9', 'Referer': 'https://news.naver.com/' },
+        timeout: 8000, validateStatus: () => true, responseType: 'arraybuffer',
+      });
+      const decoded = decodeResponse(r.data, r.headers?.['content-type'] || '');
+      (r as any).data = decoded;
+      if (r.status !== 200) return [];
+      const $ = cheerio.load(r.data);
+      const items: PopularNews[] = [];
+      $('a').each((_i, a) => {
+        const href = String($(a).attr('href') || '');
+        if (!/news\.naver\.com\/(?:mnews\/)?article\//.test(href)) return;
+        const title = $(a).text().replace(/\s+/g, ' ').trim();
+        if (title.length < 5 || title.length > 100) return;
+        if (items.find(x => x.title === title)) return;
+        items.push({
+          rank: items.length + 1,
+          title,
+          url: href.startsWith('http') ? href : 'https://news.naver.com' + href,
+          press: '',
+          category: sub.name,
+          viewCount: '',
+          originalRank: items.length + 1,
+        });
+        if (items.length >= 15) return false;
+        return undefined;
+      });
+      return items;
+    } catch (e: any) {
+      console.warn(`[NAVER-NEWS-HTTP] ${sub.name} 실패:`, e?.message);
+      return [];
+    }
+  }));
+  for (const arr of subResults) allNews.push(...arr);
+
   return allNews;
 }
 
