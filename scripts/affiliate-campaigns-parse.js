@@ -199,6 +199,30 @@ async function attachNeedKeywords(items, creds) {
     customerId: creds.naverSearchAdCustomerId,
   };
 
+  /** 니즈 후보의 블로그 문서수. 위 상품명 실측과 같은 경로(HUB → legacy)를 쓴다. */
+  const hubKeyId = (process.env.NAVER_APIHUB_KEY_ID || creds.naverApiHubKeyId || '').trim();
+  const hubKey = (process.env.NAVER_APIHUB_KEY || creds.naverApiHubKey || '').trim();
+  const hubBase = (process.env.NAVER_APIHUB_BASE || creds.naverApiHubBase || 'https://naverapihub.apigw.ntruss.com').trim();
+  const useHub = Boolean(hubKeyId && hubKey);
+  const fetchNeedDocumentCount = (keyword) => new Promise((resolve) => {
+    const url = useHub
+      ? `${hubBase}/search/v1/blog?query=${encodeURIComponent(keyword)}&display=1`
+      : `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=1`;
+    const headers = useHub
+      ? { 'X-NCP-APIGW-API-KEY-ID': hubKeyId, 'X-NCP-APIGW-API-KEY': hubKey }
+      : { 'X-Naver-Client-Id': creds.naverClientId, 'X-Naver-Client-Secret': creds.naverClientSecret };
+    https.get(url, { headers }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const total = res.statusCode === 200 ? Number(JSON.parse(data).total) : NaN;
+          resolve(Number.isFinite(total) ? total : null);
+        } catch { resolve(null); }
+      });
+    }).on('error', () => resolve(null));
+  });
+
   const candidatesByItem = items.map((item) => deriveNeedKeywordCandidates(item.name, item.brand));
   const uniq = [...new Set(candidatesByItem.flat().map((k) => k.trim()).filter(Boolean))];
   const volumes = new Map();
@@ -215,16 +239,35 @@ async function attachNeedKeywords(items, creds) {
     await sleep(300);
   }
 
+  /*
+   * 니즈 후보의 **문서수**도 잰다(사장님 지적 2026-08-20). 검색량만 보면
+   * "찾는 사람 많은데 글이 이미 넘치는" 걸 1등에 올린다 — 노출이 안 되면
+   * 수수료가 몇 %든 의미가 없다. 수요 하한을 넘은 후보만 재서 호출을 아낀다.
+   */
+  const docs = new Map();
+  const worthMeasuring = [...new Set(
+    uniq.filter((keyword) => (volumes.get(keyword.replace(/\s+/g, '')) || 0) > 0),
+  )];
+  for (const keyword of worthMeasuring) {
+    docs.set(keyword.replace(/\s+/g, ''), await fetchNeedDocumentCount(keyword));
+    await sleep(150);
+  }
+
   return items.map((item, index) => {
-    // 구매 의도 우선 선택 — 최고 수요가 아니라 "쓸 수 있는 것 중 의도가 깊은" 후보.
+    // 의도 우선 · 자리 필수 — 최고 수요가 아니라 "쓸 수 있는 것 중 의도가 깊은" 후보.
     const best = pickNeedKeyword(
       candidatesByItem[index],
       (candidate) => volumes.get(candidate.replace(/\s+/g, '')),
+      300,
+      (candidate) => docs.get(candidate.replace(/\s+/g, '')),
     );
     return {
       ...item,
       needKeyword: best ? best.keyword : null,
       needVolume: best ? best.volume : null,
+      // 실측 문서수와 비율. 못 쟀으면 null 이다 — 자리 있음으로 치지 않는다.
+      needDocs: best ? best.docs : null,
+      needRatio: best ? best.ratio : null,
       perSaleWon: perSaleCommission(item.price, item.reward),
     };
   });
@@ -262,11 +305,17 @@ async function main() {
      * 난다. 자리 판정은 배지로 남는다. 포화(정면 6+) 제외는 유지 — 상품명조차
      * 포화면 레드오션 신호다.
      */
+    /*
+     * 정렬 교체(2026-08-20): 니즈 수요 순 → **노출 가능성 순**.
+     * "노출이 돼야 뭐가 팔리든 말든 하니까"(사장님). 자리가 있는 것을 먼저,
+     * 그 안에서 건당 수익, 그 다음 수요. 비율을 못 잰 것은 뒤로 민다 —
+     * 안 잰 것을 자리 있는 것처럼 앞에 두면 그게 거짓말이다.
+     */
     site.items = site.items
       .filter((item) => verdictGroup(item) !== 2)
-      .sort((a, b) => (b.needVolume || 0) - (a.needVolume || 0)
+      .sort((a, b) => (b.needRatio ?? -1) - (a.needRatio ?? -1)
         || (b.perSaleWon || 0) - (a.perSaleWon || 0)
-        || (b.searchVolume || 0) - (a.searchVolume || 0));
+        || (b.needVolume || 0) - (a.needVolume || 0));
     const green = site.items.filter((item) => verdictGroup(item) === 0).length;
     const withNeed = site.items.filter((item) => item.needVolume).length;
     console.log(`  → 포화 ${before - site.items.length}건 제외 · 남은 ${site.items.length}건(자리 있음 ${green} · 니즈 실측 ${withNeed})`);

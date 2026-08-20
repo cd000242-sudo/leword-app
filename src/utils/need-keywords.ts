@@ -133,23 +133,61 @@ export function deriveNeedKeywordCandidates(name: string, brand?: string): strin
 }
 
 /**
- * 후보 → 최종 니즈 선택. 후보 순서(=구매 의도 순)를 우선하되, 유의미 수요
- * 하한(기본 300)을 넘는 첫 후보를 고른다. 전부 하한 미달이면 최고 수요 폴백.
- * "제일 큰 수요"가 아니라 "쓸 수 있는 것 중 의도가 제일 깊은 수요"를 고른다.
+ * 후보 → 최종 니즈 선택.
+ *
+ * 후보 순서(=구매 의도 순)를 우선하되, 수요 하한을 넘고 **글이 넘치지 않는**
+ * 첫 후보를 고른다.
+ *
+ * 문서수를 보게 된 이유(사장님 지적 2026-08-20 "노출이 돼야 뭐가 팔리든
+ * 말든 하니까"): 후보 ①번 브랜드+카테고리를 "노출 가능성 최고"로 적어 뒀는데
+ * 재 본 적이 없었다. 실측하니 정반대였다 —
+ *   드리미 로봇청소기  검색 24,940 / 문서 44,387  (검색보다 글이 1.8배)
+ * 수요만 보고 1등에 올려 두면 아무도 못 쓰는 걸 맨 위에 놓는 셈이다.
+ *
+ * docsOf 를 안 주면 예전처럼 수요만 본다 — 문서수를 못 잰 경로가 있어서다.
+ * 재지 못한 것을 "자리 있음"으로 치지는 않는다.
  */
 export function pickNeedKeyword(
   candidates: string[],
   volumeOf: (keyword: string) => number | null | undefined,
-  floor: number = 300
-): { keyword: string; volume: number } | null {
-  let fallback: { keyword: string; volume: number } | null = null;
+  floor: number = 300,
+  docsOf?: (keyword: string) => number | null | undefined,
+  ratioFloor: number = 1
+): { keyword: string; volume: number; docs: number | null; ratio: number | null } | null {
+  const measure = (keyword: string, volume: number) => {
+    const docs = docsOf ? docsOf(keyword) : undefined;
+    const usable = typeof docs === 'number' && Number.isFinite(docs) ? docs : null;
+    return {
+      keyword,
+      volume,
+      docs: usable,
+      ratio: usable === null ? null : Math.round((usable > 0 ? volume / usable : volume) * 10) / 10,
+    };
+  };
+
+  let winnable: ReturnType<typeof measure> | null = null;
+  let byIntent: ReturnType<typeof measure> | null = null;
+  let biggestBelowFloor: ReturnType<typeof measure> | null = null;
   for (const candidate of candidates) {
     const volume = volumeOf(candidate) || 0;
     if (volume <= 0) continue;
-    if (volume >= floor) return { keyword: candidate, volume };
-    if (!fallback || volume > fallback.volume) fallback = { keyword: candidate, volume };
+    const row = measure(candidate, volume);
+    if (volume >= floor) {
+      // 의도 순서가 앞선 것이 이긴다 — 처음 걸린 것을 그대로 쓴다.
+      if (!winnable && row.ratio !== null && row.ratio >= ratioFloor) winnable = row;
+      if (!byIntent) byIntent = row;
+      if (!docsOf) return row; // 문서수를 못 재는 경로는 예전 규칙 그대로
+    } else if (!biggestBelowFloor || volume > biggestBelowFloor.volume) {
+      biggestBelowFloor = row;
+    }
   }
-  return fallback;
+  /*
+   * 자리가 있는 후보가 하나도 없으면 **예전 규칙으로 돌아간다**(의도 순서 첫 후보).
+   * 여기서 "검색량 제일 큰 것"으로 폴백하면 정반대가 된다 — 실측:
+   * 자리 없는 상품에서 "선풍기"(문서 3,140,066)가 1등으로 올라왔다.
+   * 제일 안 되는 것을 제일 위에 놓는 셈이다.
+   */
+  return winnable || byIntent || biggestBelowFloor;
 }
 
 /** "수수료 8%" → 0.08. 할인율("47% 할인")은 내 수익이 아니다 — null. */
