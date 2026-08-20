@@ -55,7 +55,26 @@ export function startWebBridgeHost(): void {
         const statuses = await Promise.all(providers.map(async (provider) => {
           try {
             const s = await detectAgent(provider);
-            return { provider, installed: s.installed, loggedIn: s.loggedIn, available: s.available, detail: s.detail || '' };
+            /*
+             * 사용량 표시(사장님 2026-08-20 "연동된 에이전트 전부 사용량 보이게,
+             * 할당량 없으면 없음이라고"): 코덱스·제미나이·그록은 사용량 API 가
+             * 없다(실측 — codex --help 전수, gemini/grok 인증 파일에 플랜 필드
+             * 없음). 지어내지 않는다. 코덱스만 인증 파일의 id_token 에 플랜이
+             * 실려 있어 그것만 사실로 보여 준다.
+             */
+            let plan = '';
+            if (provider === 'codex' && s.loggedIn) {
+              try {
+                const { readFile } = await import('node:fs/promises');
+                const { homedir } = await import('node:os');
+                const { join } = await import('node:path');
+                const auth = JSON.parse(await readFile(join(homedir(), '.codex', 'auth.json'), 'utf8'));
+                const idToken = String(auth?.tokens?.id_token || '');
+                const payload = JSON.parse(Buffer.from(idToken.split('.')[1] || '', 'base64').toString('utf8'));
+                plan = String(payload['https://api.openai.com/auth']?.chatgpt_plan_type || '');
+              } catch { /* 플랜을 못 읽으면 빈 값 — 없음으로 표시된다 */ }
+            }
+            return { provider, installed: s.installed, loggedIn: s.loggedIn, available: s.available, detail: s.detail || '', plan };
           } catch {
             return { provider, installed: false, loggedIn: false, available: false, detail: '감지 실패' };
           }
@@ -125,7 +144,8 @@ export function startWebBridgeHost(): void {
        * 보내지 않는다. 사이트에는 "시작됨/이미 로그인됨"만 알린다.
        */
       agentLogin: async (provider: string, switchAccount = false) => {
-        const { loginAgent, logoutAgent } = await import('../utils/agent-cli/installer');
+        const { installAgent, loginAgent, logoutAgent } = await import('../utils/agent-cli/installer');
+        const { detectAgent } = await import('../utils/agent-cli/detect');
         const { shell } = await import('electron');
         const { isAllowedAgentLoginUrl } = await import('../utils/agent-cli/loginUrl');
         const target = provider as 'claude' | 'codex' | 'gemini' | 'grok';
@@ -145,14 +165,26 @@ export function startWebBridgeHost(): void {
             console.warn('[WEB-BRIDGE] 계정 바꾸기 로그아웃 실패(로그인은 계속):', error);
           }
         }
+        /*
+         * 미설치면 설치부터 한다(사장님 요구 2026-08-20 "버튼 한 번에 자동
+         * 설치"). installAgent 는 앱에 이미 있었고 배선만 없었다. npm 설치가
+         * 1~2분 걸리므로 아래 8초 경주는 'installing' 을 먼저 돌려주고,
+         * 설치→로그인은 뒤에서 이어진다 — 사이트는 [상태 확인]으로 본다.
+         */
+        let installing = false;
+        const detected = await detectAgent(target, { forceRefresh: true }).catch(() => null);
+        if (!detected?.installed) installing = true;
         let opened = false;
-        const finished = loginAgent(target, {
+        const finished = (async () => {
+          if (installing) await installAgent(target);
+          return loginAgent(target, {
           onLoginUrl: (url) => {
             if (!isAllowedAgentLoginUrl(target, url)) return;
             opened = true;
             void shell.openExternal(url);
           },
-        });
+          });
+        })();
         /*
          * 로그인은 사람이 브라우저에서 끝내야 해서 오래 걸린다. 8초만 기다려
          * "이미 로그인됨"인지 "브라우저 열림"인지 알려 주고, 나머지는 상태
@@ -169,6 +201,7 @@ export function startWebBridgeHost(): void {
           return { state: raced.status.loginAction === 'already_authenticated' ? 'already' : 'done', loggedIn: Boolean(raced.status.loggedIn) };
         }
         if (raced.done && raced.error) return { state: 'failed', message: raced.error.slice(0, 200) };
+        if (installing) return { state: 'installing' };
         return { state: opened ? 'browser-opened' : 'starting' };
       },
       adminWorker: {

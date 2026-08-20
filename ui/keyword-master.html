@@ -5425,7 +5425,29 @@
           list.innerHTML = '<div style="color:#64748b; padding:12px;">불러오는 중…</div>';
           try {
             const res = await sendIPCRequest('get-realtime-keywords', {});
-            const items = (res && (res.keywords || res.items || res.data)) || [];
+            /*
+             * 핸들러는 {naver, zum, nate, daum, bokjiro} 플랫폼별 배열로 준다 —
+             * res.keywords 만 찾다가 항상 빈손이었다(사장님 실측 2026-08-20
+             * "지금은 실시간 검색어를 가져오지 못했습니다"). 플랫폼을 순서대로
+             * 합치되 같은 검색어는 한 번만 싣는다.
+             */
+            let items = (res && (res.keywords || res.items || res.data)) || [];
+            if ((!Array.isArray(items) || items.length === 0) && res && typeof res === 'object') {
+              const seenKw = new Set();
+              items = [];
+              for (const key of ['naver', 'zum', 'nate', 'daum', 'bokjiro', 'policy']) {
+                for (const it of (Array.isArray(res[key]) ? res[key] : [])) {
+                  const kw = typeof it === 'string' ? it : (it && (it.keyword || it.title)) || '';
+                  if (!kw || seenKw.has(kw)) continue;
+                  seenKw.add(kw);
+                  items.push(it);
+                }
+              }
+            }
+            if (res && res.success === false && res.error) {
+              list.innerHTML = '<div style="color:#dc2626; padding:12px;">' + laneEsc(res.error) + '</div>';
+              return;
+            }
             if (!Array.isArray(items) || items.length === 0) {
               list.innerHTML = '<div style="color:#64748b; padding:12px;">지금은 실시간 검색어를 가져오지 못했습니다.</div>';
               return;
