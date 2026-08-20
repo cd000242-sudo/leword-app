@@ -338,8 +338,26 @@ function main() {
   );
 
   const mergedTopics = new Set(merged.rows.map((row) => row.topic).filter(Boolean));
+  /*
+   * 무료 맛보기 5건 — **하루 동안 고정한다**(사장님 지시 2026-08-20).
+   *
+   * "5건을 랜덤으로 보여주면 굳이 구매 안 해도 새로고침하면 새 키워드를 볼 수
+   * 있다고 생각한다고." 맞다. 보드는 15분마다 갱신되니 상위 5건을 그냥 잘라
+   * 주면 새로고침이 곧 무료 발굴이 된다.
+   *
+   * 브라우저에 저장하는 방식으로는 못 막는다 — 지우거나 시크릿창을 열면 그만이다.
+   * 그래서 발행본에 박아 넣고, 같은 날(KST)이면 직전 발행본의 것을 그대로 쓴다.
+   * 날짜가 바뀌면 그날의 상위 5건으로 새로 뽑는다.
+   */
+  const kstDay = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const previousSample = prevPayload && prevPayload.freeSample;
+  const freeSample = previousSample && previousSample.day === kstDay
+    ? previousSample
+    : { day: kstDay, keywords: merged.rows.slice(0, 5).map((row) => row.keyword) };
+
   const payload = {
     publishedAt: new Date().toISOString(),
+    freeSample,
     generator: 'preemption-board-batch',
     topicsTotal: board.topicsTotal ?? 32,
     topicsWithRows: mergedTopics.size,
