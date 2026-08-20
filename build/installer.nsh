@@ -26,29 +26,34 @@
   ;     4) 총 10초 대기 (5 → 10초, file handle 해제 보장 강화)
 
   DetailPrint "기존 LEWORD 프로세스 종료 중... (1/4)"
-  nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
-  nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
+  nsExec::Exec 'taskkill /F /IM "LEWORD.exe"'
+  nsExec::Exec 'taskkill /F /IM "leword.exe"'
   Sleep 500
 
   DetailPrint "기존 LEWORD 프로세스 종료 중... (2/4)"
-  nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
-  nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
+  nsExec::Exec 'taskkill /F /IM "LEWORD.exe"'
+  nsExec::Exec 'taskkill /F /IM "leword.exe"'
   Sleep 500
 
   DetailPrint "좀비 chrome.exe + helper 정리 중..."
   ; v2.48.6: LEWORD 경로 어디든 매칭 (chromium 폴더 이외에 helper 도 잡힘)
   nsExec::Exec 'powershell -NoProfile -NonInteractive -Command "Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $$_.Path -and ($$_.Path -like ''*leword*'' -or $$_.Path -like ''*LEWORD*'') } | Stop-Process -Force -ErrorAction SilentlyContinue"'
   ; v2.48.6: sharp/native binary 좀비도 정리
-  nsExec::Exec 'powershell -NoProfile -NonInteractive -Command "Get-Process | Where-Object { $$_.Path -and ($$_.Path -like ''*leword*'' -or $$_.Path -like ''*LEWORD*'') -and $$_.ProcessName -ne ''explorer'' } | Stop-Process -Force -ErrorAction SilentlyContinue"'
+  ; v2.49.98 자살 버그 수리(실측): 이 설치 프로그램의 경로가
+  ;   ...\AppData\Local\leword-updater\pending\LEWORD-x.y.z.exe 라서 '*leword*' 에
+  ;   그대로 걸려 **자기 자신을 Stop-Process** 했다. 그래서 자동 업데이트가
+  ;   "설치 실행 → 즉사 → 다음 실행 때 또 같은 버전 발견" 을 반복했다.
+  ;   → 자기 자신($PID)과 업데이터 캐시 경로(leword-updater)는 제외한다.
+  nsExec::Exec 'powershell -NoProfile -NonInteractive -Command "Get-Process | Where-Object { $$_.Path -and ($$_.Path -like ''*leword*'' -or $$_.Path -like ''*LEWORD*'') -and $$_.Path -notlike ''*leword-updater*'' -and $$_.Id -ne $$PID -and $$_.ProcessName -ne ''explorer'' } | Stop-Process -Force -ErrorAction SilentlyContinue"'
   Sleep 1000
 
   DetailPrint "기존 LEWORD 프로세스 종료 중... (3/4)"
-  nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
-  nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
+  nsExec::Exec 'taskkill /F /IM "LEWORD.exe"'
+  nsExec::Exec 'taskkill /F /IM "leword.exe"'
 
   DetailPrint "기존 LEWORD 프로세스 종료 중... (4/4 — 최종)"
-  nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
-  nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
+  nsExec::Exec 'taskkill /F /IM "LEWORD.exe"'
+  nsExec::Exec 'taskkill /F /IM "leword.exe"'
   Sleep 500
 
   ; v2.49.38: v2.49.25 의 Get-CimInstance Win32_Process 명령 제거 — NSIS hang 원인
@@ -57,8 +62,8 @@
   ;   해결: taskkill /T 가 이미 자식 process tree 정리 → CimInstance 불필요
   ;         단순 taskkill 만으로 LEWORD + chromium subprocess 모두 정리됨
   DetailPrint "Electron 자식 process 추가 정리..."
-  nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
-  nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
+  nsExec::Exec 'taskkill /F /IM "LEWORD.exe"'
+  nsExec::Exec 'taskkill /F /IM "leword.exe"'
   Sleep 500
 
   ; v2.48.6: OS file handle 완전 해제 대기 — 5초 → 10초 (Defender 스캔 종료 보장)
@@ -88,8 +93,8 @@
     DetailPrint "[v2.48.6] OLD uninstaller exit code=$R0 — 추가 정리 시도"
 
     ; 추가 taskkill (OLD uninstaller 실행 중 새로 spawn 된 process 잡기)
-    nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
-    nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
+    nsExec::Exec 'taskkill /F /IM "LEWORD.exe"'
+    nsExec::Exec 'taskkill /F /IM "leword.exe"'
     Sleep 1000
 
     ; PowerShell 강제 정리
@@ -110,7 +115,7 @@
 
 !macro customUnInstall
   ; 언인스톨 시에도 동일하게 실행 중 프로세스 종료
-  nsExec::Exec 'taskkill /F /IM "LEWORD.exe" /T'
-  nsExec::Exec 'taskkill /F /IM "leword.exe" /T'
+  nsExec::Exec 'taskkill /F /IM "LEWORD.exe"'
+  nsExec::Exec 'taskkill /F /IM "leword.exe"'
   Sleep 500
 !macroend
