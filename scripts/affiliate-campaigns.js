@@ -59,7 +59,16 @@ function toPublicShape(sites) {
 }
 
 const TARGETS = [
-  { id: 'toss', label: '토스 쉐어링크', url: 'https://sharelink.toss.im/home' },
+  /*
+   * 홈이 아니라 **상품 조회** 화면이다(2026-08-21 실측).
+   *
+   * 홈은 큐레이션이라 거기 뜬 상품이 상품 조회 목록에 없을 때가 많다 —
+   * 21건 중 1건만 겹쳤다. 그래서 "콘솔에서 발급하세요"라고 보내도 그 상품이
+   * 콘솔에 없었다(사장님 실측 "그냥 홈으로 가진다니까"). 상품 조회는 카드마다
+   * [링크 발급] 버튼이 달린 발급 가능 상품 117건이다 — 우리가 보여줄 목록과
+   * 사장님이 발급할 목록이 같아야 한다.
+   */
+  { id: 'toss', label: '토스 쉐어링크', url: 'https://sharelink.toss.im/links/recommended-products' },
   {
     id: 'brandconnect', label: '네이버 브랜드커넥트',
     /*

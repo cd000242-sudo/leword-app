@@ -69,6 +69,31 @@ function readDump(site, urlPattern) {
 }
 
 function parseToss() {
+  /*
+   * 1순위: 상품 조회 목록(products) — 카드마다 [링크 발급] 버튼이 있는,
+   * 실제로 발급 가능한 상품들이다. linkIssueAvailability 로 한 번 더 거른다.
+   * 2순위(폴백): 옛 홈 큐레이션(curation-sections) — 상품 조회를 못 받았을 때만.
+   */
+  const fromProducts = [];
+  for (const dump of readDump('toss', /sharelink\/products\?/)) {
+    const entries = (dump.body && dump.body.success && dump.body.success.items) || [];
+    for (const entry of entries) {
+      const view = entry && entry.taca && entry.taca.productView;
+      if (!view || !view.displayName) continue;
+      // 발급이 막힌 상품은 싣지 않는다 — 보여줘 놓고 발급 안 되면 그게 고장이다.
+      if (entry.linkIssueAvailability && entry.linkIssueAvailability.available === false) continue;
+      fromProducts.push({
+        name: String(view.displayName),
+        brand: String(entry.categoryName || ''),
+        image: String(view.thumbnailUrl || ''),
+        url: '',
+        reward: view.discountRate ? `${view.discountRate}% 할인` : '',
+        price: Number(view.displayPrice || 0) || null,
+        /** 콘솔 상품 조회 화면에 이 이름 그대로 있다 — 찾아서 [링크 발급]. */
+        inConsoleList: true,
+      });
+    }
+  }
   const items = [];
   for (const dump of readDump('toss', /curation-sections/)) {
     const sections = (dump.body && dump.body.success && dump.body.success.sections) || [];
@@ -103,7 +128,15 @@ function parseToss() {
       }
     }
   }
-  return items;
+
+  /*
+   * 두 소스를 합친다 — 상품 조회(발급하러 갈 화면)를 앞에, 홈 큐레이션을 뒤에.
+   * 큐레이션 쪽을 버리면 **이미 발급해 둔 상품**이 목록에서 사라진다(실측:
+   * 발급 9건이 전부 큐레이션 상품이라 상품 조회 목록과 1건만 겹쳤다).
+   * 이름이 겹치면 앞엣것(상품 조회)을 남긴다 — 그쪽이 발급 가능한 판이다.
+   */
+  const seen = new Set(fromProducts.map((item) => item.name));
+  return [...fromProducts, ...items.filter((item) => !seen.has(item.name))];
 }
 
 function parseBrandConnect() {
