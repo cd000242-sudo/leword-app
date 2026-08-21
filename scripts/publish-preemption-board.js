@@ -33,6 +33,8 @@ const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { adviseFromLayout } = require('../src/utils/serp-layout-advice');
 const { referenceRowReason } = require('../src/utils/reference-row-reason');
 const { judgeTimingGroup } = require('../src/utils/preemption-timing-group');
+// 자리 판정 근거를 화면까지 실어 보내려면 여기서도 커버리지를 계산해야 한다.
+const { titleCoverage } = require('../src/utils/serp-winnability');
 const { mergeCarryRows } = require('../src/utils/board-carry');
 
 const DEFAULT_DEST = path.join(
@@ -174,6 +176,21 @@ function toPublicRow(row) {
       hasAiBriefing: serp.hasAiBriefing,
       aiBriefingSourceCount: serp.aiBriefingSourceCount ?? null,
       adCount: serp.adCount ?? null,
+      /*
+       * 자리 판정의 **근거**를 함께 싣는다(사장님 반증 2026-08-21).
+       *
+       * "상위 4번째 자리가 비어 있음"만 적고 근거를 안 실었더니, 그 자리에
+       * 무엇이 있었는지 아무도 확인할 수 없었다 — 검색해 본 사장님 눈에는
+       * 제목 맨 앞에 검색어가 박힌 글이 그 자리에 있었다. 순위는 몇 시간이면
+       * 바뀌므로 우리가 잰 순간의 제목을 남겨야 주장과 현실을 맞대볼 수 있다.
+       * 검증할 수 없는 주장은 보드에 실을 자격이 없다.
+       */
+      slots: (serp.topTitles || []).slice(0, 6).map((title, index) => ({
+        rank: index + 1,
+        title: String(title).slice(0, 70),
+        // 제목이 검색어를 얼마나 담았나(0~1). 0.6 미만이면 그 자리는 빈 것으로 본다.
+        coverage: Math.round(titleCoverage(String(title), row.keyword) * 100) / 100,
+      })),
     },
   };
 }
