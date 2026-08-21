@@ -25,6 +25,17 @@ export type LinkPolicy =
   /** 아직 확인하지 못했다. 확인 전에는 사람이 직접 판단한다. */
   | 'unknown';
 
+/**
+ * 지금 **바로** 답을 달 수 있는가(사장님 지시 2026-08-21).
+ *   instant : 비로그인이거나 가입 즉시 쓸 수 있다
+ *   delayed : 등업·활동량·별도 인증이 필요하다
+ *   closed  : 신규 가입 자체가 막혀 있다
+ *   unknown : 아직 확인하지 못했다
+ * delayed·closed 는 레이더가 아예 훑지 않는다 — 답을 못 다는 판을 뒤지는 것은
+ * 크레딧 낭비이고, 찾아 줘 봐야 사장님이 쓸 수 없는 자리다.
+ */
+export type ReplyGate = 'instant' | 'delayed' | 'closed' | 'unknown';
+
 export type CommunitySite = {
   /** 검색에 쓰는 도메인. `site:` 뒤에 그대로 들어간다. */
   domain: string;
@@ -40,6 +51,18 @@ export type CommunitySite = {
   canReply: boolean;
   /** 가입 없이는 못 쓰는 판인가. */
   needsJoin: boolean;
+};
+
+/** 확인된 관문 — 근거 없이 단정하지 않는다. 나머지는 unknown 이다. */
+export const CONFIRMED_GATES: Record<string, { gate: ReplyGate; why: string }> = {
+  'theqoo.net': { gate: 'closed', why: '가입을 특정 기간에만 연다 — 마지막 오픈이 2020년이다.' },
+  'clien.net': { gate: 'closed', why: '일반 회원가입을 받지 않고, 글쓰기 권한도 가입일·글수·접속수 기준이다.' },
+  '82cook.com': { gate: 'closed', why: '신규 회원가입이 막혀 있다.' },
+  'teamblind.com': { gate: 'delayed', why: '회사 이메일 인증을 거쳐야 쓴다.' },
+  'dcinside.com': { gate: 'instant', why: '비로그인(유동)으로 댓글·글쓰기가 된다.' },
+  'arca.live': { gate: 'instant', why: '유동 활동이 되고, 일부 채널만 로그인을 요구한다.' },
+  'fmkorea.com': { gate: 'instant', why: '가입 후 이메일 인증만 하면 활동할 수 있다.' },
+  'a-ha.io': { gate: 'instant', why: '가입하면 곧바로 답변할 수 있다(보상형 Q&A).' },
 };
 
 /*
@@ -177,6 +200,31 @@ export function siteOf(domain: string): CommunitySite | null {
   const host = String(domain).replace(/^www\./, '').toLowerCase();
   return COMMUNITY_SITES.find((site) => host === site.domain || host.endsWith(`.${site.domain}`)) || null;
 }
+
+/**
+ * 그 판의 관문. 확인된 것만 단정하고 나머지는 unknown 이다.
+ * 목록에 직접 적지 않고 여기서 합치는 이유: 관문은 사이트 정책이라 자주
+ * 바뀐다 — 한 곳(CONFIRMED_GATES)만 고치면 되게 둔다.
+ */
+export function gateOf(domain: string): { gate: ReplyGate; why: string } {
+  const host = String(domain).replace(/^www\./, '').toLowerCase();
+  return CONFIRMED_GATES[host] || { gate: 'unknown', why: '' };
+}
+
+/** 지금 바로 답을 달 수 있는 판만 — 못 다는 판을 훑는 것은 크레딧 낭비다. */
+export function openSites(): CommunitySite[] {
+  return COMMUNITY_SITES.filter((site) => {
+    const { gate } = gateOf(site.domain);
+    return gate !== 'closed' && gate !== 'delayed';
+  });
+}
+
+export const REPLY_GATE_LABEL: Record<ReplyGate, string> = {
+  instant: '바로 답변 가능',
+  delayed: '등업·인증 필요',
+  closed: '가입 막힘',
+  unknown: '관문 미확인',
+};
 
 export const LINK_POLICY_LABEL: Record<LinkPolicy, string> = {
   ok: '링크 가능',
