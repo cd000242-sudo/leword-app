@@ -221,6 +221,31 @@ async function analyze(items, creds) {
       }
     });
   }
+
+  /*
+   * 쇼핑 클릭 실측(2026-08-23) — "이 말이 쇼핑에서 실제로 클릭되는가".
+   *
+   * 사장님 지시: 유튜브 글감뿐 아니라 제휴에도 같은 판정을 걸어야 한다.
+   * 검색량·문서수만으로는 '사는 말'과 '읽는 말'이 안 갈린다 — 실업급여 조건은
+   * 검색량이 커도 팔 물건이 아니다. 쇼핑인사이트는 그 둘을 갈라 준다
+   * (실측: 나연 혀클리너·다이슨 에어랩 → 있음 / 실업급여 조건·청년내일저축계좌 → 없음).
+   * 상품 수는 여전히 못 잰다(쇼핑 검색 API 종료). 있다/없다만 싣는다.
+   * 키가 없으면 undefined 로 남는다 — '없음'과 구분해야 오판이 안 생긴다.
+   */
+  // 위에서 이미 고른 HUB 자격증명을 그대로 쓴다(환경변수 + 설정 폴백).
+  if (useHub) {
+    try {
+      const { probeShoppingClicks } = await import('./shopping-insight.mjs');
+      for (const item of items) {
+        const hit = await probeShoppingClicks(item.keyword, hubKeyId, hubKey);
+        item.shoppingClicked = hit === undefined ? null : Boolean(hit);
+        if (hit) item.shoppingCategory = hit.category;
+      }
+    } catch (error) {
+      // 이 신호가 없다고 제휴 회차를 죽이지 않는다 — 나머지 실측은 그대로 쓴다.
+      console.warn('[제휴] 쇼핑 클릭 실측 건너뜀:', String((error && error.message) || error).slice(0, 90));
+    }
+  }
   return items;
 }
 
