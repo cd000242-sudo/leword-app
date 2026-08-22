@@ -31,6 +31,16 @@ function main() {
   const boost = new Set(arg('boost').split(',').map((s) => s.trim()).filter(Boolean));
 
   const file = JSON.parse(fs.readFileSync(inPath, 'utf8'));
+  /*
+   * 후보 발굴기가 실어 보낸 굶은 주제는 자동으로 보강 대상이다(2026-08-22).
+   *
+   * 앞 단계에서 무료 선별 문턱을 올려 어렵게 살려 낸 후보가, 여기서 주제당
+   * 상한에 걸려 그대로 다시 잘려 나가면 아무 일도 안 한 것이 된다.
+   * 워크플로에 주제 이름을 손으로 적어 넣지 않아도 되도록 파일에서 받는다.
+   */
+  for (const topic of (Array.isArray(file.starvedTopics) ? file.starvedTopics : [])) {
+    if (topic) boost.add(String(topic));
+  }
   const topics = file.topics || {};
 
   let before = 0;

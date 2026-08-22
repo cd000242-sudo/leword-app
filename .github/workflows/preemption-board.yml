@@ -117,7 +117,10 @@ jobs:
         # keep 6 → 9 (2026-08-18): 회당 상한 520콜 상향에 맞춘 공급 확대.
         # 사장님 목표 보드 100행 — 통과율 40% 실측 기준 검증 ~250건이 필요하다.
         # keep 9→20: 초대량 공급에 맞춰 주제당 정원 확대. 총량은 BD 거버너가 지킨다.
-        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=20
+        # boostKeep: 굶은 주제(발굴기가 파일에 실어 보낸다)만 30건까지 남긴다.
+        # 앞 단계에서 무료 선별 문턱을 올려 살려 낸 후보를 여기서 다시 자르면
+        # 아무 일도 안 한 것이 된다.
+        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=20 --boostKeep=30
 
       - name: 자리 판정 (Bright Data)
         env:
@@ -144,6 +147,7 @@ jobs:
             --out=board.json \
             --targetPerTopic=${{ github.event.inputs.targetPerTopic || '4' }} \
             --signals=signals.json \
+            --maxPerRun=720 \
             --withStructure
 
       # 에이전트 보강 — 회차마다 두뇌가 개입한다(사장님 지시: "하나하나 에이전트가").

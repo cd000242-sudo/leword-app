@@ -152,6 +152,23 @@ async function main() {
   const measureLogPath = arg('measureLog');
   const measureLog = measureLogPath ? [] : null;
   const realtime = loadRealtime(arg('signals'));
+  /*
+   * 굶은 주제 구제선(2026-08-22).
+   *
+   * 실측: 보드 167행 중 영화 33·주제 선택 안 함 39 로 두 주제가 43% 였고,
+   * 건강·의학·스포츠·비즈니스·경제는 1~2건이었다. 깔때기를 재 보니 범인은
+   * 씨앗 수도(32주제 331개, 영화는 7개로 33건을 냈다) 스캔 폭도 아니었다.
+   * 무료 선별이 주제당 110건 중 87건(79%)을 **SERP 에 태워 보지도 않고**
+   * 잘라내고 있었다. 그 문지기는 정면 글 2건이면 자르는 규칙인데, 글이 이미
+   * 쌓인 주제는 거의 다 걸린다.
+   *
+   * 그래서 보드에 이미 실린 행이 적은 주제만 그 문턱을 올린다. 자리 판정은
+   * 여전히 SERP 가 한다 — 여기서 하는 일은 "재 보지도 않고 버리는 것"을
+   * 멈추는 것뿐이다. 사장님 지시: "노출 추적을 참고해서 상위에 정말 자리가
+   * 있는지 확인해 줘야 된다."
+   */
+  const starvedFloor = Number(arg('starvedFloor')) || 5;
+  const starvedFacing = Number(arg('starvedFacing')) || 4;
 
   const topics = hasFlag('all')
     ? BLOG_TOPIC_COVERAGE.map((e) => e.topic)
@@ -173,6 +190,32 @@ async function main() {
   const byTopic = {};
   const report = [];
   let trendWarned = false;
+
+  /*
+   * 보드를 **주제 루프보다 먼저** 읽는다. 아래 승격 단계가 어차피 같은 보드를
+   * 읽지만 그건 루프가 끝난 뒤라, 루프 안에서 "이 주제가 굶었나"를 알 수 없었다.
+   * 실패하면 굶은 주제 없음으로 간주하고 그대로 진행한다 — 이것 때문에 회차를
+   * 죽이지 않는다.
+   */
+  let boardCached = null;
+  const starvedTopics = new Set();
+  if (arg('board')) {
+    try {
+      boardCached = await loadBoardForPromotion(arg('board'));
+      const counts = new Map();
+      for (const row of (boardCached.items || boardCached.rows || [])) {
+        const t = String(row.topic || '').trim();
+        if (t) counts.set(t, (counts.get(t) || 0) + 1);
+      }
+      for (const topic of topics) {
+        if ((counts.get(topic) || 0) < starvedFloor) starvedTopics.add(topic);
+      }
+      console.log(`굶은 주제 ${starvedTopics.size}개 (보드 ${starvedFloor}행 미만) — 무료 선별 문턱을 정면 ${starvedFacing}건으로 올린다`);
+      if (starvedTopics.size > 0) console.log(`  ${[...starvedTopics].join(' · ')}`);
+    } catch (error) {
+      console.log(`  !! 보드 조회 실패(굶은 주제 구제 없이 계속): ${String((error && error.message) || error).slice(0, 80)}`);
+    }
+  }
 
   /*
    * 주제를 **동시에** 훑는다. 주제끼리는 아무 상관이 없는데 예전에는 1번이 끝나야
@@ -440,7 +483,13 @@ async function main() {
         const facing = freeTitles.filter(
           (title) => titleCoverage(title, row.keyword) >= SERP_THRESHOLDS.exactCoverage,
         ).length;
-        if (facing >= 2) {
+        /*
+         * 굶은 주제는 문턱을 올린다(2026-08-22). 이 문지기가 주제당 110건 중
+         * 87건을 SERP 전에 잘라내고 있었고, 그게 건강·의학 2건의 실제 원인이다.
+         * 자리 판정 자체는 그대로 SERP 가 한다 — 재 보지도 않고 버리는 것만 멈춘다.
+         */
+        const facingCut = starvedTopics.has(topic) ? starvedFacing : 2;
+        if (facing >= facingCut) {
           preScreened.push(`${row.keyword} — 무료 판정 정면 ${facing}건`);
           continue;
         }
@@ -675,7 +724,8 @@ async function main() {
   const promotedPerTopic = Number(arg('promotedPerTopic')) || 8;
   if (boardArg) {
     try {
-      const boardJson = await loadBoardForPromotion(boardArg);
+      // 위 굶은 주제 판정에서 이미 받아 놨으면 다시 받지 않는다.
+      const boardJson = boardCached || await loadBoardForPromotion(boardArg);
       const { extractPromotableSeeds } = require('../src/utils/pool-promotion');
       const existing = new Set(
         Object.values(byTopic).flat().map((c) => String(c.keyword).replace(/\s+/g, '').toLowerCase()),
@@ -798,6 +848,12 @@ async function main() {
   fs.writeFileSync(path.resolve(outPath), JSON.stringify({
     generatedAt: new Date().toISOString(),
     filters: { minWords, minVolume },
+    /*
+     * 굶은 주제를 다음 단계로 넘긴다(2026-08-22). 트림이 주제당 상한으로
+     * 자를 때 이 주제들만 예외를 줘야, 여기서 어렵게 살려 낸 후보가 바로
+     * 다음 줄에서 다시 잘려 나가지 않는다.
+     */
+    starvedTopics: [...starvedTopics],
     report,
     topics: byTopic,
   }, null, 1), 'utf8');
