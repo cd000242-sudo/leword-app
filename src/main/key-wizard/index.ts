@@ -9,6 +9,7 @@ import { naverDevDefinition, startNaverDevWizard } from './providers/naver-dev';
 import { naverSearchAdDefinition, startNaverSearchAdWizard } from './providers/naver-searchad';
 import { rakutenDefinition, startRakutenWizard } from './providers/rakuten';
 import { bigkindsDefinition, startBigkindsWizard } from './providers/bigkinds';
+import { adsenseDefinition, startAdSenseWizard } from './providers/adsense';
 
 export const PROVIDERS: Record<KeyWizardSite, ProviderDefinition> = {
   youtube: youtubeDefinition,
@@ -17,6 +18,7 @@ export const PROVIDERS: Record<KeyWizardSite, ProviderDefinition> = {
   'naver-searchad': naverSearchAdDefinition,
   rakuten: rakutenDefinition,
   bigkinds: bigkindsDefinition,
+  adsense: adsenseDefinition,
 };
 
 export function listProviders(): ProviderDefinition[] {
@@ -80,6 +82,8 @@ export async function runKeyWizard(opts: RunOptions): Promise<KeyWizardResult> {
         return await startRakutenWizard({} as any, opts.onProgress, ctrl.signal);
       case 'bigkinds':
         return await startBigkindsWizard({} as any, opts.onProgress);
+      case 'adsense':
+        return await startAdSenseWizard({} as any, opts.onProgress);
       default:
         throw new Error(`알 수 없는 사이트: ${opts.site}`);
     }

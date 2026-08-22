@@ -194,7 +194,20 @@ function decodeHtml(value: string): string {
     .replace(/&gt;/g, '>');
 }
 
+/*
+ * 결과 항목은 data-url 로 순서대로 실린다 — 그걸 센다(2026-08-22).
+ *
+ * 예전에는 href 에서 blog.naver.com 주소만 골라 셌다. 그러면 티스토리 같은
+ * 외부 블로그가 빠져 **순위가 실제보다 앞당겨진다**. 사장님 실측 — 화면 9위인데
+ * 8위로 나왔고, 4위가 kim4047.tistory.com 이었다.
+ * 세는 방법은 앱 전체가 한 벌만 쓴다(naver-serp-rank). 두 벌이 갈라져서 생긴
+ * 문제라 여기서 다시 만들지 않는다.
+ */
 function extractBlogLinksFromHtml(html: string): string[] {
+  const { extractResultOrder } = require('../utils/naver-serp-rank');
+  const { order } = extractResultOrder(html);
+  if (order.length > 0) return order;
+  // data-url 이 없는 화면만 옛 방식으로 내려간다.
   const links: string[] = [];
   const linkPattern = /href=["']([^"']*(?:m\.)?blog\.naver\.com[^"']*)["']/gi;
   let match: RegExpExecArray | null;
@@ -208,17 +221,24 @@ function parseRankFromLinks(links: string[], postUrl: string): Pick<MobileRankTr
   const target = extractNaverBlogPostIdentity(postUrl);
   if (!target) return { rank: null, status: 'invalid-url' };
 
+  /*
+   * **네이버 글이 아닌 결과도 한 자리를 차지한다**(2026-08-22).
+   *
+   * 예전에는 네이버 블로그로 안 읽히면 continue 로 건너뛰고 세지 않았다.
+   * 그러면 티스토리 같은 외부 결과가 앞에 있어도 자리 수가 안 올라가서
+   * 순위가 실제보다 앞당겨진다 — 사장님 실측에서 9위가 8위로 나온 이유다.
+   * 목록에 실린 순서를 그대로 센다. 다만 같은 글이 두 번 실린 것만 뺀다.
+   */
   let rank = 0;
   const seen = new Set<string>();
   for (const link of links) {
     const identity = extractNaverBlogPostIdentity(link);
-    if (!identity) continue;
-    const key = `${identity.blogId}/${identity.postNo}`;
-    if (seen.has(key)) continue;
+    const key = identity ? `${identity.blogId}/${identity.postNo}` : String(link || '').trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
     seen.add(key);
     rank += 1;
     if (rank > 30) break;
-    if (identity.blogId === target.blogId && identity.postNo === target.postNo) {
+    if (identity && identity.blogId === target.blogId && identity.postNo === target.postNo) {
       return { rank, status: 'found' };
     }
   }
@@ -271,19 +291,24 @@ async function defaultRankChecker(keyword: string, postUrl: string): Promise<Mob
   const identity = extractNaverBlogPostIdentity(postUrl);
   if (!identity) return { rank: null, status: 'invalid-url' };
 
+  /*
+   * 검색 화면을 **먼저** 본다(2026-08-22 순서 뒤집음).
+   *
+   * 예전에는 오픈 API 를 먼저 부르고 그 결과를 채택했다. 그런데 오픈 API 는
+   * 검색 결과를 줄 뿐 **노출 순서를 주지 않는다** — 먼저 부르면 틀린 순위가
+   * 항상 이긴다. 화면을 못 읽을 때만 API 로 내려간다.
+   */
   try {
-    const apiResult = await checkRankWithNaverOpenApi(keyword, postUrl);
-    if (apiResult.status === 'found' || apiResult.status === 'not-in-top30' || apiResult.status === 'blocked') {
-      return apiResult;
-    }
+    const htmlResult = await checkRankWithNaverHtml(keyword, postUrl);
+    if (htmlResult.status === 'found' || htmlResult.status === 'not-in-top30') return htmlResult;
   } catch {
-    // Fall back to HTML search below.
+    // 아래 오픈 API 로 내려간다.
   }
 
   try {
-    return await checkRankWithNaverHtml(keyword, postUrl);
+    return await checkRankWithNaverOpenApi(keyword, postUrl);
   } catch {
-    return { rank: null, status: 'error', method: 'http' };
+    return { rank: null, status: 'error', method: 'naver-api' };
   }
 }
 

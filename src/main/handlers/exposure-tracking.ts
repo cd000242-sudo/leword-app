@@ -748,6 +748,134 @@ export function setupExposureTrackingHandlers(): void {
     });
   }
 
+  /*
+   * 글 하나만 딱 집어서 본다 — 실측 순위 + 실측 RPM 을 한 화면에.
+   *
+   * 사장님 착상(2026-08-23): "수익 = 방문자 수 × RPM 이니까, RPM 을 알면
+   * 방문자 수에만 집중하면 된다."
+   * 마침 애드센스가 **글 주소를 열쇠로** 실적을 주므로 키워드 매핑 없이
+   * URL 하나로 바로 이어진다.
+   *
+   * 두 숫자 다 실측이다. 못 재면 못 쟀다고 말하고, 값을 만들어 내지 않는다.
+   * 특히 애드센스가 안 붙는 네이버 블로그 주소는 RPM 이 아예 존재하지 않는다 —
+   * 0 원이 아니라 '해당 없음' 이다.
+   */
+  if (!ipcMain.listenerCount('exposure-analyze-post')) {
+    ipcMain.handle('exposure-analyze-post', async (_e, p: { postUrl: string; keyword?: string; days?: number }) => {
+      const url = String(p?.postUrl || '').trim();
+      if (!url) return { success: false, error: '글 주소가 필요합니다' };
+
+      const out: any = { success: true, postUrl: url, rank: null, rpm: null };
+
+      // ── 순위: 검색 화면 실측(오픈 API 순서가 아니다) ──────────────────
+      if (p?.keyword && String(p.keyword).trim()) {
+        try {
+          const { measureNaverTabRanks, NAVER_TABS } = require('../../utils/naver-serp-rank');
+          const tabRanks = await measureNaverTabRanks(String(p.keyword).trim(), url);
+          out.rank = {
+            keyword: String(p.keyword).trim(),
+            tabs: NAVER_TABS.map((t: any) => ({
+              id: t.id,
+              label: t.label,
+              rank: tabRanks[t.id] ? tabRanks[t.id].rank : null,
+              sampled: tabRanks[t.id] ? tabRanks[t.id].sampled : 0,
+            })),
+          };
+        } catch (err: any) {
+          out.rankError = err?.message || '순위 실측 실패';
+        }
+
+        /*
+         * 구글 자리도 같이 잰다(2026-08-23).
+         *
+         * 그동안 "확인 필요" 만 뜬 이유: 구글 검색 화면을 그냥 요청하면 결과를
+         * 못 읽는다. 가정용 회선에서 직접 재봐도 응답은 200/91KB 인데 결과
+         * 링크가 0개였다 — 자바스크립트를 켜라는 안내 페이지다. gbv=1 도 같다.
+         * 공식 창구(커스텀 검색)는 순서를 그대로 준다. 다만 google.com 화면과
+         * 100% 같지는 않으므로 근거를 'google-cse' 로 밝혀 화면이 그대로 적는다.
+         */
+        try {
+          const { EnvironmentManager } = require('../../utils/environment-manager');
+          const cfg = EnvironmentManager.getInstance().getConfig() as any;
+          if (cfg.googleApiKey && cfg.googleCseId) {
+            const { measureGoogleRank } = require('../../utils/google-serp-rank');
+            const g = await measureGoogleRank(
+              String(p.keyword).trim(), url, cfg.googleApiKey, cfg.googleCseId, { depth: 30 },
+            );
+            out.google = { rank: g.rank, sampled: g.sampled, totalResults: g.totalResults, source: g.source };
+          } else {
+            out.google = { rank: null, sampled: 0, unavailable: '구글 검색 API 키와 검색엔진 ID가 필요합니다' };
+          }
+        } catch (err: any) {
+          // 할당량 소진 등은 "노출 안 됨" 이 아니다 — 못 쟀다고 말한다.
+          out.google = { rank: null, sampled: 0, unavailable: err?.message || '구글 순위 조회 실패' };
+        }
+      }
+
+      // ── RPM: 애드센스 실측. 네이버 블로그는 애초에 해당 없음 ───────────
+      const host = url.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+      if (/(^|\.)blog\.naver\.com$/.test(host) || /(^|\.)m\.blog\.naver\.com$/.test(host)) {
+        out.rpm = { available: false, reason: '네이버 블로그에는 애드센스를 붙일 수 없습니다' };
+        return out;
+      }
+
+      try {
+        const { EnvironmentManager } = require('../../utils/environment-manager');
+        const env = EnvironmentManager.getInstance().getConfig() as any;
+        let accessToken = env.adsenseOAuthAccessToken || '';
+        const expiresAt = Number(env.adsenseTokenExpiresAt || 0);
+        if (!accessToken) {
+          out.rpm = { available: false, reason: '애드센스 연동이 필요합니다', needsAuth: true };
+          return out;
+        }
+        // 만료됐으면 갱신부터. 만료된 토큰으로 부르면 401 만 받는다.
+        if (expiresAt && Date.now() > expiresAt - 60_000) {
+          const { refreshAdSenseToken } = require('../key-wizard/providers/adsense');
+          if (await refreshAdSenseToken()) {
+            accessToken = (EnvironmentManager.getInstance().getConfig() as any).adsenseOAuthAccessToken || '';
+          }
+        }
+
+        const { listAccounts, fetchPageEarnings } = require('../../utils/adsense-rpm');
+        const accounts = await listAccounts(accessToken);
+        if (!accounts.length) {
+          out.rpm = { available: false, reason: '애드센스 계정을 찾지 못했습니다' };
+          return out;
+        }
+        const report = await fetchPageEarnings(accounts[0].name, accessToken, { days: Number(p?.days) || 28 });
+
+        /*
+         * 애드센스의 PAGE_URL 은 스킴이 없고 호스트+경로 모양으로 온다.
+         * 양쪽을 같은 모양으로 깎아서 맞춘다 — 그냥 문자열 비교하면 전부 미매칭이다.
+         */
+        const norm = (u: string) => String(u || '')
+          .replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/[?#].*$/, '').replace(/\/$/, '').toLowerCase();
+        const target = norm(url);
+        const hit = report.rows.find((r: any) => norm(r.pageUrl) === target);
+
+        out.rpm = hit
+          ? {
+            available: true,
+            rpm: hit.rpm,
+            earnings: hit.earnings,
+            pageViews: hit.pageViews,
+            currency: report.currency,
+            periodStart: report.startDate,
+            periodEnd: report.endDate,
+            note: hit.rpm === null ? '페이지뷰가 0이라 RPM을 낼 수 없습니다' : '',
+          }
+          : {
+            available: false,
+            reason: `최근 ${report.startDate}~${report.endDate} 애드센스 실적에 이 주소가 없습니다`,
+          };
+      } catch (err: any) {
+        const authish = err && err.name === 'AdSenseAuthError';
+        out.rpm = { available: false, reason: err?.message || 'RPM 조회 실패', needsAuth: Boolean(authish) };
+      }
+      return out;
+    });
+  }
+
   // 8. 페어 삭제
   if (!ipcMain.listenerCount('exposure-remove-pair')) {
     ipcMain.handle('exposure-remove-pair', async (_e, p: { keyword: string; postUrl: string }) => {

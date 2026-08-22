@@ -8231,20 +8231,33 @@
 
           try {
             const result = await window.blogger.checkKeywordRank({ keyword, blogUrl });
+
+            // 못 찾은 것을 "null위"로 띄우지 않는다. 없으면 없다고 적는다.
+            const bigLine = typeof result.rank === 'number'
+              ? `${result.rank}위`
+              : '노출 안 됨';
+            const bigColor = typeof result.rank === 'number' ? '#3b82f6' : '#64748b';
+            // 탭마다 순위가 다르다 — 어느 탭에서 몇 위인지 그대로 적는다.
+            const tabs = Array.isArray(result.tabRanks) ? result.tabRanks : [];
+            const tabLine = tabs.length > 0
+              ? tabs.map((t) => `<div><span style="color:#666;">${t.label}</span> · <strong>${
+                  typeof t.rank === 'number' ? `${t.rank}위` : (t.sampled > 0 ? `상위 ${t.sampled}개 밖` : '못 읽음')
+                }</strong></div>`).join('')
+              : '';
+            // 실측인지 오픈 API 순서인지 밝힌다. 오픈 API 는 노출 순위가 아니다.
+            const sourceNote = result.rankSource === 'serp'
+              ? `네이버 검색 화면 실측${result.exact === false ? ' (외부 블로그가 빠졌을 수 있습니다)' : ''}`
+              : result.rankSource === 'open-api'
+                ? '⚠ 검색 화면을 못 읽어 오픈 API 순서로 보여 줍니다 — 실제 노출 순위가 아닙니다'
+                : '';
+
             resultsDiv.innerHTML = `
           <div style="margin-top: 24px; padding: 24px; background: #f0f9ff; border-radius: 12px; border: 2px solid #3b82f6; text-align: center;">
             <div style="font-size: 18px; font-weight: 700; margin-bottom: 16px;">📊 순위 결과</div>
-            <div style="font-size: 48px; font-weight: 700; color: #3b82f6; margin: 20px 0;">${result.rank}위</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-              <div>
-                <div style="font-size: 13px; color: #666;">총 검색 결과</div>
-                <div style="font-size: 18px; font-weight: 600;">${(result.totalResults || 0).toLocaleString()}개</div>
-              </div>
-              <div>
-                <div style="font-size: 13px; color: #666;">예상 클릭률</div>
-                <div style="font-size: 18px; font-weight: 600; color: #10b981;">${result.estimatedCTR || 0}%</div>
-              </div>
-            </div>
+            <div style="font-size: 48px; font-weight: 700; color: ${bigColor}; margin: 20px 0;">${bigLine}</div>
+            ${tabLine ? `<div style="font-size: 14px; line-height: 1.9; text-align: left; display: inline-block;">${tabLine}</div>` : ''}
+            ${result.message ? `<div style="margin-top: 10px; font-size: 13px; color: #64748b;">${result.message}</div>` : ''}
+            ${sourceNote ? `<div style="margin-top: 12px; font-size: 12px; color: #94a3b8;">${sourceNote}</div>` : ''}
           </div>
         `;
           } catch (error) {

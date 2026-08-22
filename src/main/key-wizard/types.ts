@@ -7,7 +7,9 @@ export type KeyWizardSite =
   | 'naver-dev'
   | 'naver-searchad'
   | 'rakuten'
-  | 'bigkinds';
+  | 'bigkinds'
+  // 글 주소별 실측 수익·페이지뷰 → RPM. 읽기 전용 범위만 쓴다.
+  | 'adsense';
 
 export type KeyWizardStrategy = 'oauth-loopback' | 'clipboard-watch' | 'deep-link-only';
 

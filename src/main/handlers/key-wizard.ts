@@ -143,6 +143,11 @@ export function setupKeyWizardHandlers(): void {
         threadsAccessToken: '',
         threadsTokenExpiresAt: 0,
       },
+      adsense: {
+        adsenseOAuthAccessToken: '',
+        adsenseOAuthRefreshToken: '',
+        adsenseTokenExpiresAt: 0,
+      },
       'naver-dev': { naverClientId: '', naverClientSecret: '' },
       'naver-searchad': {
         naverSearchAdAccessLicense: '',

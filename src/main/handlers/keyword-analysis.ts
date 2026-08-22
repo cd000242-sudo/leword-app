@@ -160,7 +160,7 @@ export function setupKeywordAnalysisHandlers(): void {
       return {
         rank: null,
         totalResults: 0,
-        estimatedCTR: null,
+        rankSource: null,
         estimated: false,
         error: 'NAVER_OPEN_API_REQUIRED',
         message: '네이버 Open API 키가 없어 실측 순위를 조회하지 못했습니다.'
@@ -182,15 +182,48 @@ export function setupKeywordAnalysisHandlers(): void {
       }
     };
     const target = normalizeUrl(data.blogUrl);
-    const ctrForRank = (rank: number): string => {
-      if (rank <= 1) return '25.0';
-      if (rank === 2) return '15.0';
-      if (rank === 3) return '10.0';
-      if (rank <= 5) return '7.0';
-      if (rank <= 10) return '4.0';
-      if (rank <= 20) return '2.0';
-      return '0.8';
-    };
+
+    /*
+     * 노출 자리는 **검색 화면에서 실측한다**(2026-08-22, C3).
+     *
+     * 여기 있던 순위는 오픈 API(blog.json) 응답 순서였다. 그 API 는 검색
+     * 결과를 주지만 **노출 순서를 주지 않는다**. 사장님이 사이트에서 직접
+     * 잡으셨다 — "2위라면서 2위가 아니네요??"
+     * 같이 있던 estimatedCTR 은 순위별 고정표(1위 25% · 2위 15% …)였는데
+     * 키워드마다 실제 클릭률은 완전히 다르다. 재지도 않은 값을 화면에
+     * 숫자로 띄우는 건 [[feedback_no_estimates_in_ui]] 위반이라 걷어낸다.
+     *
+     * 실측이 실패하면 오픈 API 로 내려가되, 그때는 그것이 노출 순위가
+     * 아니라는 사실을 rankSource 로 밝힌다.
+     */
+    try {
+      const { measureNaverTabRanks, NAVER_TABS } = require('../../utils/naver-serp-rank');
+      const tabRanks = await measureNaverTabRanks(data.keyword, data.blogUrl);
+      const measuredTab = NAVER_TABS.find((t: any) => tabRanks[t.id] && tabRanks[t.id].sampled > 0);
+      if (measuredTab) {
+        const hit = tabRanks[measuredTab.id];
+        return {
+          rank: hit.rank,
+          totalResults: 0,
+          rankSource: 'serp',
+          rankTab: measuredTab.label,
+          sampled: hit.sampled,
+          exact: hit.exact,
+          tabRanks: NAVER_TABS.map((t: any) => ({
+            id: t.id,
+            label: t.label,
+            rank: tabRanks[t.id] ? tabRanks[t.id].rank : null,
+            sampled: tabRanks[t.id] ? tabRanks[t.id].sampled : 0,
+          })),
+          message: hit.rank === null
+            ? `${measuredTab.label} 상위 ${hit.sampled}개 안에 없습니다.`
+            : ''
+        };
+      }
+      console.warn('[KEYWORD-MASTER] 검색 화면을 못 읽어 오픈 API 로 내려갑니다(노출 순위 아님).');
+    } catch (err: any) {
+      console.warn('[KEYWORD-MASTER] 순위 실측 실패 → 오픈 API 폴백:', err?.message || err);
+    }
 
     let totalResults = 0;
     for (let start = 1; start <= 401; start += 100) {
@@ -206,8 +239,8 @@ export function setupKeywordAnalysisHandlers(): void {
         return {
           rank: null,
           totalResults,
-          estimatedCTR: null,
-          estimated: false,
+          rankSource: 'open-api',
+          estimated: true,
           error: `NAVER_OPEN_API_${res.status}`,
           message: body.slice(0, 200)
         };
@@ -222,8 +255,9 @@ export function setupKeywordAnalysisHandlers(): void {
           return {
             rank,
             totalResults,
-            estimatedCTR: ctrForRank(rank),
-            estimated: false
+            // 오픈 API 순서다 — 노출 순위가 아니다. 화면이 그렇게 밝힌다.
+            rankSource: 'open-api',
+            estimated: true
           };
         }
       }
@@ -233,8 +267,8 @@ export function setupKeywordAnalysisHandlers(): void {
     return {
       rank: null,
       totalResults,
-      estimatedCTR: null,
-      estimated: false,
+      rankSource: 'open-api',
+      estimated: true,
       message: '상위 500개 네이버 블로그 결과에서 해당 URL을 찾지 못했습니다.'
     };
   });
