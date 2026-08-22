@@ -21,7 +21,7 @@ import type { AgentProvider, AgentCliStatus } from '../../utils/agent-cli/types'
 import { runClaude } from '../../utils/agent-cli/claudeRunner';
 import { runCodex } from '../../utils/agent-cli/codexRunner';
 import { runGemini } from '../../utils/agent-cli/geminiRunner';
-import { installAgent, loginAgent } from '../../utils/agent-cli/installer';
+import { installAgent, loginAgent, logoutAgent } from '../../utils/agent-cli/installer';
 
 const PROVIDERS: readonly AgentProvider[] = ['claude', 'codex', 'gemini', 'grok'];
 
@@ -82,12 +82,30 @@ export function setupAgentCliHandlers(): void {
     }
   });
 
-  ipcMain.handle('agent-cli-login-start', async (_event, payload: { provider?: string }) => {
+  ipcMain.handle('agent-cli-login-start', async (_event, payload: { provider?: string; switchAccount?: boolean }) => {
     const provider = payload?.provider;
     if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
     const existing = loginSessions.get(provider);
     if (existing && (existing.stage === 'starting' || existing.stage === 'waiting_browser' || existing.stage === 'code_required')) {
       return { success: true, provider, alreadyRunning: true };
+    }
+
+    /*
+     * 계정 바꾸기(사장님 지적 2026-08-22 "앱에서 로그인하는 버튼은 없는데?").
+     *
+     * 로그인 버튼이 "설치됨 + 로그인 안 됨"일 때만 떠서, 이미 로그인된 사람은
+     * 다른 계정으로 갈아탈 방법이 화면에 없었다. 사이트에는 [계정 바꾸기]가
+     * 있는데 앱에는 없었다.
+     * 그냥 다시 로그인시키면 CLI 가 "이미 로그인돼 있습니다"로 끝나므로
+     * 기존 자격을 먼저 지워야 한다(2026-08-20 실측).
+     */
+    if (payload?.switchAccount) {
+      try {
+        await logoutAgent(provider);
+      } catch (error) {
+        // 로그아웃이 실패해도 로그인은 시도한다 — 이미 안 돼 있을 수도 있다.
+        console.warn('[AGENT-CLI] 계정 바꾸기 로그아웃 실패(로그인은 계속):', error);
+      }
     }
 
     const state: LoginSessionState = { stage: 'starting' };

@@ -5546,6 +5546,7 @@
                 <div style="margin-left:auto; display:flex; gap:6px;">
                   ${!s.installed ? `<button data-agent-install="${s.provider}" data-slot="agent-flow-${s.provider}" style="border:1px solid #7c3aed; background:#f3e8ff; color:#6b21a8; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700;">⬇ 자동 설치</button>` : ''}
                   ${(s.installed && !s.loggedIn) ? `<button data-agent-loginstart="${s.provider}" data-slot="agent-flow-${s.provider}" style="border:1px solid #fbbf24; background:#fef3c7; color:#92400e; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700;">🔑 로그인</button>` : ''}
+                  ${(s.installed && s.loggedIn) ? `<button data-agent-loginstart="${s.provider}" data-switch="1" data-slot="agent-flow-${s.provider}" style="border:1px solid #cbd5e1; background:white; color:#475569; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700;">🔁 계정 바꾸기</button>` : ''}
                   ${s.available ? `<button data-agent-test="${s.provider}" data-slot="agent-flow-${s.provider}" style="border:1px solid #cbd5e1; background:white; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700;">⚡ 연동 테스트</button>` : ''}
                 </div>
                 <div id="agent-flow-${s.provider}" style="flex-basis:100%; display:none; font-size:12.5px;"></div>
@@ -5586,11 +5587,20 @@
           const provider = btn.getAttribute('data-agent-loginstart');
           const slot = document.getElementById(btn.getAttribute('data-slot') || '');
           if (!slot) return;
+          /*
+           * 계정 바꾸기면 기존 자격을 먼저 지운다 — 안 지우면 CLI 가
+           * "이미 로그인돼 있습니다"로 끝나 계정이 안 바뀐다(2026-08-20 실측).
+           * 되돌릴 수 없으니 한 번 묻는다.
+           */
+          const switchAccount = btn.getAttribute('data-switch') === '1';
+          if (switchAccount && !confirm('지금 계정 연결을 끊고 다른 계정으로 로그인합니다. 계속할까요?')) return;
           slot.style.display = 'block';
-          slot.innerHTML = '<span style="color:#64748b;">로그인 시작 중…</span>';
+          slot.innerHTML = switchAccount
+            ? '<span style="color:#64748b;">기존 계정 연결을 끊는 중…</span>'
+            : '<span style="color:#64748b;">로그인 시작 중…</span>';
           btn.disabled = true;
           try {
-            const start = await sendIPCRequest('agent-cli-login-start', { provider });
+            const start = await sendIPCRequest('agent-cli-login-start', { provider, switchAccount });
             if (!start || !start.success) {
               slot.innerHTML = `<span style="color:#dc2626;">시작 실패: ${laneEsc(start && start.error)}</span>`;
               return;
