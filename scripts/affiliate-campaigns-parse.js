@@ -300,7 +300,7 @@ async function attachNeedKeywords(items, creds) {
     await sleep(150);
   }
 
-  return items.map((item, index) => {
+  const withNeed = items.map((item, index) => {
     // 의도 우선 · 자리 필수 — 최고 수요가 아니라 "쓸 수 있는 것 중 의도가 깊은" 후보.
     const best = pickNeedKeyword(
       candidatesByItem[index],
@@ -317,6 +317,152 @@ async function attachNeedKeywords(items, creds) {
       needRatio: best ? best.ratio : null,
       perSaleWon: perSaleCommission(item.price, item.reward),
     };
+  });
+
+  return attachWritableSlots(withNeed, {
+    candidatesByItem,
+    searchAd,
+    getNaverSearchAdKeywordVolume,
+    fetchNeedDocumentCount,
+  });
+}
+
+/**
+ * 쓸 수 있는 자리(롱테일) 발굴 — 사장님 지적 2026-08-22:
+ * "노출 어려움으로만 도배돼 있으면 노출된 걸 알려줘야 황금 제품 키워드 아니냐".
+ *
+ * 왜 전부 '노출 어려움'이었나: 니즈 후보가 전부 **브랜드+카테고리**(= 헤드)다.
+ * 실측 6건 전부 검색량 < 문서수 —
+ *   드리미 로봇청소기 24,940 / 44,301 · 한일 분쇄기 830 / 11,455
+ * 브랜드 이름에는 이미 그 브랜드 글이 쌓여 있으니 당연한 결과다.
+ * 제품을 바꿔 봐야 소용없다(브랜드커넥트 캠페인은 6건이 전부).
+ * 바꿀 것은 **키워드**다.
+ *
+ * 그래서 자동완성이 인정한 실제 롱테일을 뻗어 검색량·문서수를 재고,
+ * 검색량 ≥ 문서수(비율 1 이상)인 자리만 싣는다. 우리가 조합해 만들지 않는다 —
+ * 지어낸 말은 아무도 안 친다.
+ */
+async function attachWritableSlots(items, deps) {
+  const { candidatesByItem, searchAd, getNaverSearchAdKeywordVolume, fetchNeedDocumentCount } = deps;
+  /** 롱테일은 원래 작다 — 헤드와 같은 하한(300)을 걸면 전멸한다. */
+  const SLOT_MIN_VOLUME = Number(process.env.AFF_SLOT_MIN_VOLUME || 50);
+  const SLOT_PER_ITEM = 3;
+  /** 손으로 도는 스크립트라 예산을 못 박는다 — 자리 없는 상품부터 본다. */
+  const SLOT_MAX_ITEMS = Number(process.env.AFF_SLOT_MAX_ITEMS || 30);
+
+  const needsSlot = (item) => !(typeof item.needRatio === 'number' && item.needRatio >= 1);
+  const targets = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => needsSlot(item))
+    .slice(0, SLOT_MAX_ITEMS);
+  if (targets.length === 0) return items;
+  console.log(`\n자리 발굴 — 니즈가 막힌 상품 ${targets.length}건 (전체 ${items.length}건 중)`);
+
+  // ① 자동완성으로 롱테일을 뻗는다. 씨앗은 이미 뽑아 둔 니즈 후보(브랜드·카테고리).
+  const seedsByIndex = new Map();
+  const allCandidates = new Set();
+  for (const { item, index } of targets) {
+    const seeds = [...new Set([
+      item.needKeyword,
+      ...(candidatesByItem[index] || []).slice(0, 5),
+    ].filter(Boolean))].slice(0, 5);
+    const found = new Set();
+    for (const seed of seeds) {
+      for (const suggestion of await fetchNaverSuggestions(seed)) {
+        /*
+         * 씨앗으로 **시작**해야 한다(실측 2026-08-22). 포함만 보면 자동완성이
+         * 남의 브랜드를 물어 온다 — "빗고데기"를 물었더니 'jmw 빗고데기',
+         * '뉴메이슨 빗고데기'가 왔다. 슈틸루스터 제품을 파는데 경쟁사 키워드로
+         * 글을 쓰라는 셈이라 자리가 아니라 오답이다.
+         * 경계까지 본다: 씨앗 다음이 공백이거나 끝일 때만 같은 말로 친다.
+         */
+        if (!suggestion.startsWith(seed)) continue;
+        const next = suggestion.charAt(seed.length);
+        if (next !== ' ') continue;
+        if (suggestion.length > 25) continue;
+        found.add(suggestion);
+        allCandidates.add(suggestion);
+      }
+      await sleep(120);
+    }
+    seedsByIndex.set(index, [...found].slice(0, 12));
+  }
+  const pool = [...allCandidates];
+  console.log(`  자동완성이 인정한 롱테일 ${pool.length}개 실측 시작`);
+  if (pool.length === 0) return items;
+
+  // ② 검색량 — 검색광고는 한 번에 5개
+  const slotVolumes = new Map();
+  for (let i = 0; i < pool.length; i += 5) {
+    try {
+      const rows = await getNaverSearchAdKeywordVolume(searchAd, pool.slice(i, i + 5));
+      for (const row of rows || []) {
+        const total = (row.pcSearchVolume || 0) + (row.mobileSearchVolume || 0);
+        if (total > 0) slotVolumes.set(String(row.keyword).replace(/\s+/g, ''), total);
+      }
+    } catch (error) {
+      console.log(`  !! 자리 검색량 실패(${Math.floor(i / 5) + 1}번째 묶음) — ${String(error.message).slice(0, 60)}`);
+    }
+    await sleep(300);
+  }
+
+  // ③ 수요 하한을 넘은 것만 문서수를 잰다 — 문서수 조회가 더 비싸다
+  const slotDocs = new Map();
+  const worth = pool.filter((k) => (slotVolumes.get(k.replace(/\s+/g, '')) || 0) >= SLOT_MIN_VOLUME);
+  for (const keyword of worth) {
+    slotDocs.set(keyword.replace(/\s+/g, ''), await fetchNeedDocumentCount(keyword));
+    await sleep(150);
+  }
+  console.log(`  수요 ${SLOT_MIN_VOLUME}+ ${worth.length}개 문서수 실측 완료`);
+
+  const bySlot = new Map();
+  for (const { index } of targets) {
+    const rows = (seedsByIndex.get(index) || []).map((keyword) => {
+      const key = keyword.replace(/\s+/g, '');
+      const volume = slotVolumes.get(key) || 0;
+      const documentCount = slotDocs.has(key) ? slotDocs.get(key) : null;
+      if (volume < SLOT_MIN_VOLUME || typeof documentCount !== 'number') return null;
+      const ratio = Math.round((documentCount > 0 ? volume / documentCount : volume) * 10) / 10;
+      return { keyword, volume, documentCount, ratio };
+    }).filter(Boolean)
+      // 자리가 넓은 순 — 검색량 대비 글이 적을수록 앞이다.
+      .filter((row) => row.ratio >= 1)
+      .sort((a, b) => b.ratio - a.ratio)
+      .slice(0, SLOT_PER_ITEM);
+    if (rows.length > 0) bySlot.set(index, rows);
+  }
+  const opened = [...bySlot.values()].reduce((sum, rows) => sum + rows.length, 0);
+  console.log(`  자리 찾음 — 상품 ${bySlot.size}건에 키워드 ${opened}개`);
+
+  return items.map((item, index) => (bySlot.has(index) ? { ...item, slots: bySlot.get(index) } : item));
+}
+
+/**
+ * 네이버 자동완성 — 사람이 실제로 치는 말인지의 유일한 무료 판정기.
+ * 실패하면 빈 배열이다. 못 받아 온 것을 지어내지 않는다.
+ */
+function fetchNaverSuggestions(query) {
+  const url = 'https://ac.search.naver.com/nx/ac'
+    + `?q=${encodeURIComponent(query)}&st=100&r_format=json&r_enc=UTF-8&r_unicode=0&t_koreng=1&frm=nv&q_enc=UTF-8`;
+  return new Promise((resolve) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://search.naver.com/' } }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          const groups = Array.isArray(parsed.items) ? parsed.items : [];
+          const out = [];
+          for (const group of groups) {
+            for (const row of Array.isArray(group) ? group : []) {
+              const text = Array.isArray(row) ? String(row[0] || '') : String(row || '');
+              if (text.trim()) out.push(text.trim());
+            }
+          }
+          resolve([...new Set(out)]);
+        } catch { resolve([]); }
+      });
+    }).on('error', () => resolve([]));
   });
 }
 
