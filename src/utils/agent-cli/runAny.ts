@@ -30,6 +30,23 @@ export interface AgentRunResult {
   failures: Record<string, string>;
 }
 
+/**
+ * 사용 장부에 한 줄 적는다 — "얼마나 썼나"를 이 앱이 직접 세기 위해서다
+ * (사장님 지시 2026-08-22: 코덱스·제미나이·그록은 서비스가 사용량을 안 준다).
+ *
+ * 동적으로 부른다. 이 파일은 CI 스크립트(enrich-board.js 등)에서도 도는데,
+ * 장부는 electron 의 userData 경로를 쓴다 — 위에서 정적으로 import 하면
+ * 일렉트론 없는 환경에서 모듈 로드 자체가 터진다. 기록이 안 되는 건 감수한다.
+ */
+async function recordRun(provider: AgentProviderName, ok: boolean): Promise<void> {
+  try {
+    const { recordAgentRun } = await import('./usageLedger');
+    await recordAgentRun(provider, ok);
+  } catch {
+    // 일렉트론 밖(CI)에서는 적지 않는다. 추론은 이미 끝났으니 막지 않는다.
+  }
+}
+
 export async function runWithAnyAgent(
   prompt: string,
   attempts: readonly AgentAttempt[],
@@ -45,13 +62,17 @@ export async function runWithAnyAgent(
       const reply = await attempt.run(prompt, options);
       // 공백만 온 것은 성공이 아니다 — 다음 제공자에게 기회를 준다.
       if (typeof reply === 'string' && reply.trim().length > 0) {
+        await recordRun(attempt.provider, true);
         return { reply, provider: attempt.provider, tried, failures };
       }
       lastError = 'empty_reply';
       failures[attempt.provider] = lastError;
+      await recordRun(attempt.provider, false);
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
       failures[attempt.provider] = lastError;
+      // 실패도 적는다 — 한도에 부딪힌 것도 사용이다.
+      await recordRun(attempt.provider, false);
     }
   }
 

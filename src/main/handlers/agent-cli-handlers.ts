@@ -63,6 +63,25 @@ export function setupAgentCliHandlers(): void {
   });
 
   /*
+   * 엔진별 사용량(사장님 지시 2026-08-22 "몇 회 쓸 수 있고 몇 시간 뒤
+   * 초기화되는지 보여줘야 조절합니다").
+   *
+   * 클로드만 서비스가 사용률·초기화 시각을 준다. 나머지 셋은 CLI 에도 인증
+   * 파일에도 사용량이 없고 서비스가 "몇 회" 한도를 공표하지도 않는다
+   * (실측: codex/grok --help 전수, codex exec --json 메타데이터).
+   * 그래서 **이 앱이 센 횟수**를 돌려준다 — 지어낸 한도보다 조절에 쓸모 있다.
+   */
+  ipcMain.handle('agent-cli-usage', async () => {
+    try {
+      const { summarizeAgentUsage } = await import('../../utils/agent-cli/usageLedger');
+      return { success: true, usage: await summarizeAgentUsage() };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, error: message };
+    }
+  });
+
+  /*
    * 자동 설치 — 앱 소유 프리픽스(userData/agent-runtime)에 npm 글로벌 설치.
    * 진행 콜백이 없는 API 라(installer 원설계) "설치 중" 단일 상태로 감싼다.
    * 최대 5분. 성공 기준은 설치 후 detect 재검증까지 통과한 것(installer 내부).

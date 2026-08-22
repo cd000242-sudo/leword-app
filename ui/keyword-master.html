@@ -5491,6 +5491,39 @@
           grok: { name: 'Grok Build', sub: 'SuperGrok / X Premium+ 구독 (grok-4.6)' },
         };
 
+        /*
+         * 구독하러 가기(사장님 지시 2026-08-22 "구독이 안 되어 있으면 구독하러
+         * 가기 버튼을 누르면 바로 구독창이 뜨게"). 각 서비스의 결제/업그레이드
+         * 진입점이다. 안티그래비티는 별도 구독이 아니라 Google AI 요금제에
+         * 딸려 오므로 그 요금제 페이지로 보낸다.
+         */
+        const AGENT_SUBSCRIBE_URL = {
+          claude: 'https://claude.ai/upgrade',
+          codex: 'https://chatgpt.com/#pricing',
+          gemini: 'https://one.google.com/about/google-ai-plans',
+          grok: 'https://grok.com',
+        };
+
+        /** 이 앱이 센 사용량. 서비스가 준 값이 아니라는 것을 화면에도 적는다. */
+        let agentUsageByProvider = {};
+
+        function agentUsageLine(provider) {
+          const u = agentUsageByProvider[provider];
+          if (!u) return '';
+          if (!u.window5h) {
+            return '<span style="color:#94a3b8;">이 앱에서 최근 5시간 사용 0회</span>';
+          }
+          const reset = u.resetAt ? new Date(u.resetAt) : null;
+          const leftMin = reset ? Math.max(0, Math.round((reset.getTime() - Date.now()) / 60000)) : null;
+          const leftText = leftMin === null ? ''
+            : leftMin >= 60 ? `${Math.floor(leftMin / 60)}시간 ${leftMin % 60}분 뒤 창 초기화`
+              : `${leftMin}분 뒤 창 초기화`;
+          const fail = u.failed5h ? ` · <span style="color:#b45309;">실패 ${u.failed5h}회</span>` : '';
+          return `<span style="color:#475569;">이 앱에서 <b>최근 5시간 ${u.window5h}회</b>`
+            + ` · 24시간 ${u.day}회${fail}</span>`
+            + (leftText ? ` <span style="color:#94a3b8;">· ${laneEsc(leftText)}</span>` : '');
+        }
+
         function closeAgentCliModal() {
           if (agentCliEl) { agentCliEl.remove(); agentCliEl = null; }
         }
@@ -5526,6 +5559,17 @@
             if (codeBtn) { await agentCliSubmitCode(codeBtn); return; }
             const testBtn = e.target.closest('[data-agent-test]');
             if (testBtn) { await agentCliTest(testBtn); return; }
+            const subBtn = e.target.closest('[data-agent-subscribe]');
+            if (subBtn) {
+              const url = AGENT_SUBSCRIBE_URL[subBtn.getAttribute('data-agent-subscribe')];
+              // 기본 브라우저에서 연다 — 앱 창 안에서 결제를 진행시키지 않는다.
+              if (url) {
+                if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(url);
+                else if (window.blogger && window.blogger.openLink) window.blogger.openLink(url);
+                else window.open(url, '_blank');
+              }
+              return;
+            }
           });
           agentCliRefresh(false);
         }
@@ -5541,6 +5585,16 @@
           const box = agentCliEl && agentCliEl.querySelector('#agent-cli-rows');
           if (!box) return;
           box.innerHTML = '<div style="padding:18px; color:#64748b;">CLI 실측 감지 중… (버전 + 로그인 프로브)</div>';
+          /*
+           * 사용량은 상태와 함께 읽는다 — 따로 부르면 두 번 그려야 하고,
+           * 감지가 느린 회차에 사용량만 먼저 떠 화면이 덜컥거린다.
+           * 실패해도 감지는 계속한다(사용량은 부가 정보다).
+           */
+          try {
+            const u = await sendIPCRequest('agent-cli-usage', {});
+            agentUsageByProvider = {};
+            if (u && u.success) for (const row of u.usage || []) agentUsageByProvider[row.provider] = row;
+          } catch { agentUsageByProvider = {}; }
           const res = await sendIPCRequest('agent-cli-status', { forceRefresh: !!force });
           if (!res || !res.success) {
             box.innerHTML = `<div style="padding:16px; color:#dc2626;">감지 실패: ${laneEsc(res && res.error)}</div>`;
@@ -5551,15 +5605,28 @@
             const detail = [s.version, s.detail].filter(Boolean).join(' · ');
             return `
               <div style="background:white; border:1px solid #e2e8f0; border-radius:12px; padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-                <div style="min-width:200px;">
+                <div style="min-width:200px; flex:1;">
                   <div style="font-weight:800; font-size:14.5px;">${meta.name} ${agentCliBadge(s)}</div>
                   <div style="font-size:11.5px; color:#94a3b8; margin-top:2px;">${meta.sub}${detail ? ' — ' + laneEsc(detail) : ''}</div>
+                  <div style="font-size:11.5px; margin-top:5px;">${agentUsageLine(s.provider)}</div>
                 </div>
                 <div style="margin-left:auto; display:flex; gap:6px;">
-                  ${!s.installed ? `<button data-agent-install="${s.provider}" data-slot="agent-flow-${s.provider}" style="border:1px solid #7c3aed; background:#f3e8ff; color:#6b21a8; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700;">⬇ 자동 설치</button>` : ''}
+                  ${/*
+                     * 미설치여도 버튼 하나로 끝낸다(사장님 지시 2026-08-22
+                     * "로그인 버튼이나 연동을 누르면 한 번에 되어야 하고").
+                     * 예전엔 [자동 설치] → [로그인] 두 번이었고, 미설치 상태에서
+                     * 로그인을 누르면 "CLI 를 못 찾음"으로 끝났다.
+                     */ ''}
+                  ${!s.installed ? `<button data-agent-loginstart="${s.provider}" data-needs-install="1" data-slot="agent-flow-${s.provider}" style="border:1px solid #7c3aed; background:#7c3aed; color:white; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:800;">⬇ 설치하고 로그인</button>` : ''}
                   ${(s.installed && !s.loggedIn) ? `<button data-agent-loginstart="${s.provider}" data-slot="agent-flow-${s.provider}" style="border:1px solid #fbbf24; background:#fef3c7; color:#92400e; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700;">🔑 로그인</button>` : ''}
                   ${(s.installed && s.loggedIn) ? `<button data-agent-loginstart="${s.provider}" data-switch="1" data-slot="agent-flow-${s.provider}" style="border:1px solid #cbd5e1; background:white; color:#475569; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700;">🔁 계정 바꾸기</button>` : ''}
                   ${s.available ? `<button data-agent-test="${s.provider}" data-slot="agent-flow-${s.provider}" style="border:1px solid #cbd5e1; background:white; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:700;">⚡ 연동 테스트</button>` : ''}
+                  ${/*
+                     * 구독이 없거나 만료돼서 못 쓰는 상태면 결제 페이지로 바로 보낸다
+                     * (사장님 지시 2026-08-22). 로그인은 됐는데 available 이 아닌 경우가
+                     * 정확히 그 상태다 — 구독이 없으면 CLI 가 추론을 거부한다.
+                     */ ''}
+                  ${(s.loggedIn && !s.available) ? `<button data-agent-subscribe="${s.provider}" style="border:1px solid #7c3aed; background:#7c3aed; color:white; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:12px; font-weight:800;">💳 구독하러 가기</button>` : ''}
                 </div>
                 <div id="agent-flow-${s.provider}" style="flex-basis:100%; display:none; font-size:12.5px;"></div>
               </div>`;
@@ -5607,6 +5674,30 @@
           const switchAccount = btn.getAttribute('data-switch') === '1';
           if (switchAccount && !confirm('지금 계정 연결을 끊고 다른 계정으로 로그인합니다. 계속할까요?')) return;
           slot.style.display = 'block';
+
+          /*
+           * 설치가 안 돼 있으면 설치부터 이어서 한다(사장님 지시 2026-08-22
+           * "로그인 버튼이나 연동을 누르면 한 번에 되어야 하고").
+           * 예전엔 [자동 설치]와 [로그인]이 따로라, 미설치 상태에서 로그인을
+           * 누르면 "CLI 를 못 찾음"으로 끝났다 — 사용자는 왜 안 되는지 모른다.
+           */
+          if (btn.getAttribute('data-needs-install') === '1') {
+            slot.innerHTML = '<span style="color:#64748b;">⬇ 먼저 설치합니다… 최대 5분 (앱 전용 공간 — 관리자 권한·Node 설치 불필요)</span>';
+            btn.disabled = true;
+            try {
+              const installed = await sendIPCRequest('agent-cli-install', { provider });
+              if (!installed || !installed.success) {
+                slot.innerHTML = `<span style="color:#dc2626;">❌ 설치 실패: ${laneEsc(installed && installed.error)}</span>`;
+                return;
+              }
+              slot.innerHTML = '<span style="color:#15803d;">✅ 설치 완료 — 이어서 로그인합니다…</span>';
+            } catch (error) {
+              slot.innerHTML = `<span style="color:#dc2626;">❌ 설치 실패: ${laneEsc(String(error && error.message || error))}</span>`;
+              return;
+            } finally {
+              btn.disabled = false;
+            }
+          }
           slot.innerHTML = switchAccount
             ? '<span style="color:#64748b;">기존 계정 연결을 끊는 중…</span>'
             : '<span style="color:#64748b;">로그인 시작 중…</span>';
