@@ -57,7 +57,12 @@ export const SEO_SUFFIX: Record<TitleFrame, string> = {
   recommend: '고르는 기준',
   howto: '단계별 방법',
   checklist: '빠뜨리기 쉬운 것들',
-  generic: '기본 정보와 최근 소식',
+  /*
+   * 근거가 없을 때 나오는 문구다. 그러니 **아무것도 단정하면 안 된다**.
+   * 옛 문구 '기본 정보와 최근 소식' 은 '최근 소식' 이 있다고 단정했다 —
+   * 우리는 그런 걸 잰 적이 없다(사장님 지적 2026-08-22).
+   */
+  generic: '어떤 정보가 있는지',
 };
 
 export const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => string> = {
@@ -70,7 +75,15 @@ export const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => st
   recommend: (kw) => `${kw} 고르다 지쳤다면 볼 것`,
   howto: (kw) => `${kw}, 어렵게 할 필요 없습니다`,
   checklist: (kw) => `${kw}, 이 글 하나로 끝냅니다`,
-  generic: (kw) => `${kw}, 지금 왜 찾는 사람이 많을까`,
+  /*
+   * 옛 문구 `${kw}, 지금 왜 찾는 사람이 많을까` 를 버린다(사장님 지적 2026-08-22
+   * '오퍼레이터24hr' 실사고). 두 가지가 동시에 잘못됐다.
+   *   ① "찾는 사람이 많다" 를 단정한다 — 급증을 잰 적이 없는 자리인데 그렇다고 쓴다.
+   *   ② 왜 뜨는지는 **우리가 알아내야 할 것**인데, 그 질문을 그대로 제목으로 낸다.
+   * 근거가 없을 때는 모른다는 사실에 맞는 말을 쓴다 — 단정도 질문 떠넘기기도 없이.
+   * 쉼표 이분법도 피한다(홈판 교리 ②).
+   */
+  generic: (kw) => `${kw} 이게 뭔지 몰라서 찾아봤습니다`,
 };
 
 /**

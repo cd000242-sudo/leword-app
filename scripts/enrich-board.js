@@ -176,7 +176,7 @@ async function harvestRelated(searchAd, mainKeyword) {
 }
 
 /** 클로드에 문제해결형 파생 제안을 받는다 — 반환은 미검증 후보다. */
-async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandidates) {
+async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandidates, serpEvidence) {
   /*
    * 2026-08-18 실측: "문제해결형만" 을 강요했더니 제안 142건 중 3건만 실존
    * 확인을 통과했다(2%). 각도를 좁게 못 박으면 AI 가 **말이 되는 검색어를
@@ -246,6 +246,19 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
       '- 검색창에 치는 짧은 명사구: 2~4어절, 공백 제외 15자 이내. 질문 문장 금지',
       'JSON 만 출력: {"new":["검색어1","검색어2",...], "picked":[]}',
     ]),
+    /*
+     * 1페이지 실측 제목 — 연관 검색어가 없는 행에서는 **이게 유일한 근거**다.
+     * 네이버가 그 검색어에 실제로 물려 놓은 글들이라 정체가 여기서 읽힌다.
+     */
+    ...(serpEvidence && Array.isArray(serpEvidence.serpTitles) && serpEvidence.serpTitles.length > 0 ? [
+      '',
+      `참고 — "${mainKeyword}" 네이버 1페이지에 실제로 걸려 있는 글 제목이다(실측):`,
+      ...serpEvidence.serpTitles.map((t) => `  · ${t}`),
+      '이 제목들이 무엇을 다루는지 보면 이 검색어의 정체와 검색 의도가 읽힌다. why 를 쓸 때 근거로 삼아라.',
+    ] : []),
+    ...(serpEvidence && Array.isArray(serpEvidence.kinQuestions) && serpEvidence.kinQuestions.length > 0 ? [
+      `참고 — 같은 검색어로 올라온 지식인 질문(실측): ${serpEvidence.kinQuestions.join(' / ')}`,
+    ] : []),
     ...(relatedCandidates && relatedCandidates.length > 0 ? [
       '',
       '새 검색어(new) 형식:',
@@ -284,6 +297,15 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
     '  "~하는 방법" 서술형·"핵심 정리"류 라벨형은 전부 탈락이다.',
     `- why: 사람들이 지금 "${mainKeyword}" 를 검색하는 이유 한 문장(60자 이내).`,
     '  위 실측 검색어들에서 읽히는 의도만 근거로 써라. 근거 없는 사건·날짜를 지어내지 마라.',
+    /*
+     * 알아내는 것이 임무라는 걸 못 박는다(2026-08-22). 근거가 부족하면
+     * 비워야지, 모른다는 사실을 "왜 찾을까" 같은 **질문 제목**으로 떠넘기면 안 된다.
+     */
+    '  이건 우리가 알아내야 하는 것이다. 알아낸 답을 쓰는 자리이지, 질문을 되던지는 자리가 아니다.',
+    '  1페이지 제목이 무엇을 다루는지 보면 대개 정체가 읽힌다 — 채널·업체·제품·인물 중 무엇인지,',
+    '  그리고 검색하는 사람이 거기서 뭘 얻으려는지까지 한 문장으로 적어라.',
+    '  정말 근거가 없으면 why 를 빈 문자열로 두어라. 지어내는 것보다 비는 편이 낫다.',
+    '  같은 이유로, 근거 없이 "요즘 뜬다"·"찾는 사람이 많다" 같은 급증 단정을 제목에도 쓰지 마라.',
     '',
     '최종 출력(JSON 하나만): {"new":[...], "picked":[...], "seo":"...", "home":"...", "why":"..."}',
   ].join('\n');
@@ -554,10 +576,26 @@ async function main() {
     let picked = [];
     let titlesRaw = { seoRaw: '', homeRaw: '', whyRaw: '' };
     try {
+      /*
+       * SERP 실측을 같이 넘긴다(2026-08-22).
+       *
+       * '오퍼레이터24hr' 실사고: 연관 검색어가 0개인 행은 AI 에게 줄 근거가
+       * 통째로 없어서 why 가 비었고, 그래서 제목이 "지금 왜 찾는 사람이
+       * 많을까" 라는 **질문**으로 나갔다. 사장님 지적 — 왜 뜨는지 알아내는
+       * 게 우리 일인데 질문을 제목으로 냈다.
+       * 정작 답은 이미 행에 있었다: 1페이지 실제 제목에 '한국이네오스…
+       * 연봉정보' · '연암공과대학교 기계공학과' · '생산직 갤러리' 가 실려
+       * 있었다. 수집해 놓고 프롬프트에 안 실은 것뿐이다.
+       */
+      const meaning = row.meaning || {};
       const result = await proposeSubKeywords(
         row.keyword,
         related.tokenMatched.map((r) => r.keyword),
         related.candidates.map((r) => r.keyword),
+        {
+          serpTitles: Array.isArray(meaning.citedTitles) ? meaning.citedTitles.slice(0, 10) : [],
+          kinQuestions: Array.isArray(meaning.questions) ? meaning.questions.slice(0, 5) : [],
+        },
       );
       proposals = result.proposals;
       picked = result.picked;
@@ -665,7 +703,21 @@ async function main() {
      */
     const why = String(titlesRaw.whyRaw || '').replace(/^["']|["']$/g, '').replace(/\s+/g, ' ').trim();
     if (why.length >= 10 && why.length <= 70 && !TITLE_CLICHES.test(why)) {
-      row.whySearch = { text: why, basis: 'AI 추론 — 실측 연관 검색어 근거' };
+      /*
+       * 근거 라벨은 **실제로 쓴 재료**를 적는다(2026-08-22).
+       * 연관어가 0개인 행까지 "실측 연관 검색어 근거" 라고 찍혀 나갔다 —
+       * 그 행이 실제로 본 것은 1페이지 제목이었다. 라벨이 틀리면 화면의
+       * 근거 표기가 거짓말이 된다.
+       */
+      const serpTitleCount = Array.isArray((row.meaning || {}).citedTitles)
+        ? row.meaning.citedTitles.length : 0;
+      const sources = [];
+      if (related.tokenMatched.length > 0 || related.candidates.length > 0) sources.push('실측 연관 검색어');
+      if (serpTitleCount > 0) sources.push(`1페이지 제목 ${serpTitleCount}건`);
+      row.whySearch = {
+        text: why,
+        basis: `AI 추론 — ${sources.length > 0 ? sources.join(' + ') : '근거 부족'}`,
+      };
       stats.whyAdded = (stats.whyAdded || 0) + 1;
     }
 
