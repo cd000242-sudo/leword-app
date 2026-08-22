@@ -729,7 +729,11 @@
        * 모달을 맨 앞으로 — 제거한 서버 보드 블록에 있던 보조 함수다(2026-08-20).
        * 분석 결과 오버레이 두 곳이 아직 쓰므로 여기로 옮겨 살려 둔다.
        */
-      window.lewordTopZ = window.lewordTopZ || 10000;
+      /*
+       * 10000 에서 시작하면 키워드 API 설정 모달(z-index 10100 고정)보다 아래라,
+       * 그 모달 안에서 연 창이 뒤에 깔려 안 보인다. 설정 모달 위에서 시작한다.
+       */
+      window.lewordTopZ = window.lewordTopZ || 10200;
       window.lewordBringToFront = function (el) {
         if (!el) return;
         window.lewordTopZ += 10;
@@ -2459,28 +2463,11 @@
             <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
           </button>
 
-          <!-- 🤖 AI 엔진 연동 (구독 CLI: Claude Code · Codex · Gemini) -->
-          <button onclick="openAgentCliModal()" style="
-            background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
-            border: none;
-            border-radius: 16px;
-            padding: 24px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            box-shadow: 0 4px 20px rgba(51, 65, 85, 0.35);
-            text-align: left;
-          " onmouseover="this.style.transform='translateY(-4px)'"
-             onmouseout="this.style.transform='translateY(0)'">
-            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.15); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🤖</div>
-            <div style="flex: 1;">
-              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">AI 엔진 연동</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.8);">Claude Code · Codex · Gemini 구독 CLI — 상태 확인 · 로그인 · 연동 테스트</div>
-            </div>
-            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
-          </button>
+          <!--
+            🤖 AI 엔진 연동은 [⚙️ 키워드 API 설정] 안으로 옮겼다(2026-08-22).
+            사장님 지적: "환경설정을 정리해 놨는데 거기 있어야 하는 거 아니니?"
+            키를 설정하는 일이라 다른 키들과 같은 자리에 있어야 한다.
+          -->
 
           <!-- 🛒 쇼핑 커넥트 -->
           <button onclick="openShoppingConnectModal()" style="
@@ -2633,6 +2620,31 @@
               <p style="font-size: 14px; color: rgba(255, 255, 255, 0.7); margin: 8px 0 0 0;">키워드 조회에 필요한 API 키를 설정하세요
               </p>
             </div>
+              <!--
+                🤖 AI 엔진 연동 — 사장님 지적 2026-08-22
+                "환경설정을 정리해 놨는데 거기 있어야 하는 거 아니니? 왜 추가 기능에 넣었데?"
+                맞다. 이건 키를 설정하는 일이라 다른 키들과 같은 자리에 있어야 한다.
+                추가 기능 섹션에서는 뺐다.
+              -->
+              <div onclick="openAgentCliModal()"
+                style="background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; border: 2px solid rgba(148, 163, 184, 0.35); margin-bottom: 20px; cursor: pointer; transition: border-color .2s, transform .2s;"
+                onmouseover="this.style.borderColor='rgba(148,163,184,0.7)'; this.style.transform='translateY(-2px)'"
+                onmouseout="this.style.borderColor='rgba(148,163,184,0.35)'; this.style.transform='translateY(0)'">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #334155 0%, #1e293b 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size: 20px;">🤖</span>
+                  </div>
+                  <div style="flex: 1;">
+                    <div style="font-size: 17px; font-weight: 700; color: white;">AI 엔진 연동</div>
+                    <div style="font-size: 12.5px; color: rgba(255,255,255,0.65); margin-top: 3px;">
+                      클로드코드 · 코덱스 · 안티그래비티 · 그록 — 본인 구독으로 돕니다(API 키·추가 요금 없음).
+                      설치 · 로그인 · 계정 바꾸기 · 연동 테스트를 여기서 합니다.
+                    </div>
+                  </div>
+                  <span style="font-size: 22px; color: rgba(255,255,255,0.6);">→</span>
+                </div>
+              </div>
+
               <!-- 네이버 API -->
               <div
                 style="background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; border: 2px solid rgba(16, 185, 129, 0.3);">
