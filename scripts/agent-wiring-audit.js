@@ -95,6 +95,41 @@ async function auditBridge() {
   return agents;
 }
 
+/**
+ * ①-B 앱이 사이트 연동까지 대신 해 줄 수 있나.
+ *
+ * 사장님 지시 2026-08-22: "앱만 켜놓고 연동시키고 나서 사이트도 같이
+ * 연동시키면 끝나는 거 아니야?" — 클로드는 그게 된다. CLI 가 자격을
+ * sk-ant 토큰으로 들고 있어 사이트 서버가 그대로 쓴다.
+ * 토큰 값은 절대 찍지 않는다 — 있는지·구독 유형만 확인한다.
+ */
+async function auditHandoff() {
+  console.log('\n①-B 앱 → 사이트 자동 연동(클로드)');
+  const probe = await ask('/v1/bridge/claude-credentials', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+  }, 15_000);
+  if (probe.status === 404) {
+    fail('자동연동', '앱에 claude-credentials 경로가 없습니다 — 앱이 구버전입니다(빌드 후 재시작 필요).');
+    console.log('   ❌ 경로 없음(404) — 앱을 껐다 켜야 새 코드가 뜹니다');
+    return;
+  }
+  const result = probe.body && probe.body.result;
+  if (probe.status === 200 && probe.body && probe.body.ok && result && result.ok) {
+    console.log(`   ✅ 넘길 수 있음 · 구독 "${result.subscriptionType || '(없음)'}" · 등급 "${result.rateLimitTier || '(없음)'}"`);
+    if (!String(result.subscriptionType || '').trim()) {
+      warn('자동연동', '자격은 있는데 구독 유형이 비어 있습니다.');
+    }
+  } else if (result && result.reason === 'not-logged-in') {
+    warn('자동연동', '앱에 클로드 로그인이 없습니다 — 앱에서 클로드 로그인부터 하세요.');
+    console.log('   ⚠️  클로드 로그인 없음');
+  } else {
+    fail('자동연동', '자격 전달 경로가 응답하지 않습니다.', probe.error || `HTTP ${probe.status}`);
+    console.log('   ❌ 응답 이상:', probe.error || probe.status);
+  }
+  console.log('   ※ 코덱스·제미나이·그록은 넘길 수 없다(각 서비스 로그인 세션이라');
+  console.log('     서버가 쓸 토큰으로 바꿀 방법이 없다) — 앱을 켜 두고 앱 경유로 쓴다.');
+}
+
 /** ② 진짜 도는가 — 상태가 available 이라고 말하는 것과 실행되는 것은 다른 사실이다. */
 async function auditRun(agents) {
   console.log('\n② 실제 추론 왕복(--run)');
@@ -219,6 +254,7 @@ function auditWorkerRequirement() {
   console.log('='.repeat(66));
 
   const agents = await auditBridge();
+  await auditHandoff();
   await auditRun(agents);
   auditSiteWiring();
   auditWorkerRequirement();

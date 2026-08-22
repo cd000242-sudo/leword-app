@@ -73,6 +73,20 @@ export interface WebBridgeDeps {
     provider?: string;
   }) => Promise<unknown>;
   /**
+   * 클로드 구독 자격을 사이트에 넘긴다(사장님 지시 2026-08-22
+   * "앱만 켜놓고 연동시키고 나서 사이트도 같이 연동시키면 끝나는 거 아니야?").
+   *
+   * 맞다 — 단 클로드만 된다. 클로드 CLI 는 자격을 sk-ant 토큰으로 들고 있어
+   * 사이트 서버가 그대로 쓸 수 있다. 코덱스·제미나이·그록은 각 서비스의
+   * 로그인 세션이라 서버가 쓸 토큰으로 바꿀 방법이 없다(실측: ~/.codex/auth.json
+   * 은 ChatGPT OAuth, ~/.grok/auth.json 은 x.ai 세션 키, 제미나이는 자격 파일이
+   * 아예 없다). 그 셋은 앱을 켜 두고 앱 경유로 쓰는 것이 유일한 길이다.
+   *
+   * 토큰이 나가는 경로라 Origin 허용목록(leaderspro.kr 계열)이 방어선이다 —
+   * 그 검사는 이 파일 위쪽 공통 경로에서 이미 끝난다.
+   */
+  claudeCredentials?: () => Promise<unknown>;
+  /**
    * CLI 로그인 시작(사장님 지시 2026-08-20 "나머지도 버튼으로 바로 연동") —
    * 코덱스·제미나이·그록은 OAuth 리다이렉트가 이 PC 로 오므로 사이트가 직접
    * 받을 수 없다. 앱이 CLI 로그인을 띄우고 브라우저를 여는 것이 유일한 길이다.
@@ -245,6 +259,11 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.kinAnswer({ title, body, withLink, blogUrl, provider }) });
+        return;
+      }
+
+      if (deps.claudeCredentials && req.method === 'POST' && req.url === '/v1/bridge/claude-credentials') {
+        json(res, 200, { ok: true, result: await deps.claudeCredentials() });
         return;
       }
 
