@@ -74,6 +74,18 @@ function toPublicRow(row) {
     // '밭 비어 있음'은 정면 글 실측으로 잰다(early-mover 2026-08-12 교체와 짝).
     facingPosts: row.serp && typeof row.serp.exactTitleHits === 'number' ? row.serp.exactTitleHits : null,
     sampledTitles: row.serp && typeof row.serp.sampledTitles === 'number' ? row.serp.sampledTitles : null,
+    /*
+     * 상위 10개에 **실제로 뭐가 있는지**를 같이 싣는다
+     * (사장님 지시 2026-08-22 "자리라는 건 상위노출 자리인데, 상위에 정말
+     * 자리가 있는지 확인해 줘야 돼").
+     *
+     * 판정은 이미 하고 있었다 — exactTitleHits 0 이면 "정면으로 다룬 글 0건".
+     * 그런데 발행에서 목록이 떨어져 화면은 숫자만 받았다. 숫자만 보면
+     * "어딜 봐서 빈자리냐"에 답할 수가 없다. 실물을 함께 보낸다.
+     */
+    topTitles: row.serp && Array.isArray(row.serp.topTitles)
+      ? row.serp.topTitles.slice(0, 10).map((title) => String(title).slice(0, 90))
+      : null,
     // null(못 쟀음)을 false 로 눌러 담으면 안 잰 사실이 근거로 되살아난다.
     inRealtimeNow: row.inRealtimeNow ?? null,
     firstSeenAt: row.firstSeenAt || null,
