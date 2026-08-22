@@ -31,25 +31,60 @@ export interface GrokRunOptions {
   signal?: AbortSignal;
 }
 
-/** Pull the reply text out of grok's JSON envelope; tolerate shape drift. */
+/** Read one parsed envelope; returns null when it carries no usable text. */
+function readGrokEnvelope(
+  parsed: Record<string, unknown>,
+): { text: string; isError: boolean; errorMessage: string } | null {
+  if (parsed['type'] === 'error') {
+    return { text: '', isError: true, errorMessage: String(parsed['message'] || 'grok error') };
+  }
+  const text = [parsed['result'], parsed['text'], parsed['message'], parsed['content']]
+    .find((value) => typeof value === 'string' && value.trim().length > 0);
+  return typeof text === 'string' ? { text, isError: false, errorMessage: '' } : null;
+}
+
+/**
+ * Pull the reply text out of grok's JSON envelope; tolerate shape drift.
+ *
+ * `--output-format json` prints ONE pretty-printed object across many lines
+ * (measured 2026-08-22):
+ *   {
+ *     "text": "확인",
+ *     "stopReason": "end_turn",
+ *     ...
+ * Scanning line by line therefore parses nothing and the whole blob fell through
+ * to the raw-stdout fallback — a Grok answer arrived on screen as JSON source.
+ * Parse the whole output first, then fall back to per-line scanning for the
+ * streaming shape.
+ */
 function extractGrokReply(stdout: string): { text: string; isError: boolean; errorMessage: string } {
   const trimmed = String(stdout || '').trim();
-  // The envelope may be one object or one-object-per-line; scan lines from the end.
+
+  if (trimmed.startsWith('{')) {
+    try {
+      const whole = readGrokEnvelope(JSON.parse(trimmed) as Record<string, unknown>);
+      if (whole) return whole;
+    } catch { /* not one object — fall through to line scanning */ }
+  }
+
+  // The envelope may also be one-object-per-line; scan lines from the end.
   const lines = trimmed.split(/\r?\n/).reverse();
   for (const line of lines) {
     const candidate = line.trim();
     if (!candidate.startsWith('{')) continue;
     try {
-      const parsed = JSON.parse(candidate) as Record<string, unknown>;
-      if (parsed['type'] === 'error') {
-        return { text: '', isError: true, errorMessage: String(parsed['message'] || 'grok error') };
-      }
-      const text = [parsed['result'], parsed['text'], parsed['message'], parsed['content']]
-        .find((value) => typeof value === 'string' && value.trim().length > 0);
-      if (typeof text === 'string') return { text, isError: false, errorMessage: '' };
+      const found = readGrokEnvelope(JSON.parse(candidate) as Record<string, unknown>);
+      if (found) return found;
     } catch { /* not JSON — keep scanning */ }
   }
-  // No parsable envelope — treat raw stdout as the reply (better than losing it).
+
+  /*
+   * No parsable envelope. Returning raw stdout would put JSON source in front of
+   * the user, so refuse instead — the caller falls to the next engine.
+   */
+  if (trimmed.startsWith('{')) {
+    return { text: '', isError: true, errorMessage: 'grok 응답을 읽지 못했습니다(형식이 바뀐 것 같습니다).' };
+  }
   return { text: trimmed, isError: false, errorMessage: '' };
 }
 
