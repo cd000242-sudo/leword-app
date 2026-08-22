@@ -8356,8 +8356,11 @@
       `;
 
           competitors.forEach((comp) => {
-            const wordCountStr = comp.wordCount ? `약 ${comp.wordCount.toLocaleString()}자` : '알 수 없음';
-            const imagesStr = comp.images ? `${comp.images}개 추정` : '-';
+            // 실측한 것만 숫자로 쓴다. 못 잰 것은 '미측정' — 지어낸 숫자를 보여 주지 않는다.
+            const wordCountStr = comp.measured && typeof comp.wordCount === 'number'
+              ? `${comp.wordCount.toLocaleString()}자` : '미측정';
+            const imagesStr = comp.measured && typeof comp.images === 'number'
+              ? `${comp.images}개` : '미측정';
 
             html += `
           <div class="result-item" style="position: relative; cursor: pointer;" 
@@ -8386,21 +8389,29 @@
         `;
           });
 
-          // 분석 요약 추가
-          const avgWordCount = Math.round(competitors.reduce((sum, c) => sum + (c.wordCount || 0), 0) / competitors.length);
-          const maxWordCount = Math.max(...competitors.map((c) => c.wordCount || 0));
-          const minWordCount = Math.min(...competitors.map((c) => c.wordCount || 0));
+          // 분석 요약 — 실측한 글만 가지고 센다. 못 잰 것을 0 으로 넣으면 평균이 거짓말이 된다.
+          const measuredComps = competitors.filter((c) => c.measured && typeof c.wordCount === 'number');
+          const counts = measuredComps.map((c) => c.wordCount);
+          const avgWordCount = counts.length > 0
+            ? Math.round(counts.reduce((sum, n) => sum + n, 0) / counts.length) : null;
+          const maxWordCount = counts.length > 0 ? Math.max(...counts) : null;
+          const minWordCount = counts.length > 0 ? Math.min(...counts) : null;
+          const lengthLine = avgWordCount === null
+            ? `• 글자 수: 재지 못했습니다${results.measureNote ? ` — ${results.measureNote}` : ''}`
+            : `• 평균 글자 수: <strong>${avgWordCount.toLocaleString()}자</strong>`
+              + ` (최소 ${minWordCount.toLocaleString()}자, 최대 ${maxWordCount.toLocaleString()}자`
+              + ` · 상위 ${competitors.length}개 중 ${counts.length}개 실측)`;
 
           html += `
         <div style="margin-top: 24px; padding: 16px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #667eea;">
           <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 12px;">📈 분석 요약</div>
           <div style="font-size: 13px; color: #64748b; line-height: 1.8;">
-            <div>• 평균 글자 수: <strong>${avgWordCount.toLocaleString()}자</strong> (최소: ${minWordCount.toLocaleString()}자, 최대: ${maxWordCount.toLocaleString()}자)</div>
+            <div>${lengthLine}</div>
             <div>• 경쟁 강도: ${competitors.length >= 10 ? '🔴 높음' : competitors.length >= 5 ? '🟡 중간' : '🟢 낮음'} (상위 ${competitors.length}개 분석)</div>
             <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0;">
               <strong>💡 차별화 전략:</strong><br>
-              ${avgWordCount > 3000 ? '경쟁자들이 긴 글을 선호합니다. 깊이 있는 분석을 제공하세요.' : ''}
-              ${avgWordCount < 2000 ? '경쟁자들이 짧은 글을 많이 작성합니다. 더 상세한 정보를 제공하면 차별화됩니다.' : ''}
+              ${avgWordCount !== null && avgWordCount > 3000 ? '경쟁자들이 긴 글을 선호합니다. 깊이 있는 분석을 제공하세요.' : ''}
+              ${avgWordCount !== null && avgWordCount < 2000 ? '경쟁자들이 짧은 글을 많이 작성합니다. 더 상세한 정보를 제공하면 차별화됩니다.' : ''}
               경쟁자보다 더 실용적이고 검색하기 쉬운 정보를 제공하세요.
             </div>
           </div>

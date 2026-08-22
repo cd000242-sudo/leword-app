@@ -287,13 +287,49 @@ export function setupKeywordAnalysisHandlers(): void {
       }
 
       const data = await response.json();
+
+      /*
+       * 경쟁자 본문 길이·이미지 수는 **실측한다**(2026-08-22, C3 추정치 누수).
+       *
+       * 예전에는 네이버 API 의 description 길이로 지어냈다:
+       *   wordCount = description.length * 10
+       *   images    = description.length / 200
+       * description 은 잘린 발췌문(~200자)이라 어떤 글이든 결과가 항상 2,000자
+       * 근처 · 이미지 0~1 로 나온다. 측정처럼 보이는 상수였고, 화면은 그걸로
+       * 평균·최대·최소까지 계산해 보여 줬다. 초보자가 그 숫자에 맞춰 글을 쓴다.
+       *
+       * 실측기는 이미 있다(C4 slice3 serp-content-fetcher). 크롬이 없거나
+       * 크롤이 실패하면 **null 로 둔다** — 지어내지 않는다. 화면은 null 을
+       * '미측정' 으로 표시한다. 사장님 원칙: 추정치를 실측인 척 내보내지 않는다.
+       */
+      let measuredByUrl = new Map<string, { wordCount: number; images: number }>();
+      let measureNote = '';
+      try {
+        const { isChromeAvailable } = require('../../utils/chrome-finder');
+        if (!isChromeAvailable()) {
+          measureNote = '크롬이 없어 본문을 재지 못했습니다';
+        } else {
+          const { fetchSerpTop10 } = require('../../utils/pro-hunter-v12/serp-content-fetcher');
+          const posts = await fetchSerpTop10(keyword);
+          const keyOf = (url: string) => String(url || '')
+            .replace(/^https?:\/\//, '').replace(/^m\./, '').replace(/[?#].*$/, '').replace(/\/$/, '').toLowerCase();
+          measuredByUrl = new Map(
+            (posts || []).map((p: any) => [keyOf(p.url), { wordCount: p.charCount || p.wordCount || 0, images: p.imageCount || 0 }]),
+          );
+          if (measuredByUrl.size === 0) measureNote = '경쟁 글 본문을 열지 못했습니다';
+        }
+      } catch (err: any) {
+        measureNote = '본문 실측 실패';
+        console.warn('[KEYWORD-MASTER] 경쟁자 본문 실측 실패 → 미측정으로 둔다:', err?.message || err);
+      }
+
+      const keyOf = (url: string) => String(url || '')
+        .replace(/^https?:\/\//, '').replace(/^m\./, '').replace(/[?#].*$/, '').replace(/\/$/, '').toLowerCase();
       const competitors = (data.items || []).map((item: any, index: number) => {
         // 제목에서 HTML 태그 제거
         const title = (item.title || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ');
         const description = (item.description || '').replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ');
-
-        // 본문 길이 추정 (설명 기반)
-        const estimatedWordCount = Math.floor(description.length * 10); // 대략적인 추정
+        const measured = measuredByUrl.get(keyOf(item.link || ''));
 
         return {
           rank: index + 1,
@@ -302,17 +338,22 @@ export function setupKeywordAnalysisHandlers(): void {
           description: description,
           blogName: item.bloggername || '알 수 없음',
           postDate: item.postdate || '',
-          wordCount: estimatedWordCount,
-          images: Math.floor(description.length / 200) // 설명 길이 기반 추정
+          // 못 잰 것은 숫자를 만들어 넣지 않는다 — null 은 '미측정' 이다.
+          wordCount: measured ? measured.wordCount : null,
+          images: measured ? measured.images : null,
+          measured: Boolean(measured),
         };
       });
 
-      console.log(`[KEYWORD-MASTER] 경쟁자 ${competitors.length}개 분석 완료`);
+      const measuredCount = competitors.filter((c: any) => c.measured).length;
+      console.log(`[KEYWORD-MASTER] 경쟁자 ${competitors.length}개 · 본문 실측 ${measuredCount}개${measureNote ? ` (${measureNote})` : ''}`);
 
       return {
         competitors: competitors,
         keyword: keyword,
-        totalResults: data.total || 0
+        totalResults: data.total || 0,
+        measuredCount,
+        measureNote,
       };
 
     } catch (error: any) {
