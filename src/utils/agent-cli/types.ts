@@ -81,6 +81,15 @@ export interface AgentCliStatus {
   errorCode?: AgentErrorCode;
   /** Human-readable detail (e.g. "Logged in using ChatGPT"). */
   detail?: string;
+  /**
+   * 실측한 구독 유형(예: 클로드 "max"). CLI 가 알려 주는 경우에만 채운다.
+   *
+   * 왜 밖으로 내보내나: detect 안에서는 이미 재고 있었는데 이 타입에 없어서
+   * 호출자에게 닿지 못했다. 그 바람에 화면이 "구독 확인됨"까지밖에 못 썼다
+   * (사장님 지적 2026-08-22 "플랜과 사용량 확인이 잘돼야 한다").
+   * 그록·제미나이처럼 CLI 가 안 알려 주는 곳은 비워 둔다 — 지어내지 않는다.
+   */
+  subscriptionType?: string;
   /** Present only on the direct result of an explicit login action. */
   loginAction?: 'already_authenticated' | 'authenticated';
 }

@@ -57,13 +57,20 @@ export function startWebBridgeHost(): void {
             const s = await detectAgent(provider);
             /*
              * 사용량 표시(사장님 2026-08-20 "연동된 에이전트 전부 사용량 보이게,
-             * 할당량 없으면 없음이라고"): 코덱스·제미나이·그록은 사용량 API 가
-             * 없다(실측 — codex --help 전수, gemini/grok 인증 파일에 플랜 필드
-             * 없음). 지어내지 않는다. 코덱스만 인증 파일의 id_token 에 플랜이
-             * 실려 있어 그것만 사실로 보여 준다.
+             * 할당량 없으면 없음이라고"): 네 CLI 모두 사용량 API 가 없다
+             * (실측 — codex --help 전수, gemini/grok 인증 파일에 사용량 필드 없음).
+             * 지어내지 않는다. 아래는 **플랜**만 다룬다.
+             *
+             * 클로드는 detectAgent 가 이미 구독 유형을 실측해 둔다(subscriptionType,
+             * 예: "max"). 그걸 안 쓰고 코덱스만 따로 파싱하느라 **있는 사실을 버리고
+             * 있었다** — 화면이 "구독 확인됨"까지밖에 못 썼다
+             * (사장님 지적 2026-08-22 "플랜과 사용량 확인이 잘돼야 한다",
+             *  하네스 scripts/agent-wiring-audit.js 로 확인).
+             * 그록·제미나이는 CLI 가 플랜을 안 알려 준다 — 빈 값 그대로 두고
+             * 화면이 "플랜 미제공"이라고 말한다. 지어내지 않는다.
              */
-            let plan = '';
-            if (provider === 'codex' && s.loggedIn) {
+            let plan = String(s.subscriptionType || '').trim();
+            if (!plan && provider === 'codex' && s.loggedIn) {
               try {
                 const { readFile } = await import('node:fs/promises');
                 const { homedir } = await import('node:os');
@@ -137,6 +144,33 @@ export function startWebBridgeHost(): void {
         const picked = provider ? chain.filter((item) => item.provider === provider) : chain;
         const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 90_000 });
         return { answer: String(run.reply || '').trim(), provider: run.provider };
+      },
+      /*
+       * 글감 추론 — 사이트의 유튜브 글감·레이더 카드가 이 경로로 넘어온다.
+       * 문장은 앱이 만든다(post-ideas-prompt.ts). 브리지는 재료만 받는다.
+       * 사용자가 고른 엔진 하나만 쓰고, 안 골랐을 때만 순서대로 시도한다 —
+       * 지식인 답변과 같은 규칙이다(사장님 확정 2026-08-20).
+       */
+      postIdeas: async ({ kind, keyword, context, title, body, provider }) => {
+        const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
+        const { runClaude } = await import('../utils/agent-cli/claudeRunner');
+        const { runCodex } = await import('../utils/agent-cli/codexRunner');
+        const { runGemini } = await import('../utils/agent-cli/geminiRunner');
+        const { runGrok } = await import('../utils/agent-cli/grokRunner');
+        const { buildPostIdeasPrompt, parsePostIdeas } = await import('../utils/post-ideas-prompt');
+        const prompt = buildPostIdeasPrompt(kind === 'kin'
+          ? { kind: 'kin', title, body }
+          : { kind: 'keyword', keyword, context });
+        const chain = [
+          { provider: 'claude' as const, run: runClaude },
+          { provider: 'codex' as const, run: runCodex },
+          { provider: 'gemini' as const, run: runGemini },
+          { provider: 'grok' as const, run: runGrok },
+        ];
+        const picked = provider ? chain.filter((item) => item.provider === provider) : chain;
+        const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 120_000 });
+        const ideas = parsePostIdeas(String(run.reply || ''));
+        return { ideas, provider: run.provider };
       },
       /*
        * CLI 로그인 시작 — 사이트 버튼이 이 PC 의 CLI 로그인을 띄운다.

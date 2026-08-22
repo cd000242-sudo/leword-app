@@ -58,6 +58,21 @@ export interface WebBridgeDeps {
     provider?: string;
   }) => Promise<unknown>;
   /**
+   * 글감 추론(사장님 지적 2026-08-22 "연동이 문제 있으면 절대 안 된다").
+   *
+   * 사이트의 유튜브 글감·레이더 카드는 클라우드 워커만 불렀다. 워커는 사이트에
+   * 저장된 토큰이 있어야 돌고 이 PC 의 CLI 로그인에는 닿을 수 없어서, 앱이 다
+   * 연동돼 있어도 "연동하세요"가 떴다. 그 화면들이 여기로 넘어온다.
+   *
+   * 재료만 받는다 — 임의 프롬프트를 받아 주면 사용자가 방문한 아무 사이트나
+   * 이 PC 의 구독을 태울 수 있다. 문장은 앱이 만든다.
+   */
+  postIdeas?: (input: {
+    kind: 'keyword' | 'kin';
+    keyword: string; context: string; title: string; body: string;
+    provider?: string;
+  }) => Promise<unknown>;
+  /**
    * CLI 로그인 시작(사장님 지시 2026-08-20 "나머지도 버튼으로 바로 연동") —
    * 코덱스·제미나이·그록은 OAuth 리다이렉트가 이 PC 로 오므로 사이트가 직접
    * 받을 수 없다. 앱이 CLI 로그인을 띄우고 브라우저를 여는 것이 유일한 길이다.
@@ -230,6 +245,39 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.kinAnswer({ title, body, withLink, blogUrl, provider }) });
+        return;
+      }
+
+      if (deps.postIdeas && req.method === 'POST' && req.url === '/v1/bridge/post-ideas') {
+        let kind: 'keyword' | 'kin' = 'keyword';
+        let keyword = '';
+        let context = '';
+        let title = '';
+        let body = '';
+        let provider = '';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          kind = parsed?.kind === 'kin' ? 'kin' : 'keyword';
+          keyword = String(parsed?.keyword || '').trim().slice(0, 60);
+          context = String(parsed?.context || '').trim().slice(0, 200);
+          title = String(parsed?.title || '').trim().slice(0, 200);
+          body = String(parsed?.body || '').trim().slice(0, 4000);
+          // 허용목록 밖 값은 버린다 — 임의 문자열이 실행 경로로 흘러가지 않게.
+          const wanted = String(parsed?.provider || '').trim();
+          provider = ['claude', 'codex', 'gemini', 'grok'].includes(wanted) ? wanted : '';
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        if (kind === 'keyword' && !keyword) {
+          json(res, 400, { ok: false, error: '검색어가 비었습니다.' });
+          return;
+        }
+        if (kind === 'kin' && !title) {
+          json(res, 400, { ok: false, error: '질문 제목이 비었습니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.postIdeas({ kind, keyword, context, title, body, provider }) });
         return;
       }
 

@@ -396,6 +396,7 @@ export async function detectAgent(
       available: true,
       availabilityCheck: 'authentication',
       detail: login.detail,
+      subscriptionType: login.subscriptionType,
     }, detectionRevision);
   }
 
@@ -407,5 +408,7 @@ export async function detectAgent(
     available: true,
     availabilityCheck: 'authentication',
     detail: login.detail,
+    // 실측한 구독 유형을 그대로 흘려 보낸다 — 여기서 떨어뜨려 화면이 플랜을 못 썼다.
+    subscriptionType: login.subscriptionType,
   }, detectionRevision);
 }
