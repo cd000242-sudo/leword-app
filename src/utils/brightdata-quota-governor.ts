@@ -170,7 +170,17 @@ export function reserveBrightDataRequests(
   const featureCap = caps[feature] ?? null;
   const featureRemaining = featureCap === null ? null : Math.max(0, featureCap - featureUsed);
 
-  const ceiling = opts.allowPaid ? HARD_CEILING : FREE_CEILING;
+  /*
+   * 유료 초과 허용 여부.
+   *
+   * allowPaid 를 넘겨 주는 호출부가 **하나도 없었다**(2026-08-22 실측).
+   * 그래서 PAID_OVERAGE 를 켜도 상한이 무료선에서 멈췄다 — 사장님 계정에
+   * 유료 여유가 있어도 프로그램이 쓰지 않았다.
+   * PAID_OVERAGE 를 0 이 아닌 값으로 두는 것 자체가 "유료 감수" 의 명시적
+   * 의사표시이므로, 그때는 기본으로 유료 상한을 쓴다. 명시 인자는 그대로 이긴다.
+   */
+  const allowPaid = opts.allowPaid ?? PAID_OVERAGE > 0;
+  const ceiling = allowPaid ? HARD_CEILING : FREE_CEILING;
   const accountRemaining = Math.max(0, ceiling - usage.total);
 
   let granted = want;
@@ -195,7 +205,7 @@ export function reserveBrightDataRequests(
     decision.reason =
       featureRemaining === 0
         ? `기능 '${feature}' 월 상한(${featureCap}) 소진`
-        : `계정 '${account}' 월 ${opts.allowPaid ? '유료' : '무료'} 상한(${ceiling}) 소진`;
+        : `계정 '${account}' 월 ${allowPaid ? '유료' : '무료'} 상한(${ceiling}) 소진`;
   } else if (granted < want) {
     decision.reason = `잔여 예산 부족: 요청 ${want} 중 ${granted} 만 승인`;
   }
