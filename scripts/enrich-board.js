@@ -829,6 +829,18 @@ async function main() {
       const sources = [];
       if (related.tokenMatched.length > 0 || related.candidates.length > 0) sources.push('실측 연관 검색어');
       if (serpTitleCount > 0) sources.push(`1페이지 제목 ${serpTitleCount}건`);
+      /*
+       * AI 가 같은 응답에서 낸 확장어 중 **검색량으로 실존이 확인된 것**도 근거다
+       * (사장님 지적 2026-08-23 "왜 지금 검색되나 — 제대로 추론이 안 되어 있어").
+       *
+       * '인상주의를 넘어' 실사고: why 는 "예매·할인·관람시간·주차 등 방문 정보를
+       * 찾는 검색" 으로 정확했는데 라벨만 '근거 부족' 이었다. 연관 목록이 0개라
+       * 아무 근거도 없다고 센 것이다. 그런데 그 행의 확장어 3개가 전부 실측을
+       * 통과했고 why 는 바로 그 말들에서 나왔다. 세지 않으면 라벨이 결과를 깎는다.
+       */
+      if (Array.isArray(verified) && verified.length > 0) {
+        sources.push(`실측 확인된 확장어 ${verified.length}개`);
+      }
       row.whySearch = {
         text: why,
         basis: `AI 추론 — ${sources.length > 0 ? sources.join(' + ') : '근거 부족'}`,
