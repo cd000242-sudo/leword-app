@@ -421,6 +421,45 @@ const { TITLE_CLICHES } = require('../src/utils/title-forge/forge');
  * 콜에 합쳐져 행당 AI 콜이 줄었다). 규격은 그대로: 메인 포함·상투구 금지·
  * 홈판은 서브 포함. 실패한 쪽은 버려 규칙 제목이 남는다.
  */
+/**
+ * 홈판 제목만 다시 받는다 — 떨어진 이유를 그대로 들려준다.
+ *
+ * 처음 콜은 서브키워드·제목·why 를 한꺼번에 만드느라 지시가 길다. 그래서
+ * 홈판의 까다로운 조건(확장 키워드 말 포함 + 38자 + 쉼표 금지)이 묻힌다.
+ * 여기서는 홈판 하나만 놓고, 무엇 때문에 떨어졌는지 짚어서 다시 짓게 한다.
+ */
+async function retryHomeTitle(mainKeyword, subKeywords, previous, fails) {
+  const subs = (subKeywords || []).map((s) => s.keyword).slice(0, 8);
+  const prompt = [
+    `블로그 홈판 제목을 다시 짓는다. 키워드: "${mainKeyword}"`,
+    '',
+    `네가 방금 낸 제목: ${previous}`,
+    '이 제목은 아래 이유로 탈락했다:',
+    ...fails.map((f) => `  - ${f}`),
+    '',
+    ...(subs.length > 0 ? [`실측 확장 키워드(이 중 하나의 말이 제목에 들어가야 한다): ${subs.join(', ')}`, ''] : []),
+    '조건(전부 지켜야 한다):',
+    `  · "${mainKeyword}" 가 제목에 그대로 들어간다`,
+    '  · 38자 이내',
+    '  · "키워드, 후킹문" 쉼표 이분법 금지 — 그 틀 자체가 AI 서명이다',
+    '  · "핵심 정리"·"총정리"·"한눈에"·"알아보"·"확인할 점" 금지',
+    '  · 말하듯 쓴다 — ~네요/~어요/~더라고요. 문어체 완결문 금지',
+    '  · 답의 존재만 알리고 내용은 숨긴다',
+    '  · 없는 수치·없는 경험을 지어내지 않는다',
+    '',
+    '결의 표본(문구를 복붙하지 말고 결만 배워라):',
+    '  "포켓몬고 위치정보 오류 이러니까 바로 풀리네요"',
+    '  "김부장 드라마만 보고 결말 안다고 하면 큰일 납니다"',
+    '',
+    '제목 한 줄만 출력해라. 설명·따옴표·JSON 없이 제목 그 자체만.',
+  ].join('\n');
+  const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
+  if (!run || !run.reply) return '';
+  // 한 줄만 쓰라고 했지만 설명이 붙어 올 수 있다 — 첫 실한 줄만 취한다.
+  const line = String(run.reply).split('\n').map((s) => s.trim()).filter(Boolean)[0] || '';
+  return line.replace(/^["'`]|["'`]$/g, '').replace(/^제목\s*[:：]\s*/, '').trim();
+}
+
 function validateAiTitles(mainKeyword, subKeywords, seoRaw, homeRaw) {
   const subs = (subKeywords || []).map((s) => s.keyword);
   const head = mainKeyword.split(/\s+/)[0] || '';
@@ -439,13 +478,49 @@ function validateAiTitles(mainKeyword, subKeywords, seoRaw, homeRaw) {
     return firstComma > -1 && firstComma <= mainKeyword.length + 6 && t.slice(0, firstComma).includes(head);
   };
   const seoOk = seo.length >= 10 && seo.includes(head) && !TITLE_CLICHES.test(seo);
-  const homeOk = home.length >= 10 && home.includes(head) && !TITLE_CLICHES.test(home)
-    && !commaTellOf(home)
-    && (subTokens.length === 0 || subTokens.some((t) => home.includes(t)));
-  if (!seoOk && !homeOk) return null;
+  /*
+   * 홈판이 왜 떨어졌는지 남긴다(2026-08-22).
+   *
+   * 실측: 보드 167행 중 AI 홈판은 82행(49%)뿐이고 53행이 규칙 폴백을 받았다.
+   * 초보자에게 제일 중요한 자리인데 절반이 찍어낸 제목이다. 그런데 지금까지
+   * 탈락 사유가 아무 데도 안 남아서 무엇을 고쳐야 할지 알 수가 없었다.
+   * 사유를 돌려주면 (a) 숫자로 셀 수 있고 (b) AI 에게 그대로 되물을 수 있다.
+   */
+  /*
+   * 하드 금지 — 여기 걸리면 화면에 못 간다. 셋 다 "AI 티" 문제라 네이버 노출
+   * 판정과 독자가 동시에 걸러내는 것들이고, 사장님이 못 박은 조건이다.
+   */
+  const homeFails = [];
+  if (home.length < 10) homeFails.push('너무 짧다(10자 미만)');
+  if (!home.includes(head)) homeFails.push(`메인 키워드 앞말 "${head}" 가 제목에 없다`);
+  if (TITLE_CLICHES.test(home)) homeFails.push('금지 상투구가 들어 있다(핵심 정리·총정리·한눈에 등)');
+  if (commaTellOf(home)) homeFails.push('"키워드, 후킹문" 쉼표 이분법 — AI 서명이다');
+  /*
+   * 확장 키워드 포함은 **바람**이지 하드 금지가 아니다(2026-08-22 방향 수정).
+   *
+   * 기계적으로 강제했더니 167행 중 51%가 떨어졌고, 떨어진 자리는 규칙이
+   * 찍어낸 제목으로 채워졌다 — 사람이 쓴 것 같은 AI 제목보다 찍어낸 제목이
+   * 낫다고 판정한 셈이라 거꾸로다.
+   * 사장님 지시: 에이전트가 스스로 추론해서 짓고, 준 지시는 참고로 삼는다.
+   * 그래서 이건 한 번 되묻는 근거로만 쓰고(retryHomeTitle), 그러고도 안 들어가면
+   * 그대로 받는다. 하드 금지만 화면을 막는다.
+   */
+  const wantsSub = subTokens.length > 0 && !subTokens.some((t) => home.includes(t));
+  const homeOk = homeFails.length === 0;
+  if (!seoOk && !homeOk) return { titles: null, homeFails, wantsSub };
   return {
-    ...(seoOk ? { seo: { text: seo, frame: 'ai', basis: '실측 풀 근거 AI 작성' } } : {}),
-    ...(homeOk ? { home: { text: home, frame: 'ai', basis: '메인+서브+후킹 (실측 근거)' } } : {}),
+    titles: {
+      ...(seoOk ? { seo: { text: seo, frame: 'ai', basis: '실측 풀 근거 AI 작성' } } : {}),
+      ...(homeOk ? {
+        home: {
+          text: home,
+          frame: 'ai',
+          basis: wantsSub ? '메인+후킹 (실측 근거·확장어 미포함)' : '메인+서브+후킹 (실측 근거)',
+        },
+      } : {}),
+    },
+    homeFails,
+    wantsSub,
   };
 }
 
@@ -680,7 +755,47 @@ async function main() {
      * 붙는 라벨이지 클릭을 부르는 제목이 아니다(사장님 지적). 검증을 통과한
      * 것만 덮고, 실패하면 규칙 제목이 남는다.
      */
-    const aiTitles = validateAiTitles(row.keyword, merged, titlesRaw.seoRaw, titlesRaw.homeRaw);
+    let checked = validateAiTitles(row.keyword, merged, titlesRaw.seoRaw, titlesRaw.homeRaw);
+
+    /*
+     * 홈판이 떨어지면 **사유를 안고 한 번만 되묻는다**(2026-08-22).
+     *
+     * 실측: 167행 중 AI 홈판은 49% 뿐이고 나머지는 규칙 폴백을 받았다.
+     * 초보자가 그대로 쓰는 자리라 여기가 반쪽이면 도구의 값어치가 반쪽이다.
+     * 한 번 더 부르는 건 구독 사용량이지 돈이 아니고, 떨어진 행에서만 쓴다.
+     * 두 번은 안 부른다 — 안 되는 것을 붙잡고 늘어지지 않는다.
+     */
+    const noHome = checked && !(checked.titles && checked.titles.home);
+    if (checked && (noHome || checked.wantsSub)) {
+      const reasons = noHome
+        ? checked.homeFails
+        : ['확장 키워드의 말이 하나도 안 들어갔다 — 들어가면 그 검색어로도 걸린다'];
+      try {
+        const retry = await retryHomeTitle(row.keyword, merged, titlesRaw.homeRaw, reasons);
+        if (retry) {
+          const again = validateAiTitles(row.keyword, merged, titlesRaw.seoRaw, retry);
+          if (again && again.titles && again.titles.home && (!again.wantsSub || noHome)) {
+            checked = {
+              titles: { ...(checked.titles || {}), home: again.titles.home },
+              homeFails: [],
+              wantsSub: again.wantsSub,
+            };
+            stats.homeRetried = (stats.homeRetried || 0) + 1;
+          } else if (noHome) {
+            stats.homeRetryFailed = (stats.homeRetryFailed || 0) + 1;
+          }
+        }
+      } catch (error) {
+        console.log(`  !! [${row.keyword}] 홈판 재요청 실패: ${String((error && error.message) || error).slice(0, 60)}`);
+      }
+    }
+    if (checked && !(checked.titles && checked.titles.home) && checked.homeFails.length > 0) {
+      // 왜 떨어졌는지 남긴다 — 다음에 무엇을 고칠지 느낌이 아니라 이걸로 정한다.
+      console.log(`  ↳ [${row.keyword}] 홈판 탈락: ${checked.homeFails.join(' / ')}`);
+      stats.homeRejected = (stats.homeRejected || 0) + 1;
+    }
+
+    const aiTitles = checked && checked.titles;
     if (aiTitles) {
       row.titles = { ...(row.titles || newTitles), ...aiTitles };
       stats.aiTitled += 1;
@@ -790,6 +905,8 @@ async function main() {
   board.enrichStats = { ...stats, aiCalls, partial: false };
   fs.writeFileSync(outPath, JSON.stringify(board, null, 2), 'utf8');
   console.log(`\n보강 완료: 연관 실측 ${stats.related} + AI 선별 ${stats.picked} + AI 신규(제안 ${stats.proposed} → 통과 ${stats.verified}) → 풀 ${stats.pooled}개 · AI 제목 ${stats.aiTitled}행 · 보강 행 ${stats.enriched} (서브 +${stats.subsAdded}) · 수익 판정 ${stats.judged}행(탈락 ${stats.judgedBad}) · AI ${aiCalls}회`);
+  // 홈판이 초보자가 그대로 쓰는 자리다 — 되묻기가 실제로 건진 수를 남긴다.
+  console.log(`홈판 제목: 재요청으로 살림 ${stats.homeRetried || 0}행 · 재요청도 실패 ${stats.homeRetryFailed || 0}행 · 규칙 폴백 ${stats.homeRejected || 0}행`);
   console.log(`저장: ${outPath}`);
 }
 
