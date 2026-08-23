@@ -207,6 +207,28 @@ export function startWebBridgeHost(): void {
         return { ideas, provider: run.provider };
       },
       /*
+       * 레이더 평가 — 사이트 토큰이 죽어도 앱 구독으로 이어 간다
+       * (사장님 지시 2026-08-23). 재료만 받고 문장은 여기서 만든다.
+       */
+      radarEvaluate: async ({ items, myTitle, mySummary, provider }) => {
+        const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
+        const { runClaude } = await import('../utils/agent-cli/claudeRunner');
+        const { runCodex } = await import('../utils/agent-cli/codexRunner');
+        const { runGemini } = await import('../utils/agent-cli/geminiRunner');
+        const { runGrok } = await import('../utils/agent-cli/grokRunner');
+        const { buildRadarEvaluatePrompt, parseRadarVerdicts } = await import('../utils/radar-evaluate-prompt');
+        const prompt = buildRadarEvaluatePrompt({ items, myTitle, mySummary });
+        const chain = [
+          { provider: 'claude' as const, run: runClaude },
+          { provider: 'codex' as const, run: runCodex },
+          { provider: 'gemini' as const, run: runGemini },
+          { provider: 'grok' as const, run: runGrok },
+        ];
+        const picked = provider ? chain.filter((item) => item.provider === provider) : chain;
+        const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 150_000 });
+        return { evaluations: parseRadarVerdicts(String(run.reply || '')), provider: run.provider };
+      },
+      /*
        * CLI 로그인 시작 — 사이트 버튼이 이 PC 의 CLI 로그인을 띄운다.
        * OAuth URL 은 메인 프로세스에서만 열고(loginUrl.ts 규칙) 브라우저로도
        * 보내지 않는다. 사이트에는 "시작됨/이미 로그인됨"만 알린다.

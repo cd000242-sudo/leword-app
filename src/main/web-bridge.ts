@@ -73,6 +73,15 @@ export interface WebBridgeDeps {
     provider?: string;
   }) => Promise<unknown>;
   /**
+   * 외부유입 레이더 평가 — 사이트 토큰이 죽어도 앱 구독으로 이어 간다.
+   * 재료(후보 목록 + 내 글 요지)만 받고 문장은 앱이 만든다.
+   */
+  radarEvaluate?: (input: {
+    items: Array<{ title: string; source: string; link: string }>;
+    myTitle: string; mySummary: string;
+    provider?: string;
+  }) => Promise<unknown>;
+  /**
    * 클로드 구독 자격을 사이트에 넘긴다(사장님 지시 2026-08-22
    * "앱만 켜놓고 연동시키고 나서 사이트도 같이 연동시키면 끝나는 거 아니야?").
    *
@@ -264,6 +273,46 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
 
       if (deps.claudeCredentials && req.method === 'POST' && req.url === '/v1/bridge/claude-credentials') {
         json(res, 200, { ok: true, result: await deps.claudeCredentials() });
+        return;
+      }
+
+      /*
+       * 외부유입 레이더 평가 — 사이트 토큰이 죽어도 앱으로 이어 가기 위한 통로
+       * (사장님 지시 2026-08-23: "레이더도 앱으로 넘어가게 붙여 줘").
+       *
+       * 다른 통로와 같은 원칙이다 — **재료만 받는다.** 임의 프롬프트는 안 받는다.
+       * 여기서 받는 것은 후보 목록(제목·판·주소)과 내 글 요지뿐이고,
+       * 프롬프트 조립은 앱이 한다.
+       */
+      if (deps.radarEvaluate && req.method === 'POST' && req.url === '/v1/bridge/radar-evaluate') {
+        let items: Array<{ title: string; source: string; link: string }> = [];
+        let myTitle = '';
+        let mySummary = '';
+        let provider = '';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          const raw = Array.isArray(parsed?.items) ? parsed.items : [];
+          items = raw.slice(0, 40).map((row: unknown) => {
+            const item = (row || {}) as Record<string, unknown>;
+            return {
+              title: String(item.title || '').trim().slice(0, 200),
+              source: String(item.source || '').trim().slice(0, 40),
+              link: String(item.link || '').trim().slice(0, 400),
+            };
+          }).filter((row: { title: string }) => row.title);
+          myTitle = String(parsed?.myTitle || '').trim().slice(0, 200);
+          mySummary = String(parsed?.mySummary || '').trim().slice(0, 600);
+          const wanted = String(parsed?.provider || '').trim();
+          provider = ['claude', 'codex', 'gemini', 'grok'].includes(wanted) ? wanted : '';
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        if (items.length === 0) {
+          json(res, 400, { ok: false, error: '평가할 후보가 없습니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.radarEvaluate({ items, myTitle, mySummary, provider }) });
         return;
       }
 
