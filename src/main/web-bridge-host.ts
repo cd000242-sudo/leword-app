@@ -317,11 +317,12 @@ export function startWebBridgeHost(): void {
         if (hasToken) {
           try {
             const { listAccounts } = await import('../utils/adsense-rpm');
-            const accounts = await listAccounts(env().adsenseOAuthAccessToken || '') as Array<Record<string, unknown>>;
-            const first = accounts[0] as { name?: string; displayName?: string; state?: string } | undefined;
+            const accounts = await listAccounts(env().adsenseOAuthAccessToken || '');
+            const first = accounts[0];
             if (first) {
               account = `${String(first.displayName || '')} (${String(first.name || '').replace('accounts/', '')})`;
-              accountState = String(first.state || '');
+              /* state 는 구글이 주는 값인데 타입에는 없다 — 있는 그대로 읽는다. */
+              accountState = String((first as unknown as { state?: string }).state || '');
             }
           } catch { /* 못 읽으면 빈 값 — 지어내지 않는다 */ }
         }
