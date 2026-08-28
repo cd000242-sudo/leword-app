@@ -110,7 +110,15 @@ export async function runOAuthLoopback(
     code_challenge: challenge,
     code_challenge_method: 'S256',
     access_type: 'offline',
-    prompt: 'consent',
+    /*
+     * 계정 선택 창을 **반드시** 띄운다(사장님 실측 2026-08-28).
+     *
+     * consent 만 주면 이미 로그인돼 있는 계정으로 그냥 넘어간다. 그래서 수익이
+     * 나던 애드센스가 다른 지메일에 있는데도, 승인 거부된 빈 계정이 조용히
+     * 연결됐다 — 3년치 실적이 0 으로 나오는데 원인을 알 길이 없었다.
+     * select_account 를 붙이면 어느 계정으로 붙일지 사람이 고른다.
+     */
+    prompt: 'select_account consent',
     ...(config.extraAuthParams || {}),
   });
   const authUrl = `${config.authUrl}?${authParams.toString()}`;

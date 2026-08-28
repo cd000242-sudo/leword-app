@@ -110,7 +110,7 @@ export interface WebBridgeDeps {
    */
   adsenseStatus?: () => Promise<unknown>;
   /** 구글 로그인 창을 이 PC 에서 띄운다. 자격증명이 없으면 받아서 저장한다. */
-  adsenseLogin?: (args: { clientId: string; clientSecret: string }) => Promise<unknown>;
+  adsenseLogin?: (args: { clientId: string; clientSecret: string; switchAccount: boolean }) => Promise<unknown>;
   /**
    * includeToday: 오늘까지 포함한다. 방금 올린 글을 보려면 이래야 한다 —
    * 끝을 어제로 두면 오늘 글은 아예 안 나온다(사장님 지적 2026-08-28:
@@ -442,15 +442,17 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
       if (deps.adsenseLogin && req.method === 'POST' && req.url === '/v1/bridge/adsense-login') {
         let clientId = '';
         let clientSecret = '';
+        let switchAccount = false;
         try {
           const parsed = JSON.parse((await readBody(req)) || '{}');
           clientId = String(parsed?.clientId || '').trim().slice(0, 200);
           clientSecret = String(parsed?.clientSecret || '').trim().slice(0, 200);
+          switchAccount = parsed?.switchAccount === true;
         } catch {
           json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
           return;
         }
-        json(res, 200, { ok: true, result: await deps.adsenseLogin({ clientId, clientSecret }) });
+        json(res, 200, { ok: true, result: await deps.adsenseLogin({ clientId, clientSecret, switchAccount }) });
         return;
       }
 

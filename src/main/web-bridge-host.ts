@@ -307,15 +307,46 @@ export function startWebBridgeHost(): void {
         const hasCreds = Boolean(env.adsenseOAuthClientId || env.youtubeOAuthClientId)
           && Boolean(env.adsenseOAuthClientSecret || env.youtubeOAuthClientSecret);
         const hasToken = Boolean(env.adsenseOAuthAccessToken || env.adsenseOAuthRefreshToken);
+        /*
+         * **어느 계정에 붙어 있는지** 그리고 그 계정이 광고를 낼 수 있는 상태인지
+         * 함께 낸다(사장님 실측 2026-08-28). 이게 없으면 승인 거부된 계정이
+         * 붙어 있어도 화면은 "연동됨"만 보여 주고, 3년치 0 의 이유를 알 수 없다.
+         */
+        let account = '';
+        let accountState = '';
+        if (hasToken) {
+          try {
+            const { listAccounts } = await import('../utils/adsense-rpm');
+            const accounts = await listAccounts(env().adsenseOAuthAccessToken || '') as Array<Record<string, unknown>>;
+            const first = accounts[0] as { name?: string; displayName?: string; state?: string } | undefined;
+            if (first) {
+              account = `${String(first.displayName || '')} (${String(first.name || '').replace('accounts/', '')})`;
+              accountState = String(first.state || '');
+            }
+          } catch { /* 못 읽으면 빈 값 — 지어내지 않는다 */ }
+        }
         return {
           hasCredentials: hasCreds,
           connected: hasToken,
+          account,
+          accountState,
           /* 무엇이 없어서 못 쓰는지 그대로 말한다 — "안 됨" 만으로는 고칠 수가 없다. */
           need: hasToken ? '' : hasCreds ? 'login' : 'credentials',
         };
       },
-      adsenseLogin: async ({ clientId, clientSecret }) => {
+      adsenseLogin: async ({ clientId, clientSecret, switchAccount }) => {
         const { startAdSenseWizard } = await import('./key-wizard/providers/adsense');
+        /*
+         * 계정 바꾸기 — 저장된 토큰을 먼저 지운다. 안 지우면 갱신 토큰이 살아 있어
+         * 옛 계정으로 계속 돈다(사장님 실측 2026-08-28: 수익 나던 계정이 다른
+         * 지메일에 있는데 승인 거부된 빈 계정이 붙어 있었다).
+         */
+        if (switchAccount) {
+          const { EnvironmentManager } = await import('../utils/environment-manager');
+          await EnvironmentManager.getInstance().saveConfig({
+            adsenseOAuthAccessToken: '', adsenseOAuthRefreshToken: '', adsenseTokenExpiresAt: '',
+          } as any);
+        }
         const result = await startAdSenseWizard(
           { clientId: clientId || undefined, clientSecret: clientSecret || undefined },
           () => { /* 진행 문구는 앱 로그로 충분하다 — 사이트는 결과만 본다 */ },
