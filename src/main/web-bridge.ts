@@ -82,6 +82,24 @@ export interface WebBridgeDeps {
     provider?: string;
   }) => Promise<unknown>;
   /**
+   * 글 진단 — 사이트의 [글 분석하기]가 이 경로로 넘어온다
+   * (사장님 지시 2026-08-28: "제미나이를 사용할 수 있게 해 줘").
+   *
+   * 제미나이·코덱스·그록은 이 PC 의 구독 로그인이라 사이트 서버가 못 쓴다.
+   * 그 엔진을 고른 사람의 진단은 여기서 본인 구독으로 돈다.
+   *
+   * 재료만 받는다 — 다른 경로와 같은 규칙이다. 프롬프트는 우리 서버(워커)에서
+   * 앱이 직접 받아 온다. 브라우저가 건네는 문장을 그대로 실행하지 않는다.
+   */
+  postAnalyze?: (input: {
+    title: string; link: string; platform: string;
+    kwQuery: string; kwRank: number | null;
+    extQuery: string; extRank: number | null;
+    titleRank: number | null; titleRankMeasured: boolean;
+    keys: Record<string, string>;
+    provider?: string;
+  }) => Promise<unknown>;
+  /**
    * 클로드 구독 자격을 사이트에 넘긴다(사장님 지시 2026-08-22
    * "앱만 켜놓고 연동시키고 나서 사이트도 같이 연동시키면 끝나는 거 아니야?").
    *
@@ -346,6 +364,43 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.postIdeas({ kind, keyword, context, title, body, provider }) });
+        return;
+      }
+
+      /*
+       * 글 진단 — 재료만 받는다. 프롬프트는 앱이 워커에서 받아 온다.
+       * 사이트 키를 함께 받는 이유는 실측(경쟁자 문서·순위)이 방문자 본인 쿼터로
+       * 돌아야 하기 때문이다. 이 값은 워커로만 나가고 디스크에 남기지 않는다.
+       */
+      if (deps.postAnalyze && req.method === 'POST' && req.url === '/v1/bridge/post-analyze') {
+        let input;
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          const num = (value: unknown) => (Number(value) > 0 ? Number(value) : null);
+          const wanted = String(parsed?.provider || '').trim();
+          input = {
+            title: String(parsed?.title || '').trim().slice(0, 200),
+            link: String(parsed?.link || '').trim().slice(0, 400),
+            platform: String(parsed?.platform || '').trim().slice(0, 40),
+            kwQuery: String(parsed?.kwQuery || '').trim().slice(0, 100),
+            kwRank: num(parsed?.kwRank),
+            extQuery: String(parsed?.extQuery || '').trim().slice(0, 100),
+            extRank: num(parsed?.extRank),
+            titleRank: num(parsed?.titleRank),
+            titleRankMeasured: parsed?.titleRankMeasured !== false,
+            keys: (parsed?.keys && typeof parsed.keys === 'object') ? parsed.keys as Record<string, string> : {},
+            // 허용목록 밖 값은 버린다 — 임의 문자열이 실행 경로로 흘러가지 않게.
+            provider: ['claude', 'codex', 'gemini', 'grok'].includes(wanted) ? wanted : '',
+          };
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        if (!input.title || !input.link) {
+          json(res, 400, { ok: false, error: '글 제목/주소가 비었습니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.postAnalyze(input) });
         return;
       }
 

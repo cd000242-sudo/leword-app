@@ -229,6 +229,73 @@ export function startWebBridgeHost(): void {
         return { evaluations: parseRadarVerdicts(String(run.reply || '')), provider: run.provider };
       },
       /*
+       * 글 진단 — 사이트가 못 쓰는 엔진(제미나이·코덱스·그록)을 고른 회차가
+       * 여기로 온다(사장님 지시 2026-08-28 "제미나이를 사용할 수 있게 해 줘").
+       *
+       * 프롬프트를 **여기서 만들지 않는다**. 워커에서 받아 온다:
+       *   ① 워커 post-audit-analyze(aiVia:'app') → 실측·체크리스트·프롬프트
+       *   ② 이 PC 의 고른 구독으로 실행
+       *   ③ 워커 post-audit-parse → 진단 객체
+       * 프롬프트와 파서를 앱에 복사해 두면 한쪽만 고쳐져 사이트 경로와 진단이
+       * 갈린다 — 실제로 그런 이중 정의가 여러 번 사고를 냈다.
+       * 브라우저가 준 문장을 실행하는 것이 아니라 우리 서버가 준 것만 실행한다.
+       */
+      postAnalyze: async (input) => {
+        const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
+        const { runClaude } = await import('../utils/agent-cli/claudeRunner');
+        const { runCodex } = await import('../utils/agent-cli/codexRunner');
+        const { runGemini } = await import('../utils/agent-cli/geminiRunner');
+        const { runGrok } = await import('../utils/agent-cli/grokRunner');
+        const WORKER = 'https://leword-keyword-api.leword.workers.dev/';
+        const post = async (payload: Record<string, unknown>) => {
+          const response = await fetch(WORKER, {
+            method: 'POST',
+            headers: { 'content-type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload),
+          });
+          return await response.json() as Record<string, unknown>;
+        };
+        const measured = await post({
+          action: 'post-audit-analyze',
+          aiVia: 'app',
+          keys: input.keys,
+          title: input.title,
+          link: input.link,
+          platform: input.platform,
+          kwQuery: input.kwQuery,
+          kwRank: input.kwRank == null ? '' : String(input.kwRank),
+          extQuery: input.extQuery,
+          extRank: input.extRank == null ? '' : String(input.extRank),
+          titleRank: input.titleRank == null ? '' : String(input.titleRank),
+          titleRankMeasured: input.titleRankMeasured ? '' : '0',
+        });
+        const prompt = String(measured.prompt || '');
+        if (!measured.ok || !prompt) {
+          // 실측이 실패하면 진단할 재료가 없다 — 지어내지 않고 이유를 그대로 올린다.
+          return { error: String(measured.message || '실측을 받지 못했습니다.'), checklist: measured.checklist || null };
+        }
+        const chain = [
+          { provider: 'claude' as const, run: runClaude },
+          { provider: 'codex' as const, run: runCodex },
+          { provider: 'gemini' as const, run: runGemini },
+          { provider: 'grok' as const, run: runGrok },
+        ];
+        const picked = input.provider ? chain.filter((item) => item.provider === input.provider) : chain;
+        const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 180_000 });
+        const shaped = await post({
+          action: 'post-audit-parse',
+          aiText: String(run.reply || ''),
+          contentRead: measured.contentRead === true,
+        });
+        return {
+          analysis: shaped.ok ? shaped.analysis : null,
+          error: shaped.ok ? '' : String(shaped.message || 'AI 응답을 정형하지 못했습니다.'),
+          checklist: measured.checklist || null,
+          measured: measured.measured || null,
+          provider: run.provider,
+        };
+      },
+      /*
        * CLI 로그인 시작 — 사이트 버튼이 이 PC 의 CLI 로그인을 띄운다.
        * OAuth URL 은 메인 프로세스에서만 열고(loginUrl.ts 규칙) 브라우저로도
        * 보내지 않는다. 사이트에는 "시작됨/이미 로그인됨"만 알린다.
