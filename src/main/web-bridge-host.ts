@@ -323,7 +323,7 @@ export function startWebBridgeHost(): void {
         // 토큰은 돌려주지 않는다. 됐는지 여부와 사유만 낸다.
         return { ok: result.success === true, reason: result.success ? '' : (result.reason || '로그인 실패') };
       },
-      adsenseRpm: async ({ days, currencyCode, limit }) => {
+      adsenseRpm: async ({ days, currencyCode, limit, includeToday }) => {
         const { EnvironmentManager } = await import('../utils/environment-manager');
         const { refreshAdSenseToken } = await import('./key-wizard/providers/adsense');
         const { listAccounts, fetchPageEarnings } = await import('../utils/adsense-rpm');
@@ -338,7 +338,13 @@ export function startWebBridgeHost(): void {
         }
         const accounts = await listAccounts(accessToken);
         if (accounts.length === 0) return { error: '이 구글 계정에 애드센스 계정이 없습니다.' };
-        const report = await fetchPageEarnings(accounts[0].name, accessToken, { days, limit, currencyCode });
+        /*
+         * 끝을 오늘로 둘지. 방금 올린 글을 보는 것이 이 기능의 주 용도라
+         * 기본이 오늘이다 — 어제로 자르면 오늘 글은 애초에 없다.
+         */
+        const report = await fetchPageEarnings(accounts[0].name, accessToken, {
+          days, limit, currencyCode, endDate: includeToday ? new Date() : undefined,
+        });
         return {
           rows: report.rows,
           startDate: report.startDate,

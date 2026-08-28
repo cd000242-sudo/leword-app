@@ -111,7 +111,12 @@ export interface WebBridgeDeps {
   adsenseStatus?: () => Promise<unknown>;
   /** 구글 로그인 창을 이 PC 에서 띄운다. 자격증명이 없으면 받아서 저장한다. */
   adsenseLogin?: (args: { clientId: string; clientSecret: string }) => Promise<unknown>;
-  adsenseRpm?: (input: { days: number; currencyCode: string; limit: number }) => Promise<unknown>;
+  /**
+   * includeToday: 오늘까지 포함한다. 방금 올린 글을 보려면 이래야 한다 —
+   * 끝을 어제로 두면 오늘 글은 아예 안 나온다(사장님 지적 2026-08-28:
+   * "글을 올렸다면 그 글의 RPM 을 실시간으로 알 수 있잖아").
+   */
+  adsenseRpm?: (input: { days: number; currencyCode: string; limit: number; includeToday: boolean }) => Promise<unknown>;
   /**
    * 클로드 구독 자격을 사이트에 넘긴다(사장님 지시 2026-08-22
    * "앱만 켜놓고 연동시키고 나서 사이트도 같이 연동시키면 끝나는 거 아니야?").
@@ -444,12 +449,14 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
       }
 
       if (deps.adsenseRpm && req.method === 'POST' && req.url === '/v1/bridge/adsense-rpm') {
-        let days = 28;
+        let days = 1;
         let currencyCode = 'USD';
         let limit = 500;
+        let includeToday = true;
         try {
           const parsed = JSON.parse((await readBody(req)) || '{}');
-          days = Math.max(1, Math.min(365, Math.floor(Number(parsed?.days) || 28)));
+          days = Math.max(1, Math.min(365, Math.floor(Number(parsed?.days) || 1)));
+          includeToday = parsed?.includeToday !== false;
           // ISO-4217 은 대문자 세 글자다. 그 밖의 값은 버리고 기본값으로 간다.
           const wanted = String(parsed?.currencyCode || '').trim().toUpperCase();
           currencyCode = /^[A-Z]{3}$/.test(wanted) ? wanted : 'USD';
@@ -458,7 +465,7 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
           return;
         }
-        json(res, 200, { ok: true, result: await deps.adsenseRpm({ days, currencyCode, limit }) });
+        json(res, 200, { ok: true, result: await deps.adsenseRpm({ days, currencyCode, limit, includeToday }) });
         return;
       }
 
