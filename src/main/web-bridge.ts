@@ -118,6 +118,12 @@ export interface WebBridgeDeps {
    */
   adsenseRpm?: (input: { days: number; currencyCode: string; limit: number; includeToday: boolean }) => Promise<unknown>;
   /**
+   * 글 하나의 **날짜별** RPM(사장님 지시 2026-08-28).
+   * RPM 은 고정이 아니다 — 시작점이 낮으면 접고, 높게 시작하면 트래픽을 붓는다.
+   * 나중에 오른 글은 언제부터 올랐는지가 보여야 이유를 찾을 수 있다.
+   */
+  adsensePageRpm?: (input: { pageUrl: string; days: number; currencyCode: string }) => Promise<unknown>;
+  /**
    * 클로드 구독 자격을 사이트에 넘긴다(사장님 지시 2026-08-22
    * "앱만 켜놓고 연동시키고 나서 사이트도 같이 연동시키면 끝나는 거 아니야?").
    *
@@ -466,6 +472,28 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.adsenseRpm({ days, currencyCode, limit, includeToday }) });
+        return;
+      }
+
+      if (deps.adsensePageRpm && req.method === 'POST' && req.url === '/v1/bridge/adsense-page-rpm') {
+        let pageUrl = '';
+        let days = 30;
+        let currencyCode = 'USD';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          pageUrl = String(parsed?.pageUrl || '').trim().slice(0, 500);
+          days = Math.max(1, Math.min(365, Math.floor(Number(parsed?.days) || 30)));
+          const wanted = String(parsed?.currencyCode || '').trim().toUpperCase();
+          currencyCode = /^[A-Z]{3}$/.test(wanted) ? wanted : 'USD';
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        if (!pageUrl) {
+          json(res, 400, { ok: false, error: '글 주소가 비었습니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.adsensePageRpm({ pageUrl, days, currencyCode }) });
         return;
       }
 

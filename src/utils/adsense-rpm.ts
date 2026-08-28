@@ -140,3 +140,76 @@ export async function fetchPageEarnings(
     currency: String(json.headers?.[idxEarn]?.currencyCode || ''),
   };
 }
+
+/** 하루치 실적 — RPM 은 그날의 수익 ÷ 그날의 페이지뷰 × 1000 이다. */
+export interface DailyEarnings {
+  /** YYYY-MM-DD */
+  date: string;
+  earnings: number;
+  pageViews: number;
+  /** 그날 페이지뷰가 0 이면 null — 0 으로 적지 않는다. */
+  rpm: number | null;
+}
+
+/**
+ * **글 하나의 날짜별 RPM.**
+ *
+ * 왜 필요한가(사장님 지시 2026-08-28): RPM 은 고정이 아니다. 발행 직후 낮게
+ * 시작한 글은 접고, 처음부터 높게 찍히는 글은 트래픽을 부으면 된다. 그리고
+ * 어떤 키워드가 언제 검색될지는 아무도 모르니, 나중에 올라간 글은 **언제부터**
+ * 올랐는지가 보여야 이유를 찾을 수 있다. "7일에 얼마 벌었다"는 그걸 못 보여 준다.
+ *
+ * DATE 는 필터로 못 쓴다(구글 제약) — 대신 기간으로 자르고 PAGE_URL 로 거른다.
+ * 그래서 차원은 DATE 하나, 필터가 PAGE_URL==<주소> 다.
+ */
+export async function fetchPageDailyRpm(
+  accountName: string,
+  accessToken: string,
+  pageUrl: string,
+  options: { days?: number; currencyCode?: string; endDate?: Date } = {},
+): Promise<{ rows: DailyEarnings[]; currency: string }> {
+  const days = Math.max(1, Math.min(365, Math.floor(options.days ?? 30)));
+  const end = options.endDate ?? new Date();
+  const start = new Date(end.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+  const s = ymd(start);
+  const e = ymd(end);
+
+  const params = new URLSearchParams();
+  params.set('dateRange', 'CUSTOM');
+  params.set('startDate.year', String(s.y));
+  params.set('startDate.month', String(s.m));
+  params.set('startDate.day', String(s.d));
+  params.set('endDate.year', String(e.y));
+  params.set('endDate.month', String(e.m));
+  params.set('endDate.day', String(e.d));
+  params.append('dimensions', 'DATE');
+  params.append('metrics', 'ESTIMATED_EARNINGS');
+  params.append('metrics', 'PAGE_VIEWS');
+  // 주소는 애드센스가 준 그대로 넣는다(스킴 없이 온다). == 는 정확히 그 글만.
+  params.append('filters', `PAGE_URL==${pageUrl.replace(/^https?:\/\//, '')}`);
+  if (options.currencyCode) params.set('currencyCode', options.currencyCode);
+
+  const json = await apiGet(`/${accountName}/reports:generate`, accessToken, params);
+
+  const headers: string[] = (json.headers || []).map((h: any) => String(h.name || ''));
+  const idxDate = headers.indexOf('DATE');
+  const idxEarn = headers.indexOf('ESTIMATED_EARNINGS');
+  const idxViews = headers.indexOf('PAGE_VIEWS');
+  if (idxDate < 0 || idxEarn < 0 || idxViews < 0) {
+    throw new Error(`애드센스 응답에 필요한 열이 없습니다: ${headers.join(', ')}`);
+  }
+
+  const rows: DailyEarnings[] = (json.rows || []).map((row: any) => {
+    const cells = row.cells || [];
+    const earnings = Number(cells[idxEarn]?.value ?? 0) || 0;
+    const pageViews = Number(cells[idxViews]?.value ?? 0) || 0;
+    return {
+      date: String(cells[idxDate]?.value ?? ''),
+      earnings,
+      pageViews,
+      rpm: pageViews > 0 ? (earnings / pageViews) * 1000 : null,
+    };
+  }).filter((r: DailyEarnings) => r.date);
+
+  return { rows, currency: String(json.headers?.[idxEarn]?.currencyCode || '') };
+}

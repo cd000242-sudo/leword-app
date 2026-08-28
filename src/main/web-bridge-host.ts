@@ -353,6 +353,24 @@ export function startWebBridgeHost(): void {
           account: accounts[0].displayName || accounts[0].name,
         };
       },
+      /* 글 하나의 날짜별 RPM — 추이를 봐야 이 글에 트래픽을 부을지 정한다. */
+      adsensePageRpm: async ({ pageUrl, days, currencyCode }) => {
+        const { EnvironmentManager } = await import('../utils/environment-manager');
+        const { refreshAdSenseToken } = await import('./key-wizard/providers/adsense');
+        const { listAccounts, fetchPageDailyRpm } = await import('../utils/adsense-rpm');
+        const env = () => EnvironmentManager.getInstance().getConfig() as any;
+        let accessToken = env().adsenseOAuthAccessToken || '';
+        const expiresAt = Number(env().adsenseTokenExpiresAt || 0);
+        if (!accessToken || (expiresAt && Date.now() > expiresAt - 60_000)) {
+          const renewed = await refreshAdSenseToken();
+          if (!renewed) return { error: '애드센스 연결이 만료됐습니다 — [구글 로그인]을 다시 눌러 주세요.' };
+          accessToken = env().adsenseOAuthAccessToken || '';
+        }
+        const accounts = await listAccounts(accessToken);
+        if (accounts.length === 0) return { error: '이 구글 계정에 애드센스 계정이 없습니다.' };
+        const report = await fetchPageDailyRpm(accounts[0].name, accessToken, pageUrl, { days, currencyCode });
+        return { rows: report.rows, currency: report.currency || currencyCode };
+      },
       /*
        * CLI 로그인 시작 — 사이트 버튼이 이 PC 의 CLI 로그인을 띄운다.
        * OAuth URL 은 메인 프로세스에서만 열고(loginUrl.ts 규칙) 브라우저로도
