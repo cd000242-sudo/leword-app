@@ -296,6 +296,58 @@ export function startWebBridgeHost(): void {
         };
       },
       /*
+       * ── 애드센스 실측 RPM (사장님 지시 2026-08-28) ────────────────────
+       *
+       * 토큰은 앱 밖으로 안 나간다. 사이트는 계산된 숫자만 받는다 —
+       * 수익 자료라 브라우저에 자격증명을 둘 이유가 없다.
+       */
+      adsenseStatus: async () => {
+        const { EnvironmentManager } = await import('../utils/environment-manager');
+        const env = EnvironmentManager.getInstance().getConfig() as any;
+        const hasCreds = Boolean(env.adsenseOAuthClientId || env.youtubeOAuthClientId)
+          && Boolean(env.adsenseOAuthClientSecret || env.youtubeOAuthClientSecret);
+        const hasToken = Boolean(env.adsenseOAuthAccessToken || env.adsenseOAuthRefreshToken);
+        return {
+          hasCredentials: hasCreds,
+          connected: hasToken,
+          /* 무엇이 없어서 못 쓰는지 그대로 말한다 — "안 됨" 만으로는 고칠 수가 없다. */
+          need: hasToken ? '' : hasCreds ? 'login' : 'credentials',
+        };
+      },
+      adsenseLogin: async ({ clientId, clientSecret }) => {
+        const { startAdSenseWizard } = await import('./key-wizard/providers/adsense');
+        const result = await startAdSenseWizard(
+          { clientId: clientId || undefined, clientSecret: clientSecret || undefined },
+          () => { /* 진행 문구는 앱 로그로 충분하다 — 사이트는 결과만 본다 */ },
+        );
+        // 토큰은 돌려주지 않는다. 됐는지 여부와 사유만 낸다.
+        return { ok: result.success === true, reason: result.success ? '' : (result.reason || '로그인 실패') };
+      },
+      adsenseRpm: async ({ days, currencyCode, limit }) => {
+        const { EnvironmentManager } = await import('../utils/environment-manager');
+        const { refreshAdSenseToken } = await import('./key-wizard/providers/adsense');
+        const { listAccounts, fetchPageEarnings } = await import('../utils/adsense-rpm');
+        const env = () => EnvironmentManager.getInstance().getConfig() as any;
+        let accessToken = env().adsenseOAuthAccessToken || '';
+        /* 만료 1분 전이면 미리 갱신한다 — 만료된 토큰으로 한 번 죽고 나서 고치지 않는다. */
+        const expiresAt = Number(env().adsenseTokenExpiresAt || 0);
+        if (!accessToken || (expiresAt && Date.now() > expiresAt - 60_000)) {
+          const renewed = await refreshAdSenseToken();
+          if (!renewed) return { error: '애드센스 연결이 만료됐습니다 — [구글 로그인]을 다시 눌러 주세요.' };
+          accessToken = env().adsenseOAuthAccessToken || '';
+        }
+        const accounts = await listAccounts(accessToken);
+        if (accounts.length === 0) return { error: '이 구글 계정에 애드센스 계정이 없습니다.' };
+        const report = await fetchPageEarnings(accounts[0].name, accessToken, { days, limit, currencyCode });
+        return {
+          rows: report.rows,
+          startDate: report.startDate,
+          endDate: report.endDate,
+          currency: report.currency || currencyCode,
+          account: accounts[0].displayName || accounts[0].name,
+        };
+      },
+      /*
        * CLI 로그인 시작 — 사이트 버튼이 이 PC 의 CLI 로그인을 띄운다.
        * OAuth URL 은 메인 프로세스에서만 열고(loginUrl.ts 규칙) 브라우저로도
        * 보내지 않는다. 사이트에는 "시작됨/이미 로그인됨"만 알린다.

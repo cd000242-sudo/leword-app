@@ -74,7 +74,7 @@ function ymd(date: Date): { y: number; m: number; d: number } {
 export async function fetchPageEarnings(
   accountName: string,
   accessToken: string,
-  options: { days?: number; limit?: number; endDate?: Date } = {},
+  options: { days?: number; limit?: number; endDate?: Date; currencyCode?: string } = {},
 ): Promise<{ rows: PageEarnings[]; startDate: string; endDate: string; currency: string }> {
   const days = Math.max(1, Math.min(365, Math.floor(options.days ?? 28)));
   const end = options.endDate ?? new Date(Date.now() - 24 * 60 * 60 * 1000); // 어제
@@ -94,6 +94,12 @@ export async function fetchPageEarnings(
   params.append('metrics', 'ESTIMATED_EARNINGS');
   params.append('metrics', 'PAGE_VIEWS');
   params.append('orderBy', '-ESTIMATED_EARNINGS');
+  /*
+   * 통화 지정(사장님 지시 2026-08-28 "달러로 나와야 됩니다").
+   * currencyCode 는 ISO-4217 이고, 안 보내면 계정 통화로 온다 — 구글이 환산해 준다.
+   * 우리가 환율을 곱하지 않는다: 그건 추정이 되고, 어제 환율과 오늘 환율이 다르다.
+   */
+  if (options.currencyCode) params.set('currencyCode', options.currencyCode);
   params.set('limit', String(Math.max(1, Math.min(5000, Math.floor(options.limit ?? 1000)))));
 
   const json = await apiGet(`/${accountName}/reports:generate`, accessToken, params);

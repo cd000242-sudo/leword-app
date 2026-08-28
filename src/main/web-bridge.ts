@@ -100,6 +100,19 @@ export interface WebBridgeDeps {
     provider?: string;
   }) => Promise<unknown>;
   /**
+   * 애드센스 실측 RPM(사장님 지시 2026-08-28 "글 RPM 확인하기").
+   *
+   * 애드센스 토큰은 **앱 밖으로 안 나간다**. 클로드 토큰과 다르다 — 수익 자료라
+   * 사이트가 들고 있을 이유가 없다. 사이트는 결과 숫자만 받는다.
+   *
+   * 남의 글 RPM 은 애초에 없다: 수익도 페이지뷰도 계정 주인만 볼 수 있다.
+   * 그래서 이 경로는 **내 계정 실적**만 낸다. 지어낸 값은 없다.
+   */
+  adsenseStatus?: () => Promise<unknown>;
+  /** 구글 로그인 창을 이 PC 에서 띄운다. 자격증명이 없으면 받아서 저장한다. */
+  adsenseLogin?: (args: { clientId: string; clientSecret: string }) => Promise<unknown>;
+  adsenseRpm?: (input: { days: number; currencyCode: string; limit: number }) => Promise<unknown>;
+  /**
    * 클로드 구독 자격을 사이트에 넘긴다(사장님 지시 2026-08-22
    * "앱만 켜놓고 연동시키고 나서 사이트도 같이 연동시키면 끝나는 거 아니야?").
    *
@@ -401,6 +414,51 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.postAnalyze(input) });
+        return;
+      }
+
+      /* 애드센스 연결 상태 — 무엇이 없어서 못 쓰는지까지 말한다. */
+      if (deps.adsenseStatus && req.method === 'GET' && req.url === '/v1/bridge/adsense-status') {
+        json(res, 200, { ok: true, result: await deps.adsenseStatus() });
+        return;
+      }
+
+      /*
+       * 구글 로그인 시작. 자격증명(Client ID/Secret)은 이 PC 의 앱으로만 간다 —
+       * 사이트 서버를 거치지 않는다(브리지는 127.0.0.1 전용이다).
+       * 저장된 값이 있으면 빈 채로 불러도 된다.
+       */
+      if (deps.adsenseLogin && req.method === 'POST' && req.url === '/v1/bridge/adsense-login') {
+        let clientId = '';
+        let clientSecret = '';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          clientId = String(parsed?.clientId || '').trim().slice(0, 200);
+          clientSecret = String(parsed?.clientSecret || '').trim().slice(0, 200);
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.adsenseLogin({ clientId, clientSecret }) });
+        return;
+      }
+
+      if (deps.adsenseRpm && req.method === 'POST' && req.url === '/v1/bridge/adsense-rpm') {
+        let days = 28;
+        let currencyCode = 'USD';
+        let limit = 500;
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          days = Math.max(1, Math.min(365, Math.floor(Number(parsed?.days) || 28)));
+          // ISO-4217 은 대문자 세 글자다. 그 밖의 값은 버리고 기본값으로 간다.
+          const wanted = String(parsed?.currencyCode || '').trim().toUpperCase();
+          currencyCode = /^[A-Z]{3}$/.test(wanted) ? wanted : 'USD';
+          limit = Math.max(1, Math.min(5000, Math.floor(Number(parsed?.limit) || 500)));
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.adsenseRpm({ days, currencyCode, limit }) });
         return;
       }
 
