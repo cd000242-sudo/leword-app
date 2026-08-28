@@ -274,7 +274,13 @@ async function main(): Promise<void> {
         result.stderr || `status=${result.status}`);
     }
   } finally {
-    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+    /*
+     * 윈도우에서 정션(junction)을 방금 지운 자리는 잠깐 핸들이 남아 rmdir 이
+     * ENOTEMPTY 로 튕긴다(2026-08-28 릴리즈에서 실제로 막혔다 — 검사 자체는 다
+     * 통과하고 뒷정리만 실패해서 릴리즈가 통째로 멈췄다).
+     * 검사 결과가 아니라 청소 실패다. 몇 번 다시 시도한다.
+     */
+    fs.rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
   console.log('[naver-openapi-quota-concurrency.test] passed');
 }
