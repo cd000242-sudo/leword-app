@@ -110,7 +110,21 @@ jobs:
         # 초대량 공급(2026-08-18, 사장님 지시 "씨앗공급 초대대량"): 정원·스캔폭 상향
         # + 스필오버(정원 밀림 전량 순위 승격) + 승격 큐(직전 보드 실측 풀 되먹임).
         # 후보가 많아도 BD 예산 거버너가 앞순위부터 태우다 한도에서 멈춘다.
-        run: node scripts/preemption-candidates.js --all --out=candidates.json --perTopic=30 --perSeed=10 --scanWidth=60 --secondarySeeds=30 --targetTotal=500 --promotedPerTopic=20 --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json --signals=signals.json
+        # 레인을 사장님이 실제로 쓰는 주제로 바꾼다(2026-08-28).
+        #
+        # 왜: --all 로 32개 주제를 다 돌면 문학·영화·연예가 결과를 희석한다.
+        # 실측(8/28 회차 248건): "대구 cgv 아이맥스"(안 가봤으면 못 씀),
+        # "전경철 작가 근황"(사실 확인 불가), "오디세이 관람등급"(답이 한 줄).
+        # 자리가 비어 있어도 **사장님이 못 쓰는 글**이면 보드의 값이 0 이다.
+        #
+        # 고른 7개는 leadernam.com 최근 50글의 실제 분포에서 나왔다:
+        # 지원금 16 · 세금 7 · 보험 7 · 생활절차(KTX·증명서) 5 · 빚신용 4 ·
+        # 자동차사고 3 · 대출투자 2. 씨앗어도 이미 그 주제를 담고 있다
+        # (실업급여·근로장려금·차상위계층·종합소득세·연말정산·실손보험·대환대출).
+        #
+        # 주제가 32→7 이 되었으니 주제당 정원을 30→120 으로 올려 총 공급을 지킨다.
+        # 실제 BD 지출은 아래 거버너와 maxPerRun 이 정하므로 여기서 늘려도 돈이 늘지 않는다.
+        run: node scripts/preemption-candidates.js --topics=사회·정치,비즈니스·경제,일상·생각,자동차,건강·의학,국내여행,육아·결혼 --out=candidates.json --perTopic=120 --perSeed=10 --scanWidth=60 --secondarySeeds=30 --targetTotal=900 --promotedPerTopic=20 --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json --signals=signals.json
 
       # 예산 절단 — 뽑은 만큼 그대로 넘기면 크레딧을 넘긴다(한 번 겪었다).
       - name: 예산에 맞춰 자르기
@@ -120,7 +134,10 @@ jobs:
         # boostKeep: 굶은 주제(발굴기가 파일에 실어 보낸다)만 30건까지 남긴다.
         # 앞 단계에서 무료 선별 문턱을 올려 살려 낸 후보를 여기서 다시 자르면
         # 아무 일도 안 한 것이 된다.
-        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=20 --boostKeep=30
+        # keep 20→60 (2026-08-28): 주제가 7개로 줄어 주제당 정원을 늘려도
+        # BD 로 넘어가는 총량은 7×60=420 이라 maxPerRun(720콜 ÷ 키워드당 2콜
+        # = 360키워드) 안에서 거버너가 앞순위부터 태우고 멈춘다. 돈은 안 늘어난다.
+        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=60 --boostKeep=80
 
       - name: 자리 판정 (Bright Data)
         env:

@@ -299,8 +299,27 @@ export function analyzeKeywordSignals(keyword: string): KeywordSignals {
  * **화면에 노출하지 않는다.** 내부 정렬에만 쓴다(추정치 UI 노출 금지 규칙).
  * 구매 검토형을 앞에, AI 잠식 위험이 큰 것을 뒤로 민다.
  */
-export function sortWeight(signals: KeywordSignals): number {
+export function sortWeight(signals: KeywordSignals, keyword = '', searchVolume: number | null = null): number {
   const intentWeight = { commercial: 0, transactional: 1, unknown: 2, informational: 3, navigational: 4 }[signals.intent.intent];
   const riskWeight = { low: 0, medium: 1, high: 2 }[signals.briefing.risk];
-  return intentWeight * 10 + riskWeight;
+  /*
+   * 같은 의도끼리는 **틈새를 앞에 둔다**(사장님 지시 2026-08-28).
+   *
+   * 왜: 이 정렬이 Bright Data 예산을 누구에게 쓸지 정한다. 예전에는 의도만 봐서
+   * 대형 키워드가 앞자리를 먹었다 — 8/28 회차 실측으로 검색량 1만 이상이 25%,
+   * 어절 4개 이상은 5% 뿐이었다. 사장님이 1등 하신 'KTX 대기순번' 같은 긴
+   * 롱테일이 뒤로 밀려 subKeywords 장식으로만 남았다.
+   *
+   * 두 축을 쓴다. 둘 다 실측이거나 글자 그대로다 — 지어낸 점수가 아니다:
+   *   ① 어절 수가 많을수록 앞 (구체적인 문구일수록 자리가 있다)
+   *   ② 검색량이 작을수록 앞 (대형은 이미 남들이 다 썼다)
+   * 의도 가중치보다 작게 둬서 층 자체는 뒤집지 않는다.
+   */
+  const words = String(keyword).trim().split(/\s+/).filter(Boolean).length;
+  const longTail = Math.max(0, 4 - Math.min(words, 4));           // 4어절 이상이면 0
+  const volume = searchVolume == null ? 1.5                        // 못 잰 것은 중간
+    : searchVolume >= 10_000 ? 3
+      : searchVolume >= 3_000 ? 2
+        : searchVolume >= 1_000 ? 1 : 0;
+  return intentWeight * 100 + riskWeight * 10 + longTail + volume;
 }

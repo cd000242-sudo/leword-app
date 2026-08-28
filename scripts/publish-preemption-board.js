@@ -355,7 +355,22 @@ function main() {
       prevPayload = null; // 못 읽으면 이월 없이 — 회차를 죽이지 않는다
     }
   }
-  const merged = mergeCarryRows(withEvidence.map(toPublicRow), prevPayload, {
+  /*
+   * **자리가 없는 행은 싣지 않는다**(사장님 지시 2026-08-28).
+   *
+   * 8/28 회차 실측: 248행 중 80행(32%)이 openSlot 0 이었다. 상위가 이미 꽉 찬
+   * 검색어라 사장님이 그 줄을 하나하나 열어 보고 버리게 된다 — 보드를 보는
+   * 이유가 "다시 확인 안 해도 되는 것"인데 그 반대가 된다.
+   *
+   * openSlot 은 Bright Data 로 받은 **실제 검색 페이지**에서 센 값이다(오픈 API
+   * 순위가 아니다). null 은 '못 쟀다'라 버리지 않는다 — 모르는 것과 없는 것은 다르다.
+   */
+  const slotted = withEvidence.filter((row) => row.openSlot == null || Number(row.openSlot) > 0);
+  const droppedNoSlot = withEvidence.length - slotted.length;
+  if (droppedNoSlot > 0) {
+    console.log(`  자리없음    ${droppedNoSlot}행 제외 (상위가 꽉 참) → ${slotted.length}행`);
+  }
+  const merged = mergeCarryRows(slotted.map(toPublicRow), prevPayload, {
     carryDays,
     nowMs: Date.now(),
   });

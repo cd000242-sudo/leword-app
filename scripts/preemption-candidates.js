@@ -645,7 +645,12 @@ async function main() {
      * 구매 검토형을 앞에, AI 브리핑에 잠식될 것을 뒤로 민다.
      * 가중치는 내부 정렬에만 쓰고 화면에 내보내지 않는다.
      */
-    measured.sort((a, b) => sortWeight(analyzeKeywordSignals(a.keyword)) - sortWeight(analyzeKeywordSignals(b.keyword)));
+    /*
+     * 이 정렬이 **BD 예산을 누구에게 쓸지** 정한다. 키워드와 검색량을 같이 넘겨
+     * 같은 의도 안에서는 틈새(긴 문구·작은 검색량)가 앞에 오게 한다.
+     */
+    measured.sort((a, b) => sortWeight(analyzeKeywordSignals(a.keyword), a.keyword, a.searchVolume)
+      - sortWeight(analyzeKeywordSignals(b.keyword), b.keyword, b.searchVolume));
     const seconds = Math.round((Date.now() - started) / 1000);
     console.log(
       `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
