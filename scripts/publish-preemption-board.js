@@ -365,15 +365,39 @@ function main() {
    * openSlot 은 Bright Data 로 받은 **실제 검색 페이지**에서 센 값이다(오픈 API
    * 순위가 아니다). null 은 '못 쟀다'라 버리지 않는다 — 모르는 것과 없는 것은 다르다.
    */
-  const slotted = withEvidence.filter((row) => row.openSlot == null || Number(row.openSlot) > 0);
-  const droppedNoSlot = withEvidence.length - slotted.length;
-  if (droppedNoSlot > 0) {
-    console.log(`  자리없음    ${droppedNoSlot}행 제외 (상위가 꽉 참) → ${slotted.length}행`);
-  }
-  const merged = mergeCarryRows(slotted.map(toPublicRow), prevPayload, {
+  const merged = mergeCarryRows(withEvidence.map(toPublicRow), prevPayload, {
     carryDays,
     nowMs: Date.now(),
   });
+  /*
+   * **합친 뒤에 거른다**(사장님 지시 2026-08-28).
+   *
+   * 처음엔 신규 행에만 걸었는데, 그 회차 신규는 52행이고 이월이 246행이었다 —
+   * 83%가 게이트를 우회했다. 화면에 남는 것 기준으로 걸러야 뜻이 있다.
+   *
+   * ① 자리 없는 행: 열어 보면 이미 상위가 꽉 차 있다. 사장님이 그 줄을
+   *    하나하나 확인하고 버리게 되므로 보드를 보는 이유가 사라진다.
+   *    null(못 쟀다)은 남긴다 — 모르는 것과 없는 것은 다르다.
+   * ② 폐지된 레인: 자리가 있어도 사장님이 못 쓰는 글이면 화면만 채운다
+   *    ("대구 cgv 아이맥스" — 안 가봤으면 못 쓴다). 이월로 두면 한 달을 더 간다.
+   *    분류가 안 된 행('주제 선택 안 함')도 같이 나간다 — 표본이 OTT·주가·펜션
+   *    같은 딴 주제였다. 새 회차에서 이 사유로 많이 빠지면 로그에 드러난다.
+   */
+  const ACTIVE_TOPICS = new Set([
+    '사회·정치', '비즈니스·경제', '일상·생각', '자동차', '건강·의학', '국내여행', '육아·결혼',
+  ]);
+  const beforeGate = merged.rows.length;
+  const noSlot = merged.rows.filter((row) => row.openSlot != null && Number(row.openSlot) <= 0).length;
+  const offLane = merged.rows.filter((row) => !ACTIVE_TOPICS.has(String(row.topic || ''))).length;
+  merged.rows = merged.rows.filter((row) => (
+    (row.openSlot == null || Number(row.openSlot) > 0) && ACTIVE_TOPICS.has(String(row.topic || ''))
+  ));
+  if (beforeGate !== merged.rows.length) {
+    console.log(
+      `  게이트      ${beforeGate} → ${merged.rows.length}행`
+      + ` (자리없음 ${noSlot} · 폐지레인 ${offLane}, 겹칠 수 있음)`,
+    );
+  }
   console.log(
     `  누적        신규 ${merged.fresh} + 이월 ${merged.carried}(≤${carryDays}일)`
     + `${merged.expired > 0 ? ` · 만료 ${merged.expired}` : ''}`
