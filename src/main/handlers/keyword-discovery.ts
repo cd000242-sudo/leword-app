@@ -1857,6 +1857,43 @@ export function setupKeywordDiscoveryHandlers(): void {
     console.log('[KEYWORD-MASTER] get-realtime-keywords 핸들러는 이미 등록되어 있습니다.');
   }
 
+  // 이슈 틈새 헌터 — 실시간 이슈 중 초보 블로그가 먹을 수 있는 틈새키워드 판정
+  ipcMain.handle('hunt-issue-niche-keywords', async (event, options?: {
+    issueLimit?: number;
+    candidatesPerIssue?: number;
+    maxCandidates?: number;
+    docCountMax?: number;
+  }) => {
+    try {
+      const { huntIssueNicheKeywords } = await import('../../utils/issue-niche-hunter');
+
+      const envManager = EnvironmentManager.getInstance();
+      const env = envManager.getConfig();
+      const clientId = env.naverClientId || process.env['NAVER_CLIENT_ID'] || '';
+      const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
+
+      if (!clientId || !clientSecret) {
+        return { success: false, keywords: [], error: '네이버 API 키가 설정되지 않았습니다' };
+      }
+
+      const keywords = await huntIssueNicheKeywords({
+        config: { clientId, clientSecret },
+        ...options,
+        onProgress: (p) => {
+          try { event.sender.send('issue-niche-progress', p); } catch {}
+        },
+        onCandidate: (c) => {
+          try { event.sender.send('issue-niche-progress', { phase: 'candidate', candidate: c }); } catch {}
+        },
+      });
+
+      return { success: true, keywords };
+    } catch (error: any) {
+      console.error('[KEYWORD-MASTER] 이슈 틈새 헌터 실패:', error?.message || error);
+      return { success: false, keywords: [], error: error?.message || String(error) };
+    }
+  });
+
   // Google Trends 키워드 조회 (별도 버튼용)
   if (!ipcMain.listenerCount('get-google-trend-keywords')) {
     ipcMain.handle('get-google-trend-keywords', async () => {

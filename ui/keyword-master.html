@@ -2588,6 +2588,31 @@
             <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
           </button>
 
+          <!-- 🎯 네이버 상위노출 전용 틈새키워드 -->
+          <button onclick="openIssueNicheModal()" style="
+            background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4);
+            text-align: left;
+            position: relative;
+          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(124, 58, 237, 0.5)'"
+             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(124, 58, 237, 0.4)'">
+            <span style="position:absolute; top:-8px; right:8px; background:linear-gradient(135deg,#ef4444,#dc2626); color:white; padding:3px 10px; border-radius:10px; font-size:10px; font-weight:900;">NEW</span>
+            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🎯</div>
+            <div style="flex: 1;">
+              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">상위노출 틈새키워드</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">지금 뜨는 이슈에서 정면글 적은 실시간 틈새 발굴</div>
+            </div>
+            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
+          </button>
+
         </div>
       </div>
 
@@ -15944,6 +15969,358 @@
           unlockBodyScroll();
           const modal = document.getElementById('kinGoldenModal');
           if (modal) modal.remove();
+        };
+
+        // ═══════════════════════════════════════════════════════════
+        // 🎯 네이버 상위노출 전용 틈새키워드 (실시간 이슈 기반)
+        // 데이터 계약: hunt-issue-niche-keywords / issue-niche-progress
+        // ═══════════════════════════════════════════════════════════
+        let __issueNicheState = {
+          rows: [],          // 누적 IssueNicheKeyword[]
+          nicheOnly: false,  // '틈새만 보기' 토글
+          unsub: null,       // progress 구독 해제 함수
+          running: false,
+        };
+
+        function issueTypeLabel(t) {
+          const map = { policy: '정책', incident: '사건', entertainment: '연예', fresh: '이슈' };
+          return map[t] || '기타';
+        }
+
+        function issueTypeColor(t) {
+          const map = { policy: '#3b82f6', incident: '#ef4444', entertainment: '#ec4899', fresh: '#f59e0b' };
+          return map[t] || '#64748b';
+        }
+
+        function issueNicheLog(message, type = 'info') {
+          const logArea = document.getElementById('issueNicheLogArea');
+          const logContent = document.getElementById('issueNicheLogContent');
+          if (!logArea || !logContent) return;
+          logArea.style.display = 'block';
+          const colors = { info: '#a5b4fc', warn: '#fbbf24', error: '#ef4444', success: '#22c55e', step: '#818cf8' };
+          const color = colors[type] || colors.info;
+          const time = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          logContent.innerHTML += `<div style="color:${color};">[${time}] ${message}</div>`;
+          logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // 검색량 셀: isEstimated면 실측 숫자로 단정하지 않고 '추정' 표기, null이면 측정불가
+        function issueNicheSvCell(row) {
+          if (row.searchVolume === null || row.searchVolume === undefined) {
+            return `<span style="color:#64748b;">측정불가</span>`;
+          }
+          const n = Number(row.searchVolume).toLocaleString();
+          const svEst = row.isSearchVolumeEstimated !== undefined ? row.isSearchVolumeEstimated : row.isEstimated;
+          if (svEst) {
+            return `${n} <span title="추정치 — 실측이 아닙니다" style="color:#fbbf24; font-size:10px; font-weight:800;">추정</span>`;
+          }
+          return `<span style="color:#f1f5f9;">${n}</span>`;
+        }
+
+        function issueNicheNumCell(v, estimated) {
+          if (v === null || v === undefined) return `<span style="color:#64748b;">—</span>`;
+          const n = Number(v).toLocaleString();
+          if (estimated) {
+            return `${n} <span title="추정치 — 실측이 아닙니다" style="color:#fbbf24; font-size:10px; font-weight:800;">추정</span>`;
+          }
+          return n;
+        }
+
+        function issueNicheRatioCell(v) {
+          if (v === null || v === undefined || !isFinite(v)) return `<span style="color:#64748b;">—</span>`;
+          const color = v >= 5 ? '#22c55e' : v >= 2 ? '#fbbf24' : v >= 1 ? '#f97316' : '#ef4444';
+          return `<span style="color:${color}; font-weight:800;">${Number(v).toFixed(1)}</span>`;
+        }
+
+        function issueNicheCpcCell(v) {
+          if (v === null || v === undefined || v <= 0) return `<span style="color:#64748b;">—</span>`;
+          return `<span style="color:#22c55e; font-weight:600;">₩${Number(v).toLocaleString()}원</span>`;
+        }
+
+        // 문서최신성 셀
+        function issueNicheFreshCell(row) {
+          if (row.freshFrontalCount !== null && row.freshFrontalCount !== undefined && row.freshFrontalCount >= 3) {
+            return `<span style="background:rgba(239,68,68,0.15); color:#f87171; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">오늘 도배</span>`;
+          }
+          if (row.frontalDocCount !== null && row.frontalDocCount !== undefined && row.frontalDocCount <= 5) {
+            return `<span style="background:rgba(34,197,94,0.15); color:#4ade80; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">정면글 적음</span>`;
+          }
+          if (row.frontalDocCount === null || row.frontalDocCount === undefined) {
+            return `<span style="color:#64748b;">—</span>`;
+          }
+          return `<span style="color:#94a3b8; font-size:11px;">정면 ${Number(row.frontalDocCount).toLocaleString()}</span>`;
+        }
+
+        // 실측 수요 셀 — 데이터랩 최근 7일.
+        // 상대지수(요청 단위 최고점=100 정규화)라 절대 검색량이 아니다.
+        // 숫자를 표에 그대로 쓰면 검색량으로 오독되므로 배지로만 보여주고,
+        // 원수치는 툴팁에 "상대지수"라고 명시해서만 노출한다.
+        function issueNicheDemandCell(row) {
+          if (!row.hasLiveDemand) {
+            if (row.demandRecent7 === null || row.demandRecent7 === undefined) {
+              return `<span title="데이터랩 수요 미측정" style="color:#64748b;">—</span>`;
+            }
+            return `<span title="최근 7일 데이터랩 집계에 잡히지 않음 (수요 미미)" style="color:#64748b; font-size:11px;">미검출</span>`;
+          }
+          const idx = Number(row.demandRecent7);
+          const trend = row.demandStatus === 'rising' ? ' ▲'
+            : (row.demandStatus === 'declining' ? ' ▼' : '');
+          const tip = `데이터랩 최근 7일 실측 수요 확인. 상대지수 ${idx.toFixed(1)} (요청 내 최고점=100 기준 상대값이며 절대 검색량이 아닙니다)`;
+          return `<span title="${tip}" style="background:rgba(34,197,94,0.15); color:#4ade80; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">실측 수요${trend}</span>`;
+        }
+
+        // 급등 셀
+        function issueNicheRisingCell(row) {
+          if (row.recencyStatus === 'rising') {
+            return `<span style="background:rgba(239,68,68,0.2); color:#f87171; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800;">급등</span>`;
+          }
+          if (row.isHot) {
+            return `<span style="background:rgba(236,72,153,0.2); color:#f9a8d4; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800;">실시간</span>`;
+          }
+          if (row.recencyStatus === 'dead') {
+            return `<span style="color:#64748b; font-size:11px;">수요없음</span>`;
+          }
+          return `<span style="color:#64748b;">—</span>`;
+        }
+
+        const ISSUE_NICHE_GRADE_COLOR = { SSS: '#dc2626', SS: '#ea580c', S: '#22c55e', A: '#3b82f6', B: '#fbbf24', C: '#64748b', D: '#475569' };
+
+        function renderIssueNicheRows() {
+          const tbody = document.getElementById('issueNicheTbody');
+          const emptyEl = document.getElementById('issueNicheEmpty');
+          const countEl = document.getElementById('issueNicheCount');
+          if (!tbody) return;
+
+          const source = __issueNicheState.rows;
+          const list = __issueNicheState.nicheOnly ? source.filter(r => r.isNiche === true) : source;
+
+          if (countEl) {
+            const nicheN = source.filter(r => r.isNiche === true).length;
+            countEl.textContent = `총 ${source.length}건 · 틈새 ${nicheN}건`;
+          }
+
+          if (list.length === 0) {
+            tbody.innerHTML = '';
+            if (emptyEl) emptyEl.style.display = 'block';
+            return;
+          }
+          if (emptyEl) emptyEl.style.display = 'none';
+
+          tbody.innerHTML = list.map((row, idx) => {
+            const isNiche = row.isNiche === true;
+            const gradeColor = ISSUE_NICHE_GRADE_COLOR[row.grade] || '#64748b';
+            const reasons = Array.isArray(row.reasons) && row.reasons.length ? row.reasons.join(' · ') : '—';
+            const nicheBadge = isNiche
+              ? `<span style="background:rgba(34,197,94,0.2); color:#4ade80; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:800; margin-left:5px;">✅ 틈새</span>`
+              : `<span style="background:rgba(255,255,255,0.06); color:#64748b; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:700; margin-left:5px;">관찰</span>`;
+            const rowBg = isNiche ? 'background:rgba(124,58,237,0.10);' : '';
+            const rowDim = isNiche ? '' : 'opacity:0.62;';
+            const derivedMark = row.isDerived
+              ? `<span title="파생 키워드 (기준: ${String(row.baseKeyword || '').replace(/"/g, '&quot;')})" style="color:#a78bfa; font-size:10px; margin-left:4px;">↳파생</span>`
+              : '';
+            return `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.06); ${rowBg} ${rowDim}">
+                <td style="padding:10px 8px; color:rgba(255,255,255,0.4); font-size:11px; text-align:center;">${idx + 1}</td>
+                <td style="padding:10px 8px; text-align:center; white-space:nowrap;">
+                  <span style="background:${gradeColor}; color:#fff; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:800;">${row.grade || '-'}</span>
+                  ${nicheBadge}
+                </td>
+                <td style="padding:10px 8px; font-weight:700; color:#fff; font-size:14px;">${String(row.keyword || '').replace(/</g, '&lt;')}${derivedMark}</td>
+                <td style="padding:10px 8px; text-align:center;">
+                  <span style="background:${issueTypeColor(row.issueType)}22; color:${issueTypeColor(row.issueType)}; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">${issueTypeLabel(row.issueType)}</span>
+                </td>
+                <td style="padding:10px 8px; text-align:right; font-weight:600;">${issueNicheSvCell(row)}</td>
+                <td style="padding:10px 8px; text-align:right; color:#cbd5e1;">${issueNicheNumCell(row.documentCount, row.isDocumentCountEstimated)}</td>
+                <td style="padding:10px 8px; text-align:right;">${issueNicheRatioCell(row.goldenRatio)}</td>
+                <td style="padding:10px 8px; text-align:center;">${issueNicheDemandCell(row)}</td>
+                <td style="padding:10px 8px; text-align:center;">${issueNicheFreshCell(row)}</td>
+                <td style="padding:10px 8px; text-align:center;">${issueNicheRisingCell(row)}</td>
+                <td style="padding:10px 8px; color:rgba(255,255,255,0.65); font-size:11px; line-height:1.4; max-width:260px;">${String(reasons).replace(/</g, '&lt;')}</td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        window.toggleIssueNicheOnly = function toggleIssueNicheOnly(checked) {
+          __issueNicheState.nicheOnly = !!checked;
+          renderIssueNicheRows();
+        };
+
+        window.openIssueNicheModal = function openIssueNicheModal() {
+          lockBodyScroll();
+          const existing = document.getElementById('issueNicheModal');
+          if (existing) existing.remove();
+
+          __issueNicheState = { rows: [], nicheOnly: false, unsub: null, running: false };
+
+          const modal = document.createElement('div');
+          modal.id = 'issueNicheModal';
+          modal.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            z-index: 10100; display: flex; justify-content: center; align-items: flex-start;
+            padding: 20px; overflow-y: auto;
+          `;
+
+          modal.innerHTML = `
+            <div style="background: linear-gradient(165deg, #0c1222 0%, #1a1f35 50%, #0f172a 100%); border-radius: 24px; width: 100%; max-width: 1100px; margin: 20px auto; box-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 25px 80px rgba(0,0,0,0.6), 0 0 120px rgba(124,58,237,0.12); border: 1px solid rgba(255,255,255,0.08); overflow: hidden; position: relative;">
+              <!-- 닫기: 앱 전역 최소화 버튼(🗕, right:54px 자동주입)과 안 겹치게 코너(right:12px) 절대배치 -->
+              <button onclick="closeIssueNicheModal()" title="닫기" style="position:absolute; top:12px; right:12px; z-index:11; width:34px; height:34px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:8px; color:white; font-size:16px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">✕</button>
+              <!-- 헤더 -->
+              <div style="padding: 24px 104px 24px 28px; display:flex; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); background:linear-gradient(135deg, rgba(124,58,237,0.15), rgba(79,70,229,0.08));">
+                <div style="display:flex; align-items:center; gap:16px;">
+                  <div style="font-size:32px;">🎯</div>
+                  <div>
+                    <div style="font-size:20px; font-weight:800; color:white;">네이버 상위노출 전용 틈새키워드</div>
+                    <div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">지금 뜨는 이슈에서 정면글이 적은 실시간 틈새를 찾습니다 (실측 기반)</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="padding: 24px 28px;">
+                <!-- 컨트롤 바 -->
+                <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:18px;">
+                  <button id="issueNicheRunBtn" onclick="runIssueNicheHunt()" style="padding:14px 32px; background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%); color:white; border:none; border-radius:12px; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 8px 24px rgba(124,58,237,0.35); display:inline-flex; align-items:center; gap:8px;">
+                    <span style="font-size:18px;">🔎</span><span>틈새 찾기</span>
+                  </button>
+                  <label style="display:inline-flex; align-items:center; gap:8px; color:rgba(255,255,255,0.8); font-size:13px; cursor:pointer; user-select:none;">
+                    <input type="checkbox" id="issueNicheOnlyToggle" onchange="toggleIssueNicheOnly(this.checked)" style="width:16px; height:16px; cursor:pointer;">
+                    <span>틈새만 보기</span>
+                  </label>
+                  <span id="issueNicheCount" style="margin-left:auto; font-size:12px; color:rgba(255,255,255,0.5);"></span>
+                </div>
+
+                <!-- 실시간 로그 -->
+                <div id="issueNicheLogArea" style="display:none; background:rgba(0,0,0,0.35); border:1px solid rgba(124,58,237,0.25); border-radius:12px; padding:14px 16px; margin-bottom:18px; max-height:180px; overflow-y:auto;">
+                  <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                    <div style="width:8px; height:8px; border-radius:50%; background:#818cf8; box-shadow:0 0 8px #818cf8;"></div>
+                    <span style="font-size:11px; font-weight:800; color:#a5b4fc; letter-spacing:1px;">LIVE HUNTING</span>
+                  </div>
+                  <div id="issueNicheLogContent" style="font-family:'Courier New', monospace; font-size:12px; line-height:1.6;"></div>
+                </div>
+
+                <!-- 결과 테이블 -->
+                <div style="overflow-x:auto; border:1px solid rgba(255,255,255,0.06); border-radius:12px;">
+                  <table style="width:100%; border-collapse:collapse; font-size:13px; min-width:1000px;">
+                    <thead>
+                      <tr style="background:rgba(124,58,237,0.12); border-bottom:1px solid rgba(124,58,237,0.25);">
+                        <th style="padding:10px 8px; text-align:center; color:#a78bfa; font-size:11px; font-weight:700;">#</th>
+                        <th style="padding:10px 8px; text-align:center; color:#a78bfa; font-size:11px; font-weight:700;">등급</th>
+                        <th style="padding:10px 8px; text-align:left; color:#a78bfa; font-size:11px; font-weight:700;">키워드</th>
+                        <th style="padding:10px 8px; text-align:center; color:#a78bfa; font-size:11px; font-weight:700;">유형</th>
+                        <th style="padding:10px 8px; text-align:right; color:#a78bfa; font-size:11px; font-weight:700;">검색량</th>
+                        <th style="padding:10px 8px; text-align:right; color:#a78bfa; font-size:11px; font-weight:700;">문서수</th>
+                        <th title="검색량 ÷ 문서수. 이 탭에서는 참고용 관측값이며 틈새 판정에 쓰지 않습니다 — 이슈 키워드는 뉴스 직후 문서수가 검색량을 앞서기 때문입니다." style="padding:10px 8px; text-align:right; color:#a78bfa; font-size:11px; font-weight:700;">황금비율</th>
+                        <th title="데이터랩 최근 7일 실측 수요 — 틈새 판정의 근거입니다. 검색광고 검색량은 지난달 평균이라 오늘 터진 이슈에는 데이터가 없습니다." style="padding:10px 8px; text-align:center; color:#a78bfa; font-size:11px; font-weight:700;">실측 수요</th>
+                        <th style="padding:10px 8px; text-align:center; color:#a78bfa; font-size:11px; font-weight:700;">문서최신성</th>
+                        <th style="padding:10px 8px; text-align:center; color:#a78bfa; font-size:11px; font-weight:700;">급등</th>
+                        <th style="padding:10px 8px; text-align:left; color:#a78bfa; font-size:11px; font-weight:700;">근거</th>
+                      </tr>
+                    </thead>
+                    <tbody id="issueNicheTbody"></tbody>
+                  </table>
+                  <div id="issueNicheEmpty" style="display:block; text-align:center; padding:48px 20px; color:rgba(255,255,255,0.5); font-size:14px;">
+                    «틈새 찾기» 를 눌러 지금 뜨는 이슈에서 상위노출 가능한 틈새를 발굴하세요.
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+
+          modal.onclick = (e) => { if (e.target === modal) closeIssueNicheModal(); };
+          document.body.appendChild(modal);
+          renderIssueNicheRows();
+        };
+
+        window.closeIssueNicheModal = function closeIssueNicheModal() {
+          unlockBodyScroll();
+          try { if (typeof __issueNicheState.unsub === 'function') __issueNicheState.unsub(); } catch {}
+          __issueNicheState.unsub = null;
+          const modal = document.getElementById('issueNicheModal');
+          if (modal) modal.remove();
+        };
+
+        window.runIssueNicheHunt = async function runIssueNicheHunt() {
+          if (__issueNicheState.running) return;
+          __issueNicheState.running = true;
+          __issueNicheState.rows = [];
+
+          const runBtn = document.getElementById('issueNicheRunBtn');
+          const logContent = document.getElementById('issueNicheLogContent');
+          if (logContent) logContent.innerHTML = '';
+          if (runBtn) {
+            runBtn.disabled = true;
+            runBtn.style.opacity = '0.6';
+            runBtn.style.cursor = 'not-allowed';
+            runBtn.innerHTML = '<span style="font-size:18px;">⏳</span><span>발굴 중...</span>';
+          }
+          renderIssueNicheRows();
+          issueNicheLog('🎯 상위노출 틈새키워드 발굴 시작', 'success');
+
+          // 진행 이벤트 구독 (candidate 는 실시간 스트리밍)
+          try { if (typeof __issueNicheState.unsub === 'function') __issueNicheState.unsub(); } catch {}
+          try {
+            if (window.electronAPI?.on) {
+              __issueNicheState.unsub = window.electronAPI.on('issue-niche-progress', (p) => {
+                if (!p) return;
+                if (p.phase === 'candidate' && p.candidate) {
+                  __issueNicheState.rows.push(p.candidate);
+                  renderIssueNicheRows();
+                  return;
+                }
+                const phaseLabel = {
+                  source: '이슈 소스 수집', derive: '파생 키워드 도출', recency: '최신성 측정',
+                  judge: '틈새 판정', candidate: '후보', complete: '완료',
+                }[p.phase] || p.phase || '';
+                let msg = p.message || phaseLabel;
+                if (p.keyword) msg += ` — ${p.keyword}`;
+                if (typeof p.current === 'number' && typeof p.total === 'number') msg += ` (${p.current}/${p.total})`;
+                issueNicheLog(msg, p.phase === 'complete' ? 'success' : 'step');
+              });
+            }
+          } catch (e) { console.warn('[issue-niche] progress 구독 실패:', e?.message); }
+
+          try {
+            const res = await window.electronAPI.invoke('hunt-issue-niche-keywords', { issueLimit: 12 });
+
+            try { if (typeof __issueNicheState.unsub === 'function') __issueNicheState.unsub(); } catch {}
+            __issueNicheState.unsub = null;
+
+            if (!res || res.success === false) {
+              issueNicheLog(`❌ ${res?.error || '발굴에 실패했습니다.'}`, 'error');
+              return;
+            }
+
+            // 최종 반환값을 신뢰 소스로 사용 (스트리밍 누적본 대체 — 순서·중복 정정)
+            const finalKeywords = Array.isArray(res.keywords) ? res.keywords : [];
+            if (finalKeywords.length > 0) {
+              __issueNicheState.rows = finalKeywords;
+            }
+            renderIssueNicheRows();
+
+            if (__issueNicheState.rows.length === 0) {
+              const emptyEl = document.getElementById('issueNicheEmpty');
+              if (emptyEl) {
+                emptyEl.style.display = 'block';
+                emptyEl.innerHTML = '😴 지금 뜨는 이슈에서 틈새를 찾지 못했어요. 잠시 후 다시 시도해 주세요.';
+              }
+              issueNicheLog('지금 뜨는 이슈에서 틈새를 찾지 못했어요', 'warn');
+            } else {
+              const nicheN = __issueNicheState.rows.filter(r => r.isNiche === true).length;
+              issueNicheLog(`✅ 완료 — 총 ${__issueNicheState.rows.length}건 (틈새 ${nicheN}건)`, 'success');
+            }
+          } catch (e) {
+            issueNicheLog(`❌ 오류: ${e?.message || e}`, 'error');
+          } finally {
+            __issueNicheState.running = false;
+            const b = document.getElementById('issueNicheRunBtn');
+            if (b) {
+              b.disabled = false;
+              b.style.opacity = '1';
+              b.style.cursor = 'pointer';
+              b.innerHTML = '<span style="font-size:18px;">🔎</span><span>틈새 찾기</span>';
+            }
+          }
         };
 
         let kinCurrentTab = 'trending';
