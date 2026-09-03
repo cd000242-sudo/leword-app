@@ -78,6 +78,12 @@ describe('실검 틈새 보드 워크플로', () => {
     expect(publish).toMatch(/\|\| \[ \$\? -eq 4 \]/);
   });
 
+  it('푸시 전에 사이트 레포를 당겨 재시도한다 — 15분 크론이 낡은 체크아웃을 밀어낸다', () => {
+    const push = workflow.slice(stepIndex('커밋·푸시'));
+    expect(push).toMatch(/git pull --rebase origin main && git push && exit 0/);
+    expect(push).toMatch(/for i in 1 2 3; do/);
+  });
+
   it('회차 스크립트는 끝나면 명시적으로 종료한다 — 첫 CI 회차가 152초에 끝나고도 30분을 매달렸다', () => {
     const script = fs.readFileSync(path.join(root, 'scripts', 'issue-niche-board.js'), 'utf8');
     expect(script).toMatch(/main\(\)\s*\.then\(\(\)\s*=>\s*process\.exit\(0\)\)/);

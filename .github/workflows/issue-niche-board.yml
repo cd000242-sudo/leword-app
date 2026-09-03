@@ -137,4 +137,11 @@ jobs:
             exit 0
           fi
           git commit -m "chore(board): 실검 틈새 보드 갱신 $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git push
+          # 사이트 레포는 15분 크론(공개 스냅샷)이 계속 커밋한다 — 체크아웃이 낡아
+          # 밀어내기가 거부되기 쉽다. 제목 창고 회차와 같이 물러섰다 다시.
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push && exit 0
+            echo "푸시 재시도 $i/3"
+            sleep 10
+          done
+          exit 1
