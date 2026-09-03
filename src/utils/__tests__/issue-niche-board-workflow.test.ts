@@ -40,6 +40,15 @@ describe('실검 틈새 보드 워크플로', () => {
     expect(passed.filter((key) => !readable.has(key))).toEqual([]);
   });
 
+  it('검색광고 키 셋을 회차에 넘긴다 — 없으면 보드 전 행의 검색량이 null 이다(첫 발행이 그랬다)', () => {
+    const hunt = workflow.slice(stepIndex('실검 틈새 회차'), stepIndex('보드 원장 보관'));
+    for (const key of ['NAVER_SEARCH_AD_ACCESS_LICENSE', 'NAVER_SEARCH_AD_SECRET_KEY', 'NAVER_SEARCH_AD_CUSTOMER_ID']) {
+      expect(hunt).toContain(`${key}: \${{ secrets.${key} }}`);
+    }
+    const check = workflow.slice(stepIndex('필수 시크릿 확인'), stepIndex('구독 에이전트 CLI 설치'));
+    expect(check).toContain("NAVER_SEARCH_AD_ACCESS_LICENSE=${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE != '' }}");
+  });
+
   it('밑줄 빠진 옛 이름을 쓰지 않는다', () => {
     expect(/NAVER_SEARCHAD_/.test(workflow)).toBe(false);
   });
