@@ -84,7 +84,12 @@ export interface IssueBoardBuildResult {
 
 const DEFAULT_SCHEDULE = '매일 07·13·19시(KST) 갱신';
 const DEFAULT_CARRY_HOURS = 48;
-const DEFAULT_FREE_ROWS = 5;
+/*
+ * 비로그인 맛보기 — 황금키워드보드는 5건이지만 이 보드는 **3건**이다(사장님
+ * 사양 2026-09-03 "틈새키워드도 하루 3개만"). 하루 3회 갱신이라 5건이면 하루에
+ * 15건이 공짜로 새는 셈이다. 사이트 IssueNicheTab 의 FREE_ISSUE_ROWS 와 같은 수.
+ */
+const DEFAULT_FREE_ROWS = 3;
 
 export function laneOfSource(source: string | undefined): IssueBoardLane {
   if (source === 'tech-rss') return 'tech';
@@ -168,8 +173,13 @@ export function buildIssueBoardPayload(
 
   const kstDay = new Date(options.nowMs + 9 * 3_600_000).toISOString().slice(0, 10);
   const freeRows = options.freeRows ?? DEFAULT_FREE_ROWS;
+  /*
+   * 같은 날은 직전 표본을 그대로 쓴다 — 회차마다 새 이름이 열리면 하루 세 번
+   * 보는 사람이 다 본다. 다만 상한이 줄었을 때(5→3)는 앞에서 자른다: 닫는 것은
+   * 괜찮고, 반대로 짧은 표본을 채우는 것은 낮에 새 키워드를 여는 구멍이라 안 한다.
+   */
   const freeSample = prev?.freeSample && prev.freeSample.day === kstDay
-    ? prev.freeSample
+    ? { day: prev.freeSample.day, keywords: prev.freeSample.keywords.slice(0, freeRows) }
     : { day: kstDay, keywords: rows.slice(0, freeRows).map((row) => row.keyword) };
 
   const payload: IssueBoardPayload = {

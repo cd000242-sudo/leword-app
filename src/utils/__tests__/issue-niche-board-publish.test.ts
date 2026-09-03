@@ -150,6 +150,24 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
     expect(tomorrow.freeSample.keywords[0]).toBe('오후 틈새');
   });
 
+  it('무료 맛보기 기본은 3건 — 사장님 사양(2026-09-03): 틈새는 하루 3개만', () => {
+    const wide = { ...ledger, rows: ['가', '나', '다', '라', '마'].map((k) => row({ keyword: `틈새 ${k}` })) };
+    const payload = buildIssueBoardPayload(wide, null, { nowMs: NOW }).payload;
+    expect(payload.rows).toHaveLength(5);
+    expect(payload.freeSample.keywords).toEqual(['틈새 가', '틈새 나', '틈새 다']);
+  });
+
+  it('같은 날 표본이 상한보다 길면 앞에서 자른다 — 닫기만 하고 새 키워드는 열지 않는다', () => {
+    const wide = { ...ledger, rows: ['가', '나', '다', '라', '마'].map((k) => row({ keyword: `틈새 ${k}` })) };
+    const five = buildIssueBoardPayload(wide, null, { nowMs: NOW, freeRows: 5 }).payload;
+    expect(five.freeSample.keywords).toHaveLength(5);
+    const three = buildIssueBoardPayload(wide, five, { nowMs: NOW + 3_600_000, freeRows: 3 }).payload;
+    expect(three.freeSample).toEqual({ day: five.freeSample.day, keywords: ['틈새 가', '틈새 나', '틈새 다'] });
+    // 반대로 표본이 짧으면 채우지 않는다 — 낮에 새 키워드가 열리는 구멍이다.
+    const two = { ...five, freeSample: { day: five.freeSample.day, keywords: ['틈새 라', '틈새 마'] } };
+    expect(buildIssueBoardPayload(wide, two, { nowMs: NOW + 3_600_000, freeRows: 3 }).payload.freeSample.keywords).toEqual(['틈새 라', '틈새 마']);
+  });
+
   it('원장에 실을 행이 없으면 fresh 0 — 발행기는 이 값으로 기존 파일을 지킨다', () => {
     const empty = { ...ledger, rows: [row({ isNiche: false, isPreemption: false })] };
     const { fresh, payload } = buildIssueBoardPayload(empty, null, { nowMs: NOW });
