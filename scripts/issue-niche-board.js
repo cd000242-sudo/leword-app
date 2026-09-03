@@ -124,7 +124,13 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(`회차 실패: ${error instanceof Error ? error.stack || error.message : String(error)}`);
-  process.exit(1);
-});
+/*
+ * 명시적 종료 — enrich-board.js 와 같다. 헌터가 남긴 핸들(에이전트 CLI·keep-alive)이
+ * 이벤트 루프를 붙들어, 첫 CI 회차가 152초에 끝나고도 30분 타임아웃까지 매달렸다.
+ */
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(`회차 실패: ${error instanceof Error ? error.stack || error.message : String(error)}`);
+    process.exit(1);
+  });

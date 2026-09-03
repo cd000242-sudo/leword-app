@@ -77,4 +77,9 @@ describe('실검 틈새 보드 워크플로', () => {
     const publish = workflow.slice(stepIndex('보드 발행'), stepIndex('커밋·푸시'));
     expect(publish).toMatch(/\|\| \[ \$\? -eq 4 \]/);
   });
+
+  it('회차 스크립트는 끝나면 명시적으로 종료한다 — 첫 CI 회차가 152초에 끝나고도 30분을 매달렸다', () => {
+    const script = fs.readFileSync(path.join(root, 'scripts', 'issue-niche-board.js'), 'utf8');
+    expect(script).toMatch(/main\(\)\s*\.then\(\(\)\s*=>\s*process\.exit\(0\)\)/);
+  });
 });
