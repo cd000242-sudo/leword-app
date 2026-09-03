@@ -719,26 +719,53 @@ function setCachedNaverBlogDocumentCount(keyword: string, total: number, nowMs =
  * 그때는 '못 쟀음'으로 다뤄야 한다 — 없는 것과 못 본 것을 섞지 않는다.
  */
 const recentBlogTitles = new Map<string, string[]>();
+/**
+ * 문서수 조회 때 딸려온 상위글의 제목+작성일(postdate).
+ *
+ * 같은 blog.json?display=10 응답에 postdate 가 이미 들어 있다 — 예전엔 버렸다.
+ * 그걸 남겨두면 추가 쿼터 없이 "상위글이 전부 오늘인가(=양산블로그 도배)"를
+ * 셀 수 있다. 이슈 틈새 판정에서 문서수 절대값보다 강한 '머리 잡힘' 신호다.
+ */
+export interface RecentBlogPost {
+  title: string;
+  postdate: string; // YYYYMMDD (없으면 빈 문자열)
+}
+const recentBlogPostMeta = new Map<string, RecentBlogPost[]>();
 const RECENT_TITLES_CAP = 4_000;
 
 function rememberBlogTitles(keyword: string, items: unknown): void {
   if (!Array.isArray(items)) return;
-  const titles = items
-    .map((item) => String((item as { title?: string })?.title || '').replace(/<[^>]+>/g, '').trim())
-    .filter((title) => title.length > 0);
-  if (titles.length === 0) return;
+  const meta: RecentBlogPost[] = items
+    .map((item) => ({
+      title: String((item as { title?: string })?.title || '').replace(/<[^>]+>/g, '').trim(),
+      postdate: String((item as { postdate?: string })?.postdate || '').trim(),
+    }))
+    .filter((post) => post.title.length > 0);
+  if (meta.length === 0) return;
+  const titles = meta.map((post) => post.title);
   const key = normalizeNaverBlogBroadQuery(keyword);
   if (recentBlogTitles.size >= RECENT_TITLES_CAP) {
     const oldest = recentBlogTitles.keys().next();
     if (!oldest.done) recentBlogTitles.delete(oldest.value);
   }
+  if (recentBlogPostMeta.size >= RECENT_TITLES_CAP) {
+    const oldest = recentBlogPostMeta.keys().next();
+    if (!oldest.done) recentBlogPostMeta.delete(oldest.value);
+  }
   recentBlogTitles.set(key, titles);
+  recentBlogPostMeta.set(key, meta);
 }
 
 /** 못 받았으면 빈 배열이 아니라 null 이다 — '없다'와 '못 봤다'를 구분한다. */
 export function takeRecentBlogTitles(keyword: string): string[] | null {
   const key = normalizeNaverBlogBroadQuery(keyword);
   return recentBlogTitles.get(key) ?? null;
+}
+
+/** 상위글 제목+작성일. 못 받았으면 null('없다'와 '못 봤다' 구분). */
+export function takeRecentBlogPostMeta(keyword: string): RecentBlogPost[] | null {
+  const key = normalizeNaverBlogBroadQuery(keyword);
+  return recentBlogPostMeta.get(key) ?? null;
 }
 
 export async function getNaverBlogDocumentCount(

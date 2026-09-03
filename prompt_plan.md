@@ -1,3 +1,75 @@
+# 실행 계획: 이슈 틈새 — 캘리브레이션 → 테스트 → 웹 서브탭 → 배포
+
+승인 2026-09-02. 시작 지점: 커밋 `c8f06762`(이슈 틈새 탭 본체), 버전 2.49.111.
+
+## 확정된 사실 (실측 근거)
+
+- 검색광고 검색량은 '지난달 평균' → 오늘 터진 이슈엔 데이터 없음. 4어절 이상은 전량 null
+- 황금비율 >= 3 게이트는 이슈 맥락에서 통과 0~5%, 통과자는 문서수 20만짜리 머리 → volume 경로 제거함
+- 판정은 데이터랩 최근 7일 실측 수요 × 저경쟁(문서수) 단일 경로
+- 정책 레인은 SERP 실측 25 LOCKED / 0 WINNABLE, 6차 주행 0/24 → **0건이면 끄고 슬롯 재배분(승인됨)**
+
+## Phase 1 — 3레인 캘리브레이션 ← 완료 (12차 주행까지)
+
+- [x] maxCandidates 60 → 80 (CI 기본), 이슈 상한 16
+- [x] 정책 레인 0건 확인 → includePolicyIssues 기본 false, 슬롯은 실검·IT 로
+- [x] 문서수 상한 3,000 · 선점 후보 300 (수요 미측정이지만 경쟁 0 인 것은 별도 범주 — 사장님 결정 A)
+- 실측: 12차(2026-09-03 09:05 KST) 이슈 18 → 후보 80 → 틈새 8 · 선점 후보 3, 121초
+
+## Phase 2 — 자동화 테스트 ← 완료
+
+- [x] keyword-shape / policy-keyword-sanitizer / tech-issue-keywords / issue-niche-sources(28)
+- [x] 발행 변환 issue-niche-board-publish(11) · 워크플로 계약 issue-niche-board-workflow(9)
+
+## Phase 3 — 웹 서브탭 (황금키워드보드 방식) ← 구현 완료, 배포 대기
+
+**설계 변경(사장님 지시 2026-09-02 "황금키워드보드처럼 내껄로 내가 사용하고 사람들에게 보여주기만"):**
+apps/api 엔드포인트도, CF Worker 액션도, 서버 AI 도 없다. 사장님 CI 가 회차를 돌려
+정적 JSON 을 사이트 레포에 커밋하고 방문자는 읽기만 한다. 방문자마다 돌리지 않으니
+키 전달·쿼터 소진 문제가 없다.
+
+- [x] `scripts/issue-niche-board.js` — 회차 → 원장 JSON (구독 CLI `claude:opus`, API 키 없음)
+- [x] `src/utils/issue-niche-board-publish.ts` + `scripts/publish-issue-niche-board.js` — 틈새·선점 후보만, 추정 검색량 null, 48h 이월, 0행이면 기존 파일 보존
+- [x] `.github/workflows/issue-niche-board.yml` — 하루 3회 `0 22,4,10 * * *`(KST 07·13·19), 배포키로 `cd000242-sudo/naver` 에 `spa/public/data/issue-niche-board.json` 커밋
+- [x] 사이트 `IssueNicheTab.tsx` + `LewordPage` TABS 'issue'(⚡ 실검 틈새키워드) — 비로그인은 황금키워드처럼 5건 맛보기
+- [x] 12차 원장으로 첫 JSON 시드 발행
+
+**쿼터 산식(하루 3회):** 구독 에이전트 회당 1요청(이슈 전부 한 프롬프트) · 데이터랩 ≈26/회 → 78/일 (한도 1,000 의 8%) · 블로그 검색 ≈100/회.
+
+## Phase 4 — CF Worker ← 불필요 확정
+
+보드가 정적 JSON 을 읽으므로 Worker 액션은 되돌렸다(`issue-niche-candidates` 제거, 백업 `worker.js.pre-revert-issue-niche`).
+
+## Phase 5 — 릴리즈 게이트
+
+- [ ] npm run build / vitest / verify:all / test:sanity / lint:sss / status
+- [ ] 앱 실행 육안 확인 — env -u ELECTRON_RUN_AS_NODE 필수
+
+## Phase 6 — 배포 (실제 구조, 2026-09-02 확인)
+
+SSH 직접 접속 아님. GitHub Actions 로 돈다.
+
+- [ ] 6-1 leword-app 커밋 + push main (경로 지정 add, 훅 장시간 → 백그라운드 커밋)
+- [ ] 6-2 사이트 레포 커밋(IssueNicheTab·LewordPage·LewordStyles·issue-niche-board.json) + push → deploy-pages 자동
+- [ ] 6-3 `gh workflow run issue-niche-board.yml` 첫 CI 회차 검증(구독 CLI 설치·발행·커밋)
+- [ ] 6-4 데스크톱 `GH_TOKEN="$(gh auth token)" npm run release`
+- API 코드 변경 없음 → mobile-release / api-production-restart 불필요
+
+**금지:** 릴리즈 빌드 도는 중 package.json 버전 변경 (2.49.109 실종 전례)
+
+## 리스크
+
+| 등급 | 리스크 |
+|---|---|
+| HIGH | CI 러너에서 `claude` CLI 인증 실패 → 자동완성 폴백(얕은 회차). 첫 CI 회차 로그로 확인 |
+| MEDIUM | Signal.bz 공급원 사망 시 회차 0행 — 발행기가 기존 파일 보존, 48h 뒤 보드가 빈다 |
+| MEDIUM | RSS 6종 외부 의존 (런타임은 레인만 죽고 탭은 삶) |
+| LOW | 데이터랩 하루 78회 — 한도 1,000 의 8% |
+
+---
+
+## 이전 계획
+
 # 황금 헤드 선점 파이프라인 + 시기 캘린더 + 빈 프레임 제목 생성
 
 > 작성일: 2026-08-16

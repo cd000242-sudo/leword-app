@@ -137,8 +137,36 @@ function fmt(v: number | null): string {
   // 이슈 공급 관측
   const perIssue = new Map<string, number>();
   for (const r of results) perIssue.set(r.baseKeyword, (perIssue.get(r.baseKeyword) || 0) + 1);
+  const srcOf = new Map<string, string>();
+  for (const r of results) srcOf.set(r.baseKeyword, r.source);
   console.log('🔬 이슈별 후보 배분');
-  for (const [k, n] of perIssue) console.log(`   ${String(n).padStart(3)}개  ${k}`);
+  const laneOf = (src: string) => src === 'policy-briefing' ? '정책' : (src === 'tech-rss' ? 'IT·AI' : '실검');
+  for (const [k, n] of perIssue) console.log(`   ${String(n).padStart(3)}개  [${laneOf(srcOf.get(k) || '')}] ${k}`);
+  console.log('🔬 공급원별');
+  for (const lane of ['실검', '정책', 'IT·AI']) {
+    const rows = results.filter((r) => laneOf(r.source) === lane);
+    if (rows.length === 0) { console.log(`   ${lane.padEnd(5)} 0건`); continue; }
+    const niche = rows.filter((r) => r.isNiche).length;
+    const live = rows.filter((r) => r.hasLiveDemand).length;
+    const low = rows.filter((r) => r.documentCount != null && r.documentCount > 0 && r.documentCount <= 3000).length;
+    const preempt = rows.filter((r) => r.isPreemption).length;
+    console.log(`   ${lane.padEnd(5)} ${String(rows.length).padStart(3)}건 | 틈새 ${niche} | 선점후보 ${preempt} | 실측수요 ${live} | 저경쟁 ${low}`);
+  }
+  // 문서수 상한 오프라인 캘리브레이션 — 같은 주행 데이터로 임계값만 바꿔 본다(추가 API 없음).
+  console.log('🔬 문서수 상한 감도 (실측수요 있는 행 기준)');
+  for (const cap of [1000, 2000, 3000, 5000, 10000]) {
+    const n = results.filter((r) => r.hasLiveDemand && !r.isDocumentCountEstimated
+      && r.documentCount != null && r.documentCount > 0 && r.documentCount <= cap
+      && r.recencyStatus !== 'dead' && r.demandStatus !== 'dead' && (r.freshFrontalCount ?? 0) < 3).length;
+    console.log(`   <=${String(cap).padStart(6)} → 틈새 ${n}`);
+  }
+
+  // 전체 행을 남긴다 — 상위 15줄만 보면 어느 레인이 왜 떨어졌는지 알 수 없다.
+  const dumpPath = process.env['ISSUE_NICHE_DUMP'];
+  if (dumpPath) {
+    fs.writeFileSync(dumpPath, JSON.stringify(results, null, 2), 'utf8');
+    console.log(`💾 전체 ${results.length}행 → ${dumpPath}`);
+  }
 
   console.log('');
   const top = [...results].sort((a, b) => b.nicheScore - a.nicheScore).slice(0, 15);
@@ -153,6 +181,13 @@ function fmt(v: number | null): string {
 
   console.log('');
   console.log(`판정: ${results.length === 0 ? '❌ never-empty 위반 — 결과 0개' : '✅ 결과 산출됨'}`);
-  console.log(`판정: ${niche.length === 0 ? '⚠️ 틈새 0개 — 게이트 재캘리브레이션 필요' : `✅ 틈새 ${niche.length}개`}`);
+  const preemption = results.filter((r) => r.isPreemption);
+  console.log(`판정: ${niche.length === 0 ? '⚠️ 틈새 0개 — 게이트 재캘리브레이션 필요' : `✅ 틈새 ${niche.length}개`} | 선점 후보 ${preemption.length}개`);
+  if (preemption.length > 0) {
+    console.log('선점 후보 (경쟁 없음 · 수요 미검출):');
+    for (const r of preemption.slice(0, 10)) {
+      console.log(`   ${r.keyword.padEnd(24)} 문서 ${String(r.documentCount).padStart(5)}건  ← ${r.baseKeyword}`);
+    }
+  }
   process.exit(results.length === 0 ? 2 : 0);
 })();

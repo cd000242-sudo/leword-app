@@ -27,6 +27,10 @@
  */
 
 import { getSignalBzKeywords, SignalKeyword } from './signal-bz-crawler';
+import { getPolicyBriefingKeywords } from './policy-briefing-api';
+import { sanitizePolicyKeywords } from './policy-keyword-sanitizer';
+import { isNounPhraseToken } from './keyword-shape';
+import { getTechIssueKeywords } from './tech-issue-keywords';
 import { classifyKeyword } from './category-classifier';
 import { runClaude } from './agent-cli/claudeRunner';
 import { runCodex } from './agent-cli/codexRunner';
@@ -44,7 +48,8 @@ import {
   checkKeywordRecencyBatch,
 } from './naver-datalab-api';
 import { takeRecentBlogPostMeta } from './naver-blog-api';
-import { classifyGradeByMetrics, Grade } from './grade';
+import { Grade } from './grade';
+import { judgeIssueNiche } from './issue-niche-verdict';
 
 export type IssueType = 'policy' | 'incident' | 'entertainment' | 'fresh';
 
@@ -81,6 +86,8 @@ export interface IssueNicheKeyword {
   hasLiveDemand: boolean;
   /** 어느 증거로 틈새 판정을 통과했는가 */
   nicheRoute: 'demand' | null;
+  /** 선점 후보 — 경쟁 없음이 확인됐으나 수요는 아직 측정되지 않음. 틈새와 별개 범주. */
+  isPreemption: boolean;
   nicheScore: number;
   reasons: string[];
   source: string;
@@ -103,6 +110,31 @@ export interface HuntIssueNicheOptions {
    * 검색광고는 '지난달 평균'이라 오늘 터진 이슈에는 구조적으로 데이터가 없다.
    */
   useLiveDemandRoute?: boolean;
+  /**
+   * 정책·지원금 이슈를 함께 넣을지 (기본 false).
+   *
+   * 공급·정제는 정상 동작한다(제도명 17/60 추출). 그런데 자리가 닫혀 있다 —
+   * 3회 라이브 주행 연속 틈새 0건이고(6차 0/24, 7차 0/30), 예전 SERP 실측도
+   * 25 LOCKED / 0 WINNABLE 이었다. 지원금 키워드는 법무법인·대형 정보사이트가
+   * 이미 점령해 문서수가 수십만이다("아동수당" 247,745).
+   * 슬롯을 실검·IT 레인에 넘기는 편이 낫다. 필요하면 옵션으로 켠다.
+   */
+  includePolicyIssues?: boolean;
+  /** 정책 이슈를 몇 개까지 넣을지 (기본 6) */
+  policyIssueLimit?: number;
+  /**
+   * IT·AI 이슈를 함께 넣을지 (기본 true).
+   * 새 AI 모델·기기는 나온 날 검색이 터지는데 블로그 문서는 아직 없다 —
+   * 이 탭의 demand 경로가 정확히 그런 자리를 잡으라고 있는 것이다.
+   */
+  includeTechIssues?: boolean;
+  /** IT·AI 이슈를 몇 개까지 넣을지 (기본 8) */
+  techIssueLimit?: number;
+  /**
+   * 후보 생성기를 갈아끼운다. 기본은 구독 에이전트 CLI(claude→codex→gemini→grok).
+   * 테스트에서 고정 후보를 넣을 때 쓴다 — 실주행은 데스크톱·CI 모두 구독 CLI 다.
+   */
+  generateCandidates?: (issues: string[], perIssue: number) => Promise<Map<string, string[]>>;
   onProgress?: (progress: IssueNicheProgress) => void;
   onCandidate?: (candidate: IssueNicheKeyword) => void;
   signal?: AbortSignal;
@@ -135,15 +167,50 @@ function isAborted(signal?: AbortSignal): boolean {
 }
 
 const SUBJECT_DROP_TOKEN_RE = /^[0-9][0-9,]*(명|만|억|원|위|대|건|회|차|일|월)?$/;
-function cleanSubject(raw: string): string {
-  const tokens = String(raw || '')
-    .replace(/["'’“”]/g, ' ')
+/** 잘린 실검 문구 끝에 남는 처소격 조사. 한글 뒤에만 붙는다. */
+const TRAILING_LOCATIVE_RE = /(?<=[가-힣])(에서|에게|으로|부터|까지|에)$/;
+
+/**
+ * 실검 문구에서 검색되는 주체를 뽑는다.
+ *
+ * Signal.bz 는 "박재홍, 뇌경색 진단", "지예은♥바타, 결혼 소감" 처럼 서술이 붙은 문구를 준다.
+ * 앞 3어절만 자르면 쉼표·♥·꼬리 조각이 그대로 키워드가 된다
+ * (실측 2026-09-03: "지예은♥바타, 결혼 소감", "vfl 오스나브뤼크 대" 가 결과에 실렸다).
+ * 정책·IT 레인과 같은 조각 규칙을 여기에도 건다.
+ */
+export function cleanSubject(raw: string): string {
+  const normalized = String(raw || '')
+    .replace(/["'’“”♥♡★☆]/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim()
+    .trim();
+  // "주체, 서술" 꼴이면 쉼표 앞이 주체다. 기술기사 제목과 같은 관습이다.
+  const lead = normalized.split(/[,·]/)[0].trim() || normalized;
+
+  const tokens = lead
     .split(' ')
     .filter((token) => token && !SUBJECT_DROP_TOKEN_RE.test(token));
-  const subject = tokens.slice(0, 3).join(' ').trim();
-  return subject.length >= 2 ? subject : String(raw || '').trim();
+
+  // 앞에서부터 명사구 토큰만 취한다 — 중간에 조각이 나오면 거기서 끊는다.
+  const taken: string[] = [];
+  for (const token of tokens) {
+    if (taken.length >= 3) break;
+    if (!isNounPhraseToken(token)) break;
+    taken.push(token);
+  }
+  // 한 글자 꼬리는 잘린 조각이다 ("vfl 오스나브뤼크 대").
+  while (taken.length > 1 && taken[taken.length - 1].length < 2) taken.pop();
+  // 잘린 문구의 꼬리 조사 ("용혜인 논란에" — 12차 실측). 처소격만 뗀다 —
+  // 은/는/이/가 는 이름 끝 글자("지예은")와 구분이 안 되므로 손대지 않는다.
+  if (taken.length > 0) {
+    const last = taken[taken.length - 1];
+    const stripped = last.replace(TRAILING_LOCATIVE_RE, '');
+    if (stripped !== last && stripped.length >= 2) taken[taken.length - 1] = stripped;
+  }
+
+  const subject = taken.join(' ').trim();
+  if (subject.length >= 2) return subject;
+  // 규칙으로 못 건지면 원문 앞 3어절로 물러선다 — 이슈를 통째로 잃지 않기 위해서.
+  return tokens.slice(0, 3).join(' ').trim() || normalized;
 }
 
 /** 이슈에 안 맞는 상업/쇼핑 변형 제외 (자동완성 폴백 정제용). */
@@ -174,7 +241,9 @@ interface Candidate {
   signalStatus: SignalKeyword['status'] | null;
 }
 
-const AGENT_RUNNERS = [
+type AgentRunners = Parameters<typeof runWithAnyAgent>[1];
+
+const AGENT_RUNNERS: AgentRunners = [
   { provider: 'claude' as const, run: runClaude },
   { provider: 'codex' as const, run: runCodex },
   { provider: 'gemini' as const, run: runGemini },
@@ -182,10 +251,34 @@ const AGENT_RUNNERS = [
 ];
 
 /**
+ * 배치(CI)용 후보 생성기 — 클로드 모델만 고정하고 나머지 폴백은 그대로다.
+ *
+ * 왜 모델을 고정하나: 사장님 클로드코드 기본 모델은 최상위 티어라 그 한도는
+ * 사장님이 직접 쓰는 자리에 남겨 두고, 배치는 오푸스로 돌린다(enrich-board.js 와
+ * 같은 결정). 데스크톱은 기본 생성기(사용자 로그인 모델)를 쓴다.
+ */
+export function createAgentCandidateGenerator(
+  options: { claudeModel?: string } = {},
+): (issues: string[], perIssue: number) => Promise<Map<string, string[]>> {
+  const runners: AgentRunners = options.claudeModel
+    ? [
+      { provider: 'claude' as const, run: (p, o) => runClaude(p, { ...(o || {}), model: options.claudeModel }) },
+      ...AGENT_RUNNERS.slice(1),
+    ]
+    : AGENT_RUNNERS;
+  return (issues, perIssue) => generateCandidatesWith(runners, issues, perIssue);
+}
+
+/**
  * 카테고리고정 후보 생성 — 구독 에이전트(클로드 코드 등) 사용. 원시 LLM API 아님.
  * claude→codex→gemini→grok 순 폴백(runWithAnyAgent). 전부 실패 시 빈 맵 → 자동완성 폴백.
  */
-async function generateCandidatesAgent(
+function generateCandidatesAgent(issues: string[], perIssue: number): Promise<Map<string, string[]>> {
+  return generateCandidatesWith(AGENT_RUNNERS, issues, perIssue);
+}
+
+async function generateCandidatesWith(
+  runners: AgentRunners,
   issues: string[],
   perIssue: number,
 ): Promise<Map<string, string[]>> {
@@ -206,7 +299,7 @@ async function generateCandidatesAgent(
     issues.map((k, i) => `${i + 1}. ${k}`).join('\n'),
   ].join('\n');
   try {
-    const run = await runWithAnyAgent(prompt, AGENT_RUNNERS, { timeoutMs: 120_000 });
+    const run = await runWithAnyAgent(prompt, runners, { timeoutMs: 120_000 });
     const parsed: any = tryExtractJson(run.reply);
     const items: any[] = Array.isArray(parsed?.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
     for (const row of items) {
@@ -280,6 +373,11 @@ export async function huntIssueNicheKeywords(
     docCountMax = 3000,
     headFloodDays = 2,
     useLiveDemandRoute = true,
+    includePolicyIssues = false,
+    policyIssueLimit = 6,
+    includeTechIssues = true,
+    techIssueLimit = 8,
+    generateCandidates = generateCandidatesAgent,
     onProgress,
     onCandidate,
     signal,
@@ -297,18 +395,67 @@ export async function huntIssueNicheKeywords(
   const issues = Array.from(new Set(
     signalKeywords.slice(0, issueLimit).map((s) => cleanSubject(s.keyword)).filter((k) => k.length >= 2),
   ));
+
+  // 1-b) 정책·지원금 보충 공급원.
+  // 정책브리핑은 기사 본문을 잘라 키워드를 만들어서 제도명과 문장 조각이 섞여 나온다
+  // ("에 따른 급여", "학생들 때문이다"). 정제 게이트를 통과한 제도명만 이슈로 쓴다.
+  const policyIssues: string[] = [];
+  if (includePolicyIssues && policyIssueLimit > 0) {
+    onProgress?.({ phase: 'source', message: '정책·지원금 제도명 수집 중(정책브리핑)' });
+    try {
+      const rows = await getPolicyBriefingKeywords(Math.max(policyIssueLimit * 6, 40));
+      const clean = sanitizePolicyKeywords(rows.map((r) => r.keyword), MEASURABLE_MAX_TOKENS);
+      for (const k of clean) {
+        if (policyIssues.length >= policyIssueLimit) break;
+        if (issues.some((i) => compactKey(i) === compactKey(k))) continue;
+        policyIssues.push(k);
+      }
+    } catch (e: any) {
+      console.warn('[ISSUE-NICHE] 정책 공급원 실패:', e?.message || e);
+    }
+  }
+  for (const k of policyIssues) if (!issues.includes(k)) issues.push(k);
+
+  // 1-c) IT·AI 보충 공급원 — 기술 매체 RSS 의 제품·모델명과 기업명.
+  const techIssues: string[] = [];
+  if (includeTechIssues && techIssueLimit > 0) {
+    onProgress?.({ phase: 'source', message: 'IT·AI 이슈 수집 중(기술 매체)' });
+    try {
+      const rows = await getTechIssueKeywords(techIssueLimit * 3);
+      for (const row of rows) {
+        if (techIssues.length >= techIssueLimit) break;
+        if (issues.some((i) => compactKey(i) === compactKey(row.keyword))) continue;
+        techIssues.push(row.keyword);
+      }
+    } catch (e: any) {
+      console.warn('[ISSUE-NICHE] IT·AI 공급원 실패:', e?.message || e);
+    }
+  }
+  for (const k of techIssues) if (!issues.includes(k)) issues.push(k);
+
   if (issues.length === 0) {
     onProgress?.({ phase: 'complete', total: 0, message: '실시간 이슈를 가져오지 못했습니다' });
     return [];
   }
+  const policySet = new Set(policyIssues.map(compactKey));
+  const techSet = new Set(techIssues.map(compactKey));
   const statusByIssue = new Map<string, SignalKeyword['status']>();
   const typeByIssue = new Map<string, IssueType>();
   for (const s of signalKeywords.slice(0, issueLimit)) statusByIssue.set(compactKey(cleanSubject(s.keyword)), s.status);
-  for (const issue of issues) typeByIssue.set(issue, toIssueType(classifyKeyword(issue).primary));
+  // 정책 이슈는 분류기를 거치지 않는다 — 공급원이 이미 정책이라고 알려준 사실이다.
+  for (const issue of issues) {
+    if (policySet.has(compactKey(issue))) { typeByIssue.set(issue, 'policy'); continue; }
+    // IT·AI 는 공급원이 이미 기술 기사라고 알려준 사실이라 분류기를 거치지 않는다.
+    if (techSet.has(compactKey(issue))) { typeByIssue.set(issue, 'fresh'); continue; }
+    typeByIssue.set(issue, toIssueType(classifyKeyword(issue).primary));
+  }
 
   // 2) 카테고리 고정 후보 생성 (LLM → 폴백 자동완성)
-  onProgress?.({ phase: 'derive', message: '에이전트로 카테고리 세부 키워드 생성 중' });
-  const llm = await generateCandidatesAgent(issues, candidatesPerIssue);
+  onProgress?.({ phase: 'derive', total: issues.length, message: '에이전트로 카테고리 세부 키워드 생성 중' });
+  const llm = await generateCandidates(issues, candidatesPerIssue).catch((e: any) => {
+    console.warn('[ISSUE-NICHE] 후보 생성 실패 → 자동완성 폴백:', e?.message || e);
+    return new Map<string, string[]>();
+  });
   if (isAborted(signal)) return [];
 
   const seen = new Set<string>();
@@ -354,10 +501,26 @@ export async function huntIssueNicheKeywords(
   // 머리와 파생을 한 배치에 섞으면 작은 쪽이 0 으로 눌린다 → 분리해서 잰다.
   const demandByKeyword = new Map<string, KeywordRecency>();
   if (useLiveDemandRoute) {
-    const heads = judgeList.filter((c) => compactKey(c.keyword) === compactKey(c.baseKeyword)).map((c) => c.keyword);
-    const derived = judgeList.filter((c) => compactKey(c.keyword) !== compactKey(c.baseKeyword)).map((c) => c.keyword);
+    // 같은 이슈 가족끼리 묶어서 잰다.
+    // 실측(2026-09-02 8차): 라운드로빈 배분 뒤 후보 순서가 이슈별로 섞이는 바람에
+    // 신제품 '카메라젯'(문서 62)이 '이순철'(sv 12,360)과 한 배치에 들어가 0 으로 눌렸다.
+    // 문서수 1~3짜리 무주공산이 "수요 없음"으로 전량 탈락했다.
+    // 가족 안에서는 크기가 비슷해 정규화 왜곡이 작다.
+    const heads = judgeList.filter((c) => compactKey(c.keyword) === compactKey(c.baseKeyword));
+    const derivedByBase = new Map<string, string[]>();
+    for (const c of judgeList) {
+      if (compactKey(c.keyword) === compactKey(c.baseKeyword)) continue;
+      const key = compactKey(c.baseKeyword);
+      if (!derivedByBase.has(key)) derivedByBase.set(key, []);
+      derivedByBase.get(key)!.push(c.keyword);
+    }
     let done = 0;
-    const groups = [...chunk(heads, DATALAB_BATCH_SIZE), ...chunk(derived, DATALAB_BATCH_SIZE)];
+    const groups = [
+      // 머리끼리도 레인이 다르면 크기가 크게 다르다 — 유형별로 나눈다.
+      ...chunk(heads.filter((c) => c.issueType !== 'fresh').map((c) => c.keyword), DATALAB_BATCH_SIZE),
+      ...chunk(heads.filter((c) => c.issueType === 'fresh').map((c) => c.keyword), DATALAB_BATCH_SIZE),
+      ...Array.from(derivedByBase.values()).flatMap((list) => chunk(list, DATALAB_BATCH_SIZE)),
+    ];
     for (const batch of groups) {
       if (isAborted(signal)) break;
       const rows = await checkKeywordRecencyBatch(config, batch).catch(() => [] as KeywordRecency[]);
@@ -386,89 +549,60 @@ export async function huntIssueNicheKeywords(
       const cpc = v?.monthlyAveCpc ?? null;
       const isSearchVolumeEstimated = Boolean(v?.svEstimated || v?.isSearchVolumeEstimated);
       const isDocumentCountEstimated = Boolean(v?.isDocumentCountEstimated);
-      const isEstimated = isSearchVolumeEstimated || isDocumentCountEstimated;
-      const goldenRatio = searchVolume != null && documentCount != null && documentCount > 0 ? searchVolume / documentCount : null;
       const rec = baseRecency.get(compactKey(cand.baseKeyword));
       const recencyStatus: RecencyStatus = rec?.status ?? 'unknown';
       const head = analyzeHead(cand.keyword, headFloodDays, nowMs);
 
-      // hasTraffic·goldenRatio 는 관측값으로만 남긴다 — 판정에는 쓰지 않는다(아래 주석 참조).
-      const hasTraffic = searchVolume != null && !isEstimated && searchVolume > 0;
-      const lowComp = documentCount != null && documentCount > 0 && documentCount <= docCountMax;
-      const alive = recencyStatus !== 'dead';
-      const flooded = head !== null && head.freshFrontal >= 3;
-      const grade = searchVolume != null && documentCount != null && goldenRatio != null
-        ? classifyGradeByMetrics(searchVolume, documentCount, goldenRatio) : 'C';
-
-      // 실측 수요(데이터랩) — 검색광고에 없는 '오늘 생긴 수요'의 유일한 실측 증거.
-      // ratio 는 상대지수라 절대 검색량으로 환산하지 않는다. 잡혔나/안 잡혔나만 쓴다.
       const dem = demandByKeyword.get(compactKey(cand.keyword)) ?? null;
       const demandRecent7 = dem ? dem.recent7Avg : null;
       const demandRatio = dem ? dem.ratio : null;
       const demandStatus: RecencyStatus = dem?.status ?? 'unknown';
-      const hasLiveDemand = demandRecent7 != null && demandRecent7 > 0;
-      const docMeasured = documentCount != null && documentCount > 0 && !isDocumentCountEstimated;
 
-      // 판정은 실측 수요 경로 하나. 검색광고 검색량 경로는 쓰지 않는다.
-      // 실측 근거(2026-09-02, 후보 60개 퍼널): 검색량실측 20 → 하한 13 → 저경쟁 1 → 황금비 0.
-      // 황금비율 게이트는 4회차 내내 통과 0건이었다. 이슈 키워드는 뉴스가 터지면
-      // 블로그가 먼저 쏟아지고 검색이 뒤따라서 문서수 > 검색량 이 항상 성립하기 때문이다
-      // (통과한 '고우석 아내'조차 sv 360 / doc 857 = 0.42).
-      // 황금비 게이트를 통째로 빼도 저경쟁에서 13 → 1 이라 얻는 게 1건뿐이므로,
-      // 등급 교리와 다른 비율 기준을 이 탭만 갖는 대신 경로 자체를 제거했다.
-      const demandRoute = useLiveDemandRoute
-        && hasLiveDemand && docMeasured && lowComp && alive && !flooded && demandStatus !== 'dead';
-      const isNiche = demandRoute;
-      const nicheRoute: 'demand' | null = demandRoute ? 'demand' : null;
-
-      const reasons: string[] = [];
-      if (hasTraffic) reasons.push(`검색량 ${searchVolume!.toLocaleString()}`);
-      if (lowComp) reasons.push(`문서수 ${documentCount!.toLocaleString()}`);
-      if (demandRoute) reasons.push('데이터랩 실측 수요');
-      if (demandStatus === 'rising') reasons.push('수요 상승중');
-      if (flooded) reasons.push('오늘 도배중');
-      if (recencyStatus === 'dead') reasons.push('수요 죽음');
-      if (isEstimated) reasons.push('추정치');
-
-      let nicheScore = 0;
-      if (documentCount != null && documentCount > 0) nicheScore += Math.max(0, 45 - Math.log10(documentCount) * 9);
-      if (hasTraffic) nicheScore += 12;
-      if (hasLiveDemand) nicheScore += 10;
-      if (demandStatus === 'rising') nicheScore += 8;
-      if (recencyStatus === 'rising') nicheScore += 8;
-      if (flooded) nicheScore -= 25;
-      if (isEstimated) nicheScore -= 25;
-      if (!alive) nicheScore -= 40;
-      nicheScore = Math.max(0, Math.round(nicheScore));
+      // 판정은 순수 함수에 맡긴다 — 규칙이 두 곳에 있으면 반드시 갈라진다.
+      const verdict = judgeIssueNiche(
+        {
+          searchVolume,
+          documentCount,
+          isSearchVolumeEstimated,
+          isDocumentCountEstimated,
+          recencyStatus,
+          demandRecent7,
+          demandStatus,
+          freshFrontalCount: head?.freshFrontal ?? null,
+        },
+        { docCountMax, useLiveDemandRoute },
+      );
 
       const row: IssueNicheKeyword = {
         keyword: cand.keyword,
         baseKeyword: cand.baseKeyword,
         issueType: cand.issueType,
         isDerived: compactKey(cand.keyword) !== compactKey(cand.baseKeyword),
-        grade,
+        grade: verdict.grade,
         searchVolume,
         documentCount,
-        goldenRatio,
+        goldenRatio: verdict.goldenRatio,
         cpc,
         recencyStatus,
         recencyRatio: rec?.ratio ?? 0,
         isHot: cand.signalStatus === 'up' || cand.signalStatus === 'new' || recencyStatus === 'rising',
-        hasTraffic,
+        hasTraffic: verdict.hasTraffic,
         frontalDocCount: head?.frontal ?? null,
         freshFrontalCount: head?.freshFrontal ?? null,
-        isNiche,
-        isEstimated,
+        isNiche: verdict.isNiche,
+        isEstimated: verdict.isEstimated,
         isSearchVolumeEstimated,
         isDocumentCountEstimated,
         demandRecent7,
         demandRatio,
         demandStatus,
-        hasLiveDemand,
-        nicheRoute,
-        nicheScore,
-        reasons,
-        source: 'signal.bz',
+        hasLiveDemand: verdict.hasLiveDemand,
+        nicheRoute: verdict.nicheRoute,
+        isPreemption: verdict.isPreemption,
+        nicheScore: verdict.nicheScore,
+        reasons: verdict.reasons,
+        source: policySet.has(compactKey(cand.baseKeyword)) ? 'policy-briefing'
+          : (techSet.has(compactKey(cand.baseKeyword)) ? 'tech-rss' : 'signal.bz'),
       };
       results.push(row);
       onCandidate?.(row);
@@ -479,6 +613,7 @@ export async function huntIssueNicheKeywords(
 
   results.sort((a, b) => {
     if (a.isNiche !== b.isNiche) return a.isNiche ? -1 : 1;
+    if (a.isPreemption !== b.isPreemption) return a.isPreemption ? -1 : 1;
     return b.nicheScore - a.nicheScore;
   });
   onProgress?.({ phase: 'complete', total: results.length });

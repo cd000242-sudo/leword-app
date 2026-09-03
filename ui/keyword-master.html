@@ -15977,7 +15977,7 @@
         // ═══════════════════════════════════════════════════════════
         let __issueNicheState = {
           rows: [],          // 누적 IssueNicheKeyword[]
-          nicheOnly: false,  // '틈새만 보기' 토글
+          nicheOnly: false,  // '틈새·선점만 보기' 토글
           unsub: null,       // progress 구독 해제 함수
           running: false,
         };
@@ -16092,7 +16092,9 @@
           if (!tbody) return;
 
           const source = __issueNicheState.rows;
-          const list = __issueNicheState.nicheOnly ? source.filter(r => r.isNiche === true) : source;
+          const list = __issueNicheState.nicheOnly
+            ? source.filter(r => r.isNiche === true || r.isPreemption === true)
+            : source;
 
           if (countEl) {
             const nicheN = source.filter(r => r.isNiche === true).length;
@@ -16110,11 +16112,17 @@
             const isNiche = row.isNiche === true;
             const gradeColor = ISSUE_NICHE_GRADE_COLOR[row.grade] || '#64748b';
             const reasons = Array.isArray(row.reasons) && row.reasons.length ? row.reasons.join(' · ') : '—';
+            // 선점 후보는 틈새와 근거가 다르다 — 경쟁 없음은 확인됐지만 수요 증거가 없다.
+            // 같은 배지를 쓰면 "트래픽이 온다"는 뜻으로 읽히므로 색과 말을 갈라 놓는다.
+            const isPreemption = row.isPreemption === true && !isNiche;
             const nicheBadge = isNiche
-              ? `<span style="background:rgba(34,197,94,0.2); color:#4ade80; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:800; margin-left:5px;">✅ 틈새</span>`
-              : `<span style="background:rgba(255,255,255,0.06); color:#64748b; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:700; margin-left:5px;">관찰</span>`;
-            const rowBg = isNiche ? 'background:rgba(124,58,237,0.10);' : '';
-            const rowDim = isNiche ? '' : 'opacity:0.62;';
+              ? `<span title="데이터랩 최근 7일 실측 수요 + 저경쟁이 함께 확인됨" style="background:rgba(34,197,94,0.2); color:#4ade80; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:800; margin-left:5px;">✅ 틈새</span>`
+              : (isPreemption
+                ? `<span title="경쟁 문서가 거의 없습니다. 다만 아직 검색 수요가 측정되지 않았습니다 — 트래픽을 보장하지 않습니다." style="background:rgba(251,191,36,0.18); color:#fbbf24; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:800; margin-left:5px;">🚩 선점</span>`
+                : `<span style="background:rgba(255,255,255,0.06); color:#64748b; padding:2px 7px; border-radius:6px; font-size:10px; font-weight:700; margin-left:5px;">관찰</span>`);
+            const rowBg = isNiche ? 'background:rgba(124,58,237,0.10);'
+              : (isPreemption ? 'background:rgba(251,191,36,0.06);' : '');
+            const rowDim = (isNiche || isPreemption) ? '' : 'opacity:0.62;';
             const derivedMark = row.isDerived
               ? `<span title="파생 키워드 (기준: ${String(row.baseKeyword || '').replace(/"/g, '&quot;')})" style="color:#a78bfa; font-size:10px; margin-left:4px;">↳파생</span>`
               : '';
@@ -16184,8 +16192,8 @@
                     <span style="font-size:18px;">🔎</span><span>틈새 찾기</span>
                   </button>
                   <label style="display:inline-flex; align-items:center; gap:8px; color:rgba(255,255,255,0.8); font-size:13px; cursor:pointer; user-select:none;">
-                    <input type="checkbox" id="issueNicheOnlyToggle" onchange="toggleIssueNicheOnly(this.checked)" style="width:16px; height:16px; cursor:pointer;">
-                    <span>틈새만 보기</span>
+                    <input type="checkbox" id="issueNicheOnlyToggle" onchange="toggleIssueNicheOnly(this.checked)" style="width:16px; height:16px; cursor:pointer;" title="틈새와 선점 후보만 남깁니다">
+                    <span>틈새·선점만 보기</span>
                   </label>
                   <span id="issueNicheCount" style="margin-left:auto; font-size:12px; color:rgba(255,255,255,0.5);"></span>
                 </div>
