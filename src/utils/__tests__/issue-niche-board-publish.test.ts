@@ -5,6 +5,7 @@ import {
   laneOfSource,
   toPublicIssueRow,
   type IssueBoardPayload,
+  type IssueLedgerRow,
 } from '../issue-niche-board-publish';
 
 /**
@@ -129,6 +130,19 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
     expect(payload.rows.find((r) => r.keyword === '오늘 틈새')?.carried).toBeUndefined();
   });
 
+  it('옛 스키마 이월 행도 reasons·evidence 배열은 갖춰 낸다 — 화면 카드가 evidence.map 을 그대로 부른다', () => {
+    // 2026-09-03 04:49 발행본 실사고: 스키마 바뀌기 전 회차 행 28건이 evidence 없이 이월돼
+    // 사이트 실검 틈새 탭이 통째로 죽었다(카드 0장).
+    const first = buildIssueBoardPayload(ledger, null, { nowMs: NOW }).payload;
+    const { evidence: _e, reasons: _r, ...legacy } = first.rows[0];
+    const prev = { ...first, rows: [{ ...legacy, keyword: '옛 회차 행' } as IssueBoardPayload['rows'][number]] };
+    const next = { ...ledger, rows: [row({ keyword: '오늘 틈새' })] };
+    const carriedRow = buildIssueBoardPayload(next, prev, { nowMs: NOW }).payload.rows.find((r) => r.keyword === '옛 회차 행');
+    expect(carriedRow?.carried).toBe(true);
+    expect(carriedRow?.evidence).toEqual([]);
+    expect(carriedRow?.reasons).toEqual([]);
+  });
+
   it('신규 행이 직전 행과 겹치면 신규(더 최신 실측)가 이긴다', () => {
     const prevPayload = buildIssueBoardPayload(ledger, null, { nowMs: NOW - 3_600_000 }).payload;
     const next = { ...ledger, rows: [row({ keyword: '틈새 A', documentCount: 2900 })] };
@@ -157,6 +171,21 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
     const payload = buildIssueBoardPayload(wide, null, { nowMs: NOW }).payload;
     expect(payload.rows).toHaveLength(5);
     expect(payload.freeSample.keywords).toEqual(['틈새 가', '틈새 나', '틈새 다']);
+  });
+
+  it('새 날 표본은 보강(제목·서브·풀)이 끝난 행에서 먼저 고른다 — 맨카드가 맛보기면 유료 카드가 어떻게 생겼는지 못 보여 준다', () => {
+    // 첫 회차(2026-09-03 실사고): 옛 파이프라인 이월 행이 앞에 서서 프로필 맨카드 3건이 하루 표본으로 잠겼다.
+    const bare = (k: string) => row({ keyword: k });
+    const rich = (k: string): IssueLedgerRow => ({ ...row({ keyword: k }), titles: { seo: { text: '베슬AI 상장 일정, 공모가는 어떻게 되나', frame: 'ai' }, home: { text: '베슬AI 상장 언제냐고 물어보시길래 찾아봤어요', frame: 'ai' } }, subKeywords: [{ keyword: k + ' 일정', searchVolume: 120 }] });
+    const mixed = { ...ledger, rows: [bare('맨 가'), bare('맨 나'), rich('보강 다'), bare('맨 라'), rich('보강 마')] };
+    const payload = buildIssueBoardPayload(mixed, null, { nowMs: NOW }).payload;
+    // 보강 행이 먼저(원래 순서 유지), 모자라면 맨 행으로 채운다.
+    expect(payload.freeSample.keywords).toEqual(['보강 다', '보강 마', '맨 가']);
+    // 행 순서 자체는 그대로다 — 표본만 고르는 순서가 다르다.
+    expect(payload.rows.map((r) => r.keyword)).toEqual(['맨 가', '맨 나', '보강 다', '맨 라', '보강 마']);
+    // 같은 날은 여전히 직전 표본을 지킨다 — 보강 행이 새로 생겨도 낮에 새 키워드를 열지 않는다.
+    const later = { ...ledger, rows: [rich('보강 바')] };
+    expect(buildIssueBoardPayload(later, payload, { nowMs: NOW + 3_600_000 }).payload.freeSample).toEqual(payload.freeSample);
   });
 
   it('같은 날 표본이 상한보다 길면 앞에서 자른다 — 닫기만 하고 새 키워드는 열지 않는다', () => {

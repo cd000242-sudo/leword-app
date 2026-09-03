@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickProblemSubKeywords } from '../title-forge/subkeyword-forge';
+import { pickProblemSubKeywords, pickSubKeywords } from '../title-forge/subkeyword-forge';
 
 /**
  * 문제해결형 서브키워드 — 애드센스 레인의 "메인 + 서브 3" 재료.
@@ -61,5 +61,18 @@ describe('문제해결형 서브키워드 선별', () => {
 
     it('확장이 비면 빈 배열 — 하드코딩 접미사를 만들어내지 않는다', () => {
         expect(pickProblemSubKeywords('아무 키워드', [])).toEqual([]);
+    });
+
+    it('같은 검색어가 두 번 들어와도 한 번만 — 재보강이 기존 서브와 풀을 합쳐 넘기면 겹친다', () => {
+        // 2026-09-03 실검 틈새 이월 재보강 실사고: 베슬AI 서브가 '베슬AI 채용' 둘로 늘어
+        // 새 서브가 생긴 것으로 오판됐다(merged.length > existingSubs.length).
+        const subs = pickSubKeywords('베슬AI', [
+            { keyword: '베슬AI 채용', searchVolume: 20, source: 'ai-verified' },
+            { keyword: '베슬AI 채용', searchVolume: 20, source: 'autocomplete' },
+            { keyword: '베슬AI 연봉', searchVolume: null },
+        ]);
+        expect(subs.map((s) => s.keyword)).toEqual(['베슬AI 채용', '베슬AI 연봉']);
+        // 먼저 온 것(기존 서브)이 남는다 — 출처 표기가 바뀌지 않는다.
+        expect(subs[0].source).toBe('ai-verified');
     });
 });

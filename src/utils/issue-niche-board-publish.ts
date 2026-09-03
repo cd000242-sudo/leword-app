@@ -169,6 +169,18 @@ const DEFAULT_FREE_ROWS = 3;
 const BRIEF_HEADLINES = 3;
 const BRIEF_CONCENTRATED = 8;
 
+/**
+ * 보강이 끝난 카드인가 — 제목·서브키워드·실측 풀 중 하나라도 실려 있으면.
+ * 맛보기는 이런 행에서 고른다: 맨카드(실측 수치뿐)가 맛보기면 유료 카드가
+ * 어떻게 생겼는지 못 보여 준다. 첫 회차(2026-09-03) 실사고 — 옛 파이프라인
+ * 이월 행이 앞에 서서 프로필 맨카드 3건이 하루 표본으로 잠겼다.
+ */
+export function hasGoldenFields(row: Pick<IssueBoardPublicRow, 'titles' | 'subKeywords' | 'keywordPool'>): boolean {
+  return Boolean(row.titles && (row.titles.seo || row.titles.home))
+    || (Array.isArray(row.subKeywords) && row.subKeywords.length > 0)
+    || (Array.isArray(row.keywordPool) && row.keywordPool.length > 0);
+}
+
 export function laneOfSource(source: string | undefined): IssueBoardLane {
   if (source === 'tech-rss') return 'tech';
   if (source === 'policy-briefing') return 'policy';
@@ -288,6 +300,18 @@ function briefIssue(
 }
 
 /**
+ * 직전 발행본 행을 이월 행으로 — carried 를 붙이고, 배열 필드는 배열로 맞춘다.
+ * 스키마가 바뀌기 전 회차의 행이 그대로 실려 오면(2026-09-03 04:49 발행본 28행에
+ * evidence 없음) 화면 카드의 `row.evidence.map` 이 터져 탭 전체가 죽는다.
+ */
+function carryRow(row: IssueBoardPublicRow): IssueBoardPublicRow {
+  const shaped = Array.isArray(row.reasons) && Array.isArray(row.evidence)
+    ? row
+    : { ...row, reasons: Array.isArray(row.reasons) ? row.reasons : [], evidence: Array.isArray(row.evidence) ? row.evidence : [] };
+  return shaped.carried === true ? shaped : { ...shaped, carried: true };
+}
+
+/**
  * 이번 회차 원장 + 직전 발행본 → 발행 payload.
  *
  * 신규 행이 항상 이긴다(측정이 더 최신). 신규에 없는 직전 행은 carryHours 안이면
@@ -325,7 +349,7 @@ export function buildIssueBoardPayload(
     const measuredMs = Date.parse(String(row.measuredAt || '')) || Date.parse(String(prev?.publishedAt || '')) || 0;
     if (!measuredMs || options.nowMs - measuredMs > carryMs) { expired += 1; continue; }
     seen.add(key);
-    carriedRows.push(row.carried === true ? row : { ...row, carried: true });
+    carriedRows.push(carryRow(row));
   }
 
   const byVerdict = (verdict: IssueBoardVerdict) => [
@@ -354,9 +378,10 @@ export function buildIssueBoardPayload(
    * 보는 사람이 다 본다. 다만 상한이 줄었을 때(5→3)는 앞에서 자른다: 닫는 것은
    * 괜찮고, 반대로 짧은 표본을 채우는 것은 낮에 새 키워드를 여는 구멍이라 안 한다.
    */
+  const sampleOrder = [...rows.filter(hasGoldenFields), ...rows.filter((row) => !hasGoldenFields(row))];
   const freeSample = prev?.freeSample && prev.freeSample.day === kstDay
     ? { day: prev.freeSample.day, keywords: prev.freeSample.keywords.slice(0, freeRows) }
-    : { day: kstDay, keywords: rows.slice(0, freeRows).map((row) => row.keyword) };
+    : { day: kstDay, keywords: sampleOrder.slice(0, freeRows).map((row) => row.keyword) };
 
   const payload: IssueBoardPayload = {
     publishedAt: new Date(options.nowMs).toISOString(),

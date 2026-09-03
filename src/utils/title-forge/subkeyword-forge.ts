@@ -31,14 +31,25 @@ const PROBLEM_FRAMES: ReadonlySet<TitleFrame> = new Set(['mistake', 'compare']);
 
 const MAX_SUBS = 3;
 
-/** 실존 검증까지 끝난 후보를 공통 규칙으로 정리한다(남의 키워드·자기 자신 제외). */
+/**
+ * 실존 검증까지 끝난 후보를 공통 규칙으로 정리한다(남의 키워드·자기 자신·중복 제외).
+ * 같은 검색어는 먼저 온 것만 남긴다 — 재보강은 기존 서브와 새 풀을 합쳐 넘기므로
+ * 같은 말이 두 번 오고, 그대로 두면 서브가 늘어난 것으로 오판된다(2026-09-03 베슬AI).
+ */
 function normalize(
   mainKeyword: string,
   expansions: readonly ExpansionCandidate[],
 ): SubKeyword[] {
+  const seen = new Set<string>();
   return expansions
     .filter((candidate) => candidate.keyword && candidate.keyword !== mainKeyword)
     .filter((candidate) => sharesToken(candidate.keyword, mainKeyword))
+    .filter((candidate) => {
+      const key = candidate.keyword.replace(/\s+/g, '');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .map((candidate) => ({
       ...candidate,
       searchVolume: candidate.searchVolume ?? null,

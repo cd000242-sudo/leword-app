@@ -28,6 +28,9 @@ on:
       maxAi:
         description: 황금 보강 AI 호출 상한(행 단위)
         default: '40'
+      maxAiCarried:
+        description: 이월 행 재보강 AI 호출 상한(행 단위)
+        default: '30'
 
 concurrency:
   group: issue-niche-board
@@ -183,6 +186,42 @@ jobs:
           node scripts/publish-issue-niche-board.js \
             --in=issue-board-publish.json \
             --dest=site/spa/public/data/issue-niche-board.json || [ $? -eq 4 ]
+
+      # 이월 행 중 보강이 안 끝난 것을 발행본 위에서 다시 보강한다 — 직전 회차 보강이
+      # 실패했거나(continue-on-error) 옛 회차 행이면 맨카드로 48시간 남는다(첫 회차
+      # 2026-09-03: 38행 중 28행이 맨카드). 보강기는 완제품 행을 건너뛰고(AI 0) 행을
+      # 제자리에서 고치므로 measuredAt·carried·표본은 그대로다. 평소엔 거의 공짜다.
+      - name: 이월 행 재보강
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          DEST=site/spa/public/data/issue-niche-board.json
+          if [ ! -s "$DEST" ]; then
+            echo '발행본 없음 — 건너뛴다.'
+            exit 0
+          fi
+          bare=$(node -e "const b=require('./$DEST');console.log((b.rows||[]).filter(r=>!(r.titles&&(r.titles.seo||r.titles.home))&&!(r.subKeywords||[]).length&&!(r.keywordPool||[]).length).length)")
+          echo "보강 안 끝난 행 $bare개"
+          if [ "$bare" = '0' ]; then
+            echo '재보강할 행 없음.'
+            exit 0
+          fi
+          node scripts/enrich-board.js \
+            --in="$DEST" \
+            --out=issue-board-recarried.json \
+            --maxAi=${{ github.event.inputs.maxAiCarried || '30' }}
+          # 체크포인트 저장이라 잘려도 부분본이 남는다. JSON 이 온전할 때만 발행본에 덮는다.
+          node -e "JSON.parse(require('fs').readFileSync('issue-board-recarried.json','utf8'))" \
+            && cp issue-board-recarried.json "$DEST"
 
       - name: 커밋·푸시
         working-directory: site
