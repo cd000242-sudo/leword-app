@@ -12,10 +12,40 @@
  *  - 이월: 실시간 이슈는 하루면 문서가 쌓여 자리가 닫힌다. 그래서 48시간만
  *    이월하고, 이월 행은 carried 로 표시해 화면이 "언제 잰 값인지"를 밝히게 한다.
  *  - 점수(nicheScore)는 정렬에만 쓰고 싣지 않는다 — 화면에 나가는 것은 실측 사실뿐이다.
+ *  - 행은 황금키워드 카드와 같은 모양이다(근거·연관 실측 풀·서브키워드·제목·추세·
+ *    지식인·수익 판정). 모양 규칙은 issue-niche-board-shape.ts 에 있다.
+ *  - 이슈 브리핑(issues): 왜 뜨나·몰린 검색어·다음 물결을 이슈 단위로 싣는다.
+ *    실시간 검색어 브리지 모달이 이걸 읽는다.
  */
 
 import type { IssueNicheKeyword, IssueType } from './issue-niche-hunter';
+import type { IssueContext } from './issue-context';
 import type { RecencyStatus } from './naver-datalab-api';
+import {
+  buildIssueEvidence,
+  cleanKeywordPool,
+  cleanKinTop,
+  cleanMonetize,
+  cleanSubKeywords,
+  cleanTitles,
+  cleanTrend,
+  compactKey,
+  resolveWhy,
+  type BoardEvidence,
+  type BoardKinQuestion,
+  type BoardMonetize,
+  type BoardPoolKeyword,
+  type BoardSubKeyword,
+  type BoardTitles,
+  type BoardTrend,
+  type BoardWhy,
+  type IssueLedgerIssue,
+  type IssueLedgerLike,
+  type IssueLedgerRow,
+} from './issue-niche-board-shape';
+
+export { selectIssueRowsForEnrich } from './issue-niche-board-shape';
+export type { EnrichReadyLedger, IssueLedgerIssue, IssueLedgerRow } from './issue-niche-board-shape';
 
 export type IssueBoardLane = 'realtime' | 'tech' | 'policy';
 export type IssueBoardVerdict = 'niche' | 'preemption';
@@ -24,9 +54,14 @@ export interface IssueBoardPublicRow {
   keyword: string;
   /** 어느 실시간 이슈에서 나왔는가 (머리 키워드). */
   issue: string;
+  /** 황금 카드의 topic 자리 — 이슈 이름과 같다. */
+  topic: string;
   lane: IssueBoardLane;
   issueType: IssueType;
   isDerived: boolean;
+  /** 이 후보가 어디서 왔나 — 다음 물결/자동완성/연관/파생/머리. */
+  origin: IssueNicheKeyword['origin'];
+  originReason: string | null;
   verdict: IssueBoardVerdict;
   documentCount: number | null;
   /** 문서수가 실측인가. 추정이면 false 이고, 그런 행은 틈새 판정을 통과하지 못한다. */
@@ -44,15 +79,55 @@ export interface IssueBoardPublicRow {
   frontalDocCount: number | null;
   freshFrontalCount: number | null;
   reasons: string[];
+  /** 화면 근거 줄 — 실측 사실만. */
+  evidence: BoardEvidence[];
+  /** "왜 지금?" — 헤드라인 검증 이슈 추론 > 보강 AI. */
+  whySearch: BoardWhy | null;
+  intentLabel: string | null;
+  adsenseFit: boolean | null;
+  adsenseReason: string | null;
+  titles: BoardTitles | null;
+  subKeywords: BoardSubKeyword[] | null;
+  keywordPool: BoardPoolKeyword[] | null;
+  trend: BoardTrend | null;
+  kinCount: number | null;
+  kinTop: BoardKinQuestion[] | null;
+  monetize: BoardMonetize | null;
   measuredAt: string;
   carried?: boolean;
 }
 
-export interface IssueBoardLedger {
-  generator?: string;
-  generatedAt?: string;
-  rows?: IssueNicheKeyword[];
-  funnel?: { issues?: number; candidates?: number };
+export type IssueBoardLedger = IssueLedgerLike;
+
+export interface IssueBoardConcentrated {
+  keyword: string;
+  searchVolume: number | null;
+  origin: 'autocomplete' | 'related';
+}
+
+export interface IssueBoardNextWave {
+  keyword: string;
+  reason: string;
+  searchVolume: number | null;
+  documentCount: number | null;
+  /** 보드 행으로 실측·통과했는가. */
+  onBoard: boolean;
+}
+
+/** 이슈 브리핑 — 실시간 검색어 브리지가 읽는다. */
+export interface IssueBoardIssue {
+  issue: string;
+  issueType: IssueType;
+  lane: IssueBoardLane;
+  issueStatus: RecencyStatus;
+  isHot: boolean;
+  why: string | null;
+  headlines: IssueContext['headlines'];
+  /** 지금 검색이 몰린 말 — 자동완성·연관 실측. */
+  concentrated: IssueBoardConcentrated[];
+  nextWave: IssueBoardNextWave[];
+  rowCount: number;
+  carried?: boolean;
 }
 
 export interface IssueBoardPayload {
@@ -65,6 +140,7 @@ export interface IssueBoardPayload {
   /** 무료 맛보기 — 하루 동안 고정(황금키워드보드와 같은 규칙). */
   freeSample: { day: string; keywords: string[] };
   rows: IssueBoardPublicRow[];
+  issues: IssueBoardIssue[];
 }
 
 export interface IssueBoardBuildOptions {
@@ -90,6 +166,8 @@ const DEFAULT_CARRY_HOURS = 48;
  * 15건이 공짜로 새는 셈이다. 사이트 IssueNicheTab 의 FREE_ISSUE_ROWS 와 같은 수.
  */
 const DEFAULT_FREE_ROWS = 3;
+const BRIEF_HEADLINES = 3;
+const BRIEF_CONCENTRATED = 8;
 
 export function laneOfSource(source: string | undefined): IssueBoardLane {
   if (source === 'tech-rss') return 'tech';
@@ -97,20 +175,23 @@ export function laneOfSource(source: string | undefined): IssueBoardLane {
   return 'realtime';
 }
 
-function compactKey(keyword: unknown): string {
-  return String(keyword || '').replace(/\s+/g, '').toLowerCase();
-}
-
 /** 틈새·선점 후보만 공개 행으로 옮긴다. 둘 다 아니면 null (원장에만 남는다). */
-export function toPublicIssueRow(row: IssueNicheKeyword, measuredAt: string): IssueBoardPublicRow | null {
+export function toPublicIssueRow(
+  row: IssueLedgerRow,
+  measuredAt: string,
+  issue?: IssueLedgerIssue | null,
+): IssueBoardPublicRow | null {
   const verdict: IssueBoardVerdict | null = row.isNiche ? 'niche' : (row.isPreemption ? 'preemption' : null);
   if (!verdict) return null;
   return {
     keyword: row.keyword,
     issue: row.baseKeyword,
+    topic: row.baseKeyword,
     lane: laneOfSource(row.source),
     issueType: row.issueType,
     isDerived: row.isDerived === true,
+    origin: row.origin || 'derived',
+    originReason: typeof row.originReason === 'string' && row.originReason.trim() ? row.originReason.trim() : null,
     verdict,
     documentCount: row.isDocumentCountEstimated ? null : (row.documentCount ?? null),
     documentCountMeasured: !row.isDocumentCountEstimated && typeof row.documentCount === 'number',
@@ -123,7 +204,86 @@ export function toPublicIssueRow(row: IssueNicheKeyword, measuredAt: string): Is
     frontalDocCount: row.frontalDocCount ?? null,
     freshFrontalCount: row.freshFrontalCount ?? null,
     reasons: Array.isArray(row.reasons) ? row.reasons.slice(0, 6) : [],
+    evidence: buildIssueEvidence(row),
+    whySearch: resolveWhy(row, issue),
+    intentLabel: typeof row.intentLabel === 'string' && row.intentLabel ? row.intentLabel : null,
+    adsenseFit: typeof row.adsenseFit === 'boolean' ? row.adsenseFit : null,
+    adsenseReason: typeof row.adsenseReason === 'string' && row.adsenseReason ? row.adsenseReason : null,
+    titles: cleanTitles(row.titles),
+    subKeywords: cleanSubKeywords(row.subKeywords),
+    keywordPool: cleanKeywordPool(row.keywordPool),
+    trend: cleanTrend(row.trend),
+    kinCount: typeof row.kinCount === 'number' && Number.isFinite(row.kinCount) ? row.kinCount : null,
+    kinTop: cleanKinTop(row.kinTop),
+    monetize: cleanMonetize(row.monetize),
     measuredAt,
+  };
+}
+
+/* ─────────────── 이슈 브리핑 ─────────────── */
+
+function headStatus(rows: IssueNicheKeyword[], issueName: string): { status: RecencyStatus; isHot: boolean } {
+  const key = compactKey(issueName);
+  const own = rows.filter((row) => compactKey(row.baseKeyword) === key);
+  const head = own.find((row) => compactKey(row.keyword) === key) || own[0];
+  return { status: head?.recencyStatus || 'unknown', isHot: head?.isHot === true };
+}
+
+function briefIssue(
+  issue: IssueLedgerIssue,
+  ledgerRows: IssueNicheKeyword[],
+  freshRows: IssueBoardPublicRow[],
+): IssueBoardIssue | null {
+  const key = compactKey(issue.issue);
+  const own = freshRows.filter((row) => compactKey(row.issue) === key);
+  const byKeyword = new Map(own.map((row) => [compactKey(row.keyword), row]));
+  const relatedVolume = new Map(
+    (issue.related || []).map((r) => [compactKey(r.keyword), typeof r.monthlyVolume === 'number' ? r.monthlyVolume : null]),
+  );
+  const volumeOf = (keyword: string): number | null => {
+    const k = compactKey(keyword);
+    const onBoard = byKeyword.get(k);
+    if (onBoard && typeof onBoard.searchVolume === 'number') return onBoard.searchVolume;
+    return relatedVolume.get(k) ?? null;
+  };
+
+  const seen = new Set<string>();
+  const concentrated: IssueBoardConcentrated[] = [];
+  const pushConcentrated = (keyword: string, origin: IssueBoardConcentrated['origin']) => {
+    const k = compactKey(keyword);
+    if (!k || k === key || seen.has(k) || concentrated.length >= BRIEF_CONCENTRATED) return;
+    seen.add(k);
+    concentrated.push({ keyword, searchVolume: volumeOf(keyword), origin });
+  };
+  for (const keyword of issue.autocomplete || []) pushConcentrated(keyword, 'autocomplete');
+  for (const r of issue.related || []) pushConcentrated(r.keyword, 'related');
+
+  const nextWave: IssueBoardNextWave[] = (issue.nextWave || []).map((wave) => {
+    const onBoard = byKeyword.get(compactKey(wave.keyword));
+    return {
+      keyword: wave.keyword,
+      reason: wave.reason,
+      searchVolume: onBoard?.searchVolume ?? null,
+      documentCount: onBoard?.documentCount ?? null,
+      onBoard: Boolean(onBoard),
+    };
+  });
+
+  const why = typeof issue.why === 'string' && issue.why.trim() ? issue.why.trim() : null;
+  if (!why && nextWave.length === 0 && own.length === 0) return null;
+
+  const fallback = headStatus(ledgerRows, issue.issue);
+  return {
+    issue: issue.issue,
+    issueType: issue.issueType,
+    lane: laneOfSource(issue.source),
+    issueStatus: issue.issueStatus || fallback.status,
+    isHot: typeof issue.isHot === 'boolean' ? issue.isHot : fallback.isHot,
+    why,
+    headlines: (issue.headlines || []).slice(0, BRIEF_HEADLINES),
+    concentrated,
+    nextWave,
+    rowCount: own.length,
   };
 }
 
@@ -132,7 +292,8 @@ export function toPublicIssueRow(row: IssueNicheKeyword, measuredAt: string): Is
  *
  * 신규 행이 항상 이긴다(측정이 더 최신). 신규에 없는 직전 행은 carryHours 안이면
  * 이월(carried)하고, 넘겼으면 만료다. 순서는 틈새 → 선점 후보, 각 안에서
- * 신규(헌터 정렬 그대로) → 이월이다.
+ * 신규(헌터 정렬 그대로) → 이월이다. 이슈 브리핑도 같이 이월된다 — 이월 행이
+ * 가리키는 이슈의 직전 브리핑을 carried 로 잇는다.
  */
 export function buildIssueBoardPayload(
   ledger: IssueBoardLedger,
@@ -142,11 +303,13 @@ export function buildIssueBoardPayload(
   const carryMs = (options.carryHours ?? DEFAULT_CARRY_HOURS) * 3_600_000;
   const measuredAt = ledger.generatedAt || new Date(options.nowMs).toISOString();
   const ledgerRows = Array.isArray(ledger.rows) ? ledger.rows : [];
+  const ledgerIssues = Array.isArray(ledger.issues) ? ledger.issues : [];
+  const issueByName = new Map(ledgerIssues.map((issue) => [compactKey(issue.issue), issue]));
 
   const seen = new Set<string>();
   const freshRows: IssueBoardPublicRow[] = [];
   for (const row of ledgerRows) {
-    const pub = toPublicIssueRow(row, measuredAt);
+    const pub = toPublicIssueRow(row, measuredAt, issueByName.get(compactKey(row.baseKeyword)));
     if (!pub) continue;
     const key = compactKey(pub.keyword);
     if (!key || seen.has(key)) continue;
@@ -171,6 +334,19 @@ export function buildIssueBoardPayload(
   ];
   const rows = [...byVerdict('niche'), ...byVerdict('preemption')];
 
+  const freshIssues = ledgerIssues
+    .map((issue) => briefIssue(issue, ledgerRows, freshRows))
+    .filter((issue): issue is IssueBoardIssue => issue !== null);
+  const freshIssueKeys = new Set(freshIssues.map((issue) => compactKey(issue.issue)));
+  const carriedIssueKeys = new Set(carriedRows.map((row) => compactKey(row.issue)));
+  const carriedIssues = (Array.isArray(prev?.issues) ? prev!.issues : [])
+    .filter((issue) => {
+      const key = compactKey(issue?.issue);
+      return key && !freshIssueKeys.has(key) && carriedIssueKeys.has(key);
+    })
+    .map((issue) => (issue.carried === true ? issue : { ...issue, carried: true }));
+  const issues = [...freshIssues, ...carriedIssues];
+
   const kstDay = new Date(options.nowMs + 9 * 3_600_000).toISOString().slice(0, 10);
   const freeRows = options.freeRows ?? DEFAULT_FREE_ROWS;
   /*
@@ -194,6 +370,7 @@ export function buildIssueBoardPayload(
     },
     freeSample,
     rows,
+    issues,
   };
 
   return { payload, fresh: freshRows.length, carried: carriedRows.length, expired };

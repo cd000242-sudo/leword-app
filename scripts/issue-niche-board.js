@@ -7,13 +7,20 @@
  *
  * 한 회차의 비용(11차 라이브 실측 기준):
  *   구독 에이전트 1회(이슈 전부를 한 프롬프트에 묶는다) · 데이터랩 ≈26회 ·
- *   블로그 검색 ≈100회. 하루 3회면 데이터랩 1,000 한도의 8% 다.
+ *   블로그 검색 ≈100회 · 뉴스 검색 이슈당 1회 · 자동완성 이슈당 1회 ·
+ *   검색광고 연관어 이슈당 1회. 하루 3회면 데이터랩 1,000 한도의 8% 다.
  *
  * 자격증명: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET (CI 시크릿 또는 .env).
+ * 검색광고 자격(NAVER_SEARCH_AD_*)이 있으면 연관검색어까지 싣는다.
  * 로컬에서는 앱 config.json(%APPDATA%/leword) 도 읽는다 — e2e 스크립트와 같다.
  *
+ * 산출물 두 개:
+ *   --out       원장 전체(실측 행 전부 + 이슈 추론). 보관용.
+ *   --picksOut  틈새·선점 후보만 골라 황금 보강기(enrich-board.js)가 읽는 모양으로
+ *               낸 것. 보강 → 발행(publish-issue-niche-board.js)이 이걸 읽는다.
+ *
  * 사용:
- *   node scripts/issue-niche-board.js --out=issue-board.json [--issueLimit=16] [--maxCandidates=80]
+ *   node scripts/issue-niche-board.js --out=issue-board.json --picksOut=issue-board-picks.json [--issueLimit=16] [--maxCandidates=80]
  */
 'use strict';
 
@@ -22,7 +29,9 @@ require('./load-project-env').loadProjectEnv();
 
 const fs = require('fs');
 const path = require('path');
-const { huntIssueNicheKeywords, createAgentCandidateGenerator } = require('../src/utils/issue-niche-hunter');
+const { huntIssueNicheBoard } = require('../src/utils/issue-niche-hunter');
+const { createAgentIssueAnalyzer } = require('../src/utils/issue-next-wave');
+const { selectIssueRowsForEnrich } = require('../src/utils/issue-niche-board-publish');
 
 /*
  * 배치 전용 모델 고정 — enrich-board.js 와 같은 결정. 사장님 기본 모델(최상위
@@ -61,6 +70,7 @@ const fmt = (v) => (v === null || v === undefined ? '—' : Number(v).toLocaleSt
 
 async function main() {
   const out = arg('out') || 'issue-board.json';
+  const picksOut = arg('picksOut') || '';
   const issueLimit = Number(arg('issueLimit')) || 16;
   const maxCandidates = Number(arg('maxCandidates')) || 80;
   const docCountMax = Number(arg('docCountMax')) || 3000;
@@ -78,15 +88,23 @@ async function main() {
 
   const startedAt = Date.now();
   let issues = 0;
-  const rows = await huntIssueNicheKeywords({
+  const { rows, issues: issueRows } = await huntIssueNicheBoard({
     config: { clientId: keys.clientId, clientSecret: keys.clientSecret },
     issueLimit,
     maxCandidates,
     docCountMax,
-    generateCandidates: createAgentCandidateGenerator({ claudeModel: BATCH_CLAUDE_MODEL }),
+    analyzeIssues: createAgentIssueAnalyzer({
+      claudeModel: BATCH_CLAUDE_MODEL,
+      onError: (message) => console.warn(`  ! 에이전트: ${message}`),
+    }),
     onProgress: (p) => {
       if (p.phase === 'derive' && typeof p.total === 'number' && p.total > issues) issues = p.total;
       const pos = typeof p.current === 'number' && typeof p.total === 'number' ? ` (${p.current}/${p.total})` : '';
+      /* context 는 이슈마다 한 줄이라 시끄럽다 — 진행 위치만 남긴다. */
+      if (p.phase === 'context' && p.keyword && !p.message) {
+        if (p.current === p.total) console.log(`  · [context] 재료 수집 끝${pos}`);
+        return;
+      }
       console.log(`  · [${p.phase}] ${p.message || p.keyword || ''}${pos}`);
     },
   });
@@ -109,14 +127,23 @@ async function main() {
       lowCompetition: rows.filter((r) => !r.isDocumentCountEstimated && typeof r.documentCount === 'number' && r.documentCount <= docCountMax).length,
     },
     rows,
+    issues: issueRows,
   };
   fs.writeFileSync(out, JSON.stringify(ledger, null, 1), 'utf8');
+  const picks = picksOut ? selectIssueRowsForEnrich(ledger) : null;
+  if (picks) fs.writeFileSync(picksOut, JSON.stringify(picks, null, 1), 'utf8');
 
   console.log('');
   console.log(`  실측       이슈 ${ledger.funnel.issues} → 후보 ${rows.length} → 틈새 ${niche.length} · 선점 후보 ${preemption.length}  (${elapsedSec}s)`);
+  const reasoned = issueRows.filter((i) => i.why).length;
+  const waves = issueRows.reduce((n, i) => n + i.nextWave.length, 0);
+  const headlined = issueRows.filter((i) => i.headlines.length > 0).length;
+  console.log(`  추론       헤드라인 있는 이슈 ${headlined}/${issueRows.length} · "왜" 검증 통과 ${reasoned} · 다음 물결 ${waves}`);
+  issueRows.filter((i) => i.why).slice(0, 6).forEach((i) => console.log(`    ? ${i.issue}: ${i.why}`));
   niche.slice(0, 10).forEach((r) => console.log(`    ◆ ${r.keyword}  [${r.baseKeyword}] 문서수 ${fmt(r.documentCount)} · 수요 ${r.hasLiveDemand ? '▲' : '—'}`));
   preemption.slice(0, 5).forEach((r) => console.log(`    ▷ ${r.keyword}  [${r.baseKeyword}] 문서수 ${fmt(r.documentCount)} · 선점 후보`));
   console.log(`  원장       ${out}`);
+  if (picks) console.log(`  보강 대상  ${picksOut} (${picks.rows.length}행 · 애드센스 적합 ${picks.rows.filter((r) => r.adsenseFit === true).length})`);
 
   if (rows.length === 0) {
     console.error('실측 행이 0 이다 — 공급원(Signal.bz/RSS) 또는 자격증명을 의심할 것.');

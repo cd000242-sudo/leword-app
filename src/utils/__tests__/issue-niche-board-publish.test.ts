@@ -44,6 +44,8 @@ function row(over: Partial<IssueNicheKeyword> = {}): IssueNicheKeyword {
     nicheScore: 77,
     reasons: ['실측 수요 ▲', '문서수 1,200'],
     source: 'signal.bz',
+    origin: 'derived',
+    originReason: null,
     ...over,
   };
 }

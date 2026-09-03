@@ -259,6 +259,17 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
     ...(serpEvidence && Array.isArray(serpEvidence.kinQuestions) && serpEvidence.kinQuestions.length > 0 ? [
       `참고 — 같은 검색어로 올라온 지식인 질문(실측): ${serpEvidence.kinQuestions.join(' / ')}`,
     ] : []),
+    /*
+     * 실검 틈새 행(2026-09-03) — 실시간 이슈에서 나온 검색어는 1페이지 글이 아직
+     * 없어 근거가 비기 쉽다. 대신 그 이슈로 뜬 뉴스 헤드라인이 있다. 헤드라인 밖
+     * 사실은 지어내지 말라고 못 박는다(이슈 추론 계층과 같은 규칙).
+     */
+    ...(serpEvidence && Array.isArray(serpEvidence.newsTitles) && serpEvidence.newsTitles.length > 0 ? [
+      '',
+      `참고 — "${mainKeyword}" 와 함께 뜬 뉴스 헤드라인이다(실측). 이 검색어는 지금 이 이슈로 검색된다:`,
+      ...serpEvidence.newsTitles.map((t) => `  · ${t}`),
+      'why 와 제목은 헤드라인에 있는 사실만 써라. 헤드라인에 없는 숫자·이름·사건은 넣지 마라.',
+    ] : []),
     ...(relatedCandidates && relatedCandidates.length > 0 ? [
       '',
       '새 검색어(new) 형식:',
@@ -670,6 +681,7 @@ async function main() {
         {
           serpTitles: Array.isArray(meaning.citedTitles) ? meaning.citedTitles.slice(0, 10) : [],
           kinQuestions: Array.isArray(meaning.questions) ? meaning.questions.slice(0, 5) : [],
+          newsTitles: Array.isArray(row.issueHeadlines) ? row.issueHeadlines.slice(0, 6) : [],
         },
       );
       proposals = result.proposals;
@@ -829,6 +841,9 @@ async function main() {
       const sources = [];
       if (related.tokenMatched.length > 0 || related.candidates.length > 0) sources.push('실측 연관 검색어');
       if (serpTitleCount > 0) sources.push(`1페이지 제목 ${serpTitleCount}건`);
+      if (Array.isArray(row.issueHeadlines) && row.issueHeadlines.length > 0) {
+        sources.push(`뉴스 헤드라인 ${Math.min(row.issueHeadlines.length, 6)}건`);
+      }
       /*
        * AI 가 같은 응답에서 낸 확장어 중 **검색량으로 실존이 확인된 것**도 근거다
        * (사장님 지적 2026-08-23 "왜 지금 검색되나 — 제대로 추론이 안 되어 있어").

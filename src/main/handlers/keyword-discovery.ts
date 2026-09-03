@@ -1865,7 +1865,7 @@ export function setupKeywordDiscoveryHandlers(): void {
     docCountMax?: number;
   }) => {
     try {
-      const { huntIssueNicheKeywords } = await import('../../utils/issue-niche-hunter');
+      const { huntIssueNicheBoard } = await import('../../utils/issue-niche-hunter');
 
       const envManager = EnvironmentManager.getInstance();
       const env = envManager.getConfig();
@@ -1873,10 +1873,11 @@ export function setupKeywordDiscoveryHandlers(): void {
       const clientSecret = env.naverClientSecret || process.env['NAVER_CLIENT_SECRET'] || '';
 
       if (!clientId || !clientSecret) {
-        return { success: false, keywords: [], error: '네이버 API 키가 설정되지 않았습니다' };
+        return { success: false, keywords: [], issues: [], error: '네이버 API 키가 설정되지 않았습니다' };
       }
 
-      const keywords = await huntIssueNicheKeywords({
+      // 행(keywords)과 이슈 추론(issues: 왜 뜨나·다음 물결)을 같이 돌려준다.
+      const { rows: keywords, issues } = await huntIssueNicheBoard({
         config: { clientId, clientSecret },
         ...options,
         onProgress: (p) => {
@@ -1887,10 +1888,10 @@ export function setupKeywordDiscoveryHandlers(): void {
         },
       });
 
-      return { success: true, keywords };
+      return { success: true, keywords, issues };
     } catch (error: any) {
       console.error('[KEYWORD-MASTER] 이슈 틈새 헌터 실패:', error?.message || error);
-      return { success: false, keywords: [], error: error?.message || String(error) };
+      return { success: false, keywords: [], issues: [], error: error?.message || String(error) };
     }
   });
 

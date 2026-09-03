@@ -77,6 +77,28 @@ describe('실검 틈새 보드 워크플로', () => {
     expect(hunt).toContain('scripts/issue-niche-board.js');
   });
 
+  it('회차 → 황금 보강 → 발행 입력 고르기 → 발행 순서다 — 황금키워드보드와 같은 보강기를 쓴다', () => {
+    expect(stepIndex('실검 틈새 회차')).toBeLessThan(stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)'));
+    expect(stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)')).toBeLessThan(stepIndex('발행 입력 고르기'));
+    expect(stepIndex('발행 입력 고르기')).toBeLessThan(stepIndex('보드 발행'));
+    const hunt = workflow.slice(stepIndex('실검 틈새 회차'), stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)'));
+    expect(hunt).toContain('--picksOut=issue-board-picks.json');
+    const enrich = workflow.slice(stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)'), stepIndex('발행 입력 고르기'));
+    expect(enrich).toContain('scripts/enrich-board.js');
+    expect(enrich).toContain('--in=issue-board-picks.json');
+    expect(enrich).toContain('--out=issue-board-enriched.json');
+    // 보강은 실패해도 회차를 죽이지 않는다 — 실측 행만으로 발행한다.
+    expect(enrich).toMatch(/continue-on-error:\s*true/);
+    expect(enrich).toMatch(/timeout-minutes:\s*\d+/);
+    expect(enrich).toContain('CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}');
+    expect(enrich).toContain('NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}');
+    const choose = workflow.slice(stepIndex('발행 입력 고르기'), stepIndex('보드 원장 보관'));
+    expect(choose).toContain('cp issue-board-enriched.json issue-board-publish.json');
+    expect(choose).toContain('cp issue-board-picks.json issue-board-publish.json');
+    const publish = workflow.slice(stepIndex('보드 발행'), stepIndex('커밋·푸시'));
+    expect(publish).toContain('--in=issue-board-publish.json');
+  });
+
   it('발행 경로와 커밋 경로가 같은 파일이다', () => {
     expect(workflow).toContain('--dest=site/spa/public/data/issue-niche-board.json');
     expect(workflow).toContain('git add spa/public/data/issue-niche-board.json');

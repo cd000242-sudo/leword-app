@@ -184,6 +184,32 @@ async function fetchMobileAutocomplete(query: string): Promise<string[]> {
 }
 
 /**
+ * 경량 자동완성 — PC + 모바일만. 쇼핑·검색광고 연관·자모 변형은 부르지 않는다.
+ *
+ * 실검 틈새 재료 수집(issue-context)용이다: 이슈 20여 개를 회차마다 훑으므로
+ * 끝판왕 버전(4개 API + 접미사 변형)은 과하고, 쇼핑 변형은 어차피 상업 노이즈로 버린다.
+ * 순서는 PC → 모바일, 중복은 공백 무시로 접는다.
+ */
+export async function getNaverAutocompleteQuick(query: string): Promise<string[]> {
+  const normalized = String(query || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+  const [pc, mobile] = await Promise.allSettled([fetchPCAutocomplete(normalized), fetchMobileAutocomplete(normalized)]);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const list of [pc, mobile]) {
+    if (list.status !== 'fulfilled') continue;
+    for (const raw of list.value) {
+      const keyword = String(raw || '').replace(/\s+/g, ' ').trim();
+      const key = keyword.toLowerCase().replace(/\s+/g, '');
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(keyword);
+    }
+  }
+  return out;
+}
+
+/**
  * 🔥 쇼핑 자동완성 API (더 다양한 상업 키워드!)
  */
 async function fetchShoppingAutocomplete(query: string): Promise<string[]> {

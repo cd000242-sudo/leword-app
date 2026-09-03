@@ -15977,10 +15977,56 @@
         // ═══════════════════════════════════════════════════════════
         let __issueNicheState = {
           rows: [],          // 누적 IssueNicheKeyword[]
+          issues: [],        // IssueNicheIssue[] — 왜 뜨나·다음 물결(에이전트 추론, 헤드라인 검증)
           nicheOnly: false,  // '틈새·선점만 보기' 토글
           unsub: null,       // progress 구독 해제 함수
           running: false,
         };
+
+        // 후보 출처 표시 — 실측 사실만. 다음 물결은 에이전트 추론이라 이유를 같이 단다.
+        function issueNicheOriginMark(row) {
+          const esc = (v) => String(v || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+          if (row.origin === 'next-wave') {
+            return `<span title="다음 물결(에이전트 추론): ${esc(row.originReason)}" style="background:rgba(56,189,248,0.16); color:#7dd3fc; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:800; margin-left:5px;">🌊 다음 물결</span>`;
+          }
+          if (row.origin === 'autocomplete') {
+            return `<span title="네이버 자동완성 실측 — 사람들이 이미 치는 말" style="background:rgba(255,255,255,0.08); color:#cbd5e1; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:700; margin-left:5px;">자동완성</span>`;
+          }
+          if (row.origin === 'related') {
+            return `<span title="검색광고 연관검색어 실측" style="background:rgba(255,255,255,0.08); color:#cbd5e1; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:700; margin-left:5px;">연관</span>`;
+          }
+          return '';
+        }
+
+        // 이슈 흐름 브리핑 — 왜 뜨나(헤드라인 검증 통과분만)·다음 물결(보드 실측 합류 표시).
+        function renderIssueNicheBrief() {
+          const box = document.getElementById('issueNicheBrief');
+          if (!box) return;
+          const esc = (v) => String(v || '').replace(/</g, '&lt;');
+          const compact = (v) => String(v || '').replace(/\s+/g, '');
+          const onBoard = new Map(__issueNicheState.rows.map((r) => [compact(r.keyword), r]));
+          const issues = (__issueNicheState.issues || []).filter((i) => i && (i.why || (Array.isArray(i.nextWave) && i.nextWave.length > 0)));
+          if (issues.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+          box.style.display = 'block';
+          box.innerHTML = `
+            <div style="font-size:11px; font-weight:800; color:#7dd3fc; letter-spacing:1px; margin-bottom:8px;">이슈 흐름 — 왜 뜨나 · 다음에 몰릴 검색어</div>
+            ${issues.map((i) => {
+              const waves = (i.nextWave || []).map((w) => {
+                const hit = onBoard.get(compact(w.keyword));
+                const mark = hit ? (hit.isNiche ? ' ✅' : (hit.isPreemption ? ' 🚩' : '')) : '';
+                return `<span title="${esc(w.reason).replace(/"/g, '&quot;')}" style="display:inline-block; background:rgba(56,189,248,0.12); color:#bae6fd; padding:3px 8px; border-radius:8px; font-size:11px; margin:2px 4px 2px 0;">🌊 ${esc(w.keyword)}${mark}</span>`;
+              }).join('');
+              const heads = (i.headlines || []).slice(0, 2).map((h) => `<div style="color:rgba(255,255,255,0.45); font-size:11px;">· ${esc(h.title)}</div>`).join('');
+              return `
+                <div style="padding:10px 12px; border:1px solid rgba(56,189,248,0.18); border-radius:10px; margin-bottom:8px; background:rgba(56,189,248,0.05);">
+                  <div style="font-weight:800; color:#fff; font-size:13px;">${esc(i.issue)} <span style="color:${issueTypeColor(i.issueType)}; font-size:11px; font-weight:700;">${issueTypeLabel(i.issueType)}</span></div>
+                  ${i.why ? `<div style="color:#e2e8f0; font-size:12px; margin-top:4px;">왜 지금? ${esc(i.why)} <span style="color:rgba(255,255,255,0.4); font-size:10px;">(뉴스 헤드라인 ${(i.headlines || []).length}건 근거)</span></div>` : ''}
+                  ${heads}
+                  ${waves ? `<div style="margin-top:6px;">${waves}</div>` : ''}
+                </div>`;
+            }).join('')}
+          `;
+        }
 
         function issueTypeLabel(t) {
           const map = { policy: '정책', incident: '사건', entertainment: '연예', fresh: '이슈' };
@@ -16133,7 +16179,7 @@
                   <span style="background:${gradeColor}; color:#fff; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:800;">${row.grade || '-'}</span>
                   ${nicheBadge}
                 </td>
-                <td style="padding:10px 8px; font-weight:700; color:#fff; font-size:14px;">${String(row.keyword || '').replace(/</g, '&lt;')}${derivedMark}</td>
+                <td style="padding:10px 8px; font-weight:700; color:#fff; font-size:14px;">${String(row.keyword || '').replace(/</g, '&lt;')}${derivedMark}${issueNicheOriginMark(row)}</td>
                 <td style="padding:10px 8px; text-align:center;">
                   <span style="background:${issueTypeColor(row.issueType)}22; color:${issueTypeColor(row.issueType)}; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">${issueTypeLabel(row.issueType)}</span>
                 </td>
@@ -16159,7 +16205,7 @@
           const existing = document.getElementById('issueNicheModal');
           if (existing) existing.remove();
 
-          __issueNicheState = { rows: [], nicheOnly: false, unsub: null, running: false };
+          __issueNicheState = { rows: [], issues: [], nicheOnly: false, unsub: null, running: false };
 
           const modal = document.createElement('div');
           modal.id = 'issueNicheModal';
@@ -16207,6 +16253,9 @@
                   <div id="issueNicheLogContent" style="font-family:'Courier New', monospace; font-size:12px; line-height:1.6;"></div>
                 </div>
 
+                <!-- 이슈 흐름 브리핑 (왜 뜨나 · 다음 물결) -->
+                <div id="issueNicheBrief" style="display:none; margin-bottom:18px;"></div>
+
                 <!-- 결과 테이블 -->
                 <div style="overflow-x:auto; border:1px solid rgba(255,255,255,0.06); border-radius:12px;">
                   <table style="width:100%; border-collapse:collapse; font-size:13px; min-width:1000px;">
@@ -16252,6 +16301,8 @@
           if (__issueNicheState.running) return;
           __issueNicheState.running = true;
           __issueNicheState.rows = [];
+          __issueNicheState.issues = [];
+          renderIssueNicheBrief();
 
           const runBtn = document.getElementById('issueNicheRunBtn');
           const logContent = document.getElementById('issueNicheLogContent');
@@ -16277,8 +16328,9 @@
                   return;
                 }
                 const phaseLabel = {
-                  source: '이슈 소스 수집', derive: '파생 키워드 도출', recency: '최신성 측정',
-                  judge: '틈새 판정', candidate: '후보', complete: '완료',
+                  source: '이슈 소스 수집', context: '이슈 재료 수집(헤드라인·자동완성·연관)',
+                  reason: '이슈 흐름 추론(왜·다음 물결)', derive: '후보 조립', demand: '실측 수요 측정',
+                  recency: '최신성 측정', judge: '틈새 판정', candidate: '후보', complete: '완료',
                 }[p.phase] || p.phase || '';
                 let msg = p.message || phaseLabel;
                 if (p.keyword) msg += ` — ${p.keyword}`;
@@ -16304,7 +16356,9 @@
             if (finalKeywords.length > 0) {
               __issueNicheState.rows = finalKeywords;
             }
+            __issueNicheState.issues = Array.isArray(res.issues) ? res.issues : [];
             renderIssueNicheRows();
+            renderIssueNicheBrief();
 
             if (__issueNicheState.rows.length === 0) {
               const emptyEl = document.getElementById('issueNicheEmpty');

@@ -13,11 +13,16 @@
  * 하네스:
  *   실시간 이슈(Signal.bz)
  *     → 카테고리 판정(classifyKeyword)
- *     → LLM 카테고리고정 후보 대량 생성(callAI)  ← 무궁무진 확장(페르소나 적합)
- *        · AI 없으면 네이버 자동완성으로 폴백(실검 반영, 상업 변형 제외)
+ *     → 이슈 재료 실측(issue-context: 뉴스 헤드라인·자동완성·연관검색어)
+ *     → 구독 에이전트 1콜(issue-next-wave): 왜 뜨나(헤드라인 검증) · 파생 후보 · 다음 물결
+ *     → 후보 조립: 다음 물결 → 자동완성 → 파생 → 연관 (출처를 행에 남긴다)
  *     → 검색량·문서수 실측(getNaverKeywordSearchVolumeSeparate)
  *        + 최신성(상위글 도배 여부) + 추세(dead 차단)
  *     → 틈새 판정: 데이터랩 실측 수요 × 저경쟁(문서수)
+ *
+ * 사장님 지적(2026-09-03): "왜 뜨는지, 어느 키워드에 몰려 있는지, 다음에 궁금해할
+ * 키워드가 뭔지 분석해서 올려야지 — 그 추론 부분이 빠져 있잖아." 그래서 결과가
+ * 행 목록만이 아니라 이슈별 추론(huntIssueNicheBoard → issues)까지 함께 나간다.
  *
  * 판정에 검색광고 검색량을 쓰지 않는 이유: 검색광고는 '지난달 평균'이라
  * 오늘 터진 이슈에는 구조적으로 데이터가 없다. 검색량·황금비율은 표시용 관측값으로만 남긴다.
@@ -38,7 +43,9 @@ import { runGemini } from './agent-cli/geminiRunner';
 import { runGrok } from './agent-cli/grokRunner';
 import { runWithAnyAgent } from './agent-cli/runAny';
 import { tryExtractJson } from './agent-cli/parse';
-import { getNaverAutocompleteKeywords } from './naver-autocomplete';
+import { collectIssueContexts, type IssueContext, type IssueContextSources } from './issue-context';
+import { createAgentIssueAnalyzer, type IssueAnalysis, type IssueAnalyzer, type IssueNextWave } from './issue-next-wave';
+import type { NaverSearchAdConfig } from './naver-searchad-api';
 import {
   NaverDatalabConfig,
   NaverKeywordSearchVolumeSeparateResult,
@@ -52,6 +59,16 @@ import { Grade } from './grade';
 import { judgeIssueNiche } from './issue-niche-verdict';
 
 export type IssueType = 'policy' | 'incident' | 'entertainment' | 'fresh';
+
+/**
+ * 후보가 어디서 왔나 — 화면이 "왜 이 키워드가 여기 있나"를 말할 수 있어야 한다.
+ *  head        이슈 그 자체(관찰용)
+ *  next-wave   에이전트가 "다음에 궁금해할 것"으로 짚은 키워드(예측 — 이유 동봉)
+ *  autocomplete 네이버 자동완성 실측(사람들이 이미 치는 말)
+ *  derived     에이전트 카테고리 파생
+ *  related     검색광고 연관검색어 실측
+ */
+export type CandidateOrigin = 'head' | 'next-wave' | 'autocomplete' | 'derived' | 'related';
 
 export interface IssueNicheKeyword {
   keyword: string;
@@ -91,6 +108,27 @@ export interface IssueNicheKeyword {
   nicheScore: number;
   reasons: string[];
   source: string;
+  origin: CandidateOrigin;
+  /** next-wave 만 값이 있다 — 에이전트가 댄 예측 이유. */
+  originReason: string | null;
+}
+
+/** 이슈 한 건의 추론 묶음 — 보드·브리핑이 "왜 뜨나·다음 물결"을 그리는 재료. */
+export interface IssueNicheIssue {
+  issue: string;
+  issueType: IssueType;
+  source: string;
+  headlines: IssueContext['headlines'];
+  autocomplete: string[];
+  related: IssueContext['related'];
+  /** 헤드라인이 뒷받침한 한 줄. 검증 탈락·헤드라인 없음이면 null. */
+  why: string | null;
+  nextWave: IssueNextWave[];
+}
+
+export interface IssueNicheBoardResult {
+  rows: IssueNicheKeyword[];
+  issues: IssueNicheIssue[];
 }
 
 export interface HuntIssueNicheOptions {
@@ -131,17 +169,27 @@ export interface HuntIssueNicheOptions {
   /** IT·AI 이슈를 몇 개까지 넣을지 (기본 8) */
   techIssueLimit?: number;
   /**
-   * 후보 생성기를 갈아끼운다. 기본은 구독 에이전트 CLI(claude→codex→gemini→grok).
-   * 테스트에서 고정 후보를 넣을 때 쓴다 — 실주행은 데스크톱·CI 모두 구독 CLI 다.
+   * 이슈 분석기(왜·파생·다음 물결)를 갈아끼운다. 기본은 구독 에이전트 CLI
+   * (claude→codex→gemini→grok, issue-next-wave). CI 는 클로드 모델을 고정한 것을 넣는다.
+   */
+  analyzeIssues?: IssueAnalyzer;
+  /**
+   * 옛 후보 생성기(파생만). analyzeIssues 가 없을 때만 쓴다 — 기존 호출부·테스트 호환용.
    */
   generateCandidates?: (issues: string[], perIssue: number) => Promise<Map<string, string[]>>;
+  /**
+   * 검색광고 자격(연관검색어 실측). undefined 면 환경에서 읽고, null 이면 연관검색어를 건너뛴다.
+   */
+  searchAd?: NaverSearchAdConfig | null;
+  /** 이슈 재료 공급원 주입(테스트용). */
+  contextSources?: IssueContextSources;
   onProgress?: (progress: IssueNicheProgress) => void;
   onCandidate?: (candidate: IssueNicheKeyword) => void;
   signal?: AbortSignal;
 }
 
 export interface IssueNicheProgress {
-  phase: 'source' | 'derive' | 'demand' | 'judge' | 'complete';
+  phase: 'source' | 'context' | 'reason' | 'derive' | 'demand' | 'judge' | 'complete';
   current?: number;
   total?: number;
   keyword?: string;
@@ -239,6 +287,41 @@ interface Candidate {
   baseKeyword: string;
   issueType: IssueType;
   signalStatus: SignalKeyword['status'] | null;
+  origin: CandidateOrigin;
+  originReason: string | null;
+}
+
+export interface AssembledCandidate {
+  keyword: string;
+  origin: Exclude<CandidateOrigin, 'head'>;
+  originReason: string | null;
+}
+
+/**
+ * 이슈 하나의 후보를 출처 순으로 조립한다 — 다음 물결(예측) → 자동완성(실측) →
+ * 파생(에이전트) → 연관검색어(실측). 앞에 온 출처가 자리를 차지하고 뒤는 채운다.
+ * 실측 불가 길이(4어절+)는 어느 출처든 여기서 떨어진다.
+ */
+export function assembleIssueCandidates(
+  issue: string,
+  context: IssueContext | null,
+  analysis: IssueAnalysis | null,
+  perIssue: number,
+): AssembledCandidate[] {
+  const seen = new Set<string>([compactKey(issue)]);
+  const out: AssembledCandidate[] = [];
+  const take = (keyword: string, origin: AssembledCandidate['origin'], originReason: string | null) => {
+    const clean = String(keyword || '').replace(/\s+/g, ' ').trim();
+    const key = compactKey(clean);
+    if (!key || seen.has(key) || !isMeasurableLength(clean) || COMMERCE_NOISE_RE.test(clean)) return;
+    seen.add(key);
+    out.push({ keyword: clean, origin, originReason });
+  };
+  for (const n of analysis?.nextWave ?? []) take(n.keyword, 'next-wave', n.reason || null);
+  for (const k of context?.autocomplete ?? []) take(k, 'autocomplete', null);
+  for (const k of analysis?.cands ?? []) take(k, 'derived', null);
+  for (const r of context?.related ?? []) take(r.keyword, 'related', null);
+  return out.slice(0, perIssue);
 }
 
 type AgentRunners = Parameters<typeof runWithAnyAgent>[1];
@@ -267,14 +350,6 @@ export function createAgentCandidateGenerator(
     ]
     : AGENT_RUNNERS;
   return (issues, perIssue) => generateCandidatesWith(runners, issues, perIssue);
-}
-
-/**
- * 카테고리고정 후보 생성 — 구독 에이전트(클로드 코드 등) 사용. 원시 LLM API 아님.
- * claude→codex→gemini→grok 순 폴백(runWithAnyAgent). 전부 실패 시 빈 맵 → 자동완성 폴백.
- */
-function generateCandidatesAgent(issues: string[], perIssue: number): Promise<Map<string, string[]>> {
-  return generateCandidatesWith(AGENT_RUNNERS, issues, perIssue);
 }
 
 async function generateCandidatesWith(
@@ -316,20 +391,18 @@ async function generateCandidatesWith(
   return out;
 }
 
-/** 자동완성 폴백 — 실제 검색되는 변형(상업 노이즈 제외). */
-async function autocompleteFallback(
-  issue: string,
-  config: NaverDatalabConfig,
-  perIssue: number,
-): Promise<string[]> {
-  try {
-    const sugg = await getNaverAutocompleteKeywords(issue, config as any);
-    return sugg
-      .filter((s) => s && !COMMERCE_NOISE_RE.test(s) && isMeasurableLength(s))
-      .slice(0, perIssue);
-  } catch {
-    return [];
-  }
+/** 옛 생성기(파생만)를 분석기 모양으로 감싼다 — why·nextWave 는 비운다. */
+function analyzerFromLegacyGenerator(
+  generate: (issues: string[], perIssue: number) => Promise<Map<string, string[]>>,
+): IssueAnalyzer {
+  return async (contexts, perIssue) => {
+    const cands = await generate(contexts.map((c) => c.issue), perIssue);
+    const out = new Map<string, IssueAnalysis>();
+    for (const c of contexts) {
+      out.set(c.issue, { issue: c.issue, why: null, cands: cands.get(c.issue) ?? [], nextWave: [] });
+    }
+    return out;
+  };
 }
 
 interface HeadAnalysis { frontal: number; freshFrontal: number; }
@@ -359,12 +432,21 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 /**
- * 실시간 이슈에서 카테고리 고정 황금 틈새키워드 발굴.
+ * 실시간 이슈에서 카테고리 고정 황금 틈새키워드 발굴 — 행만 필요한 호출부용.
  * 결과: isNiche 우선 · nicheScore 내림차순. never-empty 지향.
  */
 export async function huntIssueNicheKeywords(
   options: HuntIssueNicheOptions,
 ): Promise<IssueNicheKeyword[]> {
+  return (await huntIssueNicheBoard(options)).rows;
+}
+
+/**
+ * 행 + 이슈별 추론(왜 뜨나·다음 물결). 보드 발행·브리핑은 이쪽을 쓴다.
+ */
+export async function huntIssueNicheBoard(
+  options: HuntIssueNicheOptions,
+): Promise<IssueNicheBoardResult> {
   const {
     config,
     issueLimit = 12,
@@ -377,11 +459,17 @@ export async function huntIssueNicheKeywords(
     policyIssueLimit = 6,
     includeTechIssues = true,
     techIssueLimit = 8,
-    generateCandidates = generateCandidatesAgent,
+    analyzeIssues,
+    generateCandidates,
+    searchAd,
+    contextSources,
     onProgress,
     onCandidate,
     signal,
   } = options;
+  const analyzer: IssueAnalyzer = analyzeIssues
+    ?? (generateCandidates ? analyzerFromLegacyGenerator(generateCandidates) : createAgentIssueAnalyzer());
+  const empty: IssueNicheBoardResult = { rows: [], issues: [] };
 
   if (!config?.clientId || !config?.clientSecret) {
     throw new Error('네이버 API 인증 정보가 필요합니다 (config.clientId/clientSecret)');
@@ -391,7 +479,7 @@ export async function huntIssueNicheKeywords(
   // 1) 실시간 소스
   onProgress?.({ phase: 'source', message: '실시간 이슈 수집 중(Signal.bz)' });
   const signalKeywords = await getSignalBzKeywords(Math.max(issueLimit, 20));
-  if (isAborted(signal)) return [];
+  if (isAborted(signal)) return empty;
   const issues = Array.from(new Set(
     signalKeywords.slice(0, issueLimit).map((s) => cleanSubject(s.keyword)).filter((k) => k.length >= 2),
   ));
@@ -435,7 +523,7 @@ export async function huntIssueNicheKeywords(
 
   if (issues.length === 0) {
     onProgress?.({ phase: 'complete', total: 0, message: '실시간 이슈를 가져오지 못했습니다' });
-    return [];
+    return empty;
   }
   const policySet = new Set(policyIssues.map(compactKey));
   const techSet = new Set(techIssues.map(compactKey));
@@ -450,38 +538,58 @@ export async function huntIssueNicheKeywords(
     typeByIssue.set(issue, toIssueType(classifyKeyword(issue).primary));
   }
 
-  // 2) 카테고리 고정 후보 생성 (LLM → 폴백 자동완성)
-  onProgress?.({ phase: 'derive', total: issues.length, message: '에이전트로 카테고리 세부 키워드 생성 중' });
-  const llm = await generateCandidates(issues, candidatesPerIssue).catch((e: any) => {
-    console.warn('[ISSUE-NICHE] 후보 생성 실패 → 자동완성 폴백:', e?.message || e);
-    return new Map<string, string[]>();
+  // 2) 이슈 재료 실측 — 뉴스 헤드라인(왜 뜨나의 근거)·자동완성·연관검색어.
+  onProgress?.({ phase: 'context', total: issues.length, message: '이슈 재료 수집 중(헤드라인·자동완성·연관검색어)' });
+  const contexts = await collectIssueContexts(issues, {
+    config,
+    searchAd,
+    sources: contextSources,
+    signal,
+    onProgress: (current, total, issue) => onProgress?.({ phase: 'context', current, total, keyword: issue }),
+  }).catch((e: any) => {
+    console.warn('[ISSUE-NICHE] 이슈 재료 수집 실패(헤드라인 없이 진행):', e?.message || e);
+    return issues.map((issue): IssueContext => ({ issue, headlines: [], autocomplete: [], related: [] }));
   });
-  if (isAborted(signal)) return [];
+  if (isAborted(signal)) return empty;
+  const contextByIssue = new Map(contexts.map((c) => [c.issue, c]));
 
+  // 3) 구독 에이전트 1콜 — 왜 뜨나(헤드라인 검증)·카테고리 파생·다음 물결.
+  onProgress?.({ phase: 'reason', total: issues.length, message: '에이전트가 이슈 흐름을 추론하는 중(왜·다음 물결)' });
+  const analyses = await analyzer(contexts, candidatesPerIssue).catch((e: any) => {
+    console.warn('[ISSUE-NICHE] 이슈 추론 실패 → 실측 재료(자동완성·연관)만으로 진행:', e?.message || e);
+    return new Map<string, IssueAnalysis>();
+  });
+  if (isAborted(signal)) return empty;
+
+  onProgress?.({ phase: 'derive', total: issues.length, message: '후보 조립 중(다음 물결 → 자동완성 → 파생 → 연관)' });
   const seen = new Set<string>();
   const candidates: Candidate[] = [];
-  const push = (keyword: string, base: string) => {
+  const push = (keyword: string, base: string, origin: CandidateOrigin, originReason: string | null) => {
     const key = compactKey(keyword);
     if (!key || seen.has(key)) return;
     seen.add(key);
-    candidates.push({ keyword, baseKeyword: base, issueType: typeByIssue.get(base) || 'fresh', signalStatus: statusByIssue.get(compactKey(base)) ?? null });
+    candidates.push({
+      keyword,
+      baseKeyword: base,
+      issueType: typeByIssue.get(base) || 'fresh',
+      signalStatus: statusByIssue.get(compactKey(base)) ?? null,
+      origin,
+      originReason,
+    });
   };
   // 이슈별 후보를 먼저 모은다 — 이슈 순서대로 쌓고 앞에서 자르면
   // 뒤쪽 이슈는 후보가 한 개도 안 들어간다(maxCandidates 60 = 앞 5개 이슈에서 소진).
-  const perIssueCands: { issue: string; cands: string[] }[] = [];
-  for (const issue of issues) {
-    // 실측 불가 길이(4어절+)는 여기서 떨군다 — LLM 이 길이 지시를 어겨도 게이트가 막는다.
-    let cands = (llm.get(issue) || []).filter(isMeasurableLength);
-    if (cands.length === 0) cands = await autocompleteFallback(issue, config, candidatesPerIssue);
-    perIssueCands.push({ issue, cands });
-  }
+  const perIssueCands = issues.map((issue) => ({
+    issue,
+    cands: assembleIssueCandidates(issue, contextByIssue.get(issue) ?? null, analyses.get(issue) ?? null, candidatesPerIssue),
+  }));
   // 머리(관찰용)를 전부 먼저 넣고, 파생은 라운드로빈으로 고르게 배분한다.
-  for (const issue of issues) push(issue, issue);
+  for (const issue of issues) push(issue, issue, 'head', null);
   const maxDepth = perIssueCands.reduce((m, r) => Math.max(m, r.cands.length), 0);
   for (let depth = 0; depth < maxDepth; depth++) {
     for (const row of perIssueCands) {
       const c = row.cands[depth];
-      if (c) push(c, row.issue);
+      if (c) push(c.keyword, row.issue, c.origin, c.originReason);
     }
   }
   const judgeList = candidates.slice(0, maxCandidates);
@@ -529,6 +637,9 @@ export async function huntIssueNicheKeywords(
       onProgress?.({ phase: 'demand', current: Math.min(done, judgeList.length), total: judgeList.length, message: '실측 수요(데이터랩) 측정 중' });
     }
   }
+
+  const sourceOf = (issue: string): string => (policySet.has(compactKey(issue)) ? 'policy-briefing'
+    : (techSet.has(compactKey(issue)) ? 'tech-rss' : 'signal.bz'));
 
   // 4) 검색량·문서수 실측 + 황금 판정
   const results: IssueNicheKeyword[] = [];
@@ -601,8 +712,9 @@ export async function huntIssueNicheKeywords(
         isPreemption: verdict.isPreemption,
         nicheScore: verdict.nicheScore,
         reasons: verdict.reasons,
-        source: policySet.has(compactKey(cand.baseKeyword)) ? 'policy-briefing'
-          : (techSet.has(compactKey(cand.baseKeyword)) ? 'tech-rss' : 'signal.bz'),
+        source: sourceOf(cand.baseKeyword),
+        origin: cand.origin,
+        originReason: cand.originReason,
       };
       results.push(row);
       onCandidate?.(row);
@@ -616,6 +728,20 @@ export async function huntIssueNicheKeywords(
     if (a.isPreemption !== b.isPreemption) return a.isPreemption ? -1 : 1;
     return b.nicheScore - a.nicheScore;
   });
+  const issueRows: IssueNicheIssue[] = issues.map((issue) => {
+    const context = contextByIssue.get(issue);
+    const analysis = analyses.get(issue);
+    return {
+      issue,
+      issueType: typeByIssue.get(issue) || 'fresh',
+      source: sourceOf(issue),
+      headlines: context?.headlines ?? [],
+      autocomplete: context?.autocomplete ?? [],
+      related: context?.related ?? [],
+      why: analysis?.why ?? null,
+      nextWave: analysis?.nextWave ?? [],
+    };
+  });
   onProgress?.({ phase: 'complete', total: results.length });
-  return results;
+  return { rows: results, issues: issueRows };
 }
