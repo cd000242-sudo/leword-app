@@ -41,8 +41,14 @@ function row(over: Partial<IssueNicheKeyword> = {}): IssueNicheKeyword {
     demandRatio: 1.8,
     demandStatus: 'rising',
     hasLiveDemand: true,
-    nicheRoute: 'demand',
+    trafficGate: true,
+    demandGate: true,
+    slotStatus: 'winnable',
+    serp: { verdict: 'WINNABLE', reason: '정면 대응 0건', exactTitleHits: 0, partialTitleHits: 1, sampledTitles: 10, topTitles: ['상위 제목 1'], measuredAt: '2026-09-03T03:45:00.000Z' },
+    nicheRoute: 'triple',
+    isPending: false,
     isPreemption: false,
+    preemptionKind: null,
     nicheScore: 77,
     reasons: ['실측 수요 ▲', '문서수 1,200'],
     source: 'signal.bz',
@@ -60,6 +66,29 @@ describe('toPublicIssueRow — 무엇을 싣는가', () => {
   it('틈새와 선점 후보를 verdict 로 구분한다', () => {
     expect(toPublicIssueRow(row(), 'now')?.verdict).toBe('niche');
     expect(toPublicIssueRow(row({ isNiche: false, isPreemption: true, hasLiveDemand: false }), 'now')?.verdict).toBe('preemption');
+  });
+
+  it('대기(트래픽·수요 통과, 자리 미실측)는 싣지 않는다 — 자리를 안 잰 것을 자리 있다고 보여 주지 않는다', () => {
+    const pending = row({ isNiche: false, isPending: true, nicheRoute: null, slotStatus: 'unmeasured', serp: null });
+    expect(toPublicIssueRow(pending, 'now')).toBeNull();
+    const ledger = { generatedAt: '2026-09-03T03:50:00.000Z', funnel: { issues: 2, candidates: 5 }, rows: [row(), pending, { ...pending, keyword: '대기 둘' }] };
+    const { payload } = buildIssueBoardPayload(ledger, null, { nowMs: NOW });
+    expect(payload.rows.map((r) => r.keyword)).toEqual(['틈새 키워드']);
+    expect(payload.measured.pending).toBe(2);
+  });
+
+  it('자리 실측(serp)과 선점 근거 종류를 그대로 싣는다 — 화면 배지의 재료', () => {
+    const niche = toPublicIssueRow(row(), 'now');
+    expect(niche?.serp?.verdict).toBe('WINNABLE');
+    expect(niche?.serp?.sampledTitles).toBe(10);
+    expect(niche?.preemptionKind).toBeNull();
+    expect(niche?.evidence.map((e) => e.code)).toEqual(['traffic', 'demand', 'slot', 'empty-field', 'fresh']);
+    const pre = toPublicIssueRow(row({ isNiche: false, nicheRoute: null, slotStatus: 'unmeasured', serp: null, trafficGate: false, searchVolume: null, documentCount: 120, isPreemption: true, preemptionKind: 'demand-no-volume' }), 'now');
+    expect(pre?.verdict).toBe('preemption');
+    expect(pre?.preemptionKind).toBe('demand-no-volume');
+    expect(pre?.serp).toBeNull();
+    // 모양이 깨진 serp 는 실측이 아니다.
+    expect(toPublicIssueRow(row({ serp: { verdict: 'MAYBE' } as never }), 'now')?.serp).toBeNull();
   });
 
   it('추정 검색량은 null 로 낸다 — 화면에 추정을 싣지 않는다', () => {
@@ -117,7 +146,7 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
     const { payload, fresh } = buildIssueBoardPayload(ledger, null, { nowMs: NOW });
     expect(payload.rows.map((r) => r.keyword)).toEqual(['틈새 A', '틈새 D', '선점 B']);
     expect(fresh).toBe(3);
-    expect(payload.measured).toEqual({ issues: 16, candidates: 61, niche: 3, preemption: 1 });
+    expect(payload.measured).toEqual({ issues: 16, candidates: 61, niche: 3, preemption: 1, pending: 0 });
     expect(payload.generator).toBe('issue-niche-board');
     expect(payload.rows.every((r) => r.measuredAt === '2026-09-03T03:50:00.000Z')).toBe(true);
   });
@@ -177,6 +206,13 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
     const tomorrow = buildIssueBoardPayload(next, noon, { nowMs: NOW + 24 * 3_600_000, freeRows: 2 }).payload;
     expect(tomorrow.freeSample.day).toBe('2026-09-04');
     expect(tomorrow.freeSample.keywords[0]).toBe('오후 틈새');
+  });
+
+  it('무료 표본은 확정 틈새부터 — 보강된 선점 후보보다 맨 틈새가 앞선다', () => {
+    const richPre = (k: string): IssueLedgerRow => ({ ...row({ keyword: k, isNiche: false, nicheRoute: null, isPreemption: true, preemptionKind: 'no-demand', hasLiveDemand: false, documentCount: 90 }), titles: { seo: { text: '제목' } }, subKeywords: [{ keyword: k + ' 뜻', searchVolume: 30 }] });
+    const mixed = { ...ledger, rows: [richPre('선점 가'), richPre('선점 나'), row({ keyword: '틈새 다' }), richPre('선점 라')] };
+    const payload = buildIssueBoardPayload(mixed, null, { nowMs: NOW }).payload;
+    expect(payload.freeSample.keywords).toEqual(['틈새 다', '선점 가', '선점 나']);
   });
 
   it('무료 맛보기 기본은 3건 — 사장님 사양(2026-09-03): 틈새는 하루 3개만', () => {

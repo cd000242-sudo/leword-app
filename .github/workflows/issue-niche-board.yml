@@ -11,9 +11,14 @@ name: 실검 틈새 보드 발굴 (하루 3회)
 # 황금키워드보드와 같은 방식이다: 사장님 CI 가 돌리고 정적 JSON 을 사이트
 # 레포에 발행하며, 방문자는 보기만 한다.
 #
-# 회차 = 발굴(헌터) → 황금 보강(enrich-board.js, 황금키워드보드와 같은 보강기:
-# 지식인·연관 실측 풀·서브키워드·AI 제목·30일 추세·수익 판정) → 발행.
-# 보강은 실패해도 회차를 죽이지 않는다 — 실측 행만으로 발행한다.
+# 회차 = 발굴(헌터) → 자리 실측(Bright Data, 회차당 12건) → 황금 보강(enrich-board.js,
+# 황금키워드보드와 같은 보강기: 지식인·연관 실측 풀·서브키워드·AI 제목·30일 추세·수익
+# 판정) → 발행. 보강은 실패해도 회차를 죽이지 않는다 — 실측 행만으로 발행한다.
+#
+# 틈새 = 트래픽(검색광고 검색량 300+, 수요 상승중이면 100+) · 수요(데이터랩 7일 실측 +
+# 문서수 3,000↓) · 자리(블로그탭 상위 10 정면글 0건) 세 실측을 다 통과한 키워드다.
+# 자리만 Bright Data(유료 쿼터) 라 회차당 상한 12건 = 하루 36 · 달 ≤1,116 — 무료 5,000
+# 안이고 기능 상한 'issue' 1,100 으로 잠근다. 잰 자리는 48시간 캐시로 다시 안 센다.
 on:
   schedule:
     - cron: '0 22,4,10 * * *'
@@ -31,6 +36,9 @@ on:
       maxAiCarried:
         description: 이월 행 재보강 AI 호출 상한(행 단위)
         default: '30'
+      maxSlots:
+        description: 자리 실측(Bright Data) 회차당 상한 — 0 이면 캐시·판정만
+        default: '12'
 
 concurrency:
   group: issue-niche-board
@@ -71,6 +79,7 @@ jobs:
             NAVER_SEARCH_AD_SECRET_KEY=${{ secrets.NAVER_SEARCH_AD_SECRET_KEY != '' }}
             SITE_REPO_SSH_KEY=${{ secrets.SITE_REPO_SSH_KEY != '' }}
           HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          HAS_BRIGHTDATA: ${{ secrets.BRIGHTDATA_TOKEN != '' }}
         run: |
           missing=0
           while IFS='=' read -r name present; do
@@ -86,6 +95,9 @@ jobs:
           fi
           if [ "$HAS_CLAUDE" != 'true' ]; then
             echo '::warning::CLAUDE_CODE_OAUTH_TOKEN 없음 — 이슈 추론·황금 보강 없이 실측 재료만으로 간다(얕은 회차).'
+          fi
+          if [ "$HAS_BRIGHTDATA" != 'true' ]; then
+            echo '::warning::BRIGHTDATA_TOKEN 없음 — 자리(블로그탭 상위 10)를 못 재니 이번 회차 틈새는 0 이고 대기 행은 발행되지 않는다.'
           fi
           echo '필수 시크릿 확인됨.'
 
@@ -119,6 +131,49 @@ jobs:
             --picksOut=issue-board-picks.json \
             --issueLimit=${{ github.event.inputs.issueLimit || '16' }} \
             --maxCandidates=${{ github.event.inputs.maxCandidates || '80' }}
+
+      # 개인 토큰(PAT) 대신 배포키 — 이 레포 하나에만 붙고 만료가 없다.
+      # 자리 실측이 직전 발행본(이월 승격)·자리 캐시·쿼터 장부를 읽으므로 그보다 먼저다.
+      - name: 사이트 레포 체크아웃
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+
+      # 틈새의 세 번째 게이트 — 블로그탭 상위 10 에 정면 대응 글이 0건인가(serp-winnability).
+      # 네이버 HTML 은 Bright Data 로만 받으니 회차당 상한(12건)만큼 검색량 큰 순으로 재고,
+      # 못 잰 행은 대기로 남아 발행되지 않는다. 직전 발행본의 선점 후보가 재측정으로 검색량
+      # 하한을 넘겼으면 여기서 같이 재어 틈새로 승격한다. AI 호출 없음.
+      # 쿼터 장부·캐시는 사이트 레포 data/ 에 두고 커밋한다 — 회차마다 새 러너라 파일이 기억이다.
+      # 실패해도 회차는 산다 — 대기 행 없이 선점 후보만으로 발행한다.
+      - name: 자리 실측(블로그탭 상위 10)
+        continue-on-error: true
+        timeout-minutes: 15
+        env:
+          BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}
+          BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
+          LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-issue.json
+          # 달 1,100 건에서 기능 자체를 잠근다(12 × 3 × 31 = 1,116 이 이론 최대 — 캐시 재사용으로 실제는 더 적다).
+          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"issue":1100}'
+        run: |
+          if [ ! -s issue-board.json ]; then
+            echo '원장 없음 — 건너뛴다.'
+            exit 0
+          fi
+          mkdir -p site/data
+          node scripts/serp-slot-issue-board.js \
+            --in=issue-board.json \
+            --prev=site/spa/public/data/issue-niche-board.json \
+            --cache=site/data/issue-slot-cache.json \
+            --ledgerOut=issue-board-slotted.json \
+            --picksOut=issue-board-picks-slotted.json \
+            --max=${{ github.event.inputs.maxSlots || '12' }}
+          # JSON 이 온전할 때만 원장·발행 입력에 덮는다.
+          node -e "JSON.parse(require('fs').readFileSync('issue-board-slotted.json','utf8'))" \
+            && cp issue-board-slotted.json issue-board.json
+          node -e "JSON.parse(require('fs').readFileSync('issue-board-picks-slotted.json','utf8'))" \
+            && cp issue-board-picks-slotted.json issue-board-picks.json
 
       # 황금키워드보드와 **같은 보강기**를 틈새·선점 행에 돌린다(사장님 지시 2026-09-03
       # "황금키워드랑 똑같이 버튼·연관키워드·그래프 전부"). 행마다 체크포인트 저장이라
@@ -169,16 +224,9 @@ jobs:
             issue-board.json
             issue-board-picks.json
             issue-board-enriched.json
+            issue-board-slotted.json
           retention-days: 7
           if-no-files-found: warn
-
-      # 개인 토큰(PAT) 대신 배포키 — 이 레포 하나에만 붙고 만료가 없다.
-      - name: 사이트 레포 체크아웃
-        uses: actions/checkout@v4
-        with:
-          repository: cd000242-sudo/naver
-          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
-          path: site
 
       # 실을 행이 0 이면 발행기가 기존 파일을 그대로 둔다(exit 4). 회차는 살린다.
       - name: 보드 발행
@@ -256,9 +304,9 @@ jobs:
         run: |
           git config user.name 'leword-bot'
           git config user.email 'bot@leaderspro.kr'
-          git add spa/public/data/issue-niche-board.json
+          git add spa/public/data/issue-niche-board.json data/brightdata-quota-issue.json data/issue-slot-cache.json
           if git diff --cached --quiet; then
-            echo '변경 없음 — 이번 회차는 실을 키워드가 없다.'
+            echo '변경 없음 — 이번 회차는 실을 키워드가 없고 이월 행도 그대로다.'
             exit 0
           fi
           git commit -m "chore(board): 실검 틈새 보드 갱신 $(date -u '+%Y-%m-%d %H:%M UTC')"

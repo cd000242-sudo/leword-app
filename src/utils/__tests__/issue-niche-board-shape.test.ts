@@ -41,8 +41,14 @@ function row(over: Partial<IssueNicheKeyword> & Record<string, unknown> = {}): I
     demandRatio: 1.8,
     demandStatus: 'rising',
     hasLiveDemand: true,
-    nicheRoute: 'demand',
+    trafficGate: true,
+    demandGate: true,
+    slotStatus: 'winnable',
+    serp: { verdict: 'WINNABLE', reason: '정면 대응 0건', exactTitleHits: 0, partialTitleHits: 1, sampledTitles: 10, topTitles: ['상위 제목 1'], measuredAt: '2026-09-03T03:45:00.000Z' },
+    nicheRoute: 'triple',
+    isPending: false,
     isPreemption: false,
+    preemptionKind: null,
     nicheScore: 77,
     reasons: ['실측 수요 ▲', '문서수 1,200'],
     source: 'signal.bz',
@@ -120,16 +126,19 @@ describe('toPublicIssueRow — 황금 카드 모양', () => {
     expect(pub.topic).toBe('박재홍');
     expect(pub.origin).toBe('next-wave');
     expect(pub.originReason).toBe('3주 입원 후 복귀 예정이라 복귀 시점 검색이 이어진다');
-    expect(pub.evidence.map((e) => e.code)).toEqual(['next-wave', 'demand', 'empty-field', 'fresh']);
+    // 출처 → 트래픽(검색광고 실측) → 수요(데이터랩) → 자리(블로그탭 실측) → 빈자리 → 추세
+    expect(pub.evidence.map((e) => e.code)).toEqual(['next-wave', 'traffic', 'demand', 'slot', 'empty-field', 'fresh']);
     expect(pub.evidence[0].text).toContain('다음 물결');
-    expect(pub.evidence[1].text).toContain('1.8');
-    expect(pub.evidence[2].text).toContain('3건');
+    expect(pub.evidence[1].text).toContain('320');
+    expect(pub.evidence[2].text).toContain('1.8');
+    expect(pub.evidence[3].text).toContain('정면 대응 0건');
+    expect(pub.evidence[4].text).toContain('3건');
   });
 
   it('출처별 근거 — 자동완성·연관검색어는 실측 문구, 파생은 근거 없음', () => {
     expect(toPublicIssueRow(row({ origin: 'autocomplete', originReason: null }), 'now', issue)!.evidence[0]).toEqual({ code: 'autocomplete', text: '네이버 자동완성 실측 — 사람들이 이미 치는 말' });
     expect(toPublicIssueRow(row({ origin: 'related', originReason: null }), 'now', issue)!.evidence[0].code).toBe('related');
-    expect(toPublicIssueRow(row({ origin: 'derived', originReason: null, hasLiveDemand: false, frontalDocCount: null, isHot: false, recencyStatus: 'stable' }), 'now', issue)!.evidence).toEqual([]);
+    expect(toPublicIssueRow(row({ origin: 'derived', originReason: null, trafficGate: false, hasLiveDemand: false, serp: null, frontalDocCount: null, isHot: false, recencyStatus: 'stable' }), 'now', issue)!.evidence).toEqual([]);
   });
 
   it('"왜 지금?"은 헤드라인이 검증한 이슈 추론이 보강 AI 보다 앞선다', () => {

@@ -145,4 +145,56 @@ describe('실검 틈새 보드 워크플로', () => {
     const script = fs.readFileSync(path.join(root, 'scripts', 'remeasure-issue-board.js'), 'utf8');
     expect(script).toMatch(/main\(\)\s*\.then\(\(\)\s*=>\s*process\.exit\(0\)\)/);
   });
+
+  // 틈새 = 트래픽·수요·자리 세 실측. 자리(블로그탭 상위 10 정면글)는 Bright Data 로만
+  // 받으니 유료 쿼터 안에서 회차당 상한을 두고 따로 잰다. 대기 행은 발행하지 않는다.
+  describe('자리 실측(블로그탭 상위 10)', () => {
+    const STEP = '자리 실측(블로그탭 상위 10)';
+
+    it('회차 뒤·황금 보강 앞이고, 사이트 레포 체크아웃이 그보다 먼저다 — 직전 발행본·캐시를 읽는다', () => {
+      expect(stepIndex('실검 틈새 회차')).toBeLessThan(stepIndex(STEP));
+      expect(stepIndex(STEP)).toBeLessThan(stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)'));
+      expect(stepIndex('사이트 레포 체크아웃')).toBeLessThan(stepIndex(STEP));
+    });
+
+    it('Bright Data 토큰·존·쿼터 장부·기능 상한을 받고, 구독 토큰은 받지 않는다', () => {
+      const slot = workflow.slice(stepIndex(STEP), stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)'));
+      expect(slot).toContain('scripts/serp-slot-issue-board.js');
+      expect(slot).toContain('BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}');
+      expect(slot).toContain('BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}');
+      expect(slot).toContain('LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-issue.json');
+      expect(slot).toMatch(/LEWORD_BRIGHTDATA_FEATURE_CAPS: '\{"issue":1100\}'/);
+      expect(slot).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
+      expect(slot).toContain('continue-on-error: true');
+      expect(slot).toMatch(/timeout-minutes: \d+/);
+    });
+
+    it('회차당 상한은 기본 12건(하루 36 · 달 1,116 ≤ 무료 5,000) — 수동 실행 입력으로 바꾼다', () => {
+      expect(workflow).toMatch(/maxSlots:\n\s+description:[^\n]*\n\s+default: '12'/);
+      const slot = workflow.slice(stepIndex(STEP), stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)'));
+      expect(slot).toContain("--max=${{ github.event.inputs.maxSlots || '12' }}");
+    });
+
+    it('원장·직전 발행본·캐시를 읽고, JSON 이 온전할 때만 원장·발행 입력에 덮는다', () => {
+      const slot = workflow.slice(stepIndex(STEP), stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)'));
+      expect(slot).toContain('--in=issue-board.json');
+      expect(slot).toContain('--prev=site/spa/public/data/issue-niche-board.json');
+      expect(slot).toContain('--cache=site/data/issue-slot-cache.json');
+      expect(slot).toContain('--ledgerOut=issue-board-slotted.json');
+      expect(slot).toContain('--picksOut=issue-board-picks-slotted.json');
+      expect(slot).toMatch(/JSON\.parse\([^\n]*issue-board-slotted\.json[^\n]*\n\s*&& cp issue-board-slotted\.json issue-board\.json/);
+      expect(slot).toMatch(/JSON\.parse\([^\n]*issue-board-picks-slotted\.json[^\n]*\n\s*&& cp issue-board-picks-slotted\.json issue-board-picks\.json/);
+    });
+
+    it('쿼터 장부·자리 캐시를 사이트 레포에 같이 커밋한다 — 회차마다 새 러너라 파일이 곧 기억이다', () => {
+      const push = workflow.slice(stepIndex('커밋·푸시'));
+      expect(push).toMatch(/git add spa\/public\/data\/issue-niche-board\.json data\/brightdata-quota-issue\.json data\/issue-slot-cache\.json/);
+    });
+
+    it('자리 실측 스크립트는 끝나면 명시적으로 종료하고, 기능 이름은 issue 다', () => {
+      const script = fs.readFileSync(path.join(root, 'scripts', 'serp-slot-issue-board.js'), 'utf8');
+      expect(script).toMatch(/main\(\)\s*\.then\(\(\)\s*=>\s*process\.exit\(0\)\)/);
+      expect(script).toMatch(/const FEATURE = 'issue'/);
+    });
+  });
 });

@@ -8,6 +8,7 @@
  * 규칙:
  *  - 틈새(isNiche)·선점 후보(isPreemption)만 싣는다. 나머지 실측 행은 원장에만
  *    남는다 — 보드는 "쓸 자리"를 보여주는 곳이지 실측 전부를 보는 곳이 아니다.
+ *    대기(isPending: 트래픽·수요 통과, 자리 미실측)도 싣지 않는다 — 건수만 measured.pending 에 적는다.
  *  - 추정치는 화면에 내보내지 않는다. 검색량이 추정이면 null 로 낸다.
  *  - 이월: 실시간 이슈는 하루면 문서가 쌓여 자리가 닫힌다. 그래서 48시간만
  *    이월하고, 이월 행은 carried 로 표시해 화면이 "언제 잰 값인지"를 밝히게 한다.
@@ -18,7 +19,8 @@
  *    실시간 검색어 브리지 모달이 이걸 읽는다.
  */
 
-import type { IssueNicheKeyword, IssueType } from './issue-niche-hunter';
+import type { IssueNicheKeyword, IssueSlotSerp, IssueType } from './issue-niche-hunter';
+import type { IssuePreemptionKind } from './issue-niche-verdict';
 import type { IssueContext } from './issue-context';
 import type { RecencyStatus } from './naver-datalab-api';
 import {
@@ -63,6 +65,10 @@ export interface IssueBoardPublicRow {
   origin: IssueNicheKeyword['origin'];
   originReason: string | null;
   verdict: IssueBoardVerdict;
+  /** 선점 후보의 근거 종류(수요 미검출 / 수요 잡힘·검색량 미확인). 틈새 행은 null. */
+  preemptionKind: IssuePreemptionKind | null;
+  /** 블로그탭 상위 10 자리 실측(Bright Data). 틈새 행은 항상 WINNABLE 이 실려 있다. 못 쟀으면 null. */
+  serp: IssueSlotSerp | null;
   documentCount: number | null;
   /** 문서수가 실측인가. 추정이면 false 이고, 그런 행은 틈새 판정을 통과하지 못한다. */
   documentCountMeasured: boolean;
@@ -143,7 +149,7 @@ export interface IssueBoardPayload {
   /** 갱신 주기 안내 — 화면 출처 줄에 그대로 나간다. */
   schedule: string;
   /** 이번 회차 실측 규모. 화면이 "N개 실측 중 M개 통과"를 말할 재료다. */
-  measured: { issues: number; candidates: number; niche: number; preemption: number };
+  measured: { issues: number; candidates: number; niche: number; preemption: number; pending: number };
   /** 무료 맛보기 — 하루 동안 고정(황금키워드보드와 같은 규칙). */
   freeSample: { day: string; keywords: string[] };
   rows: IssueBoardPublicRow[];
@@ -194,6 +200,23 @@ export function laneOfSource(source: string | undefined): IssueBoardLane {
   return 'realtime';
 }
 
+/** 자리 실측 결과는 숫자·제목만 그대로 싣는다 — 모양이 깨진 값은 실측이 아닌 것으로 본다. */
+function cleanSerp(raw: unknown): IssueSlotSerp | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = raw as Partial<IssueSlotSerp>;
+  if (s.verdict !== 'WINNABLE' && s.verdict !== 'CONTESTED' && s.verdict !== 'LOCKED' && s.verdict !== 'NO_DATA') return null;
+  const n = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  return {
+    verdict: s.verdict,
+    reason: typeof s.reason === 'string' ? s.reason : '',
+    exactTitleHits: n(s.exactTitleHits),
+    partialTitleHits: n(s.partialTitleHits),
+    sampledTitles: n(s.sampledTitles),
+    topTitles: Array.isArray(s.topTitles) ? s.topTitles.filter((t): t is string => typeof t === 'string').slice(0, 10) : [],
+    measuredAt: typeof s.measuredAt === 'string' ? s.measuredAt : '',
+  };
+}
+
 /** 틈새·선점 후보만 공개 행으로 옮긴다. 둘 다 아니면 null (원장에만 남는다). */
 export function toPublicIssueRow(
   row: IssueLedgerRow,
@@ -212,6 +235,8 @@ export function toPublicIssueRow(
     origin: row.origin || 'derived',
     originReason: typeof row.originReason === 'string' && row.originReason.trim() ? row.originReason.trim() : null,
     verdict,
+    preemptionKind: verdict === 'preemption' ? (row.preemptionKind ?? null) : null,
+    serp: cleanSerp(row.serp),
     documentCount: row.isDocumentCountEstimated ? null : (row.documentCount ?? null),
     documentCountMeasured: !row.isDocumentCountEstimated && typeof row.documentCount === 'number',
     searchVolume: row.isSearchVolumeEstimated ? null : (row.searchVolume ?? null),
@@ -385,8 +410,10 @@ export function buildIssueBoardPayload(
    * 같은 날은 직전 표본을 그대로 쓴다 — 회차마다 새 이름이 열리면 하루 세 번
    * 보는 사람이 다 본다. 다만 상한이 줄었을 때(5→3)는 앞에서 자른다: 닫는 것은
    * 괜찮고, 반대로 짧은 표본을 채우는 것은 낮에 새 키워드를 여는 구멍이라 안 한다.
+   * 표본은 확정 틈새(3중 실측)부터 — 틈새가 모자랄 때만 선점 후보로 채운다.
    */
-  const sampleOrder = [...rows.filter(hasGoldenFields), ...rows.filter((row) => !hasGoldenFields(row))];
+  const byGolden = (list: IssueBoardPublicRow[]) => [...list.filter(hasGoldenFields), ...list.filter((row) => !hasGoldenFields(row))];
+  const sampleOrder = [...byGolden(byVerdict('niche')), ...byGolden(byVerdict('preemption'))];
   const freeSample = prev?.freeSample && prev.freeSample.day === kstDay
     ? { day: prev.freeSample.day, keywords: prev.freeSample.keywords.slice(0, freeRows) }
     : { day: kstDay, keywords: sampleOrder.slice(0, freeRows).map((row) => row.keyword) };
@@ -400,6 +427,7 @@ export function buildIssueBoardPayload(
       candidates: ledger.funnel?.candidates ?? ledgerRows.length,
       niche: ledgerRows.filter((row) => row.isNiche).length,
       preemption: ledgerRows.filter((row) => !row.isNiche && row.isPreemption).length,
+      pending: ledgerRows.filter((row) => row.isPending === true).length,
     },
     freeSample,
     rows,

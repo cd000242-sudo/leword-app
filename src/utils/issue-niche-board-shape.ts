@@ -75,6 +75,10 @@ export function compactKey(keyword: unknown): string {
   return String(keyword || '').replace(/\s+/g, '').toLowerCase();
 }
 
+/**
+ * 싣는 행 = 틈새·선점 후보. 대기(isPending: 트래픽·수요 통과, 자리 미실측)는 싣지 않는다 —
+ * 자리를 안 잰 것을 "자리 있다"고 보여 주면 황금보다 세다는 틈새의 뜻이 사라진다.
+ */
 export function isPublishable(row: IssueNicheKeyword): boolean {
   return row.isNiche === true || row.isPreemption === true;
 }
@@ -139,7 +143,7 @@ const ORIGIN_EVIDENCE: Record<string, string | null> = {
 
 /**
  * 근거는 실측 사실에서만 만든다. 순서 = 이 키워드가 왜 여기 있는지(출처) →
- * 수요 → 빈자리 → 이슈 추세. 문구는 화면 근거 줄에 그대로 나간다.
+ * 트래픽 → 수요 → 자리(블로그탭 실측) → 빈자리 → 이슈 추세. 문구는 화면 근거 줄에 그대로 나간다.
  */
 export function buildIssueEvidence(row: IssueNicheKeyword): BoardEvidence[] {
   const out: BoardEvidence[] = [];
@@ -148,9 +152,15 @@ export function buildIssueEvidence(row: IssueNicheKeyword): BoardEvidence[] {
   } else if (row.origin && ORIGIN_EVIDENCE[row.origin]) {
     out.push({ code: row.origin, text: ORIGIN_EVIDENCE[row.origin] as string });
   }
+  if (row.trafficGate === true && typeof row.searchVolume === 'number') {
+    out.push({ code: 'traffic', text: `검색광고 월 검색량 ${row.searchVolume.toLocaleString()} 실측 — 트래픽 하한 통과` });
+  }
   if (row.hasLiveDemand === true) {
     const ratio = typeof row.demandRatio === 'number' ? ` — 7일/30일 ${row.demandRatio.toFixed(1)}배` : '';
     out.push({ code: 'demand', text: `데이터랩 최근 7일 수요 실측${ratio}` });
+  }
+  if (row.serp && row.serp.verdict === 'WINNABLE') {
+    out.push({ code: 'slot', text: `블로그탭 상위 ${row.serp.sampledTitles} 제목 중 정면 대응 0건 — 자리 있음 (실측)` });
   }
   if (typeof row.frontalDocCount === 'number') {
     const fresh = typeof row.freshFrontalCount === 'number' ? ` (최근 ${row.freshFrontalCount}건)` : '';

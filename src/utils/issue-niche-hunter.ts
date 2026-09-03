@@ -56,7 +56,12 @@ import {
 } from './naver-datalab-api';
 import { takeRecentBlogPostMeta } from './naver-blog-api';
 import { Grade } from './grade';
-import { judgeIssueNiche } from './issue-niche-verdict';
+import {
+  judgeIssueNiche,
+  IssuePreemptionKind,
+  IssueSlotStatus,
+} from './issue-niche-verdict';
+import type { SerpVerdictCode } from './serp-winnability';
 import { readSearchAdVolume } from './searchad-volume-read';
 
 export type IssueType = 'policy' | 'incident' | 'entertainment' | 'fresh';
@@ -107,16 +112,41 @@ export interface IssueNicheKeyword {
   demandStatus: RecencyStatus;
   /** 데이터랩에 최근 7일 수요가 잡혔는가 (실측 이진 신호) */
   hasLiveDemand: boolean;
-  /** 어느 증거로 틈새 판정을 통과했는가 */
-  nicheRoute: 'demand' | null;
-  /** 선점 후보 — 경쟁 없음이 확인됐으나 수요는 아직 측정되지 않음. 틈새와 별개 범주. */
+  /** 트래픽 게이트(실측 검색량 ≥ 하한) 통과 */
+  trafficGate: boolean;
+  /** 수요 게이트(데이터랩 수요·저경쟁·생존·도배 아님) 통과 */
+  demandGate: boolean;
+  /** 자리 실측 상태 — 헌터는 자리를 안 재므로 'unmeasured'. 자리 실측 단계가 채운다. */
+  slotStatus: IssueSlotStatus;
+  /** 자리 실측 결과(블로그탭 상위 10). 헌터 단계에선 null — 자리 실측 단계가 채운다. */
+  serp: IssueSlotSerp | null;
+  /** 틈새 = 트래픽·수요·자리 셋 다 실측 통과('triple'). */
+  nicheRoute: 'triple' | null;
+  /** 트래픽·수요 통과, 자리 미실측 — 자리 실측 대상. 화면엔 싣지 않는다. */
+  isPending: boolean;
+  /** 선점 후보 — 경쟁 없음이 확인됐으나 트래픽 증거는 없음. 틈새와 별개 범주. */
   isPreemption: boolean;
+  preemptionKind: IssuePreemptionKind | null;
   nicheScore: number;
   reasons: string[];
   source: string;
   origin: CandidateOrigin;
   /** next-wave 만 값이 있다 — 에이전트가 댄 예측 이유. */
   originReason: string | null;
+}
+
+/**
+ * 자리 실측 결과 — 네이버 블로그탭 상위 10 제목이 이 키워드에 정면 대응하는가(serp-winnability).
+ * Bright Data 로 회차당 상한 안에서만 재므로, 잰 시각을 남겨 48시간은 다음 회차가 재사용한다.
+ */
+export interface IssueSlotSerp {
+  verdict: SerpVerdictCode;
+  reason: string;
+  exactTitleHits: number;
+  partialTitleHits: number;
+  sampledTitles: number;
+  topTitles: string[];
+  measuredAt: string;
 }
 
 /** 이슈 한 건의 추론 묶음 — 보드·브리핑이 "왜 뜨나·다음 물결"을 그리는 재료. */
@@ -439,7 +469,7 @@ function chunk<T>(items: T[], size: number): T[][] {
 
 /**
  * 실시간 이슈에서 카테고리 고정 황금 틈새키워드 발굴 — 행만 필요한 호출부용.
- * 결과: isNiche 우선 · nicheScore 내림차순. never-empty 지향.
+ * 결과: isNiche → isPending → isPreemption → nicheScore 내림차순. never-empty 지향.
  */
 export async function huntIssueNicheKeywords(
   options: HuntIssueNicheOptions,
@@ -680,10 +710,13 @@ export async function huntIssueNicheBoard(
           documentCount,
           isSearchVolumeEstimated,
           isDocumentCountEstimated,
+          searchVolumeLt10,
           recencyStatus,
           demandRecent7,
           demandStatus,
           freshFrontalCount: head?.freshFrontal ?? null,
+          // 자리는 여기서 안 잰다 — CI 의 자리 실측 단계(Bright Data)가 serp 를 채우고 다시 판정한다.
+          serpVerdict: null,
         },
         { docCountMax, useLiveDemandRoute },
       );
@@ -713,8 +746,14 @@ export async function huntIssueNicheBoard(
         demandRatio,
         demandStatus,
         hasLiveDemand: verdict.hasLiveDemand,
+        trafficGate: verdict.trafficGate,
+        demandGate: verdict.demandGate,
+        slotStatus: verdict.slotStatus,
+        serp: null,
         nicheRoute: verdict.nicheRoute,
+        isPending: verdict.isPending,
         isPreemption: verdict.isPreemption,
+        preemptionKind: verdict.preemptionKind,
         nicheScore: verdict.nicheScore,
         reasons: verdict.reasons,
         source: sourceOf(cand.baseKeyword),
@@ -728,8 +767,10 @@ export async function huntIssueNicheBoard(
     }
   }
 
+  // 틈새 → 대기(자리 실측 대상) → 선점 후보 → 점수. 대기는 검색량 큰 것부터 자리를 재도록 앞에 둔다.
   results.sort((a, b) => {
     if (a.isNiche !== b.isNiche) return a.isNiche ? -1 : 1;
+    if (a.isPending !== b.isPending) return a.isPending ? -1 : 1;
     if (a.isPreemption !== b.isPreemption) return a.isPreemption ? -1 : 1;
     return b.nicheScore - a.nicheScore;
   });

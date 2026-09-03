@@ -111,6 +111,7 @@ async function main() {
   const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
 
   const niche = rows.filter((r) => r.isNiche);
+  const pending = rows.filter((r) => r.isPending);
   const preemption = rows.filter((r) => !r.isNiche && r.isPreemption);
   const issueSet = new Set(rows.map((r) => r.baseKeyword));
   const ledger = {
@@ -122,7 +123,10 @@ async function main() {
       issues: Math.max(issues, issueSet.size),
       candidates: rows.length,
       niche: niche.length,
+      pending: pending.length,
       preemption: preemption.length,
+      trafficGate: rows.filter((r) => r.trafficGate).length,
+      demandGate: rows.filter((r) => r.demandGate).length,
       liveDemand: rows.filter((r) => r.hasLiveDemand).length,
       lowCompetition: rows.filter((r) => !r.isDocumentCountEstimated && typeof r.documentCount === 'number' && r.documentCount <= docCountMax).length,
     },
@@ -134,7 +138,7 @@ async function main() {
   if (picks) fs.writeFileSync(picksOut, JSON.stringify(picks, null, 1), 'utf8');
 
   console.log('');
-  console.log(`  실측       이슈 ${ledger.funnel.issues} → 후보 ${rows.length} → 틈새 ${niche.length} · 선점 후보 ${preemption.length}  (${elapsedSec}s)`);
+  console.log(`  실측       이슈 ${ledger.funnel.issues} → 후보 ${rows.length} → 트래픽 ${ledger.funnel.trafficGate} · 수요 ${ledger.funnel.demandGate} → 자리 대기 ${pending.length} · 틈새 ${niche.length} · 선점 후보 ${preemption.length}  (${elapsedSec}s)`);
   const reasoned = issueRows.filter((i) => i.why).length;
   const waves = issueRows.reduce((n, i) => n + i.nextWave.length, 0);
   const headlined = issueRows.filter((i) => i.headlines.length > 0).length;
