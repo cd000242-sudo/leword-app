@@ -35,6 +35,7 @@ function row(over: Partial<IssueNicheKeyword> = {}): IssueNicheKeyword {
     isNiche: true,
     isEstimated: false,
     isSearchVolumeEstimated: false,
+    searchVolumeLt10: false,
     isDocumentCountEstimated: false,
     demandRecent7: 40,
     demandRatio: 1.8,
@@ -64,6 +65,18 @@ describe('toPublicIssueRow — 무엇을 싣는가', () => {
   it('추정 검색량은 null 로 낸다 — 화면에 추정을 싣지 않는다', () => {
     const pub = toPublicIssueRow(row({ searchVolume: 500, isSearchVolumeEstimated: true }), 'now');
     expect(pub?.searchVolume).toBeNull();
+  });
+
+  it('키워드도구 "< 10" 은 추정이 아니다 — 실측 숫자는 살리고 Lt10 표식을 싣는다', () => {
+    // 실사고 2026-09-03 '지예은 남편': 모바일 50 / PC "< 10" 이 추정 취급돼 화면에 '—'.
+    const one = toPublicIssueRow(row({ searchVolume: 50, searchVolumeLt10: true }), 'now');
+    expect(one?.searchVolume).toBe(50);
+    expect(one?.searchVolumeLt10).toBe(true);
+    const both = toPublicIssueRow(row({ searchVolume: null, searchVolumeLt10: true }), 'now');
+    expect(both?.searchVolume).toBeNull();
+    expect(both?.searchVolumeLt10).toBe(true);
+    const legacy = toPublicIssueRow({ ...row(), searchVolumeLt10: undefined as unknown as boolean }, 'now');
+    expect(legacy?.searchVolumeLt10).toBe(false);
   });
 
   it('점수·등급은 payload 에 없다', () => {

@@ -68,6 +68,13 @@ export interface IssueBoardPublicRow {
   documentCountMeasured: boolean;
   /** 검색광고 실측 검색량. 추정치는 null 로 낸다 — 화면에 추정을 싣지 않는다. */
   searchVolume: number | null;
+  /**
+   * 키워드도구가 "< 10" 으로 답했는가(실측). searchVolume 이 null 인데 이게 true 면
+   * 화면은 '—' 가 아니라 '10 미만' 으로 적는다 — 못 잰 것과 적은 것은 다른 사실이다.
+   */
+  searchVolumeLt10: boolean;
+  /** 이월 행 재측정이 검색량을 다시 잰 시각. 없으면 measuredAt 이 그 시각이다. */
+  searchVolumeMeasuredAt?: string;
   /** 데이터랩 최근 7일 수요가 잡혔는가 (실측 이진 신호). */
   hasLiveDemand: boolean;
   demandStatus: RecencyStatus;
@@ -208,6 +215,7 @@ export function toPublicIssueRow(
     documentCount: row.isDocumentCountEstimated ? null : (row.documentCount ?? null),
     documentCountMeasured: !row.isDocumentCountEstimated && typeof row.documentCount === 'number',
     searchVolume: row.isSearchVolumeEstimated ? null : (row.searchVolume ?? null),
+    searchVolumeLt10: row.searchVolumeLt10 === true,
     hasLiveDemand: row.hasLiveDemand === true,
     demandStatus: row.demandStatus || 'unknown',
     demandRatio: typeof row.demandRatio === 'number' ? row.demandRatio : null,

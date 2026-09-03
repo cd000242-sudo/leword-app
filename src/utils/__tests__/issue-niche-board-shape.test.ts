@@ -35,6 +35,7 @@ function row(over: Partial<IssueNicheKeyword> & Record<string, unknown> = {}): I
     isNiche: true,
     isEstimated: false,
     isSearchVolumeEstimated: false,
+    searchVolumeLt10: false,
     isDocumentCountEstimated: false,
     demandRecent7: 40,
     demandRatio: 1.8,

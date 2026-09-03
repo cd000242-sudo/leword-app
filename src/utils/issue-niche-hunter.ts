@@ -57,6 +57,7 @@ import {
 import { takeRecentBlogPostMeta } from './naver-blog-api';
 import { Grade } from './grade';
 import { judgeIssueNiche } from './issue-niche-verdict';
+import { readSearchAdVolume } from './searchad-volume-read';
 
 export type IssueType = 'policy' | 'incident' | 'entertainment' | 'fresh';
 
@@ -91,6 +92,11 @@ export interface IssueNicheKeyword {
   isEstimated: boolean;
   /** 검색량이 추정치인가 — 어느 축이 추정인지 구분해야 판정 원인을 말할 수 있다 */
   isSearchVolumeEstimated: boolean;
+  /**
+   * 검색광고 키워드도구가 PC·모바일 어느 한쪽이라도 "< 10" 으로 답했는가. 실측 답이지
+   * 추정이 아니다 — 양쪽 다 "< 10" 이면 searchVolume 은 null 이고 화면은 '10 미만' 으로 적는다.
+   */
+  searchVolumeLt10: boolean;
   /** 문서수가 추정치인가 */
   isDocumentCountEstimated: boolean;
   /** 데이터랩 최근 7일 상대지수 평균 — 상대값이며 절대 검색량 아님. null=미측정 */
@@ -654,11 +660,9 @@ export async function huntIssueNicheBoard(
     for (const cand of batch) {
       if (isAborted(signal)) break;
       const v = byKey.get(compactKey(cand.keyword));
-      const searchVolume = v && (v.pcSearchVolume !== null || v.mobileSearchVolume !== null)
-        ? (v.pcSearchVolume ?? 0) + (v.mobileSearchVolume ?? 0) : null;
+      const { searchVolume, searchVolumeLt10, isSearchVolumeEstimated } = readSearchAdVolume(v);
       const documentCount = v?.documentCount ?? null;
       const cpc = v?.monthlyAveCpc ?? null;
-      const isSearchVolumeEstimated = Boolean(v?.svEstimated || v?.isSearchVolumeEstimated);
       const isDocumentCountEstimated = Boolean(v?.isDocumentCountEstimated);
       const rec = baseRecency.get(compactKey(cand.baseKeyword));
       const recencyStatus: RecencyStatus = rec?.status ?? 'unknown';
@@ -703,6 +707,7 @@ export async function huntIssueNicheBoard(
         isNiche: verdict.isNiche,
         isEstimated: verdict.isEstimated,
         isSearchVolumeEstimated,
+        searchVolumeLt10,
         isDocumentCountEstimated,
         demandRecent7,
         demandRatio,

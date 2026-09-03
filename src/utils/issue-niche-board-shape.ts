@@ -23,7 +23,13 @@ export interface BoardTitle { text: string; frame?: string; basis?: string }
 export interface BoardTitles { seo?: BoardTitle; home?: BoardTitle }
 export interface BoardSubKeyword { keyword: string; searchVolume: number | null; frame?: string }
 export interface BoardPoolKeyword { keyword: string; searchVolume: number; documentCount?: number | null; source?: string }
-export interface BoardTrend { series: number[]; label?: string; recommendation?: string }
+export interface BoardTrend {
+  series: number[];
+  label?: string;
+  recommendation?: string;
+  /** 이월 행 재측정이 추세를 다시 잰 시각(ISO). 없으면 행의 measuredAt 이 그 시각이다. */
+  measuredAt?: string;
+}
 export interface BoardKinQuestion { title: string; link: string; views?: number | null; answers?: number | null }
 export interface BoardMonetize { verdict: 'good' | 'bad' | 'mixed'; points: Array<{ text: string }>; angle?: string }
 export interface BoardWhy { text: string; basis?: string }
@@ -215,7 +221,13 @@ export function cleanTrend(raw: unknown): BoardTrend | null {
   if (series.length < 2) return null;
   const label = str((raw as BoardTrend).label);
   const recommendation = str((raw as BoardTrend).recommendation);
-  return { series, ...(label ? { label } : {}), ...(recommendation ? { recommendation } : {}) };
+  const measuredAt = str((raw as BoardTrend).measuredAt);
+  return {
+    series,
+    ...(label ? { label } : {}),
+    ...(recommendation ? { recommendation } : {}),
+    ...(measuredAt ? { measuredAt } : {}),
+  };
 }
 
 export function cleanKinTop(raw: unknown): BoardKinQuestion[] | null {

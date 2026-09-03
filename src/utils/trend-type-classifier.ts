@@ -27,8 +27,79 @@ export interface NaverDatalabConfig {
 }
 
 /**
+ * 데이터랩 일별 원응답 — 빠진 날을 채우지 않은 그대로. 데이터랩은 검색 0 인 날을
+ * 응답에서 아예 뺀다(실측 2026-09-03: 30일 요청에 29점, 갓 태어난 키워드는 1~2점).
+ */
+async function fetchDatalabDailyRaw(
+    keyword: string,
+    config: NaverDatalabConfig,
+    startDate: string,
+    endDate: string
+): Promise<{ series: number[]; dates: string[] }> {
+    const { transformNaverRequest } = await import('./naver-api-hub');
+    const hubReq = transformNaverRequest('https://openapi.naver.com/v1/datalab/search', {
+        'X-Naver-Client-Id': config.clientId,
+        'X-Naver-Client-Secret': config.clientSecret,
+        'Content-Type': 'application/json',
+    });
+    const res = await axios.post(
+        hubReq.url,
+        {
+            startDate,
+            endDate,
+            timeUnit: 'date',
+            keywordGroups: [{ groupName: keyword, keywords: [keyword] }],
+        },
+        {
+            headers: hubReq.headers,
+            timeout: 8000,
+        }
+    );
+    const raw = res.data?.results?.[0]?.data || [];
+    const series = raw.map((d: any) => Number(d.ratio) || 0);
+    const dates = raw.map((d: any) => String(d.period || ''));
+    return { series, dates };
+}
+
+/**
+ * 데이터랩이 집계를 끝낸 마지막 날(지평선). 매일 검색되는 닻 키워드('날씨')를 한 번
+ * 물어 그 마지막 날짜를 쓴다 — 어떤 키워드든 이 날짜까지 응답에 없는 날은 '아직
+ * 집계 안 됨'이 아니라 '검색 0'이다. 오늘은 늘 집계 전이라 여기 안 들어온다.
+ * 프로세스당 한 시간 캐시(회차 하나에 호출 하나).
+ */
+const HORIZON_ANCHOR_KEYWORD = '날씨';
+const HORIZON_TTL_MS = 60 * 60 * 1000;
+let horizonCache: { date: string; atMs: number } | null = null;
+
+export async function fetchDatalabHorizon(
+    config: NaverDatalabConfig,
+    nowMs: number = Date.now()
+): Promise<string | null> {
+    if (horizonCache && nowMs - horizonCache.atMs < HORIZON_TTL_MS) return horizonCache.date;
+    const end = new Date(nowMs);
+    const start = new Date(nowMs);
+    start.setDate(end.getDate() - 6);
+    const fmt = (d: Date) => d.toISOString().split('T')[0];
+    try {
+        const raw = await fetchDatalabDailyRaw(HORIZON_ANCHOR_KEYWORD, config, fmt(start), fmt(end));
+        const last = raw.dates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop() || null;
+        if (last) horizonCache = { date: last, atMs: nowMs };
+        return last;
+    } catch (err: any) {
+        console.warn('[TREND-TYPE] 데이터랩 지평선 조회 실패:', err?.message);
+        return null;
+    }
+}
+
+/** 테스트·재시도용 — 지평선 캐시를 비운다. */
+export function resetDatalabHorizonCache(): void {
+    horizonCache = null;
+}
+
+/**
  * 네이버 데이터랩 검색 트렌드 조회 — 최근 30일 시계열
  * 반환: 일별 상대 검색량 (0~100, 30일 중 최대 = 100 기준) + 해당 날짜 ISO 문자열
+ * 데이터랩이 뺀 날(검색 0)은 집계 지평선까지 0 으로 채워 돌려준다(padOmittedDays).
  */
 export async function fetchKeywordTimeseries30Day(
     keyword: string,
@@ -41,33 +112,54 @@ export async function fetchKeywordTimeseries30Day(
     const fmt = (d: Date) => d.toISOString().split('T')[0];
 
     try {
-        const { transformNaverRequest } = await import('./naver-api-hub');
-        const hubReq = transformNaverRequest('https://openapi.naver.com/v1/datalab/search', {
-            'X-Naver-Client-Id': config.clientId,
-            'X-Naver-Client-Secret': config.clientSecret,
-            'Content-Type': 'application/json',
-        });
-        const res = await axios.post(
-            hubReq.url,
-            {
-                startDate: fmt(start),
-                endDate: fmt(end),
-                timeUnit: 'date',
-                keywordGroups: [{ groupName: keyword, keywords: [keyword] }],
-            },
-            {
-                headers: hubReq.headers,
-                timeout: 8000,
-            }
-        );
-        const raw = res.data?.results?.[0]?.data || [];
-        const series = raw.map((d: any) => Number(d.ratio) || 0);
-        const dates = raw.map((d: any) => String(d.period || ''));
-        return { series, dates };
+        const raw = await fetchDatalabDailyRaw(keyword, config, fmt(start), fmt(end));
+        const horizon = raw.dates.length > 0 ? await fetchDatalabHorizon(config) : null;
+        return padOmittedDays(raw, fmt(start), horizon ?? undefined);
     } catch (err: any) {
         console.warn(`[TREND-TYPE] 시계열 조회 실패 "${keyword}":`, err?.message);
         return { series: [], dates: [] };
     }
+}
+
+/**
+ * 데이터랩이 빼고 준 날(검색 0)을 0 으로 채운다.
+ *
+ * 데이터랩 일별 응답은 검색이 없던 날을 아예 빼고 돌려준다(실측 2026-09-03: 30일을
+ * 물었는데 29점, 갓 태어난 이슈 키워드는 2점). 그대로 그리면 이틀짜리 폭발이 평평한
+ * 두 점으로 보이고, 14점이 안 돼 트렌드 분류도 'unknown' 이 된다.
+ * 채우는 구간은 요청 시작일부터 「마지막으로 돌려준 날」과 「집계 지평선(throughDate)」
+ * 중 늦은 날까지다. 지평선이 없으면 마지막 응답일까지만 — 그 뒤(보통 오늘)는 아직
+ * 집계가 안 된 날이라 0 으로 적으면 없는 급락을 지어내는 것이다. 지평선이 있으면
+ * 그 날까지의 빈 날은 진짜 0 이다(8/14 한 점뿐인 키워드를 "지금 터진 것"처럼 그리지
+ * 않으려면 뒤쪽 0 이 있어야 한다 — 실측 '아틀라스 브라우저'). 한 점도 없으면 빈 그대로.
+ */
+export function padOmittedDays(
+    raw: { series: number[]; dates: string[] },
+    startDate: string,
+    throughDate?: string
+): { series: number[]; dates: string[] } {
+    const byDate = new Map<string, number>();
+    raw.dates.forEach((date, index) => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) byDate.set(date, Number(raw.series[index]) || 0);
+    });
+    if (byDate.size === 0) return { series: [], dates: [] };
+    const ordered = Array.from(byDate.keys()).sort();
+    const validStart = /^\d{4}-\d{2}-\d{2}$/.test(startDate) && startDate < ordered[0];
+    const first = validStart ? startDate : ordered[0];
+    const returnedLast = ordered[ordered.length - 1];
+    const validThrough = typeof throughDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(throughDate);
+    const last = validThrough && (throughDate as string) > returnedLast ? (throughDate as string) : returnedLast;
+    const series: number[] = [];
+    const dates: string[] = [];
+    const cursor = new Date(`${first}T00:00:00Z`);
+    for (let guard = 0; guard < 400; guard += 1) {
+        const date = cursor.toISOString().split('T')[0];
+        if (date > last) break;
+        dates.push(date);
+        series.push(byDate.get(date) ?? 0);
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    return { series, dates };
 }
 
 /**

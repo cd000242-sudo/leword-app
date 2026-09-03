@@ -119,4 +119,30 @@ describe('실검 틈새 보드 워크플로', () => {
     const script = fs.readFileSync(path.join(root, 'scripts', 'issue-niche-board.js'), 'utf8');
     expect(script).toMatch(/main\(\)\s*\.then\(\(\)\s*=>\s*process\.exit\(0\)\)/);
   });
+
+  // 실사고 2026-09-03 '지예은 남편': 첫 회차엔 키워드도구가 몰라 검색량 null, 48시간
+  // 이월되는 동안 아무도 다시 안 재서 도구가 알게 된 뒤에도 화면은 '—'. 그래프도 같다.
+  it('발행 → 이월 행 재측정(검색량·추세) → 이월 행 재보강 순서다 — 재보강은 그래프 있는 행을 건너뛴다', () => {
+    expect(stepIndex('보드 발행')).toBeLessThan(stepIndex('이월 행 재측정(검색량·추세)'));
+    expect(stepIndex('이월 행 재측정(검색량·추세)')).toBeLessThan(stepIndex('이월 행 재보강'));
+    expect(stepIndex('이월 행 재보강')).toBeLessThan(stepIndex('커밋·푸시'));
+  });
+
+  it('재측정은 실측 API 둘(검색광고·오픈API)만 받고, 실패해도 회차를 죽이지 않으며, JSON 이 온전할 때만 발행본에 덮는다', () => {
+    const remeasure = workflow.slice(stepIndex('이월 행 재측정(검색량·추세)'), stepIndex('이월 행 재보강'));
+    expect(remeasure).toContain('scripts/remeasure-issue-board.js');
+    expect(remeasure).toContain('continue-on-error: true');
+    expect(remeasure).toMatch(/timeout-minutes: \d+/);
+    for (const key of ['NAVER_SEARCH_AD_ACCESS_LICENSE', 'NAVER_SEARCH_AD_SECRET_KEY', 'NAVER_SEARCH_AD_CUSTOMER_ID', 'NAVER_CLIENT_ID', 'NAVER_CLIENT_SECRET']) {
+      expect(remeasure).toContain(`${key}: \${{ secrets.${key} }}`);
+    }
+    // AI 호출이 없는 단계다 — 구독 토큰을 넘기지 않는다.
+    expect(remeasure).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
+    expect(remeasure).toMatch(/JSON\.parse\([^\n]*issue-board-remeasured\.json[^\n]*\n\s*&& cp issue-board-remeasured\.json "\$DEST"/);
+  });
+
+  it('재측정 스크립트도 끝나면 명시적으로 종료한다', () => {
+    const script = fs.readFileSync(path.join(root, 'scripts', 'remeasure-issue-board.js'), 'utf8');
+    expect(script).toMatch(/main\(\)\s*\.then\(\(\)\s*=>\s*process\.exit\(0\)\)/);
+  });
 });
