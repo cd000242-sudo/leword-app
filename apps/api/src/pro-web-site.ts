@@ -507,6 +507,7 @@ export function renderLewordProWeb(): string {
       cursor: pointer;
     }
     .golden-cat-tab small { font-weight: 800; opacity: 0.72; margin-left: 3px; }
+    .golden-lane-why { margin-top: 6px; font-size: 12px; color: var(--muted); }
     .golden-cat-tab.active { border-color: rgba(14,165,233,.5); background: rgba(14,165,233,.10); color: #0369a1; }
     .gk-flags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
     .gk-flag {
@@ -1687,6 +1688,12 @@ export function renderLewordProWeb(): string {
           <div class="quality-strip" id="goldenQualityStrip"></div>
           <div id="goldenNotice" class="locked">황금키워드 보드를 불러오는 중입니다.</div>
           <button class="btn primary public-preview-cta" type="button" id="goldenMoreLogin">더 많은 황금키워드 보러가기</button>
+          <!--
+            3-레인 — 상태(검증 완료·관찰 중·실시간 급상승)는 서버가 정한 것을 그대로 쓴다.
+            인벤토리를 안 주는 옛 서버면 이 줄은 숨고 보드는 종전대로 그려진다.
+          -->
+          <div class="golden-category-tabs" id="goldenLaneTabs" style="display:none;"></div>
+          <div class="golden-lane-why" id="goldenLaneWhy" style="display:none;"></div>
           <div class="golden-category-tabs" id="goldenCategoryTabs" style="display:none;"></div>
           <div class="golden-list" id="goldenBoardList" style="margin-top:10px;"></div>
         </section>
@@ -9139,15 +9146,62 @@ export function renderLewordProWeb(): string {
       }
       return null;
     }
+    /*
+     * 3-레인 — 서버(Phase 2 인벤토리)가 정한 상태를 그대로 쓴다. 화면이 같은 판정을
+     * 다시 계산하면 화면마다 답이 갈리고, 그때부터 "왜 여기랑 저기가 다르냐"에
+     * 답할 수 없다. 아래 카테고리 탭과 같은 모양·같은 클래스를 쓴다.
+     */
+    var goldenInventoryLane = 'verified';
+    var lastProGoldenSnapshot = null;
+    const GOLDEN_LANE_TABS = [
+      { id: 'verified', label: '검증 완료' },
+      { id: 'watch', label: '관찰 중' },
+      { id: 'surge', label: '실시간 급상승' },
+    ];
+    function goldenInventoryRows(snapshot, lane) {
+      const inventory = snapshot && snapshot.inventory;
+      if (!inventory) return null;
+      const rows = inventory[lane];
+      return Array.isArray(rows) ? rows : [];
+    }
+    function renderGoldenLaneTabs(snapshot) {
+      const tabs = qs('goldenLaneTabs');
+      const why = qs('goldenLaneWhy');
+      const inventory = snapshot && snapshot.inventory;
+      if (!tabs) return;
+      if (!inventory || !inventory.counts) {
+        tabs.style.display = 'none';
+        tabs.innerHTML = '';
+        if (why) { why.style.display = 'none'; why.textContent = ''; }
+        return;
+      }
+      tabs.style.display = 'flex';
+      tabs.innerHTML = GOLDEN_LANE_TABS.map(function(lane) {
+        const active = goldenInventoryLane === lane.id ? ' active' : '';
+        return '<button class="golden-cat-tab' + active + '" type="button" data-golden-lane="' + escapeAttr(lane.id) + '">'
+          + escapeHtml(lane.label) + '<small>' + fmt(inventory.counts[lane.id] || 0) + '</small></button>';
+      }).join('');
+      // 레인 설명은 서버가 그 상태에 붙인 문장을 그대로 옮긴다 — 여기서 지어내지 않는다.
+      const rows = goldenInventoryRows(snapshot, goldenInventoryLane) || [];
+      const reason = rows.length && rows[0].display ? rows[0].display.reason : '';
+      if (why) {
+        why.textContent = reason || '';
+        why.style.display = reason ? 'block' : 'none';
+      }
+    }
     function proGoldenBoardItems(snapshot) {
       // 인증된 Pro 스냅샷은 서버가 이미 측정·품질 게이트를 통과시킨 보드다.
       // 브라우저 휴리스틱으로 다시 필터/재정렬하면 boardCount와 실제 표시가 달라지므로
       // 서버 순서와 서버 등급을 그대로 사용한다.
-      const raw = (snapshot && (snapshot.board || snapshot.items || snapshot.keywords || snapshot.publicPreview)) || [];
+      // 인벤토리가 있으면 고른 레인이 곧 보드다. 없으면(옛 서버) 종전대로.
+      const laneRows = goldenInventoryRows(snapshot, goldenInventoryLane);
+      const raw = laneRows || (snapshot && (snapshot.board || snapshot.items || snapshot.keywords || snapshot.publicPreview)) || [];
       const target = Number(snapshot && snapshot.boardTarget) || 240;
       return (Array.isArray(raw) ? raw : []).slice(0, target);
     }
     function renderProGoldenBoard(snapshot) {
+      lastProGoldenSnapshot = snapshot;
+      renderGoldenLaneTabs(snapshot);
       const items = proGoldenBoardItems(snapshot);
       setGoldenSummary(
         snapshot.boardCount || items.length,
@@ -10317,6 +10371,12 @@ export function renderLewordProWeb(): string {
       }).catch(function() {
         flashCopyFeedback(copyAll, false);
       });
+    });
+    document.addEventListener('click', function(event) {
+      const laneTab = event.target.closest('[data-golden-lane]');
+      if (!laneTab) return;
+      goldenInventoryLane = laneTab.getAttribute('data-golden-lane') || 'verified';
+      if (lastProGoldenSnapshot) renderProGoldenBoard(lastProGoldenSnapshot);
     });
     document.addEventListener('click', function(event) {
       const tab = event.target.closest('[data-golden-category]');

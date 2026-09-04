@@ -59,5 +59,33 @@ assert(
     && /reasonCode/.test(inventory),
 );
 
+/*
+ * 화면까지 — Pro 보드가 서버 인벤토리를 **읽어서** 그리는지 본다.
+ * 여기서 상태를 다시 계산하기 시작하면 화면마다 답이 갈린다.
+ */
+const proWeb = fs.readFileSync(
+  path.join(__dirname, '..', '..', '..', 'apps', 'api', 'src', 'pro-web-site.ts'),
+  'utf8',
+);
+
+assert(
+  'the pro board reads lanes from the server inventory',
+  /snapshot\.inventory/.test(proWeb)
+    && /data-golden-lane/.test(proWeb)
+    && /goldenInventoryRows\(/.test(proWeb),
+);
+
+assert(
+  'the pro board prefers the selected lane but keeps the legacy board fallback',
+  // 레인 행이 **인벤토리에서** 와야 한다. 여기를 null 로 굳히면 레인이 조용히 죽는다.
+  /const laneRows = goldenInventoryRows\(snapshot, goldenInventoryLane\);/.test(proWeb)
+    && /const raw = laneRows \|\| \(snapshot && \(snapshot\.board/.test(proWeb),
+);
+
+assert(
+  'the lane note repeats the server sentence instead of inventing one',
+  /rows\[0\]\.display \? rows\[0\]\.display\.reason/.test(proWeb),
+);
+
 console.log('[live-golden-phase2-inventory-wiring.test] passed');
 process.exit(0);
