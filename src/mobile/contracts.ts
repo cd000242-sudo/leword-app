@@ -284,6 +284,108 @@ export interface MobileLiveGoldenBoardItem extends MobileKeywordMetric {
   serpMeasured?: boolean;
 }
 
+export type MobileLiveGoldenInventoryState =
+  | 'verified'
+  | 'watch'
+  | 'surge'
+  | 'expired'
+  | 'rejected';
+
+export type MobileLiveGoldenInventoryReasonCode =
+  | 'verified-all-gates-passed'
+  | 'watch-quality-gate-pending'
+  | 'surge-recent-demand-spike'
+  | 'expired-measurement-ttl'
+  | 'rejected-unmeasured';
+
+export type MobileLiveGoldenPurposeTag =
+  | 'naver-traffic'
+  | 'adsense-rpm'
+  | 'affiliate-commerce'
+  | 'realtime-surge';
+
+export interface MobileLiveGoldenMeasurementEvidence {
+  complete: boolean;
+  measuredAt: string;
+  expiresAt: string;
+  confidence: MobileMeasurementConfidence;
+  sources: {
+    searchVolume: string;
+    documentCount: string;
+  };
+}
+
+export interface MobileLiveGoldenScoreEvidence {
+  market: {
+    score: number;
+    source: 'server-live-golden-score';
+  };
+  personalFit: {
+    score: number | null;
+    status: 'not-evaluated' | 'evaluated';
+    reason: 'profile-required' | 'profile-applied';
+  };
+}
+
+export interface MobileLiveGoldenRevenueScenario {
+  trafficCaptureRate: number;
+  expectedMonthlyClicks: number;
+  expectedMonthlyPageviews: number;
+  monthlyRevenueKrw: number;
+}
+
+export interface MobileLiveGoldenRevenueEvidence {
+  cpc: {
+    amountKrw: number;
+    source: 'naver-searchad' | 'profit-golden-keyword-engine';
+    estimated: boolean;
+  };
+  rpm: {
+    amountKrw: number;
+    source: 'adsense-keyword-hunter';
+    estimated: true;
+  };
+  scenarios: {
+    conservative: MobileLiveGoldenRevenueScenario;
+    base: MobileLiveGoldenRevenueScenario;
+    aggressive: MobileLiveGoldenRevenueScenario;
+  };
+  disclaimer: string;
+}
+
+export interface MobileLiveGoldenDisplayViewModel {
+  grade: MobileResultGrade;
+  stateLabel: string;
+  reason: string;
+  reasonCode: MobileLiveGoldenInventoryReasonCode;
+  evidence: string[];
+}
+
+/**
+ * Phase 2 server-owned ViewModel. Clients render these fields verbatim and do
+ * not recalculate state, grade, evidence, or revenue ranges.
+ */
+export interface MobileLiveGoldenInventoryItem extends MobileLiveGoldenBoardItem {
+  state: MobileLiveGoldenInventoryState;
+  reasonCode: MobileLiveGoldenInventoryReasonCode;
+  purposeTags: MobileLiveGoldenPurposeTag[];
+  expiresAt: string;
+  measurement: MobileLiveGoldenMeasurementEvidence;
+  scores: MobileLiveGoldenScoreEvidence;
+  revenueEvidence: MobileLiveGoldenRevenueEvidence;
+  display: MobileLiveGoldenDisplayViewModel;
+}
+
+export interface MobileLiveGoldenInventorySnapshot {
+  contractVersion: 'phase2-inventory-v1';
+  generatedAt: string;
+  counts: Record<MobileLiveGoldenInventoryState | 'total', number>;
+  items: MobileLiveGoldenInventoryItem[];
+  verified: MobileLiveGoldenInventoryItem[];
+  watch: MobileLiveGoldenInventoryItem[];
+  surge: MobileLiveGoldenInventoryItem[];
+}
+
 export interface MobileLiveGoldenRadarSnapshot {
   enabled: boolean;
   running: boolean;
@@ -298,6 +400,8 @@ export interface MobileLiveGoldenRadarSnapshot {
   board: MobileLiveGoldenBoardItem[];
   /** Complete recent, trusted, publishable core inventory used by Phase gates. */
   verifiedSupply?: MobileLiveGoldenBoardItem[];
+  /** Phase 2 server-owned three-lane inventory and evidence ViewModel. */
+  inventory?: MobileLiveGoldenInventorySnapshot;
   publicPreview: MobileLiveGoldenBoardItem[];
   totalRuns: number;
   successfulRuns: number;
