@@ -3,12 +3,28 @@
  */
 import { CATEGORIES, CategoryDefinition } from './categories';
 
-export const CATEGORY_MAP: ReadonlyMap<string, CategoryDefinition> = new Map(
-  CATEGORIES.map((cat) => [cat.id, cat])
-);
+let categoryMapCache: ReadonlyMap<string, CategoryDefinition> | null = null;
+
+/**
+ * id → 카테고리 표. **처음 부를 때** 만든다 — 모듈을 읽어 들이는 시점에는
+ * CATEGORIES 를 건드리지 않는다.
+ *
+ * 왜 지연시키나: categories.ts 와 이 파일은 서로를 가리킨다(categories 는 이 파일의
+ * 로직을 re-export 하고, 이 파일은 categories 의 데이터를 쓴다). tsc 가 뱉는 CommonJS 는
+ * re-export 를 파일 아래쪽 순서대로 require 해서 우연히 굴러갔지만, ESM(vitest)은 import 를
+ * 위로 끌어올린다 — 그래서 이 파일이 categories 본문보다 먼저 돌고 CATEGORIES 가
+ * undefined 인 채로 표를 만들다 죽었다(실측: live-golden-phase2-inventory.test 로드 실패).
+ * 표를 부를 때 만들면 그 시점엔 categories 본문이 이미 끝나 있어 순환이 무해해진다.
+ */
+export function getCategoryMap(): ReadonlyMap<string, CategoryDefinition> {
+  if (!categoryMapCache) {
+    categoryMapCache = new Map(CATEGORIES.map((cat) => [cat.id, cat]));
+  }
+  return categoryMapCache;
+}
 
 export function getCategoryById(id: string): CategoryDefinition | undefined {
-  return CATEGORY_MAP.get(id);
+  return getCategoryMap().get(id);
 }
 
 // 부모 카테고리 매핑: pet_dog → pet 등
@@ -166,7 +182,7 @@ export function isKeywordMatchingCategory(keyword: string, selectedCategory: str
  * categories.ts 기반 시드 키워드 가져오기
  */
 export function getCategorySeeds(categoryId: string): string[] {
-  const cat = CATEGORY_MAP.get(categoryId);
+  const cat = getCategoryMap().get(categoryId);
   if (!cat) return [];
 
   const combined: string[] = [...cat.seeds];

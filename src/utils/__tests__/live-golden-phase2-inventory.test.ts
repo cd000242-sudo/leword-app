@@ -157,6 +157,9 @@ function main(): void {
       && verifiedVm.measurement.confidence === 'high');
 
   console.log('[live-golden-phase2-inventory] passed');
+  // 다른 게이트 테스트와 같게 명시적으로 끝낸다. 불러들인 모듈이 타이머·핸들을
+  // 열어 두기 때문에, 이게 없으면 통과를 찍고도 프로세스가 안 죽어 게이트가 멈춘다.
+  process.exit(0);
 }
 
 main();

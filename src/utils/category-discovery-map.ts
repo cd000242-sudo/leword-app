@@ -1,4 +1,4 @@
-import { CATEGORY_MAP, getCategorySeeds, isKeywordMatchingCategory } from './categories';
+import { getCategoryMap, getCategorySeeds, isKeywordMatchingCategory } from './categories';
 import { getEnhancedCategoryGoldenKeywords } from './profit-keyword-hunter-upgrade';
 
 const CATEGORY_ALIASES: Record<string, string[]> = {
@@ -351,7 +351,7 @@ export function getDiscoveryCategorySeeds(category: string | undefined | null, m
 
 export function getCrossCategoryDiscoverySeeds(excludedCategoryIds: string[] = [], maxSeeds = 240): string[] {
   const excluded = new Set((excludedCategoryIds || []).map(id => String(id || '').trim()).filter(Boolean));
-  const categoryIds = Array.from(CATEGORY_MAP.values())
+  const categoryIds = Array.from(getCategoryMap().values())
     .map(category => category.id)
     .filter(id => id && id !== 'all' && id !== 'pro_premium' && !excluded.has(id));
 

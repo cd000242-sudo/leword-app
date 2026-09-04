@@ -9,6 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { normalizeNaverBlogBroadQuery } from './naver-blog-api';
+import { CACHE_SCHEMA_VERSION as SG_VER } from './sanity-gate';
 
 export type PersistentDocumentCountSource = 'naver-api' | 'scrape' | 'fallback' | 'legacy';
 export type PersistentDocumentCountConfidence = 'high' | 'medium' | 'low';
@@ -54,8 +55,6 @@ const CACHE_FILE_NAME = 'keyword-cache.json';
 const MAX_ENTRIES = 50_000;
 const DOCUMENT_COUNT_CACHE_KEY_PREFIX = '__document_count_broad__:';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { CACHE_SCHEMA_VERSION: SG_VER } = require('./sanity-gate');
 // Keep the existing schema so SearchAd volume/CPC data survives this migration.
 // Provenance-less document fields remain loaded only as untrusted diagnostics.
 const CACHE_SCHEMA_VERSION = `pk-${SG_VER}`;

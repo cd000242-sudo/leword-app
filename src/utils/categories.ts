@@ -1047,7 +1047,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
 
 // 로직은 category-classifier.ts에 분리, 여기서 re-export
 export {
-  CATEGORY_MAP,
+  getCategoryMap,
   getCategoryById,
   classifyKeyword,
   isKeywordMatchingCategory,
