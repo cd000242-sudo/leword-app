@@ -7,13 +7,13 @@ import type {
   MobileLiveGoldenPurposeTag,
   MobileMeasurementConfidence,
 } from './contracts';
-import {
-  calculateAdsenseRPM,
-  calculateInfoIntentScore,
-  calculateYmylRisk,
-  classifySearchIntent,
-} from '../utils/adsense-keyword-hunter';
-import { estimateCPC } from '../utils/profit-golden-keyword-engine';
+/*
+ * 수익 추정(예상 클릭·예상 월수익·RPM)은 이 계약에서 뺐다(사장님 결정 2026-09-05).
+ * 여기는 "클라이언트가 그대로 그리는 ViewModel" 이라, 금지된 값을 담고 있으면
+ * 다음 사람이 아무 의심 없이 화면에 붙인다. 추정치는 화면에 싣지 않는다는 기준이
+ * 먼저다 — 실측·단순산술·매칭 사실·사용자 입력만 내보낸다.
+ * 부수 효과로 애드센스·수익 엔진 import 사슬도 이 모듈에서 사라졌다.
+ */
 
 const INVENTORY_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
 const SURGE_TTL_MS = 48 * 60 * 60 * 1_000;
@@ -128,17 +128,6 @@ function purposeTags(item: MobileLiveGoldenBoardItem, state: MobileLiveGoldenInv
   return tags;
 }
 
-function scenario(searchVolume: number, rpm: number, trafficCaptureRate: number) {
-  const expectedMonthlyClicks = Math.round(searchVolume * trafficCaptureRate);
-  const expectedMonthlyPageviews = expectedMonthlyClicks;
-  return {
-    trafficCaptureRate,
-    expectedMonthlyClicks,
-    expectedMonthlyPageviews,
-    monthlyRevenueKrw: Math.round((expectedMonthlyPageviews * rpm) / 1_000),
-  };
-}
-
 function toInventoryItem(
   item: MobileLiveGoldenBoardItem,
   state: MobileLiveGoldenInventoryState,
@@ -146,20 +135,6 @@ function toInventoryItem(
   expiresAt: string,
 ): MobileLiveGoldenInventoryItem {
   const reasonCode = inventoryReason(state);
-  const hasMeasuredCpc = finitePositive(item.cpc) && item.isMeasured === true;
-  const cpc = hasMeasuredCpc ? item.cpc : estimateCPC(item.keyword, item.category || 'default');
-  const infoIntentScore = calculateInfoIntentScore(item.keyword);
-  const ymyl = calculateYmylRisk(item.keyword);
-  const intentType = classifySearchIntent(item.keyword).primary;
-  const rpm = Math.max(0, calculateAdsenseRPM({
-    keyword: item.keyword,
-    category: item.category || 'default',
-    cpc,
-    infoIntentScore,
-    ymylScore: ymyl.score,
-    intentType,
-  }));
-  const searchVolume = finiteNonNegative(item.totalSearchVolume) ? item.totalSearchVolume : 0;
   const estimatedMeasurement = item.isSearchVolumeEstimated === true || item.isDocumentCountEstimated === true;
   const complete = measurementComplete(item);
   const evidence = [
@@ -199,24 +174,6 @@ function toInventoryItem(
         status: 'not-evaluated',
         reason: 'profile-required',
       },
-    },
-    revenueEvidence: {
-      cpc: {
-        amountKrw: cpc,
-        source: hasMeasuredCpc ? 'naver-searchad' : 'profit-golden-keyword-engine',
-        estimated: !hasMeasuredCpc,
-      },
-      rpm: {
-        amountKrw: rpm,
-        source: 'adsense-keyword-hunter',
-        estimated: true,
-      },
-      scenarios: {
-        conservative: scenario(searchVolume, rpm, 0.01),
-        base: scenario(searchVolume, rpm, 0.03),
-        aggressive: scenario(searchVolume, rpm, 0.07),
-      },
-      disclaimer: '검색량·예상 유입률·RPM을 바탕으로 계산한 추정 시나리오이며 실제 수익을 보장하지 않습니다.',
     },
     display: {
       grade: item.grade,

@@ -135,21 +135,18 @@ function main(): void {
     verifiedVm?.display.grade === verified.grade
       && watchVm?.display.grade === watch.grade);
 
-  assert('measured CPC is preferred and carries provenance',
-    verifiedVm?.revenueEvidence.cpc.amountKrw === 420
-      && verifiedVm.revenueEvidence.cpc.estimated === false
-      && verifiedVm.revenueEvidence.cpc.source === 'naver-searchad');
-  assert('missing CPC uses the profit engine as the only fallback source',
-    (watchVm?.revenueEvidence.cpc.amountKrw || 0) > 0
-      && watchVm?.revenueEvidence.cpc.estimated === true
-      && watchVm.revenueEvidence.cpc.source === 'profit-golden-keyword-engine');
-  assert('revenue evidence is a conservative/base/aggressive estimate range',
-    (verifiedVm?.revenueEvidence.scenarios.conservative.monthlyRevenueKrw || 0)
-      <= (verifiedVm?.revenueEvidence.scenarios.base.monthlyRevenueKrw || 0)
-      && (verifiedVm?.revenueEvidence.scenarios.base.monthlyRevenueKrw || 0)
-        <= (verifiedVm?.revenueEvidence.scenarios.aggressive.monthlyRevenueKrw || 0)
-      && verifiedVm?.revenueEvidence.disclaimer.includes('추정')
-      && verifiedVm.revenueEvidence.disclaimer.includes('보장하지'));
+  /*
+   * 수익 추정 단언은 뺐다(사장님 결정 2026-09-05) — 예상 클릭·예상 월수익·RPM 을
+   * 계약에서 들어냈기 때문이다. 대신 **되돌아오지 못하게** 막는다: 이 ViewModel 은
+   * 클라이언트가 그대로 그리는 것이라, 추정치가 한 칸이라도 들어오면 언젠가 화면에
+   * 실린다.
+   */
+  const serialized = JSON.stringify(snapshot);
+  assert('the view model carries no revenue or traffic estimate fields',
+    !serialized.includes('revenueEvidence')
+      && !serialized.includes('monthlyRevenueKrw')
+      && !serialized.includes('expectedMonthlyClicks')
+      && !serialized.includes('trafficCaptureRate'));
   assert('data freshness and confidence are first-class API fields',
     verifiedVm?.measurement.sources.searchVolume === 'naver-searchad'
       && verifiedVm.measurement.sources.documentCount === 'naver-blog-search-api'

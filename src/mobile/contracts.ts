@@ -327,31 +327,11 @@ export interface MobileLiveGoldenScoreEvidence {
   };
 }
 
-export interface MobileLiveGoldenRevenueScenario {
-  trafficCaptureRate: number;
-  expectedMonthlyClicks: number;
-  expectedMonthlyPageviews: number;
-  monthlyRevenueKrw: number;
-}
-
-export interface MobileLiveGoldenRevenueEvidence {
-  cpc: {
-    amountKrw: number;
-    source: 'naver-searchad' | 'profit-golden-keyword-engine';
-    estimated: boolean;
-  };
-  rpm: {
-    amountKrw: number;
-    source: 'adsense-keyword-hunter';
-    estimated: true;
-  };
-  scenarios: {
-    conservative: MobileLiveGoldenRevenueScenario;
-    base: MobileLiveGoldenRevenueScenario;
-    aggressive: MobileLiveGoldenRevenueScenario;
-  };
-  disclaimer: string;
-}
+/*
+ * 예상 클릭·예상 월수익·RPM 시나리오는 이 계약에서 뺐다(사장님 결정 2026-09-05).
+ * 이 ViewModel 은 클라이언트가 그대로 그리는 것이라, 추정치를 담고 있으면 언젠가
+ * 화면에 실린다. 내보내는 것은 실측·단순산술·매칭 사실·사용자 입력뿐이다.
+ */
 
 export interface MobileLiveGoldenDisplayViewModel {
   grade: MobileResultGrade;
@@ -372,7 +352,6 @@ export interface MobileLiveGoldenInventoryItem extends MobileLiveGoldenBoardItem
   expiresAt: string;
   measurement: MobileLiveGoldenMeasurementEvidence;
   scores: MobileLiveGoldenScoreEvidence;
-  revenueEvidence: MobileLiveGoldenRevenueEvidence;
   display: MobileLiveGoldenDisplayViewModel;
 }
 
