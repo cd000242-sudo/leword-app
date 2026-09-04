@@ -361,6 +361,15 @@ export interface AssembledCandidate {
  */
 /** 이슈당 다음 물결(예측) 후보 상한 — 실측 공급을 밀어내지 않을 만큼만. */
 const NEXT_WAVE_PER_ISSUE = 2;
+/**
+ * 에이전트에게 이슈당 몇 개를 물을까 — 후보 상한(candidatesPerIssue)과 떼어 놓는다.
+ *
+ * 실측(2026-09-04 회차 33866037836): 후보 상한을 30 으로 올리자 같은 수가 에이전트
+ * 요청으로 흘러 이슈 17 × 30 = 510 개를 JSON 한 통으로 받아쓰게 됐고, 180초 제한에
+ * 걸려 추론이 통째로 죽었다("왜" 통과 0 · 다음 물결 0). 파생은 이제 조립 순서의
+ * 맨 뒤라 자리를 거의 못 받는다 — 많이 받을 이유가 없다.
+ */
+const AGENT_CANDS_PER_ISSUE = 8;
 export function assembleIssueCandidates(
   issue: string,
   context: IssueContext | null,
@@ -615,7 +624,7 @@ export async function huntIssueNicheBoard(
 
   // 3) 구독 에이전트 1콜 — 왜 뜨나(헤드라인 검증)·카테고리 파생·다음 물결.
   onProgress?.({ phase: 'reason', total: issues.length, message: '에이전트가 이슈 흐름을 추론하는 중(왜·다음 물결)' });
-  const analyses = await analyzer(contexts, candidatesPerIssue).catch((e: any) => {
+  const analyses = await analyzer(contexts, AGENT_CANDS_PER_ISSUE).catch((e: any) => {
     console.warn('[ISSUE-NICHE] 이슈 추론 실패 → 실측 재료(자동완성·연관)만으로 진행:', e?.message || e);
     return new Map<string, IssueAnalysis>();
   });

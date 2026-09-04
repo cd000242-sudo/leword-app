@@ -9,7 +9,12 @@ import { describe, expect, it } from 'vitest';
  */
 
 const root = path.join(__dirname, '..', '..', '..');
-const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'issue-niche-board.yml'), 'utf8');
+// 윈도 작업 사본은 체크아웃에서 CRLF 가 된다(레포 원본은 LF). 줄바꿈으로 갈리는
+// 검사가 되지 않게 읽는 자리에서 한 번만 맞춘다.
+const workflow = fs
+  .readFileSync(path.join(root, '.github', 'workflows', 'issue-niche-board.yml'), 'utf8')
+  .split('\r\n')
+  .join('\n');
 const environmentManager = fs.readFileSync(path.join(root, 'src', 'utils', 'environment-manager.ts'), 'utf8');
 
 function naverEnvKeysInWorkflow(): string[] {
