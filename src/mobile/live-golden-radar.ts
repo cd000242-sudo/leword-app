@@ -10,6 +10,7 @@ import {
   type MobileResultGrade,
   type MobileSearchVolumeSource,
 } from './contracts';
+import { buildLiveGoldenPhase2Inventory } from './live-golden-inventory';
 import type { MobileNotificationInbox } from './notification-inbox';
 import { EnvironmentManager, type EnvConfig } from '../utils/environment-manager';
 import {
@@ -10783,6 +10784,19 @@ export class MobileLiveGoldenRadar {
       boardUpdatedAt: this.boardUpdatedAt,
       board: markedBoard,
       verifiedSupply: markedVerifiedSupply,
+      /*
+       * Phase 2 인벤토리 — 상태·등급·근거·수익 범위를 **서버가 정해서** 내보낸다.
+       * 클라이언트가 같은 판정을 다시 계산하면 앱 버전마다 다른 답이 나오고, 그때부터
+       * "왜 폰이랑 데스크톱이 다르냐"는 물음에 답할 수 없다. 계약(contracts.ts)에
+       * 필드는 진작 있었지만 아무도 채우지 않아 늘 undefined 였다.
+       * references 는 아직 없다 — 지금 회차가 들고 있는 행이 전부다.
+       */
+      inventory: buildLiveGoldenPhase2Inventory({
+        verified: markedVerifiedSupply,
+        board: markedBoard,
+        references: [],
+        now: this.now(),
+      }),
       publicPreview: markedBoard.filter((item) => item.isPublicPreview),
       totalRuns: this.totalRuns,
       successfulRuns: this.successfulRuns,
