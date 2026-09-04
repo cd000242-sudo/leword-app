@@ -10,7 +10,6 @@ function assert(name: string, condition: boolean): void {
 }
 
 const validator = source('src/utils/keyword-validator.ts');
-const validatorRuntime = source('src/utils/keyword-validator.js');
 const trafficExplosion = source('src/utils/traffic-explosion-hunter.ts');
 const lifecycle = source('src/utils/pro-hunter-v12/lifecycle-tracker.ts');
 const metricsUpdater = source('src/utils/mass-collection/keyword-metrics-updater.ts');
@@ -31,14 +30,15 @@ assert(
     && !validator.includes('? measuredDocumentCount\n        : 0;'),
 );
 
+/*
+ * 예전에는 쌍둥이 .js 안의 문장을 하나하나 맞춰 보며 "가리지 못하게" 지켰다.
+ * 2026-09-04 에 그 파일을 지웠다 — 확장자 없는 require 가 .js 를 먼저 잡는 것이
+ * 근본 원인이라, 동기화로 버티는 것보다 없애는 쪽이 안전하다. 이제 지킬 것은
+ * 하나다: 다시 생기지 않는 것.
+ */
 assert(
-  'tracked JavaScript validator mirror cannot shadow the fixed TypeScript implementation in ts-node',
-  validatorRuntime.includes('getNaverBlogDocumentCount')
-    && validatorRuntime.includes('let documentCount = null;')
-    && validatorRuntime.includes("reasonCode = 'no-documents';")
-    && validatorRuntime.includes("reasonCode = 'document-count-unavailable';")
-    && !validatorRuntime.includes('documentCount = blogResults.length > 0 ? 100 : 0')
-    && !validatorRuntime.includes("const apiUrl = 'https://openapi.naver.com/v1/search/blog.json'"),
+  'no tracked JavaScript mirror can shadow the TypeScript validator in ts-node',
+  !fs.existsSync(path.join(process.cwd(), 'src/utils/keyword-validator.js')),
 );
 
 assert(
@@ -89,10 +89,10 @@ assert(
     && !proWebSite.includes('const total = Number(payload.total);'),
 );
 
-async function verifyTrackedValidatorRuntimeNullVsZero(): Promise<void> {
-  // `ts-node src/main.ts` resolves the tracked JavaScript mirror first. Exercise
-  // that actual runtime boundary with deterministic local stubs so null and a
-  // genuine zero cannot regress into the same state.
+async function verifyValidatorRuntimeNullVsZero(): Promise<void> {
+  // Exercise the module ts-node actually loads, with deterministic local stubs,
+  // so a lookup failure (null) and a genuine zero total cannot regress into the
+  // same state.
   const NodeModule = require('module') as any;
   const originalLoad = NodeModule._load;
   let documentLookupResult: number | null = null;
@@ -114,7 +114,12 @@ async function verifyTrackedValidatorRuntimeNullVsZero(): Promise<void> {
   const fakeBlog = {
     getNaverBlogDocumentCount: async () => documentLookupResult,
   };
-  const validatorPath = require.resolve('../keyword-validator.js');
+  /*
+   * 확장자를 붙이지 않는다 — 예전에는 쌍둥이 .js 를 일부러 집어 "ts-node 가 실제로
+   * 무엇을 싣는지"를 쟀지만, 그 파일을 지운 지금은 같은 한 줄이 진짜 구현(.ts)을
+   * 집는다. 재는 대상이 바뀐 게 아니라 가리던 것이 없어진 것이다.
+   */
+  const validatorPath = require.resolve('../keyword-validator');
   delete require.cache[validatorPath];
   let validatorModule: typeof import('../keyword-validator');
   try {
@@ -146,7 +151,7 @@ async function verifyTrackedValidatorRuntimeNullVsZero(): Promise<void> {
   }
 }
 
-verifyTrackedValidatorRuntimeNullVsZero()
+verifyValidatorRuntimeNullVsZero()
   .then(() => console.log('[document-count-consumer-ssot.test] passed'))
   .catch((error) => {
     console.error(error);
