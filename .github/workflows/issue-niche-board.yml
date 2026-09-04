@@ -29,7 +29,7 @@ on:
         default: '16'
       maxCandidates:
         description: 후보 상한
-        default: '80'
+        default: '240'
       maxAi:
         description: 황금 보강 AI 호출 상한(행 단위)
         default: '40'
@@ -38,7 +38,7 @@ on:
         default: '30'
       maxSlots:
         description: 자리 실측(Bright Data) 회차당 상한 — 0 이면 캐시·판정만
-        default: '12'
+        default: '20'
 
 concurrency:
   group: issue-niche-board
@@ -130,7 +130,7 @@ jobs:
             --out=issue-board.json \
             --picksOut=issue-board-picks.json \
             --issueLimit=${{ github.event.inputs.issueLimit || '16' }} \
-            --maxCandidates=${{ github.event.inputs.maxCandidates || '80' }}
+            --maxCandidates=${{ github.event.inputs.maxCandidates || '240' }}
 
       # 개인 토큰(PAT) 대신 배포키 — 이 레포 하나에만 붙고 만료가 없다.
       # 자리 실측이 직전 발행본(이월 승격)·자리 캐시·쿼터 장부를 읽으므로 그보다 먼저다.
@@ -155,7 +155,7 @@ jobs:
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
           LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-issue.json
           # 달 1,100 건에서 기능 자체를 잠근다(12 × 3 × 31 = 1,116 이 이론 최대 — 캐시 재사용으로 실제는 더 적다).
-          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"issue":1100}'
+          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"issue":2000}'
         run: |
           if [ ! -s issue-board.json ]; then
             echo '원장 없음 — 건너뛴다.'
@@ -168,7 +168,7 @@ jobs:
             --cache=site/data/issue-slot-cache.json \
             --ledgerOut=issue-board-slotted.json \
             --picksOut=issue-board-picks-slotted.json \
-            --max=${{ github.event.inputs.maxSlots || '12' }}
+            --max=${{ github.event.inputs.maxSlots || '20' }}
           # JSON 이 온전할 때만 원장·발행 입력에 덮는다.
           node -e "JSON.parse(require('fs').readFileSync('issue-board-slotted.json','utf8'))" \
             && cp issue-board-slotted.json issue-board.json

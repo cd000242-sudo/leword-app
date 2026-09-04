@@ -56,7 +56,7 @@ export type CommunitySite = {
 /** 확인된 관문 — 근거 없이 단정하지 않는다. 나머지는 unknown 이다. */
 export const CONFIRMED_GATES: Record<string, { gate: ReplyGate; why: string }> = {
   'theqoo.net': { gate: 'closed', why: '가입을 특정 기간에만 연다 — 마지막 오픈이 2020년이다.' },
-  'clien.net': { gate: 'closed', why: '일반 회원가입을 받지 않고, 글쓰기 권한도 가입일·글수·접속수 기준이다.' },
+  'clien.net': { gate: 'delayed', why: '가입은 된다. 다만 게시판을 쓰려면 보름간 로그인해야 한다(사장님 실측 2026-08-21 — 웹 검색으로는 "가입을 안 받는다"는 옛 글이 나와 잘못 적었던 것을 바로잡음).' },
   '82cook.com': { gate: 'closed', why: '신규 회원가입이 막혀 있다.' },
   'teamblind.com': { gate: 'delayed', why: '회사 이메일 인증을 거쳐야 쓴다.' },
   'dcinside.com': { gate: 'instant', why: '비로그인(유동)으로 댓글·글쓰기가 된다.' },

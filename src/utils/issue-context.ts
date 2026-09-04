@@ -32,6 +32,12 @@ export interface IssueRelatedKeyword {
 
 export interface IssueContext {
   issue: string;
+  /**
+   * 이슈명에서 추린 개체(사람·기관·제품). 이슈명이 기사 제목 조각일 때만 값이 있다.
+   * 실측 진단(2026-09-04): 이슈 18개 중 12개가 "출근하는 용혜인 후보자" 같은 조각이라
+   * 자동완성·키워드도구가 전부 0을 뱉었다 — 개체로 한 번 더 물어 공급을 연다.
+   */
+  entity?: string | null;
   headlines: IssueHeadline[];
   autocomplete: string[];
   related: IssueRelatedKeyword[];
@@ -41,6 +47,11 @@ export interface IssueContextSources {
   /** 오픈API 뉴스 검색 원본(JSON). */
   fetchNews: (issue: string, display: number) => Promise<unknown>;
   fetchAutocomplete: (issue: string) => Promise<string[]>;
+  /**
+   * 심층 자동완성 — PC·모바일·쇼핑에 자모(ㄱ~ㅎ)·접미사 확장까지 한 씨앗을 깊게 판다.
+   * 가벼운 쪽(fetchAutocomplete)이 이슈당 10개 남짓이라 후보가 금세 마르는 걸 메운다.
+   */
+  fetchAutocompleteDeep: (seed: string) => Promise<string[]>;
   fetchRelated: (hint: string) => Promise<KeywordSuggestion[]>;
 }
 
@@ -52,6 +63,8 @@ export interface CollectIssueContextsOptions {
   headlineLimit?: number;
   autocompleteLimit?: number;
   relatedLimit?: number;
+  /** 심층 자동완성(자모·접미사 확장)을 쓸까. 기본 true — 끄면 가벼운 자동완성만. */
+  deepAutocomplete?: boolean;
   onProgress?: (current: number, total: number, issue: string) => void;
   signal?: AbortSignal;
 }
@@ -64,8 +77,17 @@ export const ISSUE_MEASURABLE_MAX_TOKENS = 3;
 const SEARCHAD_HINT_MAX_CHARS = 15;
 
 const DEFAULT_HEADLINES = 6;
-const DEFAULT_AUTOCOMPLETE = 10;
-const DEFAULT_RELATED = 8;
+/**
+ * 자동완성 보관 수. 10 → 40 (2026-09-04): 심층 확장이 씨앗 하나에서 수십 개를 캐 온다.
+ * 사람이 실제로 치는 말이라 실측 통과율이 에이전트 파생보다 훨씬 높다.
+ */
+const DEFAULT_AUTOCOMPLETE = 40;
+/**
+ * 연관어 보관 수. 8 → 20 (2026-09-04 진단): 회차가 이슈당 연관어 수십~수백 개를
+ * 받아 놓고 8개만 남기는데, 그 8개마저 조립 순서에 밀려 후보로 한 개도 안 들어갔다.
+ * 검색량이 이미 실측된 유일한 공급원이라 넉넉히 들고 간다(같은 1콜, 추가 비용 없음).
+ */
+const DEFAULT_RELATED = 20;
 const NEWS_DISPLAY = 10;
 
 function compactKey(keyword: unknown): string {
@@ -144,6 +166,43 @@ export function filterIssueKeywords(list: readonly string[], issue: string, limi
 }
 
 /**
+ * 이슈명 앞에 붙는 꾸밈말 — 이것만으로는 아무도 검색하지 않는다.
+ * 실검 공급원(signal.bz)이 기사 제목을 그대로 주기 때문에 생긴다.
+ */
+const ISSUE_LEAD_NOISE = new Set(['실시간', '오늘', '어제', '긴급', '속보', '단독', '현장', '공식', '최신', '전격', '충격']);
+/** 이름 뒤에 붙는 직함 — 떼어도 개체는 그대로다("용혜인 후보자" → "용혜인"). */
+const ISSUE_ROLE_TAIL = new Set([
+  '후보자', '후보', '장관', '차관', '대표', '의원', '위원장', '위원', '사장', '회장', '부회장',
+  '감독', '선수', '총장', '청장', '처장', '국장', '시장', '지사', '교수', '기자', '아나운서', '씨',
+]);
+
+/**
+ * 이슈명에서 검색되는 개체를 추린다 — "출근하는 용혜인 후보자" → "용혜인".
+ *
+ * 왜 필요한가(2026-09-04 진단 실측): 이슈 18개 중 12개에서 자동완성 0건·키워드도구
+ * 0건이었다. 이슈명이 문장 조각이라 아무도 그 말 그대로는 검색하지 않기 때문이다.
+ * 개체로 한 번 더 물으면 "용혜인 청문회"·"스카이랩스 공모주" 같은 실측 가능한 말이 나온다.
+ *
+ * 형태소 분석이 아니라 규칙이다 — 틀려도 이슈명 원본 수집은 그대로 하고 여기서 나온
+ * 것은 **더하기만** 한다. 못 줄이면 null 이고, 그러면 아무 일도 일어나지 않는다.
+ */
+export function issueEntity(issue: string): string | null {
+  const tokens = String(issue || '').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length < 2) return null;
+  const kept = tokens.filter((token, index) => {
+    if (index === 0 && ISSUE_LEAD_NOISE.has(token)) return false;
+    // "출근하는"·"오르는" 같은 관형형 — 마지막 글자가 '는' 인 세 글자 이상 어절.
+    if (token.length >= 3 && token.endsWith('는')) return false;
+    if (index > 0 && ISSUE_ROLE_TAIL.has(token)) return false;
+    return true;
+  });
+  if (kept.length === 0) return null;
+  const head = kept[0] as string;
+  const entity = head.length >= 2 ? head : kept.slice(0, 2).join(' ');
+  return compactKey(entity) === compactKey(issue) ? null : entity;
+}
+
+/**
  * 검색광고 힌트 — 15자를 넘기면 앞 어절부터 15자 안에 드는 만큼만 쓴다.
  * 잘린 힌트는 다른 키워드의 연관어라 쿼터만 태운다(getNaverSearchAdKeywordSuggestions 가 거부).
  */
@@ -207,6 +266,11 @@ function defaultSources(config: NaverDatalabConfig, searchAd: NaverSearchAdConfi
       const { getNaverAutocompleteQuick } = require('./naver-autocomplete');
       return getNaverAutocompleteQuick(issue);
     },
+    fetchAutocompleteDeep: async (seed) => {
+      const { getNaverAutocompleteKeywords } = require('./naver-autocomplete');
+      // 연관검색어는 여기서 부르지 않는다 — 아래 fetchRelated 가 같은 것을 이미 판다.
+      return getNaverAutocompleteKeywords(seed, { ...config, skipSearchAdRelated: true });
+    },
     fetchRelated: async (hint) => {
       if (!searchAd) return [];
       const { getNaverSearchAdKeywordSuggestions } = require('./naver-searchad-api');
@@ -237,6 +301,7 @@ export async function collectIssueContexts(
   const headlineLimit = options.headlineLimit ?? DEFAULT_HEADLINES;
   const autocompleteLimit = options.autocompleteLimit ?? DEFAULT_AUTOCOMPLETE;
   const relatedLimit = options.relatedLimit ?? DEFAULT_RELATED;
+  const deepAutocomplete = options.deepAutocomplete !== false;
 
   const out: IssueContext[] = [];
   for (const [index, issue] of issues.entries()) {
@@ -247,11 +312,35 @@ export async function collectIssueContexts(
       settle(() => sources.fetchAutocomplete(issue), [] as string[], `자동완성 "${issue}"`),
       hint ? settle(() => sources.fetchRelated(hint), [] as KeywordSuggestion[], `연관어 "${hint}"`) : Promise.resolve([] as KeywordSuggestion[]),
     ]);
+
+    /*
+     * 이슈명이 기사 제목 조각이면 위 두 공급원이 통째로 빈다. 개체로 한 번 더 묻는다.
+     * 원본 결과를 앞에 두고 뒤에 붙이기만 한다 — 이슈 자신의 말이 항상 우선이다.
+     */
+    const entity = issueEntity(issue);
+    const entityHint = entity && searchAd ? searchAdHintFor(entity) : null;
+    const [entityAuto, entityRelated] = entity
+      ? await Promise.all([
+        settle(() => sources.fetchAutocomplete(entity), [] as string[], `자동완성(개체) "${entity}"`),
+        entityHint ? settle(() => sources.fetchRelated(entityHint), [] as KeywordSuggestion[], `연관어(개체) "${entityHint}"`) : Promise.resolve([] as KeywordSuggestion[]),
+      ])
+      : [[] as string[], [] as KeywordSuggestion[]];
+
+    /*
+     * 심층 자동완성 — 사람이 실제로 치는 말을 씨앗 하나에서 깊게 판다(자모·접미사 확장).
+     * 씨앗은 개체가 있으면 개체다: 조각("출근하는 용혜인 후보자")으로는 자동완성이 안 나온다.
+     */
+    const deepSeed = entity || issue;
+    const deep = deepAutocomplete
+      ? await settle(() => sources.fetchAutocompleteDeep(deepSeed), [] as string[], `심층 자동완성 "${deepSeed}"`)
+      : [];
+
     out.push({
       issue,
+      entity,
       headlines: parseNewsHeadlines(news, headlineLimit),
-      autocomplete: filterIssueKeywords(autocomplete, issue, autocompleteLimit),
-      related: topRelatedKeywords(related, issue, relatedLimit),
+      autocomplete: filterIssueKeywords([...autocomplete, ...entityAuto, ...deep], issue, autocompleteLimit),
+      related: topRelatedKeywords([...related, ...entityRelated], issue, relatedLimit),
     });
     options.onProgress?.(index + 1, issues.length, issue);
   }

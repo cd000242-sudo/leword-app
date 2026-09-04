@@ -4,8 +4,10 @@ import type { IssueAnalysis } from '../issue-next-wave';
 import { assembleIssueCandidates } from '../issue-niche-hunter';
 
 /**
- * 후보 조립 순서가 곧 "무엇을 먼저 실측하나"다 — 다음 물결(예측)이 앞, 실측 자동완성,
- * 에이전트 파생, 연관검색어 순. 출처가 행에 남아야 화면이 "왜 여기 있나"를 말한다.
+ * 후보 조립 순서가 곧 "무엇을 먼저 실측하나"다 — 실측 공급(자동완성 → 연관검색어)이
+ * 앞이고 예측(다음 물결 → 파생)이 뒤다. 2026-09-04 진단에서 예측을 앞에 뒀더니 후보
+ * 80개 중 62개가 예측이고 자동완성·연관어는 0개였다(트래픽 탈락 1위 = 검색량 <10).
+ * 출처가 행에 남아야 화면이 "왜 여기 있나"를 말한다.
  */
 
 const context: IssueContext = {
@@ -23,17 +25,26 @@ const analysis: IssueAnalysis = {
 };
 
 describe('assembleIssueCandidates', () => {
-  it('다음 물결 → 자동완성 → 파생 → 연관 순으로 쌓고 출처를 남긴다', () => {
+  it('자동완성 → 연관 → 다음 물결 → 파생 순으로 쌓고 출처를 남긴다', () => {
     const out = assembleIssueCandidates('박재홍', context, analysis, 12);
     expect(out.map((c) => `${c.origin}:${c.keyword}`)).toEqual([
-      'next-wave:박재홍 복귀',
-      'next-wave:박재홍 근황',
       'autocomplete:박재홍 뇌경색',
-      'derived:박재홍 아내',
+      'autocomplete:박재홍 근황',
       'related:박재홍 해설',
+      'next-wave:박재홍 복귀',
+      'derived:박재홍 아내',
     ]);
-    expect(out[0].originReason).toBe('3주 입원 후 복귀 예정');
-    expect(out[2].originReason).toBeNull();
+    expect(out[0].originReason).toBeNull();
+    expect(out[3].originReason).toBe('3주 입원 후 복귀 예정');
+  });
+
+  it('다음 물결은 이슈당 2개까지만 — 예측이 실측 공급을 밀어내지 않는다', () => {
+    const many: IssueAnalysis = {
+      ...analysis,
+      nextWave: [1, 2, 3, 4, 5].map((n) => ({ keyword: `박재홍 예측${n}`, reason: String(n) })),
+    };
+    const out = assembleIssueCandidates('박재홍', context, many, 12);
+    expect(out.filter((c) => c.origin === 'next-wave').map((c) => c.keyword)).toEqual(['박재홍 예측1', '박재홍 예측2']);
   });
 
   it('이슈 자체·4어절 이상·상업 노이즈는 어느 출처든 떨어진다', () => {
@@ -45,9 +56,9 @@ describe('assembleIssueCandidates', () => {
     expect(out.filter((c) => c.keyword === '박재홍 근황')).toHaveLength(1);
   });
 
-  it('perIssue 로 자른다 — 앞 출처가 자리를 차지한다', () => {
+  it('perIssue 로 자른다 — 실측 공급이 자리를 차지한다', () => {
     const out = assembleIssueCandidates('박재홍', context, analysis, 2);
-    expect(out.map((c) => c.origin)).toEqual(['next-wave', 'next-wave']);
+    expect(out.map((c) => c.origin)).toEqual(['autocomplete', 'autocomplete']);
   });
 
   it('재료·분석이 없으면 빈 배열(머리만 관찰)', () => {

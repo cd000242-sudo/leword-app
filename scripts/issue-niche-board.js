@@ -72,7 +72,7 @@ async function main() {
   const out = arg('out') || 'issue-board.json';
   const picksOut = arg('picksOut') || '';
   const issueLimit = Number(arg('issueLimit')) || 16;
-  const maxCandidates = Number(arg('maxCandidates')) || 80;
+  const maxCandidates = Number(arg('maxCandidates')) || 240;
   const docCountMax = Number(arg('docCountMax')) || 3000;
 
   const keys = loadNaverKeys();

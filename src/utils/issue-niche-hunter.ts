@@ -15,7 +15,7 @@
  *     → 카테고리 판정(classifyKeyword)
  *     → 이슈 재료 실측(issue-context: 뉴스 헤드라인·자동완성·연관검색어)
  *     → 구독 에이전트 1콜(issue-next-wave): 왜 뜨나(헤드라인 검증) · 파생 후보 · 다음 물결
- *     → 후보 조립: 다음 물결 → 자동완성 → 파생 → 연관 (출처를 행에 남긴다)
+ *     → 후보 조립: 자동완성(심층) → 연관 → 다음 물결 → 파생 (출처를 행에 남긴다)
  *     → 검색량·문서수 실측(getNaverKeywordSearchVolumeSeparate)
  *        + 최신성(상위글 도배 여부) + 추세(dead 차단)
  *     → 틈새 판정: 데이터랩 실측 수요 × 저경쟁(문서수)
@@ -171,7 +171,7 @@ export interface HuntIssueNicheOptions {
   config: NaverDatalabConfig;
   /** Signal.bz 상위 몇 개 이슈 (기본 12) */
   issueLimit?: number;
-  /** 이슈당 후보 개수 (기본 12) */
+  /** 이슈당 후보 개수 (기본 30) */
   candidatesPerIssue?: number;
   /** 실측할 후보 상한 — 쿼터/속도 (기본 120) */
   maxCandidates?: number;
@@ -301,6 +301,16 @@ export function cleanSubject(raw: string): string {
 const COMMERCE_NOISE_RE = /(최저가|가격비교|렌탈|구매처|구입|할인|쿠폰|중고|직구|도매|판매처|얼마|가격)/;
 
 /**
+ * 탐색형 검색 — 블로그 글이 답이 될 수 없는 말. 자리가 비어 있어도 싣지 않는다.
+ *
+ * 사장님 판단(2026-09-04): "인물 프로필이나 인물 나무위키로 어떤 글을 작성하라는 거니".
+ * 이런 검색자는 나무위키·포털 인물정보로 가려는 것이라, 블로그가 1위를 해도 위키를
+ * 베낀 글이 되고 체류가 0초다. 수요는 진짜지만 글감이 아니다 — 실측 진단에서 가장 큰
+ * 수요로 통과한 행이 '용혜인 나무위키'(검색량 37,270 · 문서수 264)였다.
+ */
+const NAVIGATIONAL_RE = /(나무위키|위키|프로필|인스타|인스타그램|디시|갤러리|본명|고향|학력|리즈|움짤|짤방|몸무게|혈액형|mbti)/i;
+
+/**
  * 검색량 실측 가능한 최대 어절 수.
  * 실측 근거(2026-09-02): 네이버 검색광고 키워드도구는 4어절 이상 구를 전량 null 로 돌려준다.
  *   "프리즈 서울"(2어절) pc=7,970 mo=21,500 / "프리즈 서울 VIP 프리뷰 입장 조건"(5어절) pc=null mo=null
@@ -334,10 +344,23 @@ export interface AssembledCandidate {
 }
 
 /**
- * 이슈 하나의 후보를 출처 순으로 조립한다 — 다음 물결(예측) → 자동완성(실측) →
- * 파생(에이전트) → 연관검색어(실측). 앞에 온 출처가 자리를 차지하고 뒤는 채운다.
+ * 이슈 하나의 후보를 출처 순으로 조립한다 — 자동완성(실측) → 연관검색어(실측) →
+ * 다음 물결(예측) → 파생(에이전트). 앞에 온 출처가 자리를 차지하고 뒤는 채운다.
  * 실측 불가 길이(4어절+)는 어느 출처든 여기서 떨어진다.
+ *
+ * ## 왜 실측을 앞에 두나 (2026-09-04 진단 실측)
+ *
+ * 반대 순서(다음 물결 먼저)로 돌린 회차의 부검: 후보 80개 중 62개가 다음 물결이었고
+ * 자동완성·연관어는 **한 개도 안 들어갔다**. 이슈당 칸을 다음 물결이 다 먹었기 때문이다.
+ * 그 결과 트래픽 게이트 탈락 1위가 "실측 저검색(<10) 54건" — 에이전트가 지어낸 문구를
+ * 아무도 검색하지 않는다. 같은 회차에 자동완성 50개·연관어(검색량 300+) 수백 개를
+ * 받아 놓고 버렸다. 사람이 이미 치는 말과 검색량이 이미 붙은 말이 먼저다.
+ *
+ * 다음 물결은 예측이라 몇 개만 받는다(NEXT_WAVE_PER_ISSUE). 예측을 버리진 않는다 —
+ * 이번 회차에 유일하게 세 게이트를 통과한 '용혜인 청문회 날짜'가 다음 물결 출신이었다.
  */
+/** 이슈당 다음 물결(예측) 후보 상한 — 실측 공급을 밀어내지 않을 만큼만. */
+const NEXT_WAVE_PER_ISSUE = 2;
 export function assembleIssueCandidates(
   issue: string,
   context: IssueContext | null,
@@ -349,14 +372,15 @@ export function assembleIssueCandidates(
   const take = (keyword: string, origin: AssembledCandidate['origin'], originReason: string | null) => {
     const clean = String(keyword || '').replace(/\s+/g, ' ').trim();
     const key = compactKey(clean);
-    if (!key || seen.has(key) || !isMeasurableLength(clean) || COMMERCE_NOISE_RE.test(clean)) return;
+    if (!key || seen.has(key) || !isMeasurableLength(clean)) return;
+    if (COMMERCE_NOISE_RE.test(clean) || NAVIGATIONAL_RE.test(clean)) return;
     seen.add(key);
     out.push({ keyword: clean, origin, originReason });
   };
-  for (const n of analysis?.nextWave ?? []) take(n.keyword, 'next-wave', n.reason || null);
   for (const k of context?.autocomplete ?? []) take(k, 'autocomplete', null);
-  for (const k of analysis?.cands ?? []) take(k, 'derived', null);
   for (const r of context?.related ?? []) take(r.keyword, 'related', null);
+  for (const n of (analysis?.nextWave ?? []).slice(0, NEXT_WAVE_PER_ISSUE)) take(n.keyword, 'next-wave', n.reason || null);
+  for (const k of analysis?.cands ?? []) take(k, 'derived', null);
   return out.slice(0, perIssue);
 }
 
@@ -486,7 +510,7 @@ export async function huntIssueNicheBoard(
   const {
     config,
     issueLimit = 12,
-    candidatesPerIssue = 12,
+    candidatesPerIssue = 30,
     maxCandidates = 120,
     docCountMax = 3000,
     headFloodDays = 2,
@@ -597,7 +621,7 @@ export async function huntIssueNicheBoard(
   });
   if (isAborted(signal)) return empty;
 
-  onProgress?.({ phase: 'derive', total: issues.length, message: '후보 조립 중(다음 물결 → 자동완성 → 파생 → 연관)' });
+  onProgress?.({ phase: 'derive', total: issues.length, message: '후보 조립 중(자동완성 → 연관 → 다음 물결 → 파생)' });
   const seen = new Set<string>();
   const candidates: Candidate[] = [];
   const push = (keyword: string, base: string, origin: CandidateOrigin, originReason: string | null) => {

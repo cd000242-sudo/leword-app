@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   collectIssueContexts,
+  issueEntity,
   filterIssueKeywords,
   parseNewsHeadlines,
   searchAdHintFor,
@@ -105,6 +106,63 @@ describe('topRelatedKeywords — 검색광고 연관어에서 재료 고르기',
   });
 });
 
+describe('issueEntity — 기사 제목 조각에서 검색되는 개체 추리기', () => {
+  it('꾸밈말·관형형·직함을 떼고 개체만 남긴다', () => {
+    expect(issueEntity('출근하는 용혜인 후보자')).toBe('용혜인');
+    expect(issueEntity('실시간 TTS-2')).toBe('TTS-2');
+    expect(issueEntity('이재명 시민사회 간담회')).toBe('이재명');
+    expect(issueEntity('삼성전자 IFA 크리에이터허브')).toBe('삼성전자');
+  });
+
+  it('더 줄일 게 없으면 null — 원본 수집만 하고 아무 일도 안 한다', () => {
+    expect(issueEntity('결혼식')).toBeNull();
+    expect(issueEntity('마인드로직')).toBeNull();
+    expect(issueEntity('')).toBeNull();
+  });
+});
+
+describe('collectIssueContexts — 개체로 한 번 더 묻기', () => {
+  it('이슈명이 조각이면 개체로도 물어 공급을 더한다(원본이 앞)', async () => {
+    const calls: string[] = [];
+    const contexts = await collectIssueContexts(['출근하는 용혜인 후보자'], {
+      config: { clientId: 'id', clientSecret: 'secret' },
+      searchAd: { accessLicense: 'lic', secretKey: 'sec' },
+      sources: {
+        fetchNews: async () => NEWS_JSON,
+        fetchAutocomplete: async (issue) => {
+          calls.push(`ac:${issue}`);
+          // 조각으로는 아무것도 안 나오는 것이 실측된 현실이다.
+          return issue === '용혜인' ? ['용혜인 청문회', '용혜인 프로필'] : [];
+        },
+        fetchAutocompleteDeep: async (seed) => { calls.push(`deep:${seed}`); return ['용혜인 청문회 시간']; },
+        fetchRelated: async (hint) => {
+          calls.push(`rel:${hint}`);
+          return hint === '용혜인' ? ([{ keyword: '용혜인 남편', totalSearchVolume: 900 }] as any) : [];
+        },
+      },
+    });
+    expect(calls).toEqual(['ac:출근하는 용혜인 후보자', 'rel:출근하는 용혜인 후보자', 'ac:용혜인', 'rel:용혜인', 'deep:용혜인']);
+    expect(contexts[0].entity).toBe('용혜인');
+    expect(contexts[0].autocomplete).toEqual(['용혜인 청문회', '용혜인 프로필', '용혜인 청문회 시간']);
+    expect(contexts[0].related).toEqual([{ keyword: '용혜인 남편', monthlyVolume: 900 }]);
+  });
+
+  it('개체가 없으면 한 번만 묻는다 — 호출을 늘리지 않는다', async () => {
+    const calls: string[] = [];
+    await collectIssueContexts(['결혼식'], {
+      config: { clientId: 'id', clientSecret: 'secret' },
+      searchAd: { accessLicense: 'lic', secretKey: 'sec' },
+      sources: {
+        fetchNews: async () => NEWS_JSON,
+        fetchAutocomplete: async (issue) => { calls.push(`ac:${issue}`); return []; },
+        fetchAutocompleteDeep: async (seed) => { calls.push(`deep:${seed}`); return []; },
+        fetchRelated: async (hint) => { calls.push(`rel:${hint}`); return []; },
+      },
+    });
+    expect(calls).toEqual(['ac:결혼식', 'rel:결혼식', 'deep:결혼식']);
+  });
+});
+
 describe('collectIssueContexts — 소스를 갈아끼워 조립을 확인', () => {
   it('이슈마다 헤드라인·자동완성·연관어를 모으고, 한 소스가 죽어도 나머지는 산다', async () => {
     const calls: string[] = [];
@@ -121,6 +179,7 @@ describe('collectIssueContexts — 소스를 갈아끼워 조립을 확인', () 
           calls.push(`ac:${issue}`);
           return [`${issue} 뇌경색`, `${issue} 최저가`, `${issue}`];
         },
+        fetchAutocompleteDeep: async (seed) => { calls.push(`deep:${seed}`); return []; },
         fetchRelated: async (hint) => {
           calls.push(`rel:${hint}`);
           return [{ keyword: `${hint} 아내`, totalSearchVolume: 100 }] as any;
@@ -147,6 +206,7 @@ describe('collectIssueContexts — 소스를 갈아끼워 조립을 확인', () 
       sources: {
         fetchNews: async () => NEWS_JSON,
         fetchAutocomplete: async () => [],
+        fetchAutocompleteDeep: async () => [],
         fetchRelated: async () => { related += 1; return []; },
       },
     });
@@ -159,7 +219,7 @@ describe('collectIssueContexts — 소스를 갈아끼워 조립을 확인', () 
     await collectIssueContexts(['a1', 'b2', 'c3'], {
       config: { clientId: 'id', clientSecret: 'secret' },
       searchAd: null,
-      sources: { fetchNews: async () => NEWS_JSON, fetchAutocomplete: async () => [], fetchRelated: async () => [] },
+      sources: { fetchNews: async () => NEWS_JSON, fetchAutocomplete: async () => [], fetchAutocompleteDeep: async () => [], fetchRelated: async () => [] },
       onProgress: (current) => { seen.push(current); },
     });
     expect(seen).toEqual([1, 2, 3]);

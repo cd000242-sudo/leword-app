@@ -163,16 +163,16 @@ describe('실검 틈새 보드 워크플로', () => {
       expect(slot).toContain('BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}');
       expect(slot).toContain('BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}');
       expect(slot).toContain('LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-issue.json');
-      expect(slot).toMatch(/LEWORD_BRIGHTDATA_FEATURE_CAPS: '\{"issue":1100\}'/);
+      expect(slot).toMatch(/LEWORD_BRIGHTDATA_FEATURE_CAPS: '\{"issue":2000\}'/);
       expect(slot).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
       expect(slot).toContain('continue-on-error: true');
       expect(slot).toMatch(/timeout-minutes: \d+/);
     });
 
-    it('회차당 상한은 기본 12건(하루 36 · 달 1,116 ≤ 무료 5,000) — 수동 실행 입력으로 바꾼다', () => {
-      expect(workflow).toMatch(/maxSlots:\n\s+description:[^\n]*\n\s+default: '12'/);
+    it('회차당 상한은 기본 20건(하루 60 · 달 1,860 ≤ 무료 5,000) — 수동 실행 입력으로 바꾼다', () => {
+      expect(workflow).toMatch(/maxSlots:\n\s+description:[^\n]*\n\s+default: '20'/);
       const slot = workflow.slice(stepIndex(STEP), stepIndex('황금 보강 (지식인·연관 풀·제목·추세·수익)'));
-      expect(slot).toContain("--max=${{ github.event.inputs.maxSlots || '12' }}");
+      expect(slot).toContain("--max=${{ github.event.inputs.maxSlots || '20' }}");
     });
 
     it('원장·직전 발행본·캐시를 읽고, JSON 이 온전할 때만 원장·발행 입력에 덮는다', () => {
