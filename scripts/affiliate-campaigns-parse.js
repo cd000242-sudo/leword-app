@@ -29,6 +29,11 @@ const https = require('https');
 
 const DUMP_DIR = path.join(__dirname, '..', 'tmp', 'affiliate-dump');
 const OUT_PATH = path.join(__dirname, '..', 'tmp', 'affiliate-campaigns-public.json');
+const { currentCaptureFiles, mergeCampaignSnapshots } = require('./affiliate-snapshot');
+function readJson(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+}
+const captureManifest = readJson(path.join(__dirname, '..', 'tmp', 'affiliate-campaigns.json'));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const arg = (name, fallback) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -56,13 +61,12 @@ function titleExactness(titles, keyword) {
 }
 
 function readDump(site, urlPattern) {
-  const dir = path.join(DUMP_DIR, site);
-  if (!fs.existsSync(dir)) return [];
   const out = [];
-  for (const file of fs.readdirSync(dir)) {
+  for (const file of currentCaptureFiles(captureManifest, site)) {
     try {
-      const parsed = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
-      if (urlPattern.test(parsed.url)) out.push(parsed);
+      const parsed = JSON.parse(fs.readFileSync(path.join(DUMP_DIR, file), 'utf8'));
+      if (parsed.runId === captureManifest.runId && parsed.status >= 200 && parsed.status < 300
+          && urlPattern.test(parsed.url)) out.push(parsed);
     } catch { /* 깨진 덤프는 건너뛴다 */ }
   }
   return out;
@@ -141,9 +145,10 @@ function parseToss() {
 
 function parseBrandConnect() {
   const items = [];
-  for (const dump of readDump('brandconnect', /recommend-by-display-category/)) {
-    for (const row of (dump.body && dump.body.data) || []) {
-      if (!row || !row.productName) continue;
+  for (const dump of readDump('brandconnect', /\/affiliate-products\/|\/affiliate-events\/[^/]+\/products\//)) {
+    const rows = Array.isArray(dump.body) ? dump.body : dump.body?.data;
+    for (const row of Array.isArray(rows) ? rows : []) {
+      if (!row || !row.productName || row.enabled === false) continue;
       items.push({
         name: String(row.productName),
         // 링크발급 화면 주소에 쓰인다 — 스페이스ID + 이 값이라야 열린다(실측).
@@ -493,14 +498,26 @@ function fetchNaverSuggestions(query) {
 
 async function main() {
   const limit = Number(arg('limit', '24'));
+  if (!Number.isInteger(limit) || limit < 1 || limit > 160) throw new Error('limit은 1~160 사이 정수여야 합니다.');
   const { EnvironmentManager } = require('../src/utils/environment-manager');
   const manager = EnvironmentManager.getInstance ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const creds = manager.getConfig();
 
   const sites = { toss: { label: '토스쇼핑 쉐어링크', items: parseToss() },
     brandconnect: { label: '네이버 브랜드커넥트', items: parseBrandConnect() } };
+  const selected = arg('sites', 'toss,brandconnect').split(',');
+  if (selected.some((id) => !Object.hasOwn(sites, id))) throw new Error('알 수 없는 제휴 플랫폼');
+  for (const id of Object.keys(sites)) if (!selected.includes(id)) delete sites[id];
 
   for (const [id, site] of Object.entries(sites)) {
+    const capture = captureManifest?.sites?.[id];
+    site.collectedAt = capture?.collectedAt || null;
+    site.status = capture?.maybeLoggedOut ? 'login-required' : 'collection-failed';
+    if (site.items.length === 0) {
+      console.log(`■ ${site.label} — 이번 수집의 상품 응답 없음. 기존 목록/수집 시각 유지`);
+      continue;
+    }
+    site.status = 'ready';
     const seen = new Set();
     const prepared = [];
     for (const item of site.items) {
@@ -601,7 +618,8 @@ async function main() {
     ));
   }
 
-  const payload = { collectedAt: new Date().toISOString(), sites };
+  const previous = readJson(arg('previous', OUT_PATH));
+  const payload = mergeCampaignSnapshots(previous, sites, new Date().toISOString());
   fs.writeFileSync(OUT_PATH, JSON.stringify(payload, null, 1), 'utf8');
   console.log(`\n스냅샷 → ${OUT_PATH}`);
 }

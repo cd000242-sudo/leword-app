@@ -14,12 +14,8 @@
  *
  * 세션: tmp/affiliate-profile (쿠키만. 비밀번호는 어디에도 저장되지 않는다)
  *
- * ## 왜 발행이 기본이 아닌가 (2026-08-11 확인)
- *
- * 사이트(cd000242-sudo/naver)에 이 파일을 **읽는 쪽이 아직 없다**.
- * spa/src 어디에서도 affiliate-campaigns.json 을 fetch 하지 않는다. 그래서 지금
- * 푸시하면 아무도 안 보는 파일이 배포에 실린다. 화면이 붙은 뒤 --publish 를 쓰거나,
- * 이 주석과 함께 기본값을 바꾸면 된다.
+ * 사이트 제휴 황금키워드가 이 파일을 읽는다. 운영 배포는 --publish 로 명시한다.
+ * --sites=brandconnect 로 독립 갱신 가능. NAVER_SITE_REPO 로 배포 사본을 지정한다.
  */
 'use strict';
 
@@ -34,7 +30,7 @@ const SNAPSHOT = path.join(ROOT, 'tmp', 'affiliate-campaigns-public.json');
 
 /** 사이트 레포. 경로가 사람마다 다를 수 있어 환경변수로 덮을 수 있게 둔다. */
 const SITE_REPO = process.env.NAVER_SITE_REPO
-  || path.join(process.env.USERPROFILE || process.env.HOME || '', 'Desktop', '리더 네이버 자동화');
+  || path.join(ROOT, 'tmp', 'leaderspro-admin-work');
 const SITE_RELATIVE = path.join('spa', 'public', 'data', 'affiliate-campaigns.json');
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
@@ -79,10 +75,10 @@ function expiredSites(summary) {
 
 function announceLogin(expired) {
   console.log('\n' + '='.repeat(72));
-  console.log('세션이 풀린 것으로 보입니다 — 갱신을 멈춥니다(옛 목록을 새것처럼 내보내지 않기 위해).');
+  console.log('아래 플랫폼은 새 수집에 실패했습니다 — 이전 목록/날짜를 유지하고 나머지 플랫폼은 계속 갱신합니다.');
   for (const site of expired) console.log(`  · ${site.label} — ${site.reason}`);
   console.log('\n다시 로그인하려면:');
-  console.log('  node scripts/affiliate-campaigns.js --login    (창 두 개에서 각각 로그인)');
+  console.log(`  node scripts/affiliate-campaigns.js --login --sites=${expired.map((site) => site.id).join(',')}`);
   console.log('  node scripts/affiliate-refresh.js              (로그인 뒤 다시 실행)');
   console.log('한 번에 하려면: node scripts/affiliate-refresh.js --autoLogin');
   console.log('='.repeat(72));
@@ -100,6 +96,13 @@ function itemCounts(snapshot) {
 function main() {
   const limit = arg('limit', '24');
   const autoLogin = hasFlag('autoLogin');
+  const selection = arg('sites', 'toss,brandconnect');
+  if (selection.split(',').some((id) => !['toss', 'brandconnect'].includes(id))) throw new Error('알 수 없는 제휴 플랫폼');
+  const scrapeArgs = [`--sites=${selection}`, ...(hasFlag('headless') ? ['--headless'] : [])];
+  const target = path.join(SITE_REPO, SITE_RELATIVE);
+  if (!fs.existsSync(path.join(SITE_REPO, 'spa', 'package.json'))) {
+    throw new Error('사이트 경로를 확인하세요: NAVER_SITE_REPO 환경변수가 필요합니다.');
+  }
 
   if (!fs.existsSync(PROFILE_DIR)) {
     console.log('브라우저 프로필이 없습니다 — 최초 1회 로그인이 필요합니다.');
@@ -107,39 +110,36 @@ function main() {
       console.log('  node scripts/affiliate-campaigns.js --login');
       process.exit(3);
     }
-    if (!run('affiliate-campaigns.js', ['--login'])) process.exit(3);
+    if (!run('affiliate-campaigns.js', ['--login', `--sites=${selection}`])) process.exit(3);
   }
 
   // ── 1) 채집 ───────────────────────────────────────────────────────────
   // --skipScrape 는 이미 뜬 원문으로 다시 돌릴 때 쓴다(파서를 고쳤을 때).
   const skipScrape = hasFlag('skipScrape');
   console.log(skipScrape ? '\n[1/4] 채집 건너뜀 — 기존 원문을 씁니다' : '\n[1/4] 캠페인 채집');
-  if (!skipScrape && !run('affiliate-campaigns.js', ['--scrape'])) {
+  if (!skipScrape && !run('affiliate-campaigns.js', ['--scrape', ...scrapeArgs])) {
     console.error('채집 실패 — 여기서 멈춥니다.');
     process.exit(1);
   }
 
   let expired = expiredSites(readJson(SCRAPE_SUMMARY));
   if (expired.length > 0) {
-    if (!autoLogin) {
-      announceLogin(expired);
-      process.exit(3);
-    }
-    console.log('\n세션 만료 감지 — 로그인 창을 엽니다.');
-    for (const site of expired) console.log(`  · ${site.label} — ${site.reason}`);
-    if (!run('affiliate-campaigns.js', ['--login'])) process.exit(3);
-    console.log('\n[1/4 다시] 로그인 뒤 재채집');
-    if (!run('affiliate-campaigns.js', ['--scrape'])) process.exit(1);
-    expired = expiredSites(readJson(SCRAPE_SUMMARY));
-    if (expired.length > 0) {
-      announceLogin(expired);
-      process.exit(3);
+    if (!autoLogin) announceLogin(expired);
+    else {
+      console.log('\n세션 만료 감지 — 로그인 창을 엽니다.');
+      for (const site of expired) console.log(`  · ${site.label} — ${site.reason}`);
+      if (!run('affiliate-campaigns.js', ['--login', `--sites=${expired.map((site) => site.id).join(',')}`])) process.exit(3);
+      console.log('\n[1/4 다시] 로그인 뒤 재채집');
+      if (!run('affiliate-campaigns.js', ['--scrape', ...scrapeArgs])) process.exit(1);
+      expired = expiredSites(readJson(SCRAPE_SUMMARY));
+      if (expired.length > 0) announceLogin(expired);
     }
   }
 
   // ── 2) 파싱 + 실측 판정 ───────────────────────────────────────────────
   console.log('\n[2/4] 상품명 → 핵심 검색어 → 검색량·문서수·상위10 정면 실측');
-  if (!run('affiliate-campaigns-parse.js', [`--limit=${limit}`])) {
+  if (!run('affiliate-campaigns-parse.js', [`--limit=${limit}`, `--sites=${selection}`, `--previous=${target}`,
+    ...(hasFlag('noAi') ? ['--noAi'] : [])])) {
     console.error('파싱 실패 — 여기서 멈춥니다.');
     process.exit(1);
   }
@@ -147,6 +147,11 @@ function main() {
   // ── 3) 발행 전 안전 점검 ──────────────────────────────────────────────
   console.log('\n[3/4] 발행 전 점검');
   const snapshot = readJson(SNAPSHOT);
+  const failedIds = selection.split(',').filter((id) => snapshot?.sites?.[id]?.status !== 'ready');
+  if (failedIds.length) {
+    console.error(`  새 수집 미완료: ${failedIds.join(', ')} — 마지막 정상 목록과 실패 상태만 반영합니다.`);
+    process.exitCode = 3;
+  }
   const counts = itemCounts(snapshot);
   const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
   console.log(`  이번 수집: ${Object.entries(counts).map(([id, n]) => `${id} ${n}건`).join(' · ') || '없음'} (합계 ${total})`);
@@ -155,7 +160,6 @@ function main() {
     process.exit(4);
   }
 
-  const target = path.join(SITE_REPO, SITE_RELATIVE);
   const previous = readJson(target);
   if (previous) {
     /*
@@ -181,7 +185,7 @@ function main() {
   console.log(`  복사 완료 → ${target}`);
 
   if (!hasFlag('publish')) {
-    console.log('\n발행은 하지 않았습니다(사이트에 이 파일을 읽는 화면이 아직 없습니다).');
+    console.log('\n로컬 반영 완료. 아직 운영 사이트에는 발행하지 않았습니다.');
     console.log('발행하려면: node scripts/affiliate-refresh.js --publish');
     return;
   }

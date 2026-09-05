@@ -81,6 +81,13 @@ const TARGETS = [
 ];
 
 const hasFlag = (name) => process.argv.includes(`--${name}`);
+function selectedTargets() {
+  const option = process.argv.find((value) => value.startsWith('--sites='));
+  if (!option) return TARGETS;
+  const ids = option.slice(8).split(',');
+  if (ids.some((id) => !TARGETS.some((target) => target.id === id))) throw new Error('알 수 없는 제휴 플랫폼');
+  return TARGETS.filter((target) => ids.includes(target.id));
+}
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function waitForEnter(message) {
@@ -91,7 +98,7 @@ function waitForEnter(message) {
 async function launch() {
   return puppeteer.launch({
     // 두 플랫폼 다 headless 를 탐지한다. 로컬에 화면이 있으니 정직하게 창을 띄운다.
-    headless: false,
+    headless: hasFlag('headless'),
     userDataDir: PROFILE_DIR,
     defaultViewport: { width: 1280, height: 900 },
     args: ['--lang=ko-KR', '--disable-blink-features=AutomationControlled'],
@@ -101,12 +108,12 @@ async function launch() {
 async function loginMode() {
   fs.mkdirSync(PROFILE_DIR, { recursive: true });
   const browser = await launch();
-  for (const target of TARGETS) {
+  for (const target of selectedTargets()) {
     const page = await browser.newPage();
     await page.goto(target.url, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
   }
   console.log('');
-  console.log('열린 두 탭에서 각각 로그인하세요 (토스=휴대폰 인증, 네이버=아이디 로그인).');
+  console.log(`열린 ${selectedTargets().map((target) => target.label).join(' · ')} 창에서 로그인하세요.`);
   console.log('로그인 상태로 캠페인 목록이 보이면 — 브라우저 창을 그냥 닫으세요.');
   console.log('세션(쿠키)은 닫는 순간 프로필에 남습니다. 비밀번호는 저장되지 않습니다.');
   // 배경 실행에선 stdin 이 없다. 종료 신호 = ① 사용자가 창을 닫음 ② Enter(터미널 직접 실행 시).
@@ -150,38 +157,50 @@ async function scrapeMode() {
   }
   fs.mkdirSync(DUMP_DIR, { recursive: true });
   const browser = await launch();
-  const result = { generatedAt: new Date().toISOString(), sites: {} };
+  const runId = require('crypto').randomUUID();
+  const result = { runId, generatedAt: new Date().toISOString(), sites: {} };
 
-  for (const target of TARGETS) {
-    const siteDump = path.join(DUMP_DIR, target.id);
+  for (const target of selectedTargets()) {
+    const siteDump = path.join(DUMP_DIR, runId, target.id);
     fs.mkdirSync(siteDump, { recursive: true });
     const page = await browser.newPage();
     const captured = [];
     let fileIndex = 0;
+    const pending = new Set();
 
-    page.on('response', async (response) => {
+    const captureResponse = async (response) => {
       try {
         const url = response.url();
         const type = String(response.headers()['content-type'] || '');
         if (!type.includes('json')) return;
-        if (!/api|campaign|product|sharelink|brandconnect|list|feed/i.test(url)) return;
+        if (!/sharelink\/(?:products|curation-sections)|\/affiliate-products\/|\/affiliate-events\/[^/]+\/products\//i.test(url)) return;
+        if (response.status() < 200 || response.status() >= 300) return;
         const body = await response.text();
         if (!body || body.length > 3_000_000) return;
         fileIndex += 1;
         const file = path.join(siteDump, `${String(fileIndex).padStart(3, '0')}.json`);
-        fs.writeFileSync(file, JSON.stringify({ url, status: response.status(), body: JSON.parse(body) }, null, 1), 'utf8');
+        fs.writeFileSync(file, JSON.stringify({ runId, capturedAt: new Date().toISOString(), url, status: response.status(), body: JSON.parse(body) }, null, 1), 'utf8');
         captured.push({ url: url.slice(0, 160), file: path.basename(file) });
       } catch { /* 한 응답 실패로 채집을 멈추지 않는다 */ }
-    });
+    };
+    const onResponse = (response) => {
+      const task = captureResponse(response);
+      pending.add(task);
+      task.finally(() => pending.delete(task));
+    };
+    page.on('response', onResponse);
 
     console.log(`\n■ ${target.label} 여는 중…`);
-    await page.goto(target.url, { waitUntil: 'networkidle2', timeout: 90000 }).catch(() => {});
+    let navigationFailed = false;
+    await page.goto(target.url, { waitUntil: 'networkidle2', timeout: 45000 }).catch(() => { navigationFailed = true; });
     // 목록이 지연 로드되는 경우를 위해 두 번 스크롤하고 잠시 둔다.
     for (let i = 0; i < 3; i += 1) {
       await page.evaluate(() => window.scrollBy(0, 1200)).catch(() => {});
       await sleep(1500);
     }
     await sleep(4000);
+    page.off('response', onResponse);
+    await Promise.allSettled([...pending]);
 
     /*
      * 로그아웃 판정은 본문 글자가 아니라 **주소**로 한다. 로그인된 화면에도
@@ -203,12 +222,17 @@ async function scrapeMode() {
     result.sites[target.id] = {
       label: target.label,
       capturedResponses: captured.length,
+      capturedFiles: captured.map((item) => `${runId}/${target.id}/${item.file}`),
+      collectedAt: candidates.length ? new Date().toISOString() : null,
+      checkedAt: new Date().toISOString(),
+      navigationFailed,
       maybeLoggedOut: Boolean(loggedOut),
       listCandidates: candidates.slice(0, 8).map(({ sample, ...rest }) => rest),
     };
     // 표본은 원문 덤프에 이미 있으므로 결과 파일에는 요약만 싣는다.
     console.log(`  JSON 응답 ${captured.length}건 채집 · 목록 후보 ${candidates.length}건`
-      + (loggedOut ? ' · ⚠️ 로그인 풀린 것으로 보임' : ''));
+      + (loggedOut ? ' · ⚠️ 로그인 풀린 것으로 보임' : '')
+      + (navigationFailed ? ' · 페이지 연결 실패/시간초과' : ''));
     candidates.slice(0, 3).forEach((c) => console.log(`    후보: ${c.size}개짜리 배열 @ ${c.path} ← ${c.from}`));
     await page.close();
   }
