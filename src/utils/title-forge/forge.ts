@@ -92,7 +92,9 @@ export const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => st
  * 자체가 이 목록에 걸리는 말이라("핵심 정리"·"총정리"·"한눈에") 검증기가
  * AI 제목만 지키고 규칙 제목은 그대로 화면까지 갔다. 발원지 SSoT 로 옮긴다.
  */
-export const TITLE_CLICHES = /핵심\s*정리|핵심만|총정리|확인할\s*점|알아보|한눈에|정리해\s*봤/;
+// 상투구 + CTR 신뢰 위반어(2026-09-06 사장님 홈판 CTR 프롬프트) — 무조건·100%·평생·완벽 가이드는
+// 과장이라 신뢰를 깨고, 나머지는 아무 글에나 붙는 라벨이다.
+export const TITLE_CLICHES = /핵심\s*정리|핵심만|총정리|확인할\s*점|알아보|한눈에|정리해\s*봤|무조건|100\s*%|평생|완벽\s*가이드/;
 
 /** 파생 키워드에서 본 키워드 어절을 뺀 나머지 — 제목에 실을 추가 표현. */
 function extraTokens(derived: string, keyword: string): string {
