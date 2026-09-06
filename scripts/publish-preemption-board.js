@@ -398,6 +398,46 @@ function main() {
       + ` (자리없음 ${noSlot} · 폐지레인 ${offLane}, 겹칠 수 있음)`,
     );
   }
+
+  /*
+   * 브랜드 도배 제한 (2026-09-06 사장님 지시 "②브랜드 도배 제한").
+   *
+   * 한 브랜드가 꼬리만 바꿔 여러 줄을 먹으면 보드가 그 업체 홍보판이 된다 —
+   * 실측: "볼트업" 이 프로모션·회원카드·충전소·환경부카드로 4줄. 같은 앞 어절이
+   * MAX 개를 넘으면(검색량 높은 순으로) 나머지를 버린다. 서로 다른 브랜드는 안 건드린다.
+   *
+   * 앞 어절로 묶는 이유: 무명 업체·브랜드명은 대개 키워드 맨 앞에 온다("볼트업 충전소",
+   * "법률사무소 무아"→'법률사무소'). '법률사무소'·'산후조리원' 같은 업종어가 앞에 오면
+   * 업종 전체가 2건으로 묶여 과하게 잘릴 수 있으나, 그런 저볼륨 업종어야말로 도배의
+   * 온상이라 의도한 효과다. 검색량이 받쳐주는 일반어는 애초에 한두 줄뿐이라 영향 없다.
+   */
+  const BRAND_MAX = 2;
+  const headOf = (row) => {
+    const head = String(row.keyword || '').trim().split(/\s+/)[0] || '';
+    return head.length >= 2 ? head : '';
+  };
+  // 앞 어절별로 묶어 **검색량 상위 BRAND_MAX 개**만 keep — 어느 것을 남길지 정한다.
+  const byHead = new Map();
+  for (const row of merged.rows) {
+    const head = headOf(row);
+    if (!head) continue;
+    if (!byHead.has(head)) byHead.set(head, []);
+    byHead.get(head).push(row);
+  }
+  const keep = new Set();
+  const brandDropped = [];
+  for (const [head, list] of byHead) {
+    if (list.length <= BRAND_MAX) { list.forEach((r) => keep.add(r)); continue; }
+    [...list].sort((a, b) => (Number(b.searchVolume) || 0) - (Number(a.searchVolume) || 0))
+      .slice(0, BRAND_MAX).forEach((r) => keep.add(r));
+    brandDropped.push(`${head}×${list.length}`);
+  }
+  // 원래 순서는 유지하고, 컷 대상만 뺀다(앞 어절 없는 행은 그대로 통과).
+  const beforeBrand = merged.rows.length;
+  merged.rows = merged.rows.filter((row) => !headOf(row) || keep.has(row));
+  if (beforeBrand !== merged.rows.length) {
+    console.log(`  브랜드 도배  ${beforeBrand} → ${merged.rows.length}행 (앞어절 ${BRAND_MAX}건 초과 컷: ${brandDropped.join(', ')})`);
+  }
   console.log(
     `  누적        신규 ${merged.fresh} + 이월 ${merged.carried}(≤${carryDays}일)`
     + `${merged.expired > 0 ? ` · 만료 ${merged.expired}` : ''}`

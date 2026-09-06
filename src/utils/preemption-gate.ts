@@ -93,8 +93,17 @@ export interface PreemptionThresholds {
 export const DEFAULT_PREEMPTION_THRESHOLDS: PreemptionThresholds = {
   minMedianDaysAgo: 30,
   maxHoursSinceFirstSeen: 48,
-  // 롱테일은 원래 검색량이 낮다. 실측 30건 분포가 중앙 50 · 300 이상은 4건뿐이었다.
-  minSearchVolume: 100,
+  /*
+   * 검색량 하한 500 (2026-09-06 사장님 지시 "①검색량 하한 상향").
+   *
+   * 100 이었을 때 발행 65행의 52%가 검색량 500 미만이었고, 그 대부분이 무명
+   * 업체·브랜드명 꼬리("법률사무소 무아"·"볼트업 충전소")였다. 문서수가 낮아
+   * '황금 비율'을 통과했지만, 검색량 100~450 은 1페이지에 올려도 트래픽이 거의 없고
+   * 무명 브랜드는 애초에 아무도 안 찾는다 — 걸러야 할 것이 정확히 통과하던 구조다.
+   * 이 값은 후보 선별(preemption-candidates)·게이트·batch 의 단일 출처라 한 곳만
+   * 올리면 세 곳에 함께 반영된다(주석 아래 minSearchVolume 설명 참조).
+   */
+  minSearchVolume: 500,
   minSampledTitles: 5,
   topSlots: 3,
   /*

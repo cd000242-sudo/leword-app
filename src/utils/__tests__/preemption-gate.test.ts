@@ -383,14 +383,15 @@ describe('선점 게이트 — 문서수가 검색량보다 많으면 빈자리�
     };
 
     it('소음이 검색량의 10배를 넘으면 정면 대응 0건이어도 안 올린다', () => {
-        // 실측 '에너지바우처조회' — 검색량 280 · 문서 22,035(79배). 이걸 빈자리라고 부를 수 없다.
-        const out = selectWithFill([{ ...base, searchVolume: 280, documentCount: 22035 }], { target: 5 });
+        // 실측 '에너지바우처조회' 형 — 문서가 검색량의 수십 배. 검색량 하한(500) 위에서도
+        // 소음 필터가 잡아야 한다(하한 상향 2026-09-06 뒤에도 이 로직이 살아있는지 본다).
+        const out = selectWithFill([{ ...base, searchVolume: 700, documentCount: 55000 }], { target: 5 });
         expect(out.rows).toHaveLength(0);
         expect(out.rejected[0].failed[0]).toContain('소음이 너무 두껍다');
     });
 
     it('문서 4만 개짜리는 더 말할 것도 없다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 180, documentCount: 40560 }], { target: 5 });
+        const out = selectWithFill([{ ...base, searchVolume: 700, documentCount: 40560 }], { target: 5 });
         expect(out.rows).toHaveLength(0);
     });
 
@@ -412,7 +413,7 @@ describe('선점 게이트 — 문서수가 검색량보다 많으면 빈자리�
 
     // 못 쟀으면 자르지 않는다 — 못 본 것과 나쁜 것을 섞지 않는다.
     it('문서수를 못 쟀으면 비율로 자르지 않는다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 280, documentCount: null }], { target: 5 });
+        const out = selectWithFill([{ ...base, searchVolume: 700, documentCount: null }], { target: 5 });
         expect(out.rows).toHaveLength(1);
     });
 
@@ -500,7 +501,7 @@ describe('선점 게이트 — 브리핑 유무가 층보다 앞선다', () => {
  */
 describe('선점 게이트 — 문서수 0', () => {
     const input = {
-        keyword: '야설사이트', searchVolume: 130, documentCount: 0,
+        keyword: '야설사이트', searchVolume: 700, documentCount: 0,
         serp: {
             sampledTitles: 10, exactTitleHits: 0, partialTitleHits: 0,
             medianDaysAgo: 120, topTitles: ['가', '나', '다'], hasAiBriefing: false,
