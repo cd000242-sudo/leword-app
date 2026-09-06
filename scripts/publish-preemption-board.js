@@ -36,6 +36,7 @@ const { judgeTimingGroup } = require('../src/utils/preemption-timing-group');
 // 자리 판정 근거를 화면까지 실어 보내려면 여기서도 커버리지를 계산해야 한다.
 const { titleCoverage } = require('../src/utils/serp-winnability');
 const { mergeCarryRows } = require('../src/utils/board-carry');
+const { TIER_ORDER } = require('../src/utils/preemption-gate');
 
 const DEFAULT_DEST = path.join(
   __dirname, '..', 'tmp', 'leaderspro-admin-work', 'spa', 'public', 'data', 'preemption-board.json',
@@ -438,6 +439,28 @@ function main() {
   if (beforeBrand !== merged.rows.length) {
     console.log(`  브랜드 도배  ${beforeBrand} → ${merged.rows.length}행 (앞어절 ${BRAND_MAX}건 초과 컷: ${brandDropped.join(', ')})`);
   }
+
+  /*
+   * 최종 정렬 — 검색량 큰 순 (2026-09-06 사장님 방향 "검색량이 많아야 그만큼
+   * 가져오는 게 많다 · 다른 툴이 못 주는 고수 키워드를 보여주는 거지").
+   *
+   * 예전엔 배치가 낸 순서(tier 순, 층 안에서 저볼륨이 섞임)라 검색량 120~390 무명
+   * 키워드가 맨 앞이고 트래픽 큰 실용 키워드(기아 EV7 5,190)는 뒤에 묻혔다. 무료
+   * 5건 맛보기도 그 저볼륨을 보여줬다.
+   *
+   * **자리(상위 가능성)는 이미 게이트가 보장한다** — 발행까지 온 행은 전부 자리
+   * 없는 것(openSlot<=0)이 걸러졌고 소음 비율도 통과했다. 그러니 남은 것 사이에선
+   * 트래픽(검색량)이 큰 순서가 곧 실용성 순서다. tier 는 자리의 '종류'일 뿐 우열이
+   * 아니라서 정렬 키로 쓰지 않는다(top3 의 120 보다 golden-ratio 의 5,190 이 먼저다).
+   * 검색량이 같거나 없으면 tier 로만 가른다(자리 확실한 층을 앞에).
+   */
+  const tierRank = (t) => {
+    const i = TIER_ORDER.indexOf(String(t || ''));
+    return i < 0 ? TIER_ORDER.length : i;
+  };
+  merged.rows.sort((a, b) => ((Number(b.searchVolume) || 0) - (Number(a.searchVolume) || 0))
+    || (tierRank(a.tier) - tierRank(b.tier)));
+
   console.log(
     `  누적        신규 ${merged.fresh} + 이월 ${merged.carried}(≤${carryDays}일)`
     + `${merged.expired > 0 ? ` · 만료 ${merged.expired}` : ''}`
