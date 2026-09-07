@@ -206,6 +206,33 @@ describe('선점 보드 워크플로 — 샤딩', () => {
     });
 });
 
+/**
+ * 씨앗 창고만 돌리는 길(2026-09-08).
+ *
+ * 힌트 창구를 열면서 실제 응답을 감사해야 하는데, 로컬엔 검색광고 키가 없고
+ * 워크플로를 통째로 돌리면 BD 크레딧이 나간다. seedsOnly 입력으로 씨앗 잡만
+ * 돌려 로그의 순위 구간 표본을 읽는다 — 무료 호출 200여 회뿐이다.
+ */
+describe('선점 보드 워크플로 — 씨앗만 돌리기', () => {
+    it('seedsOnly 입력이 선언돼 있다', () => {
+        expect(/seedsOnly:/.test(workflow)).toBe(true);
+    });
+
+    /*
+     * 발굴과 발행 **둘 다** 막아야 한다. 발굴만 막으면 발행이 always() 로 돌아
+     * 샤드 없이 합치기에서 죽고, 발행만 막으면 발굴이 무료 API 를 다 태운다.
+     */
+    it('seedsOnly 가 켜지면 발굴·발행 잡이 모두 멈춘다', () => {
+        const guards = workflow.match(/inputs\.seedsOnly\s*!=\s*'true'/g) || [];
+        expect(guards.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('seedsOnly 면 창고를 강제로 다시 긁는다 — 3일 안쪽이면 그냥 끝나 감사가 안 된다', () => {
+        const seedsJob = workflow.slice(workflow.indexOf('seeds:'), workflow.indexOf('discover:'));
+        expect(/--force/.test(seedsJob)).toBe(true);
+    });
+});
+
 describe('선점 보드 워크플로 — 실행 시각', () => {
     /*
      * cron 은 UTC 다. 한국 월요일 07:00 은 UTC 일요일 22:00, 금요일 07:00 은

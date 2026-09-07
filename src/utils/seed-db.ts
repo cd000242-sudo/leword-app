@@ -216,8 +216,8 @@ export const KEYWORD_TOPIC: Array<{ topic: string; pattern: RegExp }> = [
 
 /**
  * 이 씨앗이 어느 주제 것인가.
- *   ① 말 자체로 아는 것(지원금 계열)   ② 업종 매핑
- * 둘 다 아니면 null — 주제를 고른 발굴에서는 안 쓰인다.
+ *   ① 말 자체로 아는 것(지원금 계열)   ② 힌트 출처   ③ 업종 매핑
+ * 셋 다 아니면 null — 주제를 고른 발굴에서는 안 쓰인다.
  */
 export function topicOfSeed(entry: SeedDbEntry): string | null {
   const keyword = String(entry.keyword || '');
@@ -225,6 +225,13 @@ export function topicOfSeed(entry: SeedDbEntry): string | null {
     if (rule.pattern.test(keyword)) return rule.topic;
   }
   const source = String(entry.source || '');
+  /*
+   * 힌트 창구(2026-09-08) — build-seed-db 가 hintKeywords=주제머리말 로 긁어
+   * `hint:주제` 를 단다. 창고에서 0개 받던 영화·드라마·방송·연예 주제의 공급원이다
+   * (업종 창구는 광고주용이라 그 주제가 아예 없다 — seed-hints.ts). 말이 아니라
+   * 출처로 가르므로 부분일치 오탐이 없다. 라벨이 비면 null.
+   */
+  if (source.startsWith('hint:')) return source.slice(5) || null;
   if (!source.startsWith('biztp:')) return null;
   return BIZTP_TOPIC[source.slice(6)] || null;
 }

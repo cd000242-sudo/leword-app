@@ -25,6 +25,11 @@
  *   node scripts/build-seed-db.js --force            # 무조건 다시 긁는다
  *   node scripts/build-seed-db.js --maxAgeDays=7     # 문턱 조정
  *   node scripts/build-seed-db.js --maxBiztp=60      # 업종 탐색 상한
+ *   node scripts/build-seed-db.js --out=경로          # 다른 파일에 쓴다(가짜 fetch 하네스용)
+ *
+ * 힌트 창구(2026-09-08): 업종 창구는 광고주용이라 영화·드라마·방송·연예 주제가
+ * 아예 없다(열 주제가 창고 0개, 실측). hintKeywords=주제 머리말 로 연관어를 받아
+ * `hint:주제` 출처로 담는다 — 머리말 표는 src/utils/seed-hints.ts.
  */
 
 require('ts-node/register/transpile-only');
@@ -32,6 +37,9 @@ require('ts-node/register/transpile-only');
 const fs = require('fs');
 const path = require('path');
 const { createHmac } = require('crypto');
+const {
+  SEED_HINTS, HINT_ROWS_CAP, hintSourceTag, preferSource, warehouseNeedsRebuild,
+} = require('../src/utils/seed-hints');
 
 const arg = (name) => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -39,7 +47,8 @@ const arg = (name) => {
 };
 const hasFlag = (name) => process.argv.includes(`--${name}`);
 
-const DEST = path.join(__dirname, '..', 'data', 'seed-db.json');
+// --out 은 하네스용이다 — 가짜 fetch 로 끝까지 돌려 볼 때 진짜 창고를 덮어쓰지 않는다.
+const DEST = arg('out') ? path.resolve(arg('out')) : path.join(__dirname, '..', 'data', 'seed-db.json');
 const HOST = 'https://api.searchad.naver.com';
 const URI = '/keywordstool';
 
@@ -107,8 +116,9 @@ async function main() {
   if (!hasFlag('force') && fs.existsSync(DEST)) {
     try {
       const previous = JSON.parse(fs.readFileSync(DEST, 'utf8'));
-      const ageDays = (Date.now() - Date.parse(previous.builtAt)) / 86400000;
-      if (Number.isFinite(ageDays) && ageDays < maxAgeDays) {
+      // 날짜만 보지 않는다 — 힌트 창구가 없는 옛 꼴이면 신선해도 다시 긁는다(seed-hints.ts).
+      if (!warehouseNeedsRebuild(previous, { maxAgeDays })) {
+        const ageDays = (Date.now() - Date.parse(previous.builtAt)) / 86400000;
         console.log(`창고가 ${ageDays.toFixed(1)}일 전 것이라 그대로 씁니다(${previous.totalSeeds?.toLocaleString('ko-KR')}개). 다시 긁으려면 --force.`);
         process.exit(0);
       }
@@ -121,7 +131,7 @@ async function main() {
   const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
   /** 창구별로 {키워드 → 검색량}. 같은 말이 여러 창구에서 와도 한 번만 센다. */
   const seeds = new Map();
-  const sources = { month: {}, event: {}, biztp: {} };
+  const sources = { month: {}, event: {}, biztp: {}, hint: {} };
   let calls = 0;
   let failed = 0;
 
@@ -129,11 +139,15 @@ async function main() {
    * 출처를 함께 남긴다(2026-09-07). 업종 씨앗은 그 업종이 곧 주제라서, 발굴이
    * "자동차 주제에는 자동차 업종 씨앗"을 고를 수 있다. 출처 없이 섞어 두면
    * 자동차 주제에 '페키니즈분양'이 실린다(실측).
-   *   biztp:17 · month:11 · event:23  꼴로 적는다.
-   * 같은 말이 여러 창구에서 오면 **먼저 만난 출처**를 남긴다 — 업종을 먼저 긁지
-   * 않고 월·시즌을 먼저 긁는 순서라, 주제성이 약한 쪽이 이기지 않도록 업종을 마지막에.
+   *   biztp:17 · month:11 · event:23 · hint:영화  꼴로 적는다.
+   *
+   * 같은 말이 여러 창구에서 오면 **주제를 아는 출처**를 남긴다(2026-09-08).
+   * 전엔 먼저 만난 출처를 남겼는데, 월·시즌을 먼저 긁는 순서라 업종 창구 행
+   * 84,882개 중 21,899개가 출처를 잃었다 — 월·시즌 출처는 주제가 없어 라우팅이
+   * 안 되므로, 그 말이 업종에서도 왔다는 사실이 통째로 버려진 것이다.
+   * 우선순위(힌트 > 업종 > 월·시즌)는 seed-hints.preferSource 가 정한다.
    */
-  const collect = (rows, bucket, label, sourceTag) => {
+  const collect = (rows, bucket, label, sourceTag, extra = {}) => {
     let added = 0;
     for (const row of rows) {
       const keyword = String(row.relKeyword || '').trim();
@@ -144,10 +158,10 @@ async function main() {
       seeds.set(keyword, {
         // 같은 말이 두 창구에서 오면 큰 값을 남긴다 — 어느 쪽도 지어낸 값이 아니다.
         searchVolume: Math.max(previous ? previous.searchVolume : 0, volume),
-        source: previous ? previous.source : sourceTag,
+        source: previous ? preferSource(previous.source, sourceTag) : sourceTag,
       });
     }
-    bucket[label] = { rows: rows.length, newSeeds: added };
+    bucket[label] = { rows: rows.length, newSeeds: added, ...extra };
     return added;
   };
 
@@ -201,6 +215,35 @@ async function main() {
   }
 
   /*
+   * 힌트 창구(2026-09-08) — 창고에서 0개 받던 주제의 공급원.
+   *
+   * 업종 창구는 광고주용이라 영화·드라마·방송·연예·음악·만화·미술·사진·좋은글·
+   * 원예 열 주제가 아예 없다(실측: 창고 44,344개 중 0개). 주제별 머리말을
+   * hintKeywords 로 넣어 연관어를 받는다. 출처는 `hint:주제` — 말이 아니라 출처로
+   * 라우팅하므로 부분일치 오탐이 없다.
+   *
+   * 머리말당 상위 HINT_ROWS_CAP 만 쓴다 — 업종 창구가 51위부터 딴 밭이 섞였던
+   * 것과 같은 병을 막는다. 순위 구간 표본을 로그에 남기므로, 첫 회차 로그가
+   * 곧 감사다(로컬엔 검색광고 키가 없어 여기서밖에 볼 수 없다).
+   */
+  console.log('■ 힌트(hintKeywords=주제 머리말) — 업종 창구에 없는 연예·문화 주제');
+  for (const [topic, heads] of Object.entries(SEED_HINTS)) {
+    for (const head of heads) {
+      const { rows: allRows, ok, status } = await tool(creds, `hintKeywords=${encodeURIComponent(head)}&showDetail=1`);
+      calls += 1;
+      if (!ok) failed += 1;
+      const rows = allRows.slice(0, HINT_ROWS_CAP);
+      const added = collect(rows, sources.hint, head, hintSourceTag(topic), { topic, rawRows: allRows.length });
+      console.log(`  ${topic} / ${head.padEnd(9)} ${String(allRows.length).padStart(5)}개 → 상위 ${String(rows.length).padStart(3)} · 새 ${String(added).padStart(4)}${ok ? '' : ` (HTTP ${status})`}`);
+      for (const at of [0, 50, 150]) {
+        if (at >= rows.length) continue;
+        console.log(`      ${String(at + 1).padStart(3)}위~ ${rows.slice(at, at + 6).map((r) => r.relKeyword).join(' · ')}`);
+      }
+      await sleep(gapMs);
+    }
+  }
+
+  /*
    * 저볼륨은 버린다(2026-09-07). 발굴은 minSearchVolume(500) 위만 씨앗으로 쓰므로
    * 그 아래를 실어 봐야 파일만 커진다 — 월·금마다 커밋하는 파일이라 크기가 곧
    * 레포 무게다. 전부 담으면 7.5MB, 하한을 걸면 그 절반 아래로 떨어진다.
@@ -217,7 +260,7 @@ async function main() {
     builtAt: new Date().toISOString(),
     generator: 'build-seed-db',
     /** 이 값들은 전부 검색광고 실측이다 — 여기서 계산한 수치는 없다. */
-    source: 'searchad keywordstool (month · event · biztpId)',
+    source: 'searchad keywordstool (month · event · biztpId · hintKeywords)',
     calls,
     failed,
     totalSeeds: all.length,

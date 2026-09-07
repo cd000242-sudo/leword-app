@@ -13,6 +13,12 @@ on:
       targetPerTopic:
         description: 주제당 목표 건수
         default: '4'
+      # 씨앗 창고만 다시 긁고 끝낸다 — BD 크레딧을 안 쓴다(무료 호출 200여 회).
+      # 힌트 창구(2026-09-08)의 실제 응답을 감사하려고 만들었다. 로컬엔 검색광고
+      # 키가 없고, 회차를 통째로 돌리면 돈이 나간다. 로그의 순위 구간 표본을 읽는다.
+      seedsOnly:
+        description: 씨앗 창고만 다시 긁고 끝낸다 (BD 안 씀)
+        default: 'false'
 
 concurrency:
   group: preemption-board
@@ -88,7 +94,10 @@ jobs:
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
           NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
-        run: node scripts/build-seed-db.js
+          # seedsOnly 감사 실행은 강제로 다시 긁는다 — 레포 창고가 3일 안쪽이면
+          # 스크립트가 "그대로 씁니다" 하고 끝나 버려서 볼 것이 없다.
+          FORCE_REBUILD: ${{ github.event.inputs.seedsOnly == 'true' }}
+        run: node scripts/build-seed-db.js $([ "$FORCE_REBUILD" = 'true' ] && echo --force)
 
       - name: 씨앗 창고 넘기기
         if: always()
@@ -103,7 +112,8 @@ jobs:
   discover:
     needs: seeds
     # 씨앗 창고가 실패해도 발굴은 돈다(상시·계절 씨앗만으로도 판다).
-    if: always()
+    # seedsOnly 감사 실행이면 여기서 멈춘다 — 무료 API 도 태우지 않는다.
+    if: ${{ always() && github.event.inputs.seedsOnly != 'true' }}
     runs-on: ubuntu-latest
     # 샤드 하나는 8주제라 실측 기준 100분 안쪽이다. 여유를 두고 240분.
     timeout-minutes: 240
@@ -252,7 +262,9 @@ jobs:
     needs: discover
     # 샤드 일부가 죽어도 살아남은 것으로 발행한다 — "부분 보드 > 빈손" 방침.
     # 전멸이면 합치기가 던져서 회차가 빨간불로 남는다(조용한 0행 발행 방지).
-    if: always()
+    # seedsOnly 면 발굴이 건너뛰어 샤드가 없다 — always() 만 두면 여기가 빈손으로
+    # 돌아 합치기에서 죽으므로 같은 조건으로 함께 멈춘다.
+    if: ${{ always() && github.event.inputs.seedsOnly != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 300
     # 최초 관측 장부를 이 레포에 되돌려 커밋하기 위해 필요하다(아래 마지막 스텝).

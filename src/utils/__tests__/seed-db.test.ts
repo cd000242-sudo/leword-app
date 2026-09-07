@@ -178,6 +178,39 @@ describe('게임 레인 — 말로 씨앗 건지기', () => {
   });
 });
 
+/**
+ * 힌트 출처(2026-09-08). build-seed-db 가 hintKeywords 로 긁은 씨앗은 `hint:주제`
+ * 출처를 달고 온다 — 창고에서 0개 받던 영화·드라마·방송·연예 주제의 공급원이다.
+ * 말이 아니라 출처로 라우팅하므로 부분일치 오탐이 없다.
+ */
+describe('topicOfSeed — 힌트 출처', () => {
+  it('hint:주제 출처는 그 주제로 간다', () => {
+    expect(topicOfSeed({ keyword: '넷플릭스영화추천', searchVolume: 1000, source: 'hint:영화' })).toBe('영화');
+    expect(topicOfSeed({ keyword: '아이돌포토카드', searchVolume: 1000, source: 'hint:스타·연예인' })).toBe('스타·연예인');
+  });
+
+  it('말 규칙이 힌트보다 먼저다 — 지원금은 어느 창구에서 왔든 사회·정치', () => {
+    expect(topicOfSeed({ keyword: '영화제작지원금', searchVolume: 1000, source: 'hint:영화' })).toBe('사회·정치');
+  });
+
+  it('라벨이 빈 힌트는 null', () => {
+    expect(topicOfSeed({ keyword: '아무말', searchVolume: 1000, source: 'hint:' })).toBeNull();
+  });
+
+  it('힌트 출처 씨앗을 주제로 고를 수 있다 — 업종 순위 상한에 걸리지 않는다', () => {
+    const store = {
+      builtAt: '2026-09-08T00:00:00Z',
+      totalSeeds: 2,
+      seeds: [
+        { keyword: '넷플릭스영화추천', searchVolume: 5000, source: 'hint:영화' },
+        { keyword: '삼성전자주가', searchVolume: 9000, source: 'biztp:5' },
+      ],
+    };
+    expect(pickSeeds(store, { limit: 10, minVolume: 500, topic: '영화' })).toEqual(['넷플릭스영화추천']);
+    expect(pickSeeds(store, { limit: 10, minVolume: 500, topic: '비즈니스·경제' })).toEqual(['삼성전자주가']);
+  });
+});
+
 describe('roundFromDate', () => {
   it('같은 날은 같은 회차 번호', () => {
     expect(roundFromDate(new Date(2026, 8, 7, 3))).toBe(roundFromDate(new Date(2026, 8, 7, 20)));
