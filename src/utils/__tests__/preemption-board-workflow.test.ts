@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
+import { NAVER_BLOG_TOPICS } from '../naver-blog-topics';
 
 /**
  * 선점 보드 워크플로가 **실제로 돌 수 있는지**를 파일만 보고 가른다.
@@ -39,7 +40,19 @@ function topicsInWorkflow(): string[] {
     return match ? match[1].split(',').filter(Boolean) : [];
 }
 
+/**
+ * 발행이 싣는 주제.
+ *
+ * 두 꼴을 다 읽는다. 32주제 전면 개방(2026-09-07)에서 손으로 적던 목록을
+ * naver-blog-topics 단일 출처로 바꿨는데, 그때 이 파서가 옛 꼴만 알아서 "발행 0종"
+ * 이라고 잘못 알렸다 — 테스트가 스스로 잡은 것이라 파서를 새 꼴에 맞춘다.
+ *   새 꼴  new Set(NAVER_BLOG_TOPICS.map(...))  → 그 목록이 곧 주제다
+ *   옛 꼴  new Set(['사회·정치', ...])          → 리터럴을 센다(주석은 지우고)
+ */
 function topicsInPublishGate(): string[] {
+    if (/const ACTIVE_TOPICS = new Set\(\s*NAVER_BLOG_TOPICS\b/.test(publishScript)) {
+        return NAVER_BLOG_TOPICS.map((entry) => entry.label);
+    }
     const block = publishScript.match(/const ACTIVE_TOPICS = new Set\(\[([\s\S]*?)\]\)/);
     if (!block) return [];
     // 주석부터 지운다 — 설명 안의 따옴표까지 주제로 세면 안 된다(이 테스트가 잡아냈다).

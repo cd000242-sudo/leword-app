@@ -387,17 +387,21 @@ async function main() {
    *    분류가 안 된 행('주제 선택 안 함')도 같이 나간다 — 표본이 OTT·주가·펜션
    *    같은 딴 주제였다. 새 회차에서 이 사유로 많이 빠지면 로그에 드러난다.
    */
-  const ACTIVE_TOPICS = new Set([
-    '사회·정치', '비즈니스·경제', '일상·생각', '자동차', '건강·의학', '국내여행', '육아·결혼',
-    /*
-     * 공연·전시 레인(사장님 지시 2026-09-07 "공연레인 열어").
-     * 씨앗은 이미 갖춰져 있다 — 상시 14개(티켓팅 실패·시야제한석·암표 신고)와
-     * 창고 83개(내한공연·조용필콘서트·대학로연극). 창고 규칙은 '뮤지컬·콘서트·
-     * 전시회'가 든 말을 출처와 무관하게 이 주제로 보낸다(seed-db KEYWORD_TOPIC).
-     * 축제는 여기가 아니라 국내여행이다 — 지역·날짜로 찾는 나들이라 성격이 다르다.
-     */
-    '공연·전시',
-  ]);
+  /*
+   * 【32주제 전면 개방 2026-09-07】사장님 지시: "모든 주제를 다 열어놔.
+   * 어떤 키워드를 원하는지 모르잖아 사용자들은."
+   *
+   * 이 게이트는 원래 사장님 판(지원금·세금·보험)에 집중하려고 7주제로 좁혀 둔 것이다.
+   * 그런데 이 보드는 사장님만 보는 것이 아니라 **사용자가 자기 주제를 골라 보는 판**이라,
+   * 어느 주제를 원할지 모르는 채로 25종을 잘라 내면 그 사람들에게는 빈 판이 된다.
+   * naver-blog-topics 의 32종을 그대로 싣는다 — 화면의 주제 고르개가 그 역할을 한다.
+   *
+   * 목록은 손으로 적지 않고 단일 출처에서 가져온다. 손으로 적으면 워크플로의
+   * --topics= 와 어긋나고, 그 어긋남은 조용하다(발굴은 되는데 여기서 전부 걸러진다).
+   * preemption-board-workflow.test.ts 가 두 곳을 대조한다.
+   */
+  const { NAVER_BLOG_TOPICS } = require('../src/utils/naver-blog-topics');
+  const ACTIVE_TOPICS = new Set(NAVER_BLOG_TOPICS.map((entry) => entry.label));
   const beforeGate = merged.rows.length;
   const noSlot = merged.rows.filter((row) => row.openSlot != null && Number(row.openSlot) <= 0).length;
   const offLane = merged.rows.filter((row) => !ACTIVE_TOPICS.has(String(row.topic || ''))).length;
