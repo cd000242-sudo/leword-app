@@ -18,19 +18,102 @@ concurrency:
   group: preemption-board
   cancel-in-progress: false
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 【극한 공급 개편 2026-09-07】사장님 지시: "최대한 극한으로 끌어올려.
+# 예산 정했으면 전부 써. 발굴 게이트도 최대한 풀고… 더 가능한 작업은 전부 동원해.
+# 이 황금키워드가 많아야 메리트가 있는 거니까."
+#
+# 첫 32주제 회차(34095577375) 실측이 병목을 뒤집었다 — BD 가 아니었다.
+#
+#   npm ci            4분 53초
+#   발굴 단계       2시간 56분   ← 자동완성 10,608회가 그중 2시간 49분
+#   BD 판정          37분 23초   ← 예산 1,920콜 중 736콜만 씀 (62% 미사용)
+#   에이전트 보강     32분 03초
+#   ─────────────────────────
+#   회차 전체       4시간 11분   (잡 제한 300분 — 남은 여유 49분)
+#
+# 진짜 병목은 표본이었다. 자동완성이 만든 문장은 197,889개인데 검색량을 재 본
+# 것은 19,200개(9.7%)뿐이다. sampleCap 기본값이 perTopic×20 이라 주제당 600개에서
+# 끊겼기 때문이다. 주제별로 보면 더 선명하다:
+#
+#   문학·책   완결 13,571 → 표본 600(4.4%) → 수요통과 62 → 후보 14
+#   일상·생각 완결 17,298 → 표본 600(3.5%) → 수요통과 78 → 후보 14
+#   반려동물  완결 12,086 → 표본 600(5.0%) → 수요통과 60 → 후보  6
+#
+# 즉 2시간 49분을 들여 만든 문장의 90%를 **쳐다보지도 않고 버리고 있었다.**
+#
+# 그런데 한 잡에서 표본만 늘리면 300분 제한에 걸려 회차가 통째로 0행이 된다.
+# 그래서 잡을 셋으로 나눈다 — 발굴을 러너 4대에 흩고, 합치기·BD·발행은 한 곳에서
+# 한다. 러너당 IP 요청 속도는 그대로라 네이버에 더 세게 두드리지 않는다.
+# 벽시계만 1/4 이 된다.
+#
+#   seeds    씨앗 창고 1회 (샤드 4개가 각자 만들면 같은 152콜을 4번 쓴다)
+#   discover 샤드 4개 병렬 — 주제는 라운드로빈으로 나뉜다(무거운 주제 쏠림 방지)
+#   publish  합치기 → 절단 → BD → 보강 → 발행 → 장부 (예산·장부는 단일 기록자)
+#
+# 주제 목록은 discover 의 --topics= 한 곳에만 적는다. 매트릭스에 흩어 적으면
+# 발행의 ACTIVE_TOPICS 와 대조할 수가 없다(preemption-board-workflow.test.ts).
+# 샤드 분배는 스크립트가 한다(--shard/--shards, candidate-shards.js).
+# ─────────────────────────────────────────────────────────────────────────────
+
 jobs:
-  discover:
+  # ── 1) 씨앗 창고 ────────────────────────────────────────────────────────────
+  # 검색광고가 공식으로 내주는 month·event·biztpId 를 긁어 둔다(실측 44,344개).
+  # 3일 안쪽이면 스스로 건너뛴다. 샤드마다 돌리면 같은 152콜을 4번 쓰므로 여기서
+  # 한 번만 만들고 아티팩트로 넘긴다.
+  #
+  # 실패해도 회차는 살린다 — 창고가 없거나 낡아도 발굴은 기존 씨앗(상시·계절)으로
+  # 그대로 돈다. 그래서 아래 discover 는 이 잡의 성패를 기다리지 않는다.
+  seeds:
     runs-on: ubuntu-latest
-    # 90분이면 모자란다 — 2026-08-11 회차가 정확히 90분에 잘렸다.
-    # 실측 배분: 후보 발굴 63분(무료 API 구간) + Bright Data 27분에 29주제 중 14주제.
-    # 전 주제를 도려면 BD 만 60분쯤 필요하다. 여유를 두고 3시간으로 둔다.
-    timeout-minutes: 300
-    # 최초 관측 장부를 이 레포에 되돌려 커밋하기 위해 필요하다(아래 마지막 스텝).
-    permissions:
-      contents: write
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
+
+      - name: 씨앗 창고 갱신
+        continue-on-error: true
+        env:
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+        run: node scripts/build-seed-db.js
+
+      - name: 씨앗 창고 넘기기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-db
+          path: data/seed-db.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ── 2) 후보 발굴 (샤드 4개 병렬) ─────────────────────────────────────────────
+  discover:
+    needs: seeds
+    # 씨앗 창고가 실패해도 발굴은 돈다(상시·계절 씨앗만으로도 판다).
+    if: always()
+    runs-on: ubuntu-latest
+    # 샤드 하나는 8주제라 실측 기준 100분 안쪽이다. 여유를 두고 240분.
+    timeout-minutes: 240
+    strategy:
+      # 한 샤드가 죽어도 나머지 셋은 끝까지 판다. 합치기가 빠진 샤드를 건너뛴다.
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -76,12 +159,20 @@ jobs:
           fi
           echo '필수 시크릿 확인됨.'
 
+      # 씨앗 창고를 받아 온다. 없으면 레포에 커밋된 지난 회차 것을 그대로 쓴다.
+      - name: 씨앗 창고 받기
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: seed-db
+          path: data
+
       # 실시간 검색어 스냅샷. 무료이고, BD 를 태우기 전에 뜬다.
       #
-      # 이게 없으면 아래 두 스텝의 실시간 집합이 비어서 `inRealtimeNow` 가 전 행
-      # false 가 되고, 화면에는 "실시간 검색어에는 아직 없다 — 대중화 전이다" 가
-      # **재보지도 않은 채** 근거로 붙는다(2026-08-11 확인). 공급원은 네이버 하나다 —
-      # 보드가 판정하는 자리가 네이버 자리이기 때문이다.
+      # 이게 없으면 실시간 집합이 비어서 `inRealtimeNow` 가 전 행 false 가 되고,
+      # 화면에는 "실시간 검색어에는 아직 없다 — 대중화 전이다" 가 **재보지도 않은 채**
+      # 근거로 붙는다(2026-08-11 확인). 공급원은 네이버 하나다 — 보드가 판정하는
+      # 자리가 네이버 자리이기 때문이다.
       #
       # 실패하면 파일을 안 남긴다. 그러면 아래 단계가 '못 쟀음'(null)으로 다뤄
       # 근거에서 뺀다 — 회차를 죽이지는 않는다.
@@ -89,19 +180,7 @@ jobs:
         continue-on-error: true
         run: node scripts/realtime-signals.js --out=signals.json --limit=20
 
-      # 씨앗 창고 갱신 — 검색광고가 공식으로 내주는 month·event·biztpId 를 긁어 둔다
-      # (실측 44,344개 · 3,000↑ 17,760). 회차와 같은 월·금 주기이고, 3일 안쪽이면
-      # 스스로 건너뛴다. 실패해도 회차는 살린다 — 창고가 없거나 낡아도 발굴은
-      # 기존 씨앗(상시·계절)으로 그대로 돈다.
-      - name: 씨앗 창고 갱신
-        continue-on-error: true
-        env:
-          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
-          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
-          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
-        run: node scripts/build-seed-db.js
-
-      # 후보 발굴은 무료다(검색광고·자동완성). BD 크레딧은 다음 단계에서만 쓴다.
+      # 후보 발굴은 무료다(검색광고·자동완성). BD 크레딧은 발행 잡에서만 쓴다.
       - name: 후보 발굴
         env:
           # SEARCH 와 AD 사이 밑줄을 빼면 조용히 빈 값이 된다. EnvironmentManager 가
@@ -116,59 +195,117 @@ jobs:
           # API HUB 시크릿 등록 전엔 빈 값 → 어댑터가 legacy 로 동작(무해)
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
-        # perTopic 은 표본 폭(perTopic × 12)도 같이 정한다. 6 이면 주제당 72개만
-        # 재고 끝나서 후보가 얕다. 10 으로 두면 120개를 재고, 그중 좋은 6개를
-        # 다음 스텝이 고른다 — BD 비용은 그대로다(자르는 개수가 예산을 정한다).
-        # 초대량 공급(2026-08-18, 사장님 지시 "씨앗공급 초대대량"): 정원·스캔폭 상향
-        # + 스필오버(정원 밀림 전량 순위 승격) + 승격 큐(직전 보드 실측 풀 되먹임).
-        # 후보가 많아도 BD 예산 거버너가 앞순위부터 태우다 한도에서 멈춘다.
-        # 레인을 사장님이 실제로 쓰는 주제로 바꾼다(2026-08-28).
-        #
-        # 왜: --all 로 32개 주제를 다 돌면 문학·영화·연예가 결과를 희석한다.
-        # 실측(8/28 회차 248건): "대구 cgv 아이맥스"(안 가봤으면 못 씀),
-        # "전경철 작가 근황"(사실 확인 불가), "오디세이 관람등급"(답이 한 줄).
-        # 자리가 비어 있어도 **사장님이 못 쓰는 글**이면 보드의 값이 0 이다.
-        #
-        # 고른 7개는 leadernam.com 최근 50글의 실제 분포에서 나왔다:
-        # 지원금 16 · 세금 7 · 보험 7 · 생활절차(KTX·증명서) 5 · 빚신용 4 ·
-        # 자동차사고 3 · 대출투자 2. 씨앗어도 이미 그 주제를 담고 있다
-        # (실업급여·근로장려금·차상위계층·종합소득세·연말정산·실손보험·대환대출).
-        #
         # 【32주제 전면 개방 2026-09-07】사장님 지시: "모든 주제를 다 열어놔.
         # 어떤 키워드를 원하는지 모르잖아 사용자들은."
         #
-        # 7주제로 좁혀 두었던 것을 되돌린다. 좁힌 이유는 사장님 판(지원금·세금·보험)에
-        # 집중하려던 것인데, 이 보드는 사장님만 보는 것이 아니라 **사용자들이 자기 주제를
-        # 골라 보는 판**이다. 어느 주제를 원할지 모르니 32종을 전부 훑어 놓고 고르게 한다
-        # (blog-topic-coverage 의 원래 설계 그대로다).
-        #
-        # 씨앗은 준비돼 있다 — 상시 331개(32주제 전부 5개 이상) + 계절 표 + 창고 44,344개.
-        # 주제당 정원은 120→30 으로 되돌린다. 주제가 4배가 되었으니 정원을 그대로 두면
-        # BD 비용이 4배가 된다. 30×32=960 키워드는 아래 거버너 예산 안이다.
+        # 이 보드는 사장님만 보는 것이 아니라 **사용자들이 자기 주제를 골라 보는 판**
+        # 이다. 어느 주제를 원할지 모르니 32종을 전부 훑어 놓고 고르게 한다
+        # (blog-topic-coverage 의 원래 설계 그대로다). 씨앗은 준비돼 있다 —
+        # 상시 331개(32주제 전부 5개 이상) + 계절 표 + 창고 44,344개.
         #
         # 주제 목록은 발행의 ACTIVE_TOPICS 와 같아야 한다 — 여기만 늘리면 발굴은
         # 되는데 발행 게이트가 걸러 내고, 저기만 늘리면 실릴 행이 아예 안 생긴다.
         # preemption-board-workflow.test.ts 가 두 곳을 대조한다.
-        run: node scripts/preemption-candidates.js --topics=문학·책,영화,미술·디자인,공연·전시,음악,드라마,스타·연예인,만화·애니,방송,일상·생각,육아·결혼,반려동물,좋은글·이미지,패션·미용,인테리어·DIY,요리·레시피,상품리뷰,원예·재배,게임,스포츠,사진,자동차,취미,국내여행,세계여행,맛집,IT·컴퓨터,사회·정치,건강·의학,비즈니스·경제,어학·외국어,교육·학문 --out=candidates.json --perTopic=30 --perSeed=10 --scanWidth=60 --secondarySeeds=30 --targetTotal=960 --promotedPerTopic=20 --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json --signals=signals.json
+        #
+        # 【인자 상향 2026-09-07 극한 공급】
+        #
+        # sampleCap=4000 (기본 perTopic×20 에서 떼어 낸다) — 이번 개편의 핵심이다.
+        #   주제당 600개만 재던 것을 4,000개로. 수요통과가 주제당 60~110 → 300 안팎이
+        #   되고, 게이트 통과율 17%(실측 368/2,129)를 곱하면 주제당 50건 안팎이 남는다.
+        #   검색량 조회는 무료이고 5개씩 묶여 나간다.
+        #
+        # perTopic=80 — measured.length >= perTopic 에서 측정 루프가 **멈춘다**.
+        #   즉 perTopic 은 정원이 아니라 후보 수 상한 그 자체다. 30 으로 두면 표본을
+        #   아무리 늘려도 주제당 30건에서 잘린다. 80 이면 문서수 조회가 주제당
+        #   300~470회라 오픈 API 일일 한도(25,000) 안이다.
+        #
+        # scanWidth=100 — 측정 대상이 perTopic×scanWidth 라 정원만 올리면 안 따라온다.
+        #
+        # starvedFloor=15 — 굶은 주제 판정선. 직전 보드 기준이라, 목표를 주제당
+        #   30~50행으로 올린 이상 15행 미만은 굶은 것으로 봐야 한다.
+        # starvedFacing=6 — 굶은 주제에서만 '정면 글 6건 이상'일 때 SERP 전에 버린다
+        #   (배부른 주제는 기본 2건 그대로 — 다 풀면 쓰레기가 는다).
+        run: |
+          node scripts/preemption-candidates.js \
+            --topics=문학·책,영화,미술·디자인,공연·전시,음악,드라마,스타·연예인,만화·애니,방송,일상·생각,육아·결혼,반려동물,좋은글·이미지,패션·미용,인테리어·DIY,요리·레시피,상품리뷰,원예·재배,게임,스포츠,사진,자동차,취미,국내여행,세계여행,맛집,IT·컴퓨터,사회·정치,건강·의학,비즈니스·경제,어학·외국어,교육·학문 \
+            --shard=${{ matrix.shard }} --shards=4 \
+            --out=candidates-shard-${{ matrix.shard }}.json \
+            --perTopic=80 --perSeed=10 --sampleCap=4000 --scanWidth=100 --secondarySeeds=40 \
+            --targetTotal=2560 --promotedPerTopic=30 \
+            --starvedFloor=15 --starvedFacing=6 \
+            --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json \
+            --signals=signals.json
+
+      - name: 샤드 결과 넘기기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidates-shard-${{ matrix.shard }}
+          path: candidates-shard-${{ matrix.shard }}.json
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ── 3) 합치기 → 절단 → BD → 보강 → 발행 ────────────────────────────────────
+  # 예산 장부와 최초 관측 장부는 여기 한 곳에서만 쓴다. 샤드가 각자 쓰면
+  # 마지막에 커밋한 샤드가 나머지를 덮어써서 상한이 작동하지 않는다.
+  publish:
+    needs: discover
+    # 샤드 일부가 죽어도 살아남은 것으로 발행한다 — "부분 보드 > 빈손" 방침.
+    # 전멸이면 합치기가 던져서 회차가 빨간불로 남는다(조용한 0행 발행 방지).
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    # 최초 관측 장부를 이 레포에 되돌려 커밋하기 위해 필요하다(아래 마지막 스텝).
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
+
+      - name: 샤드 결과 받기
+        uses: actions/download-artifact@v4
+        with:
+          pattern: candidates-shard-*
+          path: shards
+          merge-multiple: true
+
+      # 씨앗 창고를 받아 마지막 스텝에서 레포로 되돌려 커밋한다.
+      # 다음 회차가 이 파일을 읽어 3일 안쪽이면 갱신을 건너뛴다.
+      - name: 씨앗 창고 받기
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: seed-db
+          path: data
+
+      # BD 판정이 실시간 집합을 쓴다. 발굴 잡의 스냅샷은 그 잡 안에만 있다.
+      - name: 실시간 검색어 스냅샷
+        continue-on-error: true
+        run: node scripts/realtime-signals.js --out=signals.json --limit=20
+
+      - name: 샤드 합치기
+        run: node scripts/candidate-shards.js --out=candidates.json --expect=4 shards/candidates-shard-*.json
 
       # 예산 절단 — 뽑은 만큼 그대로 넘기면 크레딧을 넘긴다(한 번 겪었다).
+      #
+      # keep 은 주제당 정원이다. 실제 총량 상한은 아래 거버너와 maxPerRun 이 정한다.
+      # 첫 32주제 회차에서 이 절단은 **한 건도 자르지 않았다**(후보 368 → 368) —
+      # 발굴이 주제당 30 을 못 채웠기 때문이다. 이제 표본을 6.7배로 늘렸으니
+      # 여기가 30 이면 늘린 만큼이 도로 잘린다. perTopic 과 같은 80 으로 맞춘다.
+      # boostKeep: 굶은 주제(발굴기가 파일에 실어 보낸다)만 100건까지 남긴다.
       - name: 예산에 맞춰 자르기
-        # keep 6 → 9 (2026-08-18): 회당 상한 520콜 상향에 맞춘 공급 확대.
-        # 사장님 목표 보드 100행 — 통과율 40% 실측 기준 검증 ~250건이 필요하다.
-        # keep 9→20: 초대량 공급에 맞춰 주제당 정원 확대. 총량은 BD 거버너가 지킨다.
-        # boostKeep: 굶은 주제(발굴기가 파일에 실어 보낸다)만 30건까지 남긴다.
-        # 앞 단계에서 무료 선별 문턱을 올려 살려 낸 후보를 여기서 다시 자르면
-        # 아무 일도 안 한 것이 된다.
-        # keep 20→60 (2026-08-28): 주제가 7개로 줄어 주제당 정원을 늘려도
-        # BD 로 넘어가는 총량은 7×60=420 이라 maxPerRun(720콜 ÷ 키워드당 2콜
-        # = 360키워드) 안에서 거버너가 앞순위부터 태우고 멈춘다. 돈은 안 늘어난다.
-        #
-        # keep 60→30 (2026-09-07, 32주제 전면 개방): 주제가 4배가 되었으니 정원을
-        # 그대로 두면 BD 총량도 4배가 된다(32×60=1,920키워드 = 3,840콜/회차 = 월 $38.58).
-        # 30 으로 되돌리면 32×30=960키워드 = 1,920콜/회차 = 월 15,360콜.
-        # 무료 5,000 을 뺀 10,360콜 × $1.50/1,000 = **월 $15.54** — 사장님 한도 20달러 안이다.
-        # boostKeep 은 굶은 주제 구제용이라 40 으로 함께 낮춘다.
-        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=30 --boostKeep=40
+        run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=80 --boostKeep=100
 
       - name: 자리 판정 (Bright Data)
         env:
@@ -186,24 +323,25 @@ jobs:
           # 10달러가 부족하다면 20달러까지도 가능해"(2026-08-23) ·
           # "20달러만 안 넘으면 된다"(2026-09-07).
           #
-          # 32주제 전면 개방에 맞춰 3,000 → 11,000 으로 올린다.
           #   11,000 콜 × $1.50/1,000 = 최대 $16.50 — 20달러 한도 안이다.
-          # 회차당 실제 소모는 maxPerRun 이 정한다(1,920콜) — 월 8회차면 15,360콜이라
-          # 무료 5,000 을 뺀 10,360콜이 유료로 나간다($15.54). 상한 11,000 은 그보다
-          # 조금 위에 두어, 회차가 한 번 더 돌거나 재시도가 생겨도 멈추지 않게 한다.
+          # 회차당 실제 소모는 maxPerRun 이 정한다(2,400콜). 월 8회차면 19,200콜이라
+          # 무료 5,000 을 뺀 14,200콜이 유료로 나갈 수 있는데, 상한 11,000 이
+          # 먼저 걸려 $16.50 에서 멈춘다 — 즉 한도를 넘길 수 없는 구조다.
           # 위 장부가 살아 있어야 이 숫자가 상한 구실을 한다. 순서를 바꾸지 말 것.
           LEWORD_BRIGHTDATA_PAID_OVERAGE: '11000'
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+        # maxPerRun 1,920 → 2,400: 발굴이 늘어난 만큼 태울 수 있는 자리도 늘린다.
+        # 실제로는 위 PAID_OVERAGE(11,000) 가 월 상한으로 먼저 걸린다.
         run: |
           node scripts/preemption-board-batch.js \
             --in=candidates-trimmed.json \
             --out=board.json \
             --targetPerTopic=${{ github.event.inputs.targetPerTopic || '4' }} \
             --signals=signals.json \
-            --maxPerRun=1920 \
+            --maxPerRun=2400 \
             --withStructure
 
       # 에이전트 보강 — 회차마다 두뇌가 개입한다(사장님 지시: "하나하나 에이전트가").
@@ -235,12 +373,10 @@ jobs:
             exit 0
           fi
           npm install -g @anthropic-ai/claude-code
-          # 상한 30 은 보드가 24행이던 시절 값이다. 2026-08-17 회차는 37행이라
-          # 7행이 보강 없이 발행됐다("AI 호출 상한 도달"). 구독 호출이라 건당
-          # 비용이 없으므로 행 수보다 넉넉하게 둔다 — 상한은 사고 방지용이지
-          # 절약 수단이 아니다.
-          # maxAi 80→150: 행 3개 동시 처리(행당 33초)로 150행도 약 80분 — 스텝 제한(150분) 안이다.
-          node scripts/enrich-board.js --in=board.json --out=board-enriched.json --maxAi=150
+          # 상한은 사고 방지용이지 절약 수단이 아니다(구독 호출이라 건당 비용 없음).
+          # maxAi 150→260: 행 3개 동시 처리(행당 33초)면 260행이 약 48분이라
+          # 스텝 제한(150분) 안이다. 발굴이 늘어난 만큼 보강도 따라 올린다.
+          node scripts/enrich-board.js --in=board.json --out=board-enriched.json --maxAi=260
 
       # 보강이 시간에 잘렸어도 체크포인트(행마다 저장)를 줍는다 — 부분본 > 빈손.
       # 같은 스텝 안에 mv 를 두면 스텝이 죽는 순간 반영도 같이 죽는다(실측).

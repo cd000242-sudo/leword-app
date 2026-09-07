@@ -125,6 +125,87 @@ describe('선점 보드 워크플로 — 주제 목록', () => {
     });
 });
 
+/**
+ * 발굴을 러너 4대로 쪼갠 뒤(2026-09-07) 생긴 조용한 실패 자리를 막는다.
+ *
+ * 왜 쪼갰나: 첫 32주제 회차가 4시간 11분이었고 잡 제한이 300분이라 여유가
+ * 49분뿐이었다. 공급을 늘리려면 표본을 늘려야 하는데 한 잡에서 늘리면 제한에
+ * 걸려 회차 전체가 0행으로 죽는다.
+ */
+describe('선점 보드 워크플로 — 샤딩', () => {
+    /** 매트릭스에 적힌 샤드 번호. */
+    function matrixShards(): number[] {
+        const block = workflow.match(/matrix:\s*\n\s*shard:\s*\[([^\]]+)\]/);
+        if (!block) return [];
+        return block[1].split(',').map((s) => Number(s.trim())).filter((n) => Number.isInteger(n));
+    }
+
+    /** 발굴 명령이 스크립트에 넘기는 --shards= 값. */
+    function declaredShardCount(): number | null {
+        const match = workflow.match(/--shards=(\d+)/);
+        return match ? Number(match[1]) : null;
+    }
+
+    /*
+     * 이게 이 블록에서 제일 중요한 테스트다. 둘이 어긋나면 **아무도 안 죽고**
+     * 주제가 사라진다. 매트릭스가 4인데 --shards=8 이면 주제의 절반은 파는
+     * 러너가 아예 없어서 그냥 안 실린다 — 로그에도 안 남는다.
+     */
+    it('매트릭스 샤드 수와 --shards= 값이 같다', () => {
+        const matrix = matrixShards();
+        expect(matrix.length).toBeGreaterThan(0);
+        expect(declaredShardCount()).toBe(matrix.length);
+    });
+
+    it('샤드 번호가 0부터 빠짐없이 이어진다', () => {
+        const matrix = matrixShards();
+        expect([...matrix].sort((a, b) => a - b)).toEqual(matrix.map((_, i) => i));
+    });
+
+    /*
+     * 샤드가 죽으면 아티팩트가 안 생기고, 합치기의 glob 이 그 파일을 애초에
+     * 안 넘긴다 — 파일 수만 세면 누락이 안 보인다. --expect 가 그걸 드러내는데,
+     * 매트릭스와 어긋나면 도로 눈이 먼다.
+     */
+    it('합치기의 --expect 도 매트릭스 샤드 수와 같다', () => {
+        const expected = workflow.match(/--expect=(\d+)/);
+        expect(expected).toBeTruthy();
+        expect(Number(expected![1])).toBe(matrixShards().length);
+    });
+
+    it('샤드 하나가 죽어도 나머지가 계속 판다', () => {
+        // fail-fast 가 켜져 있으면 샤드 하나의 플레이크가 회차 전체를 취소시킨다.
+        expect(/fail-fast:\s*false/.test(workflow)).toBe(true);
+    });
+
+    it('샤드 결과를 합치는 스텝이 있고, 절단보다 먼저 온다', () => {
+        const merge = workflow.indexOf('candidate-shards.js');
+        const trim = workflow.indexOf('trim-candidates.js');
+        expect(merge).toBeGreaterThan(-1);
+        expect(trim).toBeGreaterThan(merge);
+    });
+
+    /*
+     * 예산 장부와 최초 관측 장부는 기록자가 하나여야 한다. 샤드마다 BD 를 태우면
+     * 마지막에 커밋한 샤드가 나머지 사용량을 덮어써서 월 상한이 무력해진다 —
+     * 장부를 tmpdir 에 두어 회차마다 잃었던 2026-08-22 사고와 같은 모양이다.
+     */
+    it('BD 를 태우는 스텝은 워크플로에 한 곳뿐이다', () => {
+        const occurrences = workflow.match(/preemption-board-batch\.js/g) || [];
+        expect(occurrences.length).toBe(1);
+    });
+
+    it('씨앗 창고는 한 번만 만든다 — 샤드마다 만들면 같은 호출을 4번 쓴다', () => {
+        const occurrences = workflow.match(/build-seed-db\.js/g) || [];
+        expect(occurrences.length).toBe(1);
+    });
+
+    it('발굴 샤드는 저마다 다른 이름으로 결과를 올린다', () => {
+        // 이름이 겹치면 마지막 샤드가 앞 샤드를 덮어써서 주제가 통째로 사라진다.
+        expect(/name:\s*candidates-shard-\$\{\{\s*matrix\.shard\s*\}\}/.test(workflow)).toBe(true);
+    });
+});
+
 describe('선점 보드 워크플로 — 실행 시각', () => {
     /*
      * cron 은 UTC 다. 한국 월요일 07:00 은 UTC 일요일 22:00, 금요일 07:00 은

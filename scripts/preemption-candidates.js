@@ -61,6 +61,7 @@ const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { analyzeKeywordSignals, sortWeight } = require('../src/utils/keyword-intent');
 const { sharesSeedToken } = require('../src/utils/seed-drift');
 const { judgeEphemeralKeyword } = require('../src/utils/preemption-supply-guards');
+const { shardTopics } = require('./candidate-shards');
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -189,12 +190,45 @@ async function main() {
   const starvedFloor = Number(arg('starvedFloor')) || 5;
   const starvedFacing = Number(arg('starvedFacing')) || 4;
 
-  const topics = hasFlag('all')
+  const allTopics = hasFlag('all')
     ? BLOG_TOPIC_COVERAGE.map((e) => e.topic)
     : arg('topics').split(',').map((t) => t.trim()).filter(Boolean);
-  if (topics.length === 0) {
+  if (allTopics.length === 0) {
     console.error('--topics=주제1,주제2 또는 --all 이 필요합니다.');
     process.exit(2);
+  }
+
+  /*
+   * 여러 러너로 쪼개 돈다(2026-09-07).
+   *
+   * 왜: 첫 32주제 회차 실측이 발굴 한 스텝에 2시간 56분, 회차 전체 4시간 11분이었다.
+   * 잡 제한이 300분이라 여유가 49분뿐이다. 그런데 늘려야 할 것은 표본이다 —
+   * 자동완성이 만든 문장 197,889개 중 검색량을 재 본 것이 19,200개(9.7%)뿐이라,
+   * **이미 만들어 놓고 안 본 90%** 가 그대로 버려지고 있었다.
+   *
+   * 한 잡에서 표본을 늘리면 제한에 걸려 회차가 통째로 0행이 된다. 러너를 나누면
+   * 러너당 요청 속도는 그대로 두고(네이버에 더 세게 두드리지 않는다) 벽시계만
+   * 1/N 이 된다. 주제 목록 자체는 워크플로에 한 벌만 적고 여기서 나눈다 —
+   * 목록을 매트릭스에 흩어 적으면 발행의 ACTIVE_TOPICS 와 대조할 수가 없다.
+   */
+  const shards = Number(arg('shards')) || 1;
+  const shardIndex = Number(arg('shard')) || 0;
+  const topics = shards > 1 ? shardTopics(allTopics, shardIndex, shards) : allTopics;
+  if (shards > 1) {
+    console.log(`샤드 ${shardIndex + 1}/${shards} — 전체 ${allTopics.length}주제 중 ${topics.length}개를 맡는다`);
+    console.log(`  ${topics.join(' · ')}`);
+  }
+  if (topics.length === 0) {
+    console.log('이 샤드가 맡은 주제가 없다 — 빈 결과를 남기고 정상 종료한다.');
+    fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
+    fs.writeFileSync(path.resolve(outPath), JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      filters: { minWords, minVolume },
+      starvedTopics: [],
+      report: [],
+      topics: {},
+    }, null, 1), 'utf8');
+    return;
   }
 
   console.log('='.repeat(76));
