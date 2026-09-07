@@ -248,6 +248,11 @@ jobs:
       # 사장님 방침: "조금 미달되더라도 참고할 수 있다면 상관없다." 부분 보드 > 빈손.
       - name: 보드 발행
         if: always()
+        # 시계열이 아예 없는 행을 여기서 채운다(2026-09-07). 이월 행은 보강 단계를
+        # 안 거치므로 발행이 유일한 자리다(실측 5행). 키가 없으면 채우지 않고 넘어간다.
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         run: |
           node scripts/publish-preemption-board.js \
             --in=board.json \

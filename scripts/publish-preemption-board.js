@@ -27,7 +27,7 @@ const path = require('path');
 const { classifySearchIntent, resolveIntentFromSerp } = require('../src/utils/keyword-intent');
 const { SECTION_MARKER_VERSION, trustedSections } = require('../src/utils/naver-serp-structure');
 const { judgeEarlyMover } = require('../src/utils/early-mover');
-const { shapeFromLabel } = require('../src/utils/keyword-demand-shape');
+const { shapeFromLabel, analyzeDemandWithRecency } = require('../src/utils/keyword-demand-shape');
 const { judgeNamedPersonRisk } = require('../src/utils/named-person-risk');
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { adviseFromLayout } = require('../src/utils/serp-layout-advice');
@@ -37,6 +37,8 @@ const { judgeTimingGroup } = require('../src/utils/preemption-timing-group');
 const { titleCoverage } = require('../src/utils/serp-winnability');
 const { mergeCarryRows } = require('../src/utils/board-carry');
 const { TIER_ORDER } = require('../src/utils/preemption-gate');
+// 줄 세우기 — 피크 검색량순, 상위 포화(정면 8/10↑)는 뒤로. 판정은 board-order 가 단일 출처.
+const { orderForPublish } = require('../src/utils/board-order');
 
 const DEFAULT_DEST = path.join(
   __dirname, '..', 'tmp', 'leaderspro-admin-work', 'spa', 'public', 'data', 'preemption-board.json',
@@ -208,7 +210,8 @@ function toPublicRow(row) {
   };
 }
 
-function main() {
+// async 가 됐다(2026-09-07) — 이월 행 시계열을 데이터랩에서 채우느라 await 가 필요하다.
+async function main() {
   const inPath = arg('in');
   if (!inPath) { console.error('--in=<보드 JSON> 이 필요합니다.'); process.exit(2); }
   if (!fs.existsSync(inPath)) { console.error(`입력 파일 없음: ${inPath}`); process.exit(2); }
@@ -449,17 +452,92 @@ function main() {
    * 5건 맛보기도 그 저볼륨을 보여줬다.
    *
    * **자리(상위 가능성)는 이미 게이트가 보장한다** — 발행까지 온 행은 전부 자리
-   * 없는 것(openSlot<=0)이 걸러졌고 소음 비율도 통과했다. 그러니 남은 것 사이에선
-   * 트래픽(검색량)이 큰 순서가 곧 실용성 순서다. tier 는 자리의 '종류'일 뿐 우열이
-   * 아니라서 정렬 키로 쓰지 않는다(top3 의 120 보다 golden-ratio 의 5,190 이 먼저다).
-   * 검색량이 같거나 없으면 tier 로만 가른다(자리 확실한 층을 앞에).
+   * 없는 것(openSlot<=0)이 걸러졌고 소음 비율도 통과했다. tier 는 자리의 '종류'일 뿐
+   * 우열이 아니라서 정렬 키로 쓰지 않는다(top3 의 120 보다 golden-ratio 의 5,190 이
+   * 먼저다). 검색량이 같거나 없으면 tier 로만 가른다(자리 확실한 층을 앞에).
+   *
+   * 그런데 "지금 검색량 큰 순"은 틀렸다(사장님 실측 2026-09-07). 앞줄 5개가 전부
+   * 비율 1.0~2.7 레드오션이었다 — 주민세 납부기간은 검색 27,110 에 문서 26,916.
+   * openSlot 게이트가 자리를 보장한다지만 상위 10개 정면 일치 10/10 을 그대로
+   * 앞에 세우고 있었다(재 놓고 안 쓰던 값). 그리고 27,110 은 8월 피크의 3% 였다.
+   * 그래서 둘을 바꾼다 — ① 상위 포화(정면 8/10↑)는 뒤로 ② 피크 검색량으로 줄.
+   * 계산은 board-order 가 단일 출처다(테스트로 잠갔다).
    */
   const tierRank = (t) => {
     const i = TIER_ORDER.indexOf(String(t || ''));
     return i < 0 ? TIER_ORDER.length : i;
   };
-  merged.rows.sort((a, b) => ((Number(b.searchVolume) || 0) - (Number(a.searchVolume) || 0))
-    || (tierRank(a.tier) - tierRank(b.tier)));
+
+  /*
+   * 시계열이 **아예 없는** 행을 채운다(2026-09-07).
+   *
+   * 처음엔 "12개월 안 되는 28행"을 채우려 했는데 실측이 달랐다 — 그중 23행은
+   * 잰 것이다. 저볼륨 키워드라 데이터랩이 점을 1~11개만 준 것이고(검색 없는 달이
+   * 빠진다), 다시 물어도 같다. 매 회차 그 23행에 예산을 태우면 낭비다.
+   * 채울 것은 한 번도 안 물어본 행뿐이다(실측 5행). 물어봤는데 못 받은 행은
+   * demandSeriesCheckedAt 을 남겨 30일은 다시 안 묻는다.
+   * 키가 없으면 건너뛴다(회차를 죽이지 않는다). 예산은 회차당 --seriesBudget(기본 60).
+   */
+  const openApi = {
+    clientId: process.env.NAVER_CLIENT_ID || '',
+    clientSecret: process.env.NAVER_CLIENT_SECRET || '',
+  };
+  const seriesBudget = Number(arg('seriesBudget')) || 60;
+  const RECHECK_MS = 30 * 24 * 3600 * 1000;
+  const hasSeries = (row) => Array.isArray(row.demandSeries) && row.demandSeries.length > 0;
+  const recentlyChecked = (row) => {
+    const at = Date.parse(row.demandSeriesCheckedAt || '');
+    return Number.isFinite(at) && Date.now() - at < RECHECK_MS;
+  };
+  const lacking = merged.rows.filter((row) => !hasSeries(row) && !recentlyChecked(row));
+  if (openApi.clientId && openApi.clientSecret && lacking.length > 0) {
+    let filled = 0;
+    let failed = 0;
+    const filledBy = new Map();
+    const checkedAt = new Date().toISOString();
+    for (const row of lacking.slice(0, seriesBudget)) {
+      try {
+        const analyzed = await analyzeDemandWithRecency(row.keyword, openApi);
+        const points = Array.isArray(analyzed.points) ? analyzed.points : [];
+        if (points.length > 0) {
+          filledBy.set(row.keyword, {
+            demandSeries: points.map((pt) => ({ period: pt.period, ratio: Math.round(pt.ratio * 10) / 10 })),
+            demandAsOf: analyzed.recency.asOf || null,
+            latestVsPeakPct: analyzed.recency.latestVsPeakPct ?? null,
+            monthsSincePeak: analyzed.recency.monthsSincePeak ?? null,
+            recencySummary: analyzed.recency.summary || '',
+            trendLabel: row.trendLabel || analyzed.shape.label || '',
+            demandSeriesCheckedAt: checkedAt,
+          });
+          filled += 1;
+        } else {
+          // 점이 0개 — 물어봤다는 표식만 남긴다. 30일 뒤에 다시 묻는다.
+          filledBy.set(row.keyword, { demandSeriesCheckedAt: checkedAt });
+          failed += 1;
+        }
+      } catch {
+        failed += 1; // 한 행이 실패해도 나머지는 잰다. 표식은 안 남긴다 — 다음 회차에 다시.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+    merged.rows = merged.rows.map((row) => (filledBy.has(row.keyword) ? { ...row, ...filledBy.get(row.keyword) } : row));
+    console.log(
+      `  시계열 보강  미측정 ${lacking.length}행 중 ${filled}행 채움`
+      + `${failed > 0 ? ` · 실패 ${failed}` : ''}`
+      + `${lacking.length > seriesBudget ? ` · 예산 ${seriesBudget} 초과 ${lacking.length - seriesBudget}행은 다음 회차` : ''}`,
+    );
+  } else if (lacking.length > 0) {
+    console.log(`  시계열 보강  건너뜀 — NAVER_CLIENT_ID/SECRET 없음 (${lacking.length}행 미측정)`);
+  }
+
+  merged.rows = orderForPublish(merged.rows, { now: new Date(), tierRank });
+  const recurringCount = merged.rows.filter((row) => row.peakRecurring === true && Number(row.peakMultiplier) >= 2).length;
+  const oneOffCount = merged.rows.filter((row) => row.peakRecurring === false && Number(row.peakMultiplier) >= 2).length;
+  const saturatedCount = merged.rows.filter((row) => row.frontalSaturated).length;
+  console.log(
+    `  줄세우기    곧 터질 계절 먼저 · 2년 반복 계절 ${recurringCount}행 · 일회성 급등 ${oneOffCount}행(시기 안 적음)`
+    + ` · 상위 포화(정면 8/10↑) ${saturatedCount}행은 뒤로`,
+  );
 
   console.log(
     `  누적        신규 ${merged.fresh} + 이월 ${merged.carried}(≤${carryDays}일)`
@@ -523,4 +601,8 @@ function main() {
   console.log('  이 파일은 커밋·배포해야 사이트에 반영된다.');
 }
 
-main();
+// main 이 async 라 거절을 잡지 않으면 조용히 0 으로 끝난다 — 실패는 실패로 끝내야 CI 가 안다.
+main().catch((error) => {
+  console.error(`발행 실패: ${error && error.stack ? error.stack : error}`);
+  process.exit(1);
+});

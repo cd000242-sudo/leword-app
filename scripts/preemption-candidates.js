@@ -39,6 +39,12 @@ const {
   topicsWithoutCoverage,
   oversizedSeedTerms,
 } = require('../src/utils/blog-topic-coverage');
+/*
+ * 계절 씨앗 — 피크 1~4개월 앞인 것만 이 회차에 얹는다(사장님 2026-09-07 "검색량이
+ * 폭발적이면서 상위노출이 되어야" · "대량으로 있어야"). 기존 씨앗은 상시 어휘라
+ * 계절성이 0이었다. 실측: 계절 씨앗 10개 → 검색량 3,000↑ 118개.
+ */
+const { seasonalSeedsForTopic, seasonalSeedProblems } = require('../src/utils/seasonal-seeds');
 const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
 const { titleCoverage, DEFAULT_SERP_THRESHOLDS: SERP_THRESHOLDS } = require('../src/utils/serp-winnability');
 // 검색량 하한은 게이트가 단일 출처다. 여기 숫자를 따로 적으면 두 값이 갈라지고,
@@ -97,6 +103,12 @@ async function main() {
   if (oversized.length > 0) {
     // 15자를 넘으면 검색광고가 잘라서 **다른 키워드의** 연관어를 준다. 조용히 틀린다.
     console.error(`15자를 넘는 씨앗어: ${oversized.map((o) => `${o.topic}/${o.term}`).join(', ')}`);
+    process.exit(2);
+  }
+  const seasonalProblems = seasonalSeedProblems();
+  if (seasonalProblems.length > 0) {
+    // 계절 씨앗 표도 같은 규칙(주제 라벨·15자)이다. 틀린 채 돌면 조용히 0건이 난다.
+    console.error(`계절 씨앗 표 결함: ${seasonalProblems.join(' · ')}`);
     process.exit(2);
   }
 
@@ -259,8 +271,17 @@ async function main() {
     // ── 1) 확장 씨앗을 넓힌다 ──────────────────────────────────────────
     // 검색광고 연관어는 **공백을 지운 1어절**로만 온다("강아지사료"). 그래서
     // 연관어 자체는 롱테일이 될 수 없고, 다음 단계의 씨앗으로만 쓴다.
-    const expansionSeeds = new Set(coverage.seedTerms);
-    for (const seed of coverage.seedTerms) {
+    /*
+     * 계절 씨앗을 얹는다 — 이 달 기준 피크가 1~4개월 앞인 것만, 주제당 최대 10개.
+     * 상시 씨앗과 같은 길을 탄다(연관어 200 → 자동완성 → 실측). 씨앗 하나가
+     * 검색광고 1회 + 자동완성 수십 회를 부르므로 상한 없이 넣으면 회차가 늘어진다.
+     */
+    const seasonalSeeds = seasonalSeedsForTopic(topic, new Date(), { limit: 10 })
+      .filter((term) => !coverage.seedTerms.includes(term));
+    if (seasonalSeeds.length > 0) console.log(`  ${topic} 계절 씨앗 ${seasonalSeeds.length}개: ${seasonalSeeds.join(', ')}`);
+    const baseSeeds = [...coverage.seedTerms, ...seasonalSeeds];
+    const expansionSeeds = new Set(baseSeeds);
+    for (const seed of baseSeeds) {
       try {
         const suggestions = await getNaverSearchAdKeywordSuggestions(searchAd, seed, 200);
         suggestions
