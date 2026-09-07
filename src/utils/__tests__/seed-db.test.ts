@@ -79,6 +79,21 @@ describe('topicOfSeed — 말이 먼저, 업종이 다음', () => {
     expect(topicOfSeed({ keyword: '서울시청년수당', searchVolume: 6430, source: 'month:3' })).toBe('사회·정치');
   });
 
+  it('축제는 국내여행, 공연은 공연·전시 — 출처가 월·시즌이어도 잡는다', () => {
+    // 실측: 여의도불꽃축제 962,700(10월) · 봉평메밀꽃축제(9월) · 거창감악산축제(event:49)
+    expect(topicOfSeed({ keyword: '여의도불꽃축제', searchVolume: 962700, source: 'month:10' })).toBe('국내여행');
+    expect(topicOfSeed({ keyword: '거창감악산축제', searchVolume: 49120, source: 'event:49' })).toBe('국내여행');
+    // 공연은 별개 주제 — 예매·좌석으로 찾는 말이라 나들이와 섞지 않는다
+    expect(topicOfSeed({ keyword: '드라큘라뮤지컬', searchVolume: 79900, source: 'biztp:56' })).toBe('공연·전시');
+    expect(topicOfSeed({ keyword: '대학로연극', searchVolume: 97600, source: 'biztp:8' })).toBe('공연·전시');
+  });
+
+  it('투어·티켓·게임은 안 잡는다 — 딴 밭이 딸려 오던 말들', () => {
+    for (const keyword of ['부산요트투어', '고속버스표예매', '발로란트', '신작웹툰']) {
+      expect(topicOfSeed({ keyword, searchVolume: 5000, source: 'biztp:8' })).toBeNull();
+    }
+  });
+
   it('말에 안 걸리면 업종 매핑을 쓴다', () => {
     expect(topicOfSeed({ keyword: '제네시스G90중고', searchVolume: 1000, source: 'biztp:17' })).toBe('자동차');
     expect(topicOfSeed({ keyword: '산후조리원가격', searchVolume: 1000, source: 'biztp:37' })).toBe('육아·결혼');
