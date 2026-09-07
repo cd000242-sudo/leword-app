@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickSeeds, roundFromDate, seedDbAgeDays, type SeedDb } from '../seed-db';
+import { BIZTP_TOPIC, pickSeeds, roundFromDate, seedDbAgeDays, topicOfSeed, type SeedDb } from '../seed-db';
 
 const db = (count: number): SeedDb => ({
   builtAt: new Date().toISOString(),
@@ -65,6 +65,37 @@ describe('seedDbAgeDays', () => {
     expect(seedDbAgeDays(four, now)).toBeCloseTo(4, 5);
     expect(seedDbAgeDays(null, now)).toBeNull();
     expect(seedDbAgeDays({ builtAt: '깨진값', totalSeeds: 0, seeds: [] }, now)).toBeNull();
+  });
+});
+
+describe('topicOfSeed — 말이 먼저, 업종이 다음', () => {
+  it('지원금 계열은 업종이 무엇이든 사회·정치다 — 여덟 업종에 흩어져 있던 것들', () => {
+    // 실측: 소상공인지원금=마케팅업종, 청년주택=부동산업종, 서울시청년수당=3월
+    expect(topicOfSeed({ keyword: '소상공인지원금', searchVolume: 50210, source: 'biztp:18' })).toBe('사회·정치');
+    expect(topicOfSeed({ keyword: '근로장려금신청방법', searchVolume: 10180, source: 'biztp:24' })).toBe('사회·정치');
+    expect(topicOfSeed({ keyword: '평생교육바우처', searchVolume: 16680, source: 'biztp:4' })).toBe('사회·정치');
+    expect(topicOfSeed({ keyword: '청년임대주택', searchVolume: 18400, source: 'biztp:9' })).toBe('사회·정치');
+    // 월·시즌 출처라 업종 매핑이 아예 없는 것도 말로 잡힌다
+    expect(topicOfSeed({ keyword: '서울시청년수당', searchVolume: 6430, source: 'month:3' })).toBe('사회·정치');
+  });
+
+  it('말에 안 걸리면 업종 매핑을 쓴다', () => {
+    expect(topicOfSeed({ keyword: '제네시스G90중고', searchVolume: 1000, source: 'biztp:17' })).toBe('자동차');
+    expect(topicOfSeed({ keyword: '산후조리원가격', searchVolume: 1000, source: 'biztp:37' })).toBe('육아·결혼');
+  });
+
+  it('매핑에서 뺀 업종과 월·시즌 출처는 null — 주제를 고른 발굴에서 안 쓴다', () => {
+    // 15(금시세→옷), 10·62(산업 자재), 50(레저·수예 혼재) 은 뺐다
+    for (const source of ['biztp:15', 'biztp:10', 'biztp:62', 'biztp:50', 'month:11', 'event:23']) {
+      expect(topicOfSeed({ keyword: '아무말', searchVolume: 1000, source })).toBeNull();
+    }
+    expect(topicOfSeed({ keyword: '아무말', searchVolume: 1000 })).toBeNull();
+  });
+
+  it('오염으로 뺀 업종이 매핑에 되살아나 있지 않다', () => {
+    for (const id of ['1', '15', '34', '49', '75', '10', '62', '50', '11', '65', '67']) {
+      expect(BIZTP_TOPIC[id]).toBeUndefined();
+    }
   });
 });
 
