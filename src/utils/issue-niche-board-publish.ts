@@ -23,6 +23,7 @@ import type { IssueNicheKeyword, IssueSlotSerp, IssueType } from './issue-niche-
 import type { IssuePreemptionKind } from './issue-niche-verdict';
 import type { IssueContext } from './issue-context';
 import type { RecencyStatus } from './naver-datalab-api';
+import { classifyIssuePublication, inspectIssueRelation, type IssueRecommendationStatus } from './issue-recommendation-gate';
 import {
   buildIssueEvidence,
   cleanKeywordPool,
@@ -108,6 +109,8 @@ export interface IssueBoardPublicRow {
   monetize: BoardMonetize | null;
   measuredAt: string;
   carried?: boolean;
+  recommendationStatus?: Exclude<IssueRecommendationStatus, 'reject'>;
+  exclusionReason?: 'demand-unverified' | 'demand-inactive' | null;
 }
 
 export type IssueBoardLedger = IssueLedgerLike;
@@ -153,6 +156,9 @@ export interface IssueBoardPayload {
   /** 무료 맛보기 — 하루 동안 고정(황금키워드보드와 같은 규칙). */
   freeSample: { day: string; keywords: string[] };
   rows: IssueBoardPublicRow[];
+  /** Related but demand-unverified observations are never recommendations or free samples. */
+  observations?: IssueBoardPublicRow[];
+  rejectedCount?: number;
   issues: IssueBoardIssue[];
 }
 
@@ -297,13 +303,15 @@ function briefIssue(
   const pushConcentrated = (keyword: string, origin: IssueBoardConcentrated['origin']) => {
     const k = compactKey(keyword);
     if (!k || k === key || seen.has(k) || concentrated.length >= BRIEF_CONCENTRATED) return;
+    if (!inspectIssueRelation(issue.issue, keyword, issue.headlines).related) return;
     seen.add(k);
     concentrated.push({ keyword, searchVolume: volumeOf(keyword), origin });
   };
   for (const keyword of issue.autocomplete || []) pushConcentrated(keyword, 'autocomplete');
   for (const r of issue.related || []) pushConcentrated(r.keyword, 'related');
 
-  const nextWave: IssueBoardNextWave[] = (issue.nextWave || []).map((wave) => {
+  const nextWave: IssueBoardNextWave[] = (issue.nextWave || [])
+    .filter((wave) => inspectIssueRelation(issue.issue, wave.keyword, issue.headlines).related).map((wave) => {
     const onBoard = byKeyword.get(compactKey(wave.keyword));
     return {
       keyword: wave.keyword,
@@ -362,27 +370,48 @@ export function buildIssueBoardPayload(
   const ledgerRows = Array.isArray(ledger.rows) ? ledger.rows : [];
   const ledgerIssues = Array.isArray(ledger.issues) ? ledger.issues : [];
   const issueByName = new Map(ledgerIssues.map((issue) => [compactKey(issue.issue), issue]));
+  const previousIssueByName = new Map((prev?.issues || []).map((issue) => [compactKey(issue.issue), issue]));
+  // A newer failed measurement must not resurrect last round's successful recommendation.
+  const latestKeys = new Set(ledgerRows.map((row) => compactKey(row.keyword)));
 
   const seen = new Set<string>();
   const freshRows: IssueBoardPublicRow[] = [];
+  const observations: IssueBoardPublicRow[] = [];
+  let rejectedCount = 0;
+  let freshObserved = 0;
   for (const row of ledgerRows) {
-    const pub = toPublicIssueRow(row, measuredAt, issueByName.get(compactKey(row.baseKeyword)));
-    if (!pub) continue;
+    const issue = issueByName.get(compactKey(row.baseKeyword));
+    const normalized = { ...row, hasLiveDemand: row.hasLiveDemand === true && Number.isFinite(row.demandRecent7) && row.demandRecent7! > 0 };
+    const converted = toPublicIssueRow(normalized, measuredAt, issue);
+    if (!converted) continue;
+    const pub = converted;
     const key = compactKey(pub.keyword);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    freshRows.push(pub);
+    const decision = classifyIssuePublication(pub, issue?.headlines);
+    if (decision.status === 'reject') { rejectedCount += 1; continue; }
+    if (decision.status === 'observe') {
+      observations.push({ ...pub, recommendationStatus: 'observe', exclusionReason: decision.reason as 'demand-unverified' | 'demand-inactive' });
+      freshObserved += 1;
+    } else freshRows.push({ ...pub, recommendationStatus: 'recommend', exclusionReason: null });
   }
 
   let expired = 0;
+  let carriedObserved = 0;
   const carriedRows: IssueBoardPublicRow[] = [];
-  for (const row of Array.isArray(prev?.rows) ? prev!.rows : []) {
+  for (const row of [...(Array.isArray(prev?.rows) ? prev!.rows : []), ...(Array.isArray(prev?.observations) ? prev!.observations : [])]) {
     const key = compactKey(row?.keyword);
-    if (!key || seen.has(key)) continue;
+    if (!key || seen.has(key) || latestKeys.has(key)) continue;
     const measuredMs = Date.parse(String(row.measuredAt || '')) || Date.parse(String(prev?.publishedAt || '')) || 0;
-    if (!measuredMs || options.nowMs - measuredMs > carryMs) { expired += 1; continue; }
+    if (!measuredMs || measuredMs - options.nowMs > 300000 || options.nowMs - measuredMs > carryMs) { expired += 1; continue; }
     seen.add(key);
-    carriedRows.push(carryRow(row));
+    const issue = issueByName.get(compactKey(row.issue)) || previousIssueByName.get(compactKey(row.issue));
+    const decision = classifyIssuePublication(row, issue?.headlines);
+    if (decision.status === 'reject') { rejectedCount += 1; continue; }
+    if (decision.status === 'observe') {
+      observations.push({ ...carryRow(row), recommendationStatus: 'observe', exclusionReason: decision.reason as 'demand-unverified' | 'demand-inactive' });
+      carriedObserved += 1;
+    } else carriedRows.push({ ...carryRow(row), recommendationStatus: 'recommend', exclusionReason: null });
   }
 
   const byVerdict = (verdict: IssueBoardVerdict) => [
@@ -395,13 +424,18 @@ export function buildIssueBoardPayload(
     .map((issue) => briefIssue(issue, ledgerRows, freshRows))
     .filter((issue): issue is IssueBoardIssue => issue !== null);
   const freshIssueKeys = new Set(freshIssues.map((issue) => compactKey(issue.issue)));
-  const carriedIssueKeys = new Set(carriedRows.map((row) => compactKey(row.issue)));
+  const carriedIssueKeys = new Set([...carriedRows, ...observations.filter((row) => row.carried)].map((row) => compactKey(row.issue)));
   const carriedIssues = (Array.isArray(prev?.issues) ? prev!.issues : [])
     .filter((issue) => {
       const key = compactKey(issue?.issue);
       return key && !freshIssueKeys.has(key) && carriedIssueKeys.has(key);
     })
-    .map((issue) => (issue.carried === true ? issue : { ...issue, carried: true }));
+    .map((issue) => ({ ...issue, carried: true,
+      concentrated: (issue.concentrated || []).filter((item) => inspectIssueRelation(issue.issue, item.keyword, issue.headlines).related),
+      nextWave: (issue.nextWave || []).filter((item) => inspectIssueRelation(issue.issue, item.keyword, issue.headlines).related)
+        .map((item) => ({ ...item, onBoard: rows.some((row) => compactKey(row.keyword) === compactKey(item.keyword)) })),
+      rowCount: rows.filter((row) => compactKey(row.issue) === compactKey(issue.issue)).length,
+    }));
   const issues = [...freshIssues, ...carriedIssues];
 
   const kstDay = new Date(options.nowMs + 9 * 3_600_000).toISOString().slice(0, 10);
@@ -415,7 +449,7 @@ export function buildIssueBoardPayload(
   const byGolden = (list: IssueBoardPublicRow[]) => [...list.filter(hasGoldenFields), ...list.filter((row) => !hasGoldenFields(row))];
   const sampleOrder = [...byGolden(byVerdict('niche')), ...byGolden(byVerdict('preemption'))];
   const freeSample = prev?.freeSample && prev.freeSample.day === kstDay
-    ? { day: prev.freeSample.day, keywords: prev.freeSample.keywords.slice(0, freeRows) }
+    ? { day: prev.freeSample.day, keywords: prev.freeSample.keywords.filter((keyword) => rows.some((row) => compactKey(row.keyword) === compactKey(keyword))).slice(0, freeRows) }
     : { day: kstDay, keywords: sampleOrder.slice(0, freeRows).map((row) => row.keyword) };
 
   const payload: IssueBoardPayload = {
@@ -431,8 +465,10 @@ export function buildIssueBoardPayload(
     },
     freeSample,
     rows,
+    observations,
+    rejectedCount,
     issues,
   };
 
-  return { payload, fresh: freshRows.length, carried: carriedRows.length, expired };
+  return { payload, fresh: freshRows.length + freshObserved, carried: carriedRows.length + carriedObserved, expired };
 }

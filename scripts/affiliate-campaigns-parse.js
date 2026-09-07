@@ -167,6 +167,7 @@ function parseBrandConnect() {
 }
 
 async function analyze(items, creds) {
+  const { measuredSearchVolume } = await import('./affiliate-recommendation.mjs');
   const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
   const searchAd = {
     accessLicense: creds.naverSearchAdAccessLicense,
@@ -180,8 +181,8 @@ async function analyze(items, creds) {
     try {
       const rows = await getNaverSearchAdKeywordVolume(searchAd, keywords.slice(i, i + 5));
       for (const row of rows) {
-        const total = Number(row.pcSearchVolume || 0) + Number(row.mobileSearchVolume || 0);
-        if (total > 0) volumes.set(String(row.keyword).replace(/\s+/g, ''), total);
+        const total = measuredSearchVolume(row);
+        if (total !== null) volumes.set(String(row.keyword).replace(/\s+/g, ''), total);
       }
     } catch { /* 실패분은 빠진다 */ }
     await sleep(200);
@@ -208,7 +209,7 @@ async function analyze(items, creds) {
       let data = '';
       res.on('data', (c) => { data += c; });
       res.on('end', () => { try { resolve(res.statusCode === 200 ? JSON.parse(data) : null); } catch { resolve(null); } });
-    }).on('error', () => resolve(null));
+    }).setTimeout(12000, function () { this.destroy(); }).on('error', () => resolve(null));
   });
 
   for (let i = 0; i < items.length; i += 6) {
@@ -217,13 +218,15 @@ async function analyze(items, creds) {
     batch.forEach((payload, at) => {
       const item = items[i + at];
       item.searchVolume = volumes.get(item.keyword.replace(/\s+/g, '')) ?? null;
-      if (payload) {
-        item.documentCount = Number(payload.total || 0);
+      if (payload && typeof payload.total === 'number' && Number.isFinite(payload.total) && payload.total >= 0 && Array.isArray(payload.items)) {
+        item.documentCount = payload.total;
         item.serpTop = titleExactness((payload.items || []).map((row) => row.title), item.keyword);
       } else {
         item.documentCount = null;
         item.serpTop = null;
       }
+      item.keywordEvidence = [{ query: item.keyword, serpQuery: item.keyword, monthlySearches: item.searchVolume,
+        documentCount: item.documentCount, serpTop: item.serpTop, measuredAt: new Date().toISOString(), source: 'naver-searchad+blog-search' }];
     });
   }
 
@@ -254,21 +257,14 @@ async function analyze(items, creds) {
   return items;
 }
 
-/** 판정 그룹 — 쿠팡 레인과 같다. 포화(정면 6+)는 내보내지 않는다. */
-const verdictGroup = (item) => {
-  if (!item.serpTop || !item.serpTop.sampled) return 3;
-  if (item.serpTop.exact <= 2) return 0;
-  if (item.serpTop.exact <= 5) return 1;
-  return 2;
-};
-
 /**
  * 니즈 검색어 실측 부착 — 상품명 검색어(sv 0~140)로는 유입이 없다.
  * 후보(need-keywords.ts 도출)를 검색광고로 실측해 최고 수요 하나를 고르고,
  * 수수료율이 있는 레인은 건당 수익(가격×요율 단순 산술)을 함께 싣는다.
  */
 async function attachNeedKeywords(items, creds) {
-  const { deriveNeedKeywordCandidates, pickNeedKeyword, perSaleCommission } = require('../src/utils/need-keywords');
+  const { deriveNeedKeywordCandidates, perSaleCommission } = require('../src/utils/need-keywords');
+  const { measuredSearchVolume, selectAffiliateCandidate } = await import('./affiliate-recommendation.mjs');
   const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
   const searchAd = {
     accessLicense: creds.naverSearchAdAccessLicense,
@@ -281,10 +277,10 @@ async function attachNeedKeywords(items, creds) {
   const hubKey = (process.env.NAVER_APIHUB_KEY || creds.naverApiHubKey || '').trim();
   const hubBase = (process.env.NAVER_APIHUB_BASE || creds.naverApiHubBase || 'https://naverapihub.apigw.ntruss.com').trim();
   const useHub = Boolean(hubKeyId && hubKey);
-  const fetchNeedDocumentCount = (keyword) => new Promise((resolve) => {
+  const fetchNeedSerp = (keyword) => new Promise((resolve) => {
     const url = useHub
-      ? `${hubBase}/search/v1/blog?query=${encodeURIComponent(keyword)}&display=1`
-      : `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=1`;
+      ? `${hubBase}/search/v1/blog?query=${encodeURIComponent(keyword)}&display=10`
+      : `https://openapi.naver.com/v1/search/blog.json?query=${encodeURIComponent(keyword)}&display=10`;
     const headers = useHub
       ? { 'X-NCP-APIGW-API-KEY-ID': hubKeyId, 'X-NCP-APIGW-API-KEY': hubKey }
       : { 'X-Naver-Client-Id': creds.naverClientId, 'X-Naver-Client-Secret': creds.naverClientSecret };
@@ -293,22 +289,23 @@ async function attachNeedKeywords(items, creds) {
       res.on('data', (chunk) => { data += chunk; });
       res.on('end', () => {
         try {
-          const total = res.statusCode === 200 ? Number(JSON.parse(data).total) : NaN;
-          resolve(Number.isFinite(total) ? total : null);
+          const payload = res.statusCode === 200 ? JSON.parse(data) : null;
+          resolve(payload && typeof payload.total === 'number' && Number.isFinite(payload.total) && payload.total >= 0 && Array.isArray(payload.items)
+            ? { documentCount: payload.total, serpTop: titleExactness(payload.items.map((row) => row.title), keyword) } : null);
         } catch { resolve(null); }
       });
-    }).on('error', () => resolve(null));
+    }).setTimeout(12000, function () { this.destroy(); }).on('error', () => resolve(null));
   });
 
-  const candidatesByItem = items.map((item) => deriveNeedKeywordCandidates(item.name, item.brand));
+  const candidatesByItem = items.map((item) => deriveNeedKeywordCandidates(item.name, item.brand).slice(0, 5));
   const uniq = [...new Set(candidatesByItem.flat().map((k) => k.trim()).filter(Boolean))];
   const volumes = new Map();
   for (let i = 0; i < uniq.length; i += 5) {
     try {
       const rows = await getNaverSearchAdKeywordVolume(searchAd, uniq.slice(i, i + 5));
       for (const row of rows || []) {
-        const total = (row.pcSearchVolume || 0) + (row.mobileSearchVolume || 0);
-        if (total > 0) volumes.set(String(row.keyword).replace(/\s+/g, ''), total);
+        const total = measuredSearchVolume(row);
+        if (total !== null) volumes.set(String(row.keyword).replace(/\s+/g, ''), total);
       }
     } catch (error) {
       console.log(`  !! 니즈 실측 실패(${i / 5 + 1}번째 묶음) — ${String(error.message).slice(0, 60)}`);
@@ -326,25 +323,27 @@ async function attachNeedKeywords(items, creds) {
     uniq.filter((keyword) => (volumes.get(keyword.replace(/\s+/g, '')) || 0) > 0),
   )];
   for (const keyword of worthMeasuring) {
-    docs.set(keyword.replace(/\s+/g, ''), await fetchNeedDocumentCount(keyword));
+    docs.set(keyword.replace(/\s+/g, ''), await fetchNeedSerp(keyword));
     await sleep(150);
   }
 
   const withNeed = items.map((item, index) => {
-    // 의도 우선 · 자리 필수 — 최고 수요가 아니라 "쓸 수 있는 것 중 의도가 깊은" 후보.
-    const best = pickNeedKeyword(
-      candidatesByItem[index],
-      (candidate) => volumes.get(candidate.replace(/\s+/g, '')),
-      300,
-      (candidate) => docs.get(candidate.replace(/\s+/g, '')),
-    );
+    const keywordEvidence = candidatesByItem[index].map((query) => {
+      const key = query.replace(/\s+/g, '');
+      const serp = docs.get(key);
+      return { query, serpQuery: query, monthlySearches: volumes.get(key) ?? null, documentCount: serp?.documentCount ?? null,
+        serpTop: serp?.serpTop ?? null, measuredAt: new Date().toISOString(), source: 'naver-searchad+blog-search' };
+    });
+    const best = selectAffiliateCandidate({ ...item, keywordEvidence }, { collectedAt: item.collectedAt });
     return {
       ...item,
-      needKeyword: best ? best.keyword : null,
-      needVolume: best ? best.volume : null,
+      keywordEvidence: [...(item.keywordEvidence || []), ...keywordEvidence],
+      needKeyword: best ? best.query : null,
+      needVolume: best ? best.monthlySearches : null,
       // 실측 문서수와 비율. 못 쟀으면 null 이다 — 자리 있음으로 치지 않는다.
-      needDocs: best ? best.docs : null,
-      needRatio: best ? best.ratio : null,
+      needDocs: best ? best.documentCount : null,
+      needSerpTop: best ? best.serpTop : null,
+      needRatio: best && best.monthlySearches !== null && best.documentCount !== null ? best.monthlySearches / Math.max(1, best.documentCount) : null,
       perSaleWon: perSaleCommission(item.price, item.reward),
     };
   });
@@ -353,7 +352,7 @@ async function attachNeedKeywords(items, creds) {
     candidatesByItem,
     searchAd,
     getNaverSearchAdKeywordVolume,
-    fetchNeedDocumentCount,
+    fetchNeedSerp,
   });
 }
 
@@ -373,12 +372,14 @@ async function attachNeedKeywords(items, creds) {
  * 지어낸 말은 아무도 안 친다.
  */
 async function attachWritableSlots(items, deps) {
-  const { candidatesByItem, searchAd, getNaverSearchAdKeywordVolume, fetchNeedDocumentCount } = deps;
+  const { candidatesByItem, searchAd, getNaverSearchAdKeywordVolume, fetchNeedSerp } = deps;
+  const { measuredSearchVolume, assessAffiliateRecommendation, AFFILIATE_MIN_DEMAND } = await import('./affiliate-recommendation.mjs');
   /** 롱테일은 원래 작다 — 헤드와 같은 하한(300)을 걸면 전멸한다. */
-  const SLOT_MIN_VOLUME = Number(process.env.AFF_SLOT_MIN_VOLUME || 50);
+  const SLOT_MIN_VOLUME = Math.max(AFFILIATE_MIN_DEMAND, Number(process.env.AFF_SLOT_MIN_VOLUME || AFFILIATE_MIN_DEMAND));
   const SLOT_PER_ITEM = 3;
   /** 손으로 도는 스크립트라 예산을 못 박는다 — 자리 없는 상품부터 본다. */
-  const SLOT_MAX_ITEMS = Number(process.env.AFF_SLOT_MAX_ITEMS || 30);
+  const requestedSlots = Number(process.env.AFF_SLOT_MAX_ITEMS || 30);
+  const SLOT_MAX_ITEMS = Number.isFinite(requestedSlots) ? Math.min(30, Math.max(0, Math.floor(requestedSlots))) : 30;
 
   const needsSlot = (item) => !(typeof item.needRatio === 'number' && item.needRatio >= 1);
   const targets = items
@@ -411,11 +412,12 @@ async function attachWritableSlots(items, deps) {
         if (next !== ' ') continue;
         if (suggestion.length > 25) continue;
         found.add(suggestion);
-        allCandidates.add(suggestion);
       }
       await sleep(120);
     }
-    seedsByIndex.set(index, [...found].slice(0, 12));
+    const bounded = [...found].slice(0, 12);
+    seedsByIndex.set(index, bounded);
+    for (const keyword of bounded) allCandidates.add(keyword);
   }
   const pool = [...allCandidates];
   console.log(`  자동완성이 인정한 롱테일 ${pool.length}개 실측 시작`);
@@ -427,8 +429,8 @@ async function attachWritableSlots(items, deps) {
     try {
       const rows = await getNaverSearchAdKeywordVolume(searchAd, pool.slice(i, i + 5));
       for (const row of rows || []) {
-        const total = (row.pcSearchVolume || 0) + (row.mobileSearchVolume || 0);
-        if (total > 0) slotVolumes.set(String(row.keyword).replace(/\s+/g, ''), total);
+        const total = measuredSearchVolume(row);
+        if (total !== null) slotVolumes.set(String(row.keyword).replace(/\s+/g, ''), total);
       }
     } catch (error) {
       console.log(`  !! 자리 검색량 실패(${Math.floor(i / 5) + 1}번째 묶음) — ${String(error.message).slice(0, 60)}`);
@@ -440,7 +442,7 @@ async function attachWritableSlots(items, deps) {
   const slotDocs = new Map();
   const worth = pool.filter((k) => (slotVolumes.get(k.replace(/\s+/g, '')) || 0) >= SLOT_MIN_VOLUME);
   for (const keyword of worth) {
-    slotDocs.set(keyword.replace(/\s+/g, ''), await fetchNeedDocumentCount(keyword));
+    slotDocs.set(keyword.replace(/\s+/g, ''), await fetchNeedSerp(keyword));
     await sleep(150);
   }
   console.log(`  수요 ${SLOT_MIN_VOLUME}+ ${worth.length}개 문서수 실측 완료`);
@@ -449,11 +451,15 @@ async function attachWritableSlots(items, deps) {
   for (const { index } of targets) {
     const rows = (seedsByIndex.get(index) || []).map((keyword) => {
       const key = keyword.replace(/\s+/g, '');
-      const volume = slotVolumes.get(key) || 0;
-      const documentCount = slotDocs.has(key) ? slotDocs.get(key) : null;
-      if (volume < SLOT_MIN_VOLUME || typeof documentCount !== 'number') return null;
-      const ratio = Math.round((documentCount > 0 ? volume / documentCount : volume) * 10) / 10;
-      return { keyword, volume, documentCount, ratio };
+      const volume = slotVolumes.get(key) ?? null;
+      const serp = slotDocs.get(key);
+      const documentCount = serp?.documentCount ?? null;
+      if (volume === null || volume < SLOT_MIN_VOLUME || documentCount === null) return null;
+      const ratio = volume / Math.max(1, documentCount);
+      const evidence = { query: keyword, serpQuery: keyword, monthlySearches: volume, documentCount, serpTop: serp.serpTop,
+        measuredAt: new Date().toISOString(), source: 'naver-searchad+blog-search' };
+      if (assessAffiliateRecommendation({ ...items[index], keywordEvidence: [evidence] }).status !== 'ready') return null;
+      return { keyword, volume, documentCount, ratio, evidence };
     }).filter(Boolean)
       // 자리가 넓은 순 — 검색량 대비 글이 적을수록 앞이다.
       .filter((row) => row.ratio >= 1)
@@ -464,7 +470,8 @@ async function attachWritableSlots(items, deps) {
   const opened = [...bySlot.values()].reduce((sum, rows) => sum + rows.length, 0);
   console.log(`  자리 찾음 — 상품 ${bySlot.size}건에 키워드 ${opened}개`);
 
-  return items.map((item, index) => (bySlot.has(index) ? { ...item, slots: bySlot.get(index) } : item));
+  return items.map((item, index) => (bySlot.has(index) ? { ...item, slots: bySlot.get(index),
+    keywordEvidence: [...(item.keywordEvidence || []), ...bySlot.get(index).map((row) => row.evidence)] } : item));
 }
 
 /**
@@ -492,11 +499,12 @@ function fetchNaverSuggestions(query) {
           resolve([...new Set(out)]);
         } catch { resolve([]); }
       });
-    }).on('error', () => resolve([]));
+    }).setTimeout(12000, function () { this.destroy(); }).on('error', () => resolve([]));
   });
 }
 
 async function main() {
+  const { assessAffiliateRecommendation, compareAffiliateRecommendations } = await import('./affiliate-recommendation.mjs');
   const limit = Number(arg('limit', '24'));
   if (!Number.isInteger(limit) || limit < 1 || limit > 160) throw new Error('limit은 1~160 사이 정수여야 합니다.');
   const { EnvironmentManager } = require('../src/utils/environment-manager');
@@ -525,48 +533,18 @@ async function main() {
       const key = keyword.replace(/\s+/g, '');
       if (!keyword || seen.has(key)) continue;
       seen.add(key);
-      prepared.push({ ...item, keyword });
+      prepared.push({ ...item, keyword, collectedAt: site.collectedAt });
       if (prepared.length >= limit) break;
     }
     console.log(`■ ${site.label} — 원문 ${site.items.length}건 → 분석 대상 ${prepared.length}건`);
     site.items = await analyze(prepared, creds);
     site.items = await attachNeedKeywords(site.items, creds);
 
-    const before = site.items.length;
-    /*
-     * 정렬 교체(2026-08-19): 상품명 검색어의 자리 순 → **니즈 수요 순**.
-     * 실측 근거 — 상품명 검색어 sv 는 0~140 이라 1위여도 유입이 없다. 성과는
-     * 니즈 검색어(드리미 로봇청소기 24,940 등)로 들어가 상품을 답으로 팔 때
-     * 난다. 자리 판정은 배지로 남는다. 포화(정면 6+) 제외는 유지 — 상품명조차
-     * 포화면 레드오션 신호다.
-     */
-    /*
-     * 정렬 교체(2026-08-20): 니즈 수요 순 → **노출 가능성 순**.
-     * "노출이 돼야 뭐가 팔리든 말든 하니까"(사장님). 자리가 있는 것을 먼저,
-     * 그 안에서 건당 수익, 그 다음 수요. 비율을 못 잰 것은 뒤로 민다 —
-     * 안 잰 것을 자리 있는 것처럼 앞에 두면 그게 거짓말이다.
-     */
-    /*
-     * 두 단짜리 정렬이다. 합성 점수를 만들지 않는다 — 실측 두 개를 순서대로 쓴다.
-     *   ① 자리가 있나(비율 1 이상) — 노출이 안 되면 수수료가 몇 %든 의미가 없다
-     *   ② 그 안에서 검색량 큰 순 — "노출은 되는데 검색량이 없으면 노출돼도
-     *      의미가 있나"(사장님 2026-08-20). 맞는 말이다. 비율만으로 줄 세우면
-     *      월 1,140 짜리가 1등이 된다.
-     * 자리 없는 것들도 같은 규칙으로 뒤에 붙는다 — 지우지는 않는다.
-     */
-    const hasSlot = (item) => typeof item.needRatio === 'number' && item.needRatio >= 1;
-    site.items = site.items
-      .filter((item) => verdictGroup(item) !== 2)
-      .sort((a, b) => (Number(hasSlot(b)) - Number(hasSlot(a)))
-        || (b.needVolume || 0) - (a.needVolume || 0)
-        || (b.perSaleWon || 0) - (a.perSaleWon || 0));
-
     /*
      * 토스 — 사장님이 콘솔에서 발급해 둔 링크(toss-sync-issued.js 결과)를 병합한다.
      * 이름이 같으면 그 상품의 url 이 되고(→ 화면의 [제휴링크 복사]), 목록에 없는
-     * 발급본은 행으로 추가한다. **포화 필터 뒤**에서 한다 — 발급해 둔 상품이 포화로
-     * 걸러져 화면에서 사라졌다(실사고: 디핀다트·제육불고기). 이미 발급한
-     * 상품은 어차피 미는 것이라 측정과 무관하게 보여야 한다. 발급 자동화는 접었다 — 링크 관리에 삭제가 없어
+     * 발급본은 관리용 행으로 추가하되, 실측 없이는 추천하지 않는다.
+     * 발급 자동화는 접었다 — 링크 관리에 삭제가 없어
      * 되돌릴 수 없는 동작이라서다(2026-08-20).
      */
     if (id === 'toss') {
@@ -584,23 +562,24 @@ async function main() {
           if (have.has(norm(p.name))) continue;
           site.items.push({
             name: p.name, url: p.link, price: p.price ?? null,
-            reward: p.commissionRate ? `수수료 ${p.commissionRate}%` : '수수료 10%',
+            reward: p.commissionRate ? `수수료 ${p.commissionRate}%` : '',
             image: '', keyword: '', issuedOnly: true,
           });
         }
         console.log(`  발급 링크 병합: 연결 ${linked} · 추가 ${issued.length - linked}`);
       } catch { /* 동기화 파일이 없으면 그냥 지나간다 */ }
     }
-
-
-    const green = site.items.filter((item) => verdictGroup(item) === 0).length;
-    const withNeed = site.items.filter((item) => item.needVolume).length;
-    console.log(`  → 포화 ${before - site.items.length}건 제외 · 남은 ${site.items.length}건(자리 있음 ${green} · 니즈 실측 ${withNeed})`);
+    // Keep observations and issued links, but separate them from evidence-passed writing candidates.
+    site.items = site.items.map((item) => ({ ...item,
+      recommendation: assessAffiliateRecommendation(item, { collectedAt: site.collectedAt }),
+    })).sort(compareAffiliateRecommendations);
+    const counts = { ready: 0, research: 0, excluded: 0 };
+    site.items.forEach((item) => { counts[item.recommendation.status] += 1; });
+    console.log(`  → 근거 통과 ${counts.ready} · 관찰 ${counts.research} · 추천 제외 ${counts.excluded}`);
 
     /*
-     * AI 제목(사장님 지시 2026-08-20: "제품 스펙과 내용을 보고 추론해서 제목
-     * 방향을 정하고 생성"). 구독 CLI 추론 → 검증 통과분만 aiTitle 로 실린다.
-     * 실패·미설치면 화면의 규칙 조립 제목이 폴백 — 스냅샷 발행은 막지 않는다.
+     * 공식 제품 본문 근거가 있는 상품만 AI 제목을 만든다. 상품명·가격이나
+     * 검색량으로 제품 성능/체험을 추론하지 않는다. 실패하면 제목 없이 발행한다.
      */
     if (!process.argv.includes('--noAi')) {
       try {
@@ -609,7 +588,7 @@ async function main() {
         site.items = enriched.items;
         console.log(`  → AI 제목 ${enriched.attached}건 부착`);
       } catch (error) {
-        console.log(`  !! AI 제목 단계 실패(규칙 폴백 유지): ${String(error.message || error).slice(0, 80)}`);
+        console.log(`  !! AI 제목 단계 실패(미확인 제목 제외): ${String(error.message || error).slice(0, 80)}`);
       }
     }
     site.items.slice(0, 3).forEach((item) => console.log(

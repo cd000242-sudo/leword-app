@@ -18,7 +18,8 @@ const NOW = Date.parse('2026-09-03T04:00:00.000Z'); // KST 13:00
 function row(over: Partial<IssueNicheKeyword> = {}): IssueNicheKeyword {
   return {
     keyword: '틈새 키워드',
-    baseKeyword: '이슈',
+    // Sorting/carry fixtures are their own issue; unrelated issue mapping is tested separately.
+    baseKeyword: over.baseKeyword ?? over.keyword ?? '틈새 키워드',
     issueType: 'fresh',
     isDerived: true,
     grade: 'A',
@@ -135,7 +136,7 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
     funnel: { issues: 16, candidates: 61 },
     rows: [
       row({ keyword: '틈새 A' }),
-      row({ keyword: '선점 B', isNiche: false, isPreemption: true, hasLiveDemand: false, documentCount: 120 }),
+      row({ keyword: '선점 B', isNiche: false, isPreemption: true, preemptionKind: 'demand-no-volume', searchVolume: null, documentCount: 120 }),
       row({ keyword: '탈락 C', isNiche: false, isPreemption: false }),
       row({ keyword: '틈새 D', source: 'tech-rss' }),
       row({ keyword: '틈새 a' }), // 공백·대소문자 다른 중복
@@ -157,8 +158,8 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
       ...first,
       rows: [
         ...first.rows,
-        { ...first.rows[0], keyword: '어제 틈새', measuredAt: new Date(NOW - 20 * 3_600_000).toISOString() },
-        { ...first.rows[0], keyword: '사흘 전 틈새', measuredAt: new Date(NOW - 60 * 3_600_000).toISOString() },
+        { ...first.rows[0], keyword: '어제 틈새', issue: '어제 틈새', measuredAt: new Date(NOW - 20 * 3_600_000).toISOString() },
+        { ...first.rows[0], keyword: '사흘 전 틈새', issue: '사흘 전 틈새', measuredAt: new Date(NOW - 60 * 3_600_000).toISOString() },
       ],
     };
     const next = { ...ledger, rows: [row({ keyword: '오늘 틈새' })] };
@@ -177,7 +178,7 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
     // 사이트 실검 틈새 탭이 통째로 죽었다(카드 0장).
     const first = buildIssueBoardPayload(ledger, null, { nowMs: NOW }).payload;
     const { evidence: _e, reasons: _r, ...legacy } = first.rows[0];
-    const prev = { ...first, rows: [{ ...legacy, keyword: '옛 회차 행' } as IssueBoardPayload['rows'][number]] };
+    const prev = { ...first, rows: [{ ...legacy, keyword: '옛 회차 행', issue: '옛 회차 행' } as IssueBoardPayload['rows'][number]] };
     const next = { ...ledger, rows: [row({ keyword: '오늘 틈새' })] };
     const carriedRow = buildIssueBoardPayload(next, prev, { nowMs: NOW }).payload.rows.find((r) => r.keyword === '옛 회차 행');
     expect(carriedRow?.carried).toBe(true);
@@ -208,11 +209,12 @@ describe('buildIssueBoardPayload — 순서·이월·맛보기', () => {
     expect(tomorrow.freeSample.keywords[0]).toBe('오후 틈새');
   });
 
-  it('무료 표본은 확정 틈새부터 — 보강된 선점 후보보다 맨 틈새가 앞선다', () => {
+  it('무수요 선점 후보는 보강됐어도 관찰 전용이며 무료 추천 표본에 포함하지 않는다', () => {
     const richPre = (k: string): IssueLedgerRow => ({ ...row({ keyword: k, isNiche: false, nicheRoute: null, isPreemption: true, preemptionKind: 'no-demand', hasLiveDemand: false, documentCount: 90 }), titles: { seo: { text: '제목' } }, subKeywords: [{ keyword: k + ' 뜻', searchVolume: 30 }] });
     const mixed = { ...ledger, rows: [richPre('선점 가'), richPre('선점 나'), row({ keyword: '틈새 다' }), richPre('선점 라')] };
     const payload = buildIssueBoardPayload(mixed, null, { nowMs: NOW }).payload;
-    expect(payload.freeSample.keywords).toEqual(['틈새 다', '선점 가', '선점 나']);
+    expect(payload.freeSample.keywords).toEqual(['틈새 다']);
+    expect(payload.observations?.map((row) => row.keyword)).toEqual(['선점 가', '선점 나', '선점 라']);
   });
 
   it('무료 맛보기 기본은 3건 — 사장님 사양(2026-09-03): 틈새는 하루 3개만', () => {

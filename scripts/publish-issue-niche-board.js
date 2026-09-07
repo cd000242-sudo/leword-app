@@ -59,12 +59,15 @@ function main() {
 
   console.log(`원장  ${inPath}  (${ledger.generatedAt || '시각 없음'}, 실측 ${payload.measured.candidates}행)`);
   console.log(`발행  틈새 ${payload.rows.filter((r) => r.verdict === 'niche').length} · 선점 후보 ${payload.rows.filter((r) => r.verdict === 'preemption').length}  ← 신규 ${fresh} + 이월 ${carried} (만료 ${expired})`);
+  console.log(`관찰 전용 ${payload.observations.length}건 · 이슈 관계 미확인 제외 ${payload.rejectedCount}건`);
   payload.rows.slice(0, 12).forEach((r) => {
     const mark = r.verdict === 'niche' ? '◆' : '▷';
     console.log(`  ${mark} ${r.keyword}  [${r.issue}] 문서수 ${r.documentCount ?? '—'} · 수요 ${r.hasLiveDemand ? '▲' : '—'}${r.carried ? ' · 이월' : ''}`);
   });
 
-  if (fresh === 0) {
+  const unsafeRecommendationsRemoved = Array.isArray(prev?.rows)
+    && prev.rows.some((old) => !payload.rows.some((row) => row.keyword === old.keyword));
+  if (fresh === 0 && !unsafeRecommendationsRemoved) {
     console.error(`이번 회차에 실을 행이 0 이다 — 기존 파일을 ${fs.existsSync(dest) ? '그대로 둔다' : '만들지 않는다'}.`);
     process.exit(4);
   }

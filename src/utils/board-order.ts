@@ -164,7 +164,12 @@ export interface OrderOptions {
  * 재작년 같은 달도 최고였을 때만 시기를 말한다. 2년치가 없으면 사실(최고치 달·배수)만
  * 싣고 시기는 비운다 — 모르는 것을 아는 것처럼 적지 않는다.
  */
-export function orderForPublish<T extends OrderableRow>(rows: readonly T[], options: OrderOptions = {}): T[] {
+export type PublishedOrderRow<T extends OrderableRow> = T
+  & Partial<Omit<PeakEstimate, 'monthsToPeak'>>
+  & Pick<OrderableRow, 'monthsToPeak' | 'timingGroup'>
+  & { frontalSaturated: boolean; effectiveVolume: number };
+
+export function orderForPublish<T extends OrderableRow>(rows: readonly T[], options: OrderOptions = {}): PublishedOrderRow<T>[] {
   const now = options.now ?? new Date();
   const tierRank = options.tierRank ?? (() => 0);
 

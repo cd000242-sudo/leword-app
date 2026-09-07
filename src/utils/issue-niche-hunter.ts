@@ -63,6 +63,7 @@ import {
 } from './issue-niche-verdict';
 import type { SerpVerdictCode } from './serp-winnability';
 import { readSearchAdVolume } from './searchad-volume-read';
+import { inspectIssueRelation } from './issue-recommendation-gate';
 
 export type IssueType = 'policy' | 'incident' | 'entertainment' | 'fresh';
 
@@ -383,6 +384,7 @@ export function assembleIssueCandidates(
     const key = compactKey(clean);
     if (!key || seen.has(key) || !isMeasurableLength(clean)) return;
     if (COMMERCE_NOISE_RE.test(clean) || NAVIGATIONAL_RE.test(clean)) return;
+    if (!inspectIssueRelation(issue, clean, context?.headlines).related) return;
     seen.add(key);
     out.push({ keyword: clean, origin, originReason });
   };
