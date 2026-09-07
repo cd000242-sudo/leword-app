@@ -38,7 +38,7 @@ const fs = require('fs');
 const path = require('path');
 const { createHmac } = require('crypto');
 const {
-  SEED_HINTS, HINT_ROWS_CAP, hintSourceTag, preferSource, warehouseNeedsRebuild,
+  SEED_HINTS, HINT_ROWS_CAP, hintSourceTag, keepHintRow, preferSource, warehouseNeedsRebuild,
 } = require('../src/utils/seed-hints');
 
 const arg = (name) => {
@@ -222,9 +222,11 @@ async function main() {
    * hintKeywords 로 넣어 연관어를 받는다. 출처는 `hint:주제` — 말이 아니라 출처로
    * 라우팅하므로 부분일치 오탐이 없다.
    *
-   * 머리말당 상위 HINT_ROWS_CAP 만 쓴다 — 업종 창구가 51위부터 딴 밭이 섞였던
-   * 것과 같은 병을 막는다. 순위 구간 표본을 로그에 남기므로, 첫 회차 로그가
-   * 곧 감사다(로컬엔 검색광고 키가 없어 여기서밖에 볼 수 없다).
+   * 머리말당 상위 HINT_ROWS_CAP 만 쓰고, 그 안에서도 **그 주제의 말(닻)이 있는 행만**
+   * 담는다(keepHintRow). 첫 감사 실행에서 연관어가 2위부터 광고주 말(촬영장소대여·
+   * 지역케이블·레고테크닉·맥도날드)이라 상한만으론 못 막는 것을 봤다. 걸러진 행은
+   * 창고에 안 들어가므로 제 주제 머리말이 뒤에 오면 그때 담긴다.
+   * 순위 구간 표본(닻 통과분)을 로그에 남기므로 회차 로그가 곧 감사다.
    */
   console.log('■ 힌트(hintKeywords=주제 머리말) — 업종 창구에 없는 연예·문화 주제');
   for (const [topic, heads] of Object.entries(SEED_HINTS)) {
@@ -232,12 +234,15 @@ async function main() {
       const { rows: allRows, ok, status } = await tool(creds, `hintKeywords=${encodeURIComponent(head)}&showDetail=1`);
       calls += 1;
       if (!ok) failed += 1;
-      const rows = allRows.slice(0, HINT_ROWS_CAP);
-      const added = collect(rows, sources.hint, head, hintSourceTag(topic), { topic, rawRows: allRows.length });
-      console.log(`  ${topic} / ${head.padEnd(9)} ${String(allRows.length).padStart(5)}개 → 상위 ${String(rows.length).padStart(3)} · 새 ${String(added).padStart(4)}${ok ? '' : ` (HTTP ${status})`}`);
+      const capped = allRows.slice(0, HINT_ROWS_CAP);
+      const kept = capped.filter((row) => keepHintRow(topic, String(row.relKeyword || '')));
+      const added = collect(kept, sources.hint, head, hintSourceTag(topic), {
+        topic, rawRows: allRows.length, capped: capped.length,
+      });
+      console.log(`  ${topic} / ${head.padEnd(9)} ${String(allRows.length).padStart(5)}개 → 상위 ${String(capped.length).padStart(3)} → 닻 통과 ${String(kept.length).padStart(3)} · 새 ${String(added).padStart(4)}${ok ? '' : ` (HTTP ${status})`}`);
       for (const at of [0, 50, 150]) {
-        if (at >= rows.length) continue;
-        console.log(`      ${String(at + 1).padStart(3)}위~ ${rows.slice(at, at + 6).map((r) => r.relKeyword).join(' · ')}`);
+        if (at >= kept.length) continue;
+        console.log(`      ${String(at + 1).padStart(3)}위~ ${kept.slice(at, at + 6).map((r) => r.relKeyword).join(' · ')}`);
       }
       await sleep(gapMs);
     }
