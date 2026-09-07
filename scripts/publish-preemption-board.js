@@ -389,6 +389,14 @@ async function main() {
    */
   const ACTIVE_TOPICS = new Set([
     '사회·정치', '비즈니스·경제', '일상·생각', '자동차', '건강·의학', '국내여행', '육아·결혼',
+    /*
+     * 공연·전시 레인(사장님 지시 2026-09-07 "공연레인 열어").
+     * 씨앗은 이미 갖춰져 있다 — 상시 14개(티켓팅 실패·시야제한석·암표 신고)와
+     * 창고 83개(내한공연·조용필콘서트·대학로연극). 창고 규칙은 '뮤지컬·콘서트·
+     * 전시회'가 든 말을 출처와 무관하게 이 주제로 보낸다(seed-db KEYWORD_TOPIC).
+     * 축제는 여기가 아니라 국내여행이다 — 지역·날짜로 찾는 나들이라 성격이 다르다.
+     */
+    '공연·전시',
   ]);
   const beforeGate = merged.rows.length;
   const noSlot = merged.rows.filter((row) => row.openSlot != null && Number(row.openSlot) <= 0).length;

@@ -136,7 +136,10 @@ jobs:
         #
         # 주제가 32→7 이 되었으니 주제당 정원을 30→120 으로 올려 총 공급을 지킨다.
         # 실제 BD 지출은 아래 거버너와 maxPerRun 이 정하므로 여기서 늘려도 돈이 늘지 않는다.
-        run: node scripts/preemption-candidates.js --topics=사회·정치,비즈니스·경제,일상·생각,자동차,건강·의학,국내여행,육아·결혼 --out=candidates.json --perTopic=120 --perSeed=10 --scanWidth=60 --secondarySeeds=30 --targetTotal=900 --promotedPerTopic=20 --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json --signals=signals.json
+        # 주제 목록은 발행의 ACTIVE_TOPICS 와 같아야 한다 — 여기만 늘리면 발굴은
+        # 되는데 발행 게이트가 걸러 내고, 저기만 늘리면 실릴 행이 아예 안 생긴다.
+        # preemption-board-workflow.test.ts 가 두 곳을 대조한다.
+        run: node scripts/preemption-candidates.js --topics=사회·정치,비즈니스·경제,일상·생각,자동차,건강·의학,국내여행,육아·결혼,공연·전시 --out=candidates.json --perTopic=120 --perSeed=10 --scanWidth=60 --secondarySeeds=30 --targetTotal=900 --promotedPerTopic=20 --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json --signals=signals.json
 
       # 예산 절단 — 뽑은 만큼 그대로 넘기면 크레딧을 넘긴다(한 번 겪었다).
       - name: 예산에 맞춰 자르기

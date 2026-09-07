@@ -21,6 +21,31 @@ const environmentManager = fs.readFileSync(
     path.join(root, 'src', 'utils', 'environment-manager.ts'),
     'utf8',
 );
+const publishScript = fs.readFileSync(
+    path.join(root, 'scripts', 'publish-preemption-board.js'),
+    'utf8',
+);
+
+/**
+ * 주제 목록은 **두 곳**에 손으로 적혀 있다 — 워크플로의 `--topics=` 와 발행의
+ * ACTIVE_TOPICS. 한쪽만 늘리면 조용히 어긋난다:
+ *   워크플로만 늘리면  그 주제를 파긴 하는데 발행 게이트가 전부 걸러 낸다
+ *   발행만 늘리면      실릴 행이 아예 안 생긴다
+ * 공연·전시 레인을 열 때(2026-09-07) 실제로 둘 다 고쳐야 했다. 다음에 주제를
+ * 더할 사람이 한쪽을 빠뜨리지 않도록 여기서 대조한다.
+ */
+function topicsInWorkflow(): string[] {
+    const match = workflow.match(/--topics=([^\s]+)/);
+    return match ? match[1].split(',').filter(Boolean) : [];
+}
+
+function topicsInPublishGate(): string[] {
+    const block = publishScript.match(/const ACTIVE_TOPICS = new Set\(\[([\s\S]*?)\]\)/);
+    if (!block) return [];
+    // 주석부터 지운다 — 설명 안의 따옴표까지 주제로 세면 안 된다(이 테스트가 잡아냈다).
+    const code = block[1].replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    return [...code.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+}
 
 /** 워크플로가 스텝에 심는 네이버 자격증명 환경변수 이름. */
 function naverEnvKeysInWorkflow(): string[] {
@@ -61,6 +86,29 @@ describe('선점 보드 워크플로 — 자격증명 이름', () => {
         const bdStep = workflow.slice(workflow.indexOf('자리 판정'));
         expect(/NAVER_CLIENT_ID/.test(bdStep)).toBe(true);
         expect(/BRIGHTDATA_TOKEN/.test(bdStep)).toBe(true);
+    });
+});
+
+describe('선점 보드 워크플로 — 주제 목록', () => {
+    it('워크플로가 파는 주제와 발행이 싣는 주제가 같다', () => {
+        const dug = topicsInWorkflow();
+        const published = topicsInPublishGate();
+        expect(dug.length).toBeGreaterThan(0);
+        expect([...dug].sort()).toEqual([...published].sort());
+    });
+
+    it('공연·전시 레인이 두 곳에 다 열려 있다(사장님 지시 2026-09-07)', () => {
+        expect(topicsInWorkflow()).toContain('공연·전시');
+        expect(topicsInPublishGate()).toContain('공연·전시');
+    });
+
+    it('파는 주제에는 씨앗이 있어야 한다 — 조용한 0건을 막는다', async () => {
+        const { BLOG_TOPIC_COVERAGE } = await import('../blog-topic-coverage');
+        for (const topic of topicsInWorkflow()) {
+            const coverage = BLOG_TOPIC_COVERAGE.find((entry) => entry.topic === topic);
+            expect(coverage, `${topic} 이 커버리지 표에 없다`).toBeTruthy();
+            expect(coverage!.seedTerms.length, `${topic} 에 씨앗이 없다`).toBeGreaterThan(0);
+        }
     });
 });
 
