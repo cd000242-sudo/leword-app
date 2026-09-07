@@ -1,0 +1,247 @@
+#!/usr/bin/env node
+/**
+ * 씨앗 창고 만들기 — 검색광고 키워드도구가 **공식으로** 내주는 씨앗을 긁어 파일로 둔다.
+ *
+ * 왜(사장님 2026-09-07 "씨앗은 방대할수록 좋지 않니? 씨앗으로 사용할 수 있는
+ * 데이터베이스가 더 있을 텐데"): 그때까지 씨앗은 손으로 적은 상시 어휘 80여 개와
+ * 계절 표 200개뿐이었다. 그런데 같은 API 가 씨앗 없이도 대량으로 준다(실측):
+ *   month=1~12    월당 1,200개 · 12개월 14,400개  (11월=수능·등급컷, 1월=새해인사말)
+ *   event=코드    24개 코드 생존 · 18~1,200개씩   (장마·핫팩·모기·추석·스승의날)
+ *   biztpId=업종  1~60 중 57개 생존 · 68,400개    (대출·요양원·결혼·운전면허)
+ * 3,000↑ 만 세도 업종에서만 14,592개다.
+ *
+ * **회차마다 새로 긁지는 않되, 회차마다 확인은 한다.** 한 번 긁는 데 100회 넘는
+ * 호출이 들어 발굴 도중에 매번 태우면 CI 시간이 병목이 된다. 그래서 창고를
+ * data/seed-db.json 에 두고 발굴은 그 파일만 읽는다.
+ * 갱신 주기는 **월·금**(사장님 지시 2026-09-07) — 발굴 회차와 같은 날이다.
+ * 창고가 3일보다 오래됐으면 다시 긁는다(--maxAgeDays, 기본 3). 월요일에 긁으면
+ * 금요일에 4일째라 다시 긁히고, 금요일에 긁으면 월요일에 3일째라 또 긁힌다.
+ * 신선하면 그냥 끝내므로 같은 날 두 번 돌려도 호출을 낭비하지 않는다.
+ *
+ * 검색량이 이미 붙어 온다 — 발굴 쪽에서 검색량 조회를 한 번 아낄 수 있다.
+ *
+ * 쓰기:
+ *   node scripts/build-seed-db.js                    # 3일 안쪽이면 건너뛴다(월·금 갱신)
+ *   node scripts/build-seed-db.js --force            # 무조건 다시 긁는다
+ *   node scripts/build-seed-db.js --maxAgeDays=7     # 문턱 조정
+ *   node scripts/build-seed-db.js --maxBiztp=60      # 업종 탐색 상한
+ */
+
+require('ts-node/register/transpile-only');
+
+const fs = require('fs');
+const path = require('path');
+const { createHmac } = require('crypto');
+
+const arg = (name) => {
+  const found = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return found ? found.slice(name.length + 3) : '';
+};
+const hasFlag = (name) => process.argv.includes(`--${name}`);
+
+const DEST = path.join(__dirname, '..', 'data', 'seed-db.json');
+const HOST = 'https://api.searchad.naver.com';
+const URI = '/keywordstool';
+
+/** 한 요청. 실패는 빈 배열이다 — 한 칸이 비어도 나머지는 긁는다. */
+async function tool(creds, query) {
+  const timestamp = String(Date.now());
+  const signature = createHmac('sha256', creds.secretKey)
+    .update(`${timestamp}.GET.${URI}`)
+    .digest('base64');
+  try {
+    const response = await fetch(`${HOST}${URI}?${query}`, {
+      headers: {
+        'X-Timestamp': timestamp,
+        'X-API-KEY': creds.accessLicense,
+        'X-Signature': signature,
+        'X-Customer': String(creds.customerId || ''),
+      },
+    });
+    if (!response.ok) return { ok: false, rows: [], status: response.status };
+    const parsed = await response.json().catch(() => null);
+    return { ok: true, rows: (parsed && parsed.keywordList) || [], status: 200 };
+  } catch (error) {
+    return { ok: false, rows: [], status: 0, message: String(error.message || error).slice(0, 80) };
+  }
+}
+
+const volumeOf = (row) => (Number(row.monthlyPcQcCnt) || 0) + (Number(row.monthlyMobileQcCnt) || 0);
+
+/**
+ * 씨앗으로 쓸 수 있는 말인가.
+ *
+ * 검색광고 연관어는 공백 없는 한 덩어리로 온다("주민세납부기간"). 그대로 씨앗에
+ * 넣어도 되지만 두 가지는 거른다:
+ *   · 15자 초과 — hintKeywords 가 잘라서 **다른 키워드의** 연관어를 준다(조용히 틀린다)
+ *   · 한글·영숫자가 아닌 것 — 특수문자가 섞이면 자동완성이 빈손으로 온다
+ */
+function usableSeed(keyword) {
+  const compact = String(keyword || '').replace(/\s+/g, '');
+  if (compact.length < 2 || compact.length > 15) return false;
+  return /^[가-힣A-Za-z0-9]+$/.test(compact);
+}
+
+async function main() {
+  const { EnvironmentManager } = require('../src/utils/environment-manager');
+  const manager = typeof EnvironmentManager.getInstance === 'function'
+    ? EnvironmentManager.getInstance()
+    : new EnvironmentManager();
+  const config = manager.getConfig();
+  const creds = {
+    accessLicense: config.naverSearchAdAccessLicense,
+    secretKey: config.naverSearchAdSecretKey,
+    customerId: config.naverSearchAdCustomerId,
+  };
+  if (!creds.accessLicense || !creds.secretKey) {
+    console.error('네이버 검색광고 자격증명이 필요합니다.');
+    process.exit(2);
+  }
+
+  /*
+   * 신선하면 그냥 끝낸다. 기본 3일 — 월·금 갱신에 맞춘 값이다(사장님 지시).
+   * 월→금은 4일, 금→월은 3일이라 둘 다 이 문턱을 넘는다. 같은 날 회차가 두 번
+   * 돌아도 두 번째는 건너뛴다.
+   */
+  const maxAgeDays = Number(arg('maxAgeDays')) || 3;
+  if (!hasFlag('force') && fs.existsSync(DEST)) {
+    try {
+      const previous = JSON.parse(fs.readFileSync(DEST, 'utf8'));
+      const ageDays = (Date.now() - Date.parse(previous.builtAt)) / 86400000;
+      if (Number.isFinite(ageDays) && ageDays < maxAgeDays) {
+        console.log(`창고가 ${ageDays.toFixed(1)}일 전 것이라 그대로 씁니다(${previous.totalSeeds?.toLocaleString('ko-KR')}개). 다시 긁으려면 --force.`);
+        process.exit(0);
+      }
+    } catch {
+      // 못 읽으면 새로 긁는다
+    }
+  }
+
+  const gapMs = Number(arg('gapMs')) || 120;
+  const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+  /** 창구별로 {키워드 → 검색량}. 같은 말이 여러 창구에서 와도 한 번만 센다. */
+  const seeds = new Map();
+  const sources = { month: {}, event: {}, biztp: {} };
+  let calls = 0;
+  let failed = 0;
+
+  /*
+   * 출처를 함께 남긴다(2026-09-07). 업종 씨앗은 그 업종이 곧 주제라서, 발굴이
+   * "자동차 주제에는 자동차 업종 씨앗"을 고를 수 있다. 출처 없이 섞어 두면
+   * 자동차 주제에 '페키니즈분양'이 실린다(실측).
+   *   biztp:17 · month:11 · event:23  꼴로 적는다.
+   * 같은 말이 여러 창구에서 오면 **먼저 만난 출처**를 남긴다 — 업종을 먼저 긁지
+   * 않고 월·시즌을 먼저 긁는 순서라, 주제성이 약한 쪽이 이기지 않도록 업종을 마지막에.
+   */
+  const collect = (rows, bucket, label, sourceTag) => {
+    let added = 0;
+    for (const row of rows) {
+      const keyword = String(row.relKeyword || '').trim();
+      if (!usableSeed(keyword)) continue;
+      const volume = volumeOf(row);
+      const previous = seeds.get(keyword);
+      if (!previous) added += 1;
+      seeds.set(keyword, {
+        // 같은 말이 두 창구에서 오면 큰 값을 남긴다 — 어느 쪽도 지어낸 값이 아니다.
+        searchVolume: Math.max(previous ? previous.searchVolume : 0, volume),
+        source: previous ? previous.source : sourceTag,
+      });
+    }
+    bucket[label] = { rows: rows.length, newSeeds: added };
+    return added;
+  };
+
+  console.log('■ 월별(month=1~12) — 그 달에 검색이 몰리는 말');
+  for (let month = 1; month <= 12; month += 1) {
+    const { rows, ok, status } = await tool(creds, `month=${month}&showDetail=1`);
+    calls += 1;
+    if (!ok) failed += 1;
+    const added = collect(rows, sources.month, String(month), `month:${month}`);
+    console.log(`  ${String(month).padStart(2)}월 ${String(rows.length).padStart(5)}개${ok ? '' : ` (HTTP ${status})`} · 새 씨앗 ${added}`);
+    await sleep(gapMs);
+  }
+
+  /*
+   * 시즌 테마(event=N). 코드 표가 공개돼 있지 않아 1~60 을 훑어 응답이 있는 것만 쓴다.
+   * 실측(2026-09-07): 1~40 중 24개가 살아 있었고 41~60 에서도 계속 나왔다.
+   * 빈 코드는 조용히 지나간다 — 없는 것과 실패한 것을 구분해 로그에만 남긴다.
+   */
+  console.log('■ 시즌 테마(event=1~60) — 살아 있는 코드만');
+  const maxEvent = Number(arg('maxEvent')) || 60;
+  for (let id = 1; id <= maxEvent; id += 1) {
+    const { rows, ok } = await tool(creds, `event=${id}&showDetail=1`);
+    calls += 1;
+    if (!ok) failed += 1;
+    if (rows.length === 0) { await sleep(gapMs); continue; }
+    const added = collect(rows, sources.event, String(id), `event:${id}`);
+    const top = rows.slice(0, 3).map((r) => r.relKeyword).join('·');
+    console.log(`  event=${String(id).padStart(2)} ${String(rows.length).padStart(5)}개 · 새 ${String(added).padStart(4)} · ${top}`);
+    await sleep(gapMs);
+  }
+
+  console.log('■ 업종(biztpId=1~N) — 그 분야 사람들이 치는 말');
+  const maxBiztp = Number(arg('maxBiztp')) || 80;
+  let emptyRun = 0;
+  for (let id = 1; id <= maxBiztp; id += 1) {
+    const { rows, ok } = await tool(creds, `biztpId=${id}&showDetail=1`);
+    calls += 1;
+    if (!ok) failed += 1;
+    if (rows.length === 0) {
+      emptyRun += 1;
+      // 빈 코드가 연달아 열 번이면 표의 끝으로 본다 — 남은 번호에 호출을 쓰지 않는다.
+      if (emptyRun >= 10 && id > 60) { console.log(`  ${id} 부터 연속 빈 코드 — 여기서 멈춥니다.`); break; }
+      await sleep(gapMs);
+      continue;
+    }
+    emptyRun = 0;
+    const added = collect(rows, sources.biztp, String(id), `biztp:${id}`);
+    const top = rows.slice(0, 3).map((r) => r.relKeyword).join('·');
+    console.log(`  biztp=${String(id).padStart(2)} ${String(rows.length).padStart(5)}개 · 새 ${String(added).padStart(4)} · ${top}`);
+    await sleep(gapMs);
+  }
+
+  /*
+   * 저볼륨은 버린다(2026-09-07). 발굴은 minSearchVolume(500) 위만 씨앗으로 쓰므로
+   * 그 아래를 실어 봐야 파일만 커진다 — 월·금마다 커밋하는 파일이라 크기가 곧
+   * 레포 무게다. 전부 담으면 7.5MB, 하한을 걸면 그 절반 아래로 떨어진다.
+   * --keepBelow 로 하한을 낮출 수 있다(조사·비교용).
+   */
+  const keepFrom = Number(arg('keepBelow')) || 500;
+  const all = [...seeds.entries()]
+    .map(([keyword, entry]) => ({ keyword, searchVolume: entry.searchVolume, source: entry.source }))
+    .filter((entry) => entry.searchVolume >= keepFrom)
+    .sort((a, b) => b.searchVolume - a.searchVolume);
+  const dropped = seeds.size - all.length;
+
+  const payload = {
+    builtAt: new Date().toISOString(),
+    generator: 'build-seed-db',
+    /** 이 값들은 전부 검색광고 실측이다 — 여기서 계산한 수치는 없다. */
+    source: 'searchad keywordstool (month · event · biztpId)',
+    calls,
+    failed,
+    totalSeeds: all.length,
+    byVolume: {
+      '10000+': all.filter((s) => s.searchVolume >= 10000).length,
+      '3000+': all.filter((s) => s.searchVolume >= 3000).length,
+      '1000+': all.filter((s) => s.searchVolume >= 1000).length,
+    },
+    sources,
+    seeds: all,
+  };
+  fs.mkdirSync(path.dirname(DEST), { recursive: true });
+  // 들여쓰기 없이 쓴다 — 사람이 읽는 파일이 아니고, 월·금마다 커밋되는 파일이다.
+  fs.writeFileSync(DEST, JSON.stringify(payload), 'utf8');
+
+  console.log('');
+  console.log(`창고: ${DEST}`);
+  console.log(`  호출 ${calls}회(실패 ${failed}) · 씨앗 ${all.length.toLocaleString('ko-KR')}개 (검색량 ${keepFrom} 미만 ${dropped.toLocaleString('ko-KR')}개 제외)`);
+  console.log(`  검색량 10,000↑ ${payload.byVolume['10000+'].toLocaleString('ko-KR')} · 3,000↑ ${payload.byVolume['3000+'].toLocaleString('ko-KR')} · 1,000↑ ${payload.byVolume['1000+'].toLocaleString('ko-KR')}`);
+  console.log('  이 파일은 커밋해야 CI 가 씁니다.');
+  process.exit(0);
+}
+
+main().catch((error) => {
+  console.error(`씨앗 창고 실패: ${error && error.stack ? error.stack : error}`);
+  process.exit(1);
+});

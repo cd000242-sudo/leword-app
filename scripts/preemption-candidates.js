@@ -45,6 +45,13 @@ const {
  * 계절성이 0이었다. 실측: 계절 씨앗 10개 → 검색량 3,000↑ 118개.
  */
 const { seasonalSeedsForTopic, seasonalSeedProblems } = require('../src/utils/seasonal-seeds');
+/*
+ * 씨앗 창고 — 검색광고가 공식으로 내주는 month·event·biztpId 를 긁어 둔 것
+ * (build-seed-db.js, 실측 85,534개 · 3,000↑ 17,760). 손으로 적은 씨앗만으로는
+ * 밭이 좁다는 사장님 지적(2026-09-07 "씨앗은 방대할수록 좋지 않니")에 대한 답이다.
+ * 창고가 없으면 조용히 0개 — 기존 씨앗으로 그대로 돈다.
+ */
+const { loadSeedDb, pickSeeds, seedDbAgeDays } = require('../src/utils/seed-db');
 const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
 const { titleCoverage, DEFAULT_SERP_THRESHOLDS: SERP_THRESHOLDS } = require('../src/utils/serp-winnability');
 // 검색량 하한은 게이트가 단일 출처다. 여기 숫자를 따로 적으면 두 값이 갈라지고,
@@ -252,6 +259,31 @@ async function main() {
   const trendGate = createInterval(150);
   console.log(`동시 처리: 주제 ${concurrency}개 (API 별 호출 간격은 공용으로 유지)`);
 
+  /*
+   * 씨앗 창고를 연다(2026-09-07). 주제별로 나뉘어 있지 않은 공용 밭이라, 회차마다
+   * 정해진 몫(--dbSeeds, 기본 주제당 12개)을 떼어 각 주제 씨앗에 얹는다.
+   * 회차 번호로 창을 밀기 때문에 회차를 거듭하면 85,534개를 전부 훑는다.
+   *
+   * 주제를 가리지 않고 뿌리는 이유: 창고 씨앗에는 주제 표가 없다. 억지로 분류하면
+   * 그 분류가 틀렸을 때 조용히 밭이 비뚤어진다 — 어느 주제에서 나온 후보든
+   * 뒤의 게이트(검색량·문서수·SERP)가 똑같이 판정하므로, 분류 없이 넓게 던지는 편이
+   * 정직하고 결과도 같다. 주제 라벨은 발굴이 아니라 발행 단계에서 붙는다.
+   */
+  const seedDb = loadSeedDb();
+  const dbSeedsPerTopic = Number(arg('dbSeeds')) || 12;
+  if (seedDb) {
+    const age = seedDbAgeDays(seedDb);
+    const stale = typeof age === 'number' && age > 3;
+    console.log(
+      `씨앗 창고: ${seedDb.totalSeeds.toLocaleString('ko-KR')}개`
+      + `${typeof age === 'number' ? ` · ${age.toFixed(1)}일 전` : ''}`
+      + `${stale ? ' (오래됨 — build-seed-db.js 로 갱신하세요)' : ''}`
+      + ` · 주제당 ${dbSeedsPerTopic}개 사용`,
+    );
+  } else {
+    console.log('씨앗 창고 없음 — 기존 씨앗으로만 돕니다(node scripts/build-seed-db.js 로 만듭니다).');
+  }
+
   const perTopicResults = await mapWithConcurrency(topics, concurrency, async (topic) => {
     const coverage = BLOG_TOPIC_COVERAGE.find((e) => e.topic === topic);
     if (!coverage) { console.log(`  ?? ${topic} — 커버리지 표에 없음`); return null; }
@@ -279,7 +311,20 @@ async function main() {
     const seasonalSeeds = seasonalSeedsForTopic(topic, new Date(), { limit: 10 })
       .filter((term) => !coverage.seedTerms.includes(term));
     if (seasonalSeeds.length > 0) console.log(`  ${topic} 계절 씨앗 ${seasonalSeeds.length}개: ${seasonalSeeds.join(', ')}`);
-    const baseSeeds = [...coverage.seedTerms, ...seasonalSeeds];
+    /*
+     * 창고 몫. 주제마다 다른 구간을 파도록 회차 번호에 주제 순번을 더한다 —
+     * 같은 회차에 여섯 주제가 동시에 도는데 전부 같은 씨앗을 받으면 헛일이다.
+     */
+    const topicIndex = topics.indexOf(topic);
+    const dbSeeds = pickSeeds(seedDb, {
+      limit: dbSeedsPerTopic,
+      minVolume,
+      topic, // 이 주제로 매핑된 업종 씨앗만 — 자동차에 페키니즈분양이 가지 않게
+      exclude: [...coverage.seedTerms, ...seasonalSeeds],
+      round: Number(`${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}`) + topicIndex,
+    });
+    if (dbSeeds.length > 0) console.log(`  ${topic} 창고 씨앗 ${dbSeeds.length}개: ${dbSeeds.slice(0, 6).join(', ')}${dbSeeds.length > 6 ? ' …' : ''}`);
+    const baseSeeds = [...coverage.seedTerms, ...seasonalSeeds, ...dbSeeds];
     const expansionSeeds = new Set(baseSeeds);
     for (const seed of baseSeeds) {
       try {

@@ -89,6 +89,18 @@ jobs:
         continue-on-error: true
         run: node scripts/realtime-signals.js --out=signals.json --limit=20
 
+      # 씨앗 창고 갱신 — 검색광고가 공식으로 내주는 month·event·biztpId 를 긁어 둔다
+      # (실측 44,344개 · 3,000↑ 17,760). 회차와 같은 월·금 주기이고, 3일 안쪽이면
+      # 스스로 건너뛴다. 실패해도 회차는 살린다 — 창고가 없거나 낡아도 발굴은
+      # 기존 씨앗(상시·계절)으로 그대로 돈다.
+      - name: 씨앗 창고 갱신
+        continue-on-error: true
+        env:
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+        run: node scripts/build-seed-db.js
+
       # 후보 발굴은 무료다(검색광고·자동완성). BD 크레딧은 다음 단계에서만 쓴다.
       - name: 후보 발굴
         env:
@@ -290,7 +302,9 @@ jobs:
         run: |
           git config user.name 'leword-bot'
           git config user.email 'bot@leaderspro.kr'
-          git add data/preemption-first-seen.json data/brightdata-quota-state.json
+          # 씨앗 창고도 함께 — 다음 회차가 이 파일을 읽어 씨앗을 고른다.
+          # 갱신 스텝이 건너뛰었으면 변경이 없어 아래 diff 검사에서 걸러진다.
+          git add data/preemption-first-seen.json data/brightdata-quota-state.json data/seed-db.json
           if git diff --cached --quiet; then
             echo '장부 변경 없음.'
             exit 0
