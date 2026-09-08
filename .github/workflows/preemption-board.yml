@@ -449,6 +449,10 @@ jobs:
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          # 광고 실측 접붙임(2026-09-09) — 발행 행에 노출 광고 수·클릭률을 키워드도구로 채운다
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
         run: |
           node scripts/publish-preemption-board.js \
             --in=board.json \

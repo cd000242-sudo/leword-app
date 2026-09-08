@@ -24,7 +24,7 @@ const OTHER = '아르바이트 급여 명세서 쓰는 법';    // 0/3 = 0    �
 function base(overrides: Partial<PreemptionInput> = {}): PreemptionInput {
     return {
         keyword: KEYWORD,
-        searchVolume: 900,
+        searchVolume: 1800,
         documentCount: 120,
         serp: serpOf([OTHER, OTHER, OTHER, OTHER, OTHER], { partialTitleHits: 1 }),
         firstSeenAt: new Date(NOW - 8 * 3600000).toISOString(),
@@ -130,7 +130,7 @@ describe('judgePreemption — 층 판정', () => {
     // 사장님 최종 기준: "검색량이 문서수보다 높은 키워드들이야, 다 통과시켜서 보여줘."
     it('황금 비율이면 정면 대응이 몇 건이어도 통과한다', () => {
         const result = judgePreemption(base({
-            searchVolume: 940, documentCount: 20,
+            searchVolume: 1880, documentCount: 20,
             serp: serpOf([COVERING, COVERING], { exactTitleHits: 3, partialTitleHits: 3 }),
         }));
         expect(result.passed).toBe(true);
@@ -237,8 +237,8 @@ describe('줄 세우기 — 광고 많고 · 검색량 높고 · 문서수 낮�
 
     it('광고·검색량이 같으면 문서수가 적은 것이 먼저다', () => {
         const out = selectWithFill([
-            row('문서많음', { adCount: 3, searchVolume: 900, documentCount: 5000 }),
-            row('문서적음', { adCount: 3, searchVolume: 900, documentCount: 300 }),
+            row('문서많음', { adCount: 3, searchVolume: 1800, documentCount: 5000 }),
+            row('문서적음', { adCount: 3, searchVolume: 1800, documentCount: 300 }),
         ], { target: 2 });
         expect(out.rows[0].keyword).toBe('문서적음');
     });
@@ -320,7 +320,7 @@ describe('selectWithFill — 껍질 까기', () => {
     it('황금 비율은 목표를 넘겨도 전부 실린다', () => {
         const golden = Array.from({ length: 4 }, (_, i) => base({
             keyword: `황금${i}`,
-            searchVolume: 900, documentCount: 100,
+            searchVolume: 1800, documentCount: 100,
             serp: serpOf([COVERING], { exactTitleHits: 3, partialTitleHits: 3 }),
         }));
         const outcome = selectWithFill([...topTier(2), ...golden], { target: 2 });
@@ -383,20 +383,20 @@ describe('선점 게이트 — 문서수가 검색량보다 많으면 빈자리�
     };
 
     it('소음이 검색량의 10배를 넘으면 정면 대응 0건이어도 안 올린다', () => {
-        // 실측 '에너지바우처조회' 형 — 문서가 검색량의 수십 배. 검색량 하한(500) 위에서도
+        // 실측 '에너지바우처조회' 형 — 문서가 검색량의 수십 배. 검색량 하한(1,000) 위에서도
         // 소음 필터가 잡아야 한다(하한 상향 2026-09-06 뒤에도 이 로직이 살아있는지 본다).
-        const out = selectWithFill([{ ...base, searchVolume: 700, documentCount: 55000 }], { target: 5 });
+        const out = selectWithFill([{ ...base, searchVolume: 1400, documentCount: 55000 }], { target: 5 });
         expect(out.rows).toHaveLength(0);
         expect(out.rejected[0].failed[0]).toContain('소음이 너무 두껍다');
     });
 
     it('문서 4만 개짜리는 더 말할 것도 없다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 700, documentCount: 40560 }], { target: 5 });
+        const out = selectWithFill([{ ...base, searchVolume: 1400, documentCount: 40560 }], { target: 5 });
         expect(out.rows).toHaveLength(0);
     });
 
     it('소음이 얇고 정면 대응도 없으면 통과한다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 900, documentCount: 300 }], { target: 5 });
+        const out = selectWithFill([{ ...base, searchVolume: 1800, documentCount: 300 }], { target: 5 });
         expect(out.rows).toHaveLength(1);
     });
 
@@ -406,20 +406,20 @@ describe('선점 게이트 — 문서수가 검색량보다 많으면 빈자리�
      */
     it('황금 비율이면 정면 5건이어도 통과한다 — 층 라벨이 사실을 밝힌다', () => {
         const locked = { ...winnableSerp, exactTitleHits: 5 };
-        const out = selectWithFill([{ ...base, serp: locked, searchVolume: 820, documentCount: 313 }], { target: 5 });
+        const out = selectWithFill([{ ...base, serp: locked, searchVolume: 1640, documentCount: 313 }], { target: 5 });
         expect(out.rows).toHaveLength(1);
         expect(out.rows[0].tier).toBe('golden-ratio');
     });
 
     // 못 쟀으면 자르지 않는다 — 못 본 것과 나쁜 것을 섞지 않는다.
     it('문서수를 못 쟀으면 비율로 자르지 않는다', () => {
-        const out = selectWithFill([{ ...base, searchVolume: 700, documentCount: null }], { target: 5 });
+        const out = selectWithFill([{ ...base, searchVolume: 1400, documentCount: null }], { target: 5 });
         expect(out.rows).toHaveLength(1);
     });
 
     it('검색량이 문서수보다 많으면 자리가 없어도 올린다 — 황금 비율 층으로', () => {
         const locked = { ...winnableSerp, exactTitleHits: 3 };
-        const out = selectWithFill([{ ...base, serp: locked, searchVolume: 940, documentCount: 20 }], { target: 5 });
+        const out = selectWithFill([{ ...base, serp: locked, searchVolume: 1880, documentCount: 20 }], { target: 5 });
         expect(out.rows).toHaveLength(1);
         expect(out.rows[0].tier).toBe('golden-ratio');
     });
@@ -431,7 +431,7 @@ describe('선점 게이트 — AI 브리핑 없는 것부터 채운다', () => {
         medianDaysAgo: 120, topTitles: ['가', '나', '다'], hasAiBriefing,
     });
     const row = (keyword: string, hasAiBriefing: boolean) => ({
-        keyword, searchVolume: 900, documentCount: 100,
+        keyword, searchVolume: 1800, documentCount: 100,
         serp: serp(hasAiBriefing),
         firstSeenAt: new Date().toISOString(), inRealtimeNow: false,
     });
@@ -469,7 +469,7 @@ describe('선점 게이트 — AI 브리핑 없는 것부터 채운다', () => {
  */
 describe('선점 게이트 — 브리핑 유무가 층보다 앞선다', () => {
     const make = (keyword: string, hasAiBriefing: boolean, exactTitleHits: number) => ({
-        keyword, searchVolume: 900, documentCount: 100,
+        keyword, searchVolume: 1800, documentCount: 100,
         serp: {
             sampledTitles: 10, exactTitleHits, partialTitleHits: 0,
             medianDaysAgo: 120, topTitles: ['가', '나', '다'], hasAiBriefing,
@@ -501,7 +501,7 @@ describe('선점 게이트 — 브리핑 유무가 층보다 앞선다', () => {
  */
 describe('선점 게이트 — 문서수 0', () => {
     const input = {
-        keyword: '야설사이트', searchVolume: 700, documentCount: 0,
+        keyword: '야설사이트', searchVolume: 1400, documentCount: 0,
         serp: {
             sampledTitles: 10, exactTitleHits: 0, partialTitleHits: 0,
             medianDaysAgo: 120, topTitles: ['가', '나', '다'], hasAiBriefing: false,

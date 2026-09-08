@@ -60,4 +60,11 @@ describe('죽은 행 판정', () => {
         expect(dead).toHaveLength(26);
         expect(alive.sort()).toEqual(['나이스차저 요금', '나이스차저 환경부카드', '쳇지피티 재미나이', '톤틴연금 가입나이'].sort());
     });
+
+    it('광고를 뺀 첫 구획이 웹사이트면 사이트를 찾아가는 검색어다(2026-09-09 감사)', () => {
+        expect(judgeDeadRow({ keyword: '라이어게임 사이트', serpSections: ['웹사이트', '인기글', '파워링크'] }).dead).toBe(true);
+        expect(judgeDeadRow({ keyword: '현대자동차 견적내기', serpSections: ['파워링크', '웹사이트', '카페'] }).dead).toBe(true);
+        expect(judgeDeadRow({ keyword: '농할상품권 구매처', serpSections: ['파워링크', 'AI브리핑', '카페', '인기글'] }).dead).toBe(false);
+        expect(judgeDeadRow({ keyword: '상토 배양토 차이', serpSections: ['파워링크', '카페', '인기글', '웹사이트'] }).dead).toBe(false);
+    });
 });

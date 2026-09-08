@@ -103,7 +103,8 @@ export const DEFAULT_PREEMPTION_THRESHOLDS: PreemptionThresholds = {
    * 이 값은 후보 선별(preemption-candidates)·게이트·batch 의 단일 출처라 한 곳만
    * 올리면 세 곳에 함께 반영된다(주석 아래 minSearchVolume 설명 참조).
    */
-  minSearchVolume: 500,
+  // 1,000(2026-09-09, 사장님): 500~1천 구간이 보드의 절반이었는데 1위를 해도 하루 몇 명이다. 추천키워드 표는 500 을 따로 쓴다.
+  minSearchVolume: 1000,
   minSampledTitles: 5,
   topSlots: 3,
   /*

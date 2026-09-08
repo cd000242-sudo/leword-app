@@ -39,6 +39,13 @@ export function judgeDeadRow(row: DeadRowInput): DeadRowVerdict {
   const sections = Array.isArray(row.serpSections) ? row.serpSections : [];
   const card = ANSWER_CARD_SECTIONS.find((label) => sections.includes(label));
   if (card) reasons.push(`실측 SERP 에 ${card} 카드가 떠 있다 — 클릭이 카드로 간다`);
+  /*
+   * 사이트를 찾아가는 검색어(2026-09-09 보드 감사): 광고(파워링크)를 뺀 첫 구획이 '웹사이트'면 네이버가 그 검색을
+   * 특정 사이트로 보내는 것이다 — '셀레나 이러닝'·'라이어게임 사이트'·'ok저축은행 개인신용대출'·'모노키즈 에이전시'.
+   * 문서수가 적어 황금비는 높지만 블로그 글이 낄 자리가 아니다. 실측 구획 순서로만 판정한다(추측 없음).
+   */
+  const firstNonAd = sections.find((label) => label !== '파워링크');
+  if (firstNonAd === '웹사이트') reasons.push('첫 구획이 웹사이트 — 사이트를 찾아가는 검색어(블로그 자리 아님)');
 
   if (row.monetize && row.monetize.verdict === 'bad') {
     const first = row.monetize.points && row.monetize.points[0] && row.monetize.points[0].text;

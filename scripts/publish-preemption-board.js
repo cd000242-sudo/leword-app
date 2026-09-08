@@ -423,16 +423,82 @@ async function main() {
     const verdict = judgeDeadRow(row);
     if (verdict.dead) deadReasons.set(row, verdict.reason);
   });
+  /*
+   * 실용 게이트(2026-09-09, 사장님 "실용적으로 트래픽을 끌어올 수 있는 것만"). 보드 감사 결과 146행 중
+   * 검색량 500~1천이 74행, 자리(1페이지 빈자리) 없는 황금비 행이 51행이었다. 황금비는 최소선일 뿐이다:
+   *   · 검색량은 단일 출처 하한(preemption-gate.minSearchVolume, 1,000) 이상
+   *   · 자리: 1페이지(1~10위) 빈자리가 실측됐거나, 정면 글이 2개 이하
+   * 이월 행에도 걸린다 — 옛 회차 행이 새 기준을 못 넘으면 이번에 빠진다.
+   */
+  const { DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
+  const minVolume = DEFAULT_PREEMPTION_THRESHOLDS.minSearchVolume;
+  const facingOf = (row) => (row.serp && typeof row.serp.exactTitleHits === 'number' ? row.serp.exactTitleHits
+    : (typeof row.facingPosts === 'number' ? row.facingPosts : null));
+  const hasSeat = (row) => {
+    const slot = row.openSlot == null ? null : Number(row.openSlot);
+    const facing = facingOf(row);
+    return (slot != null && slot >= 1 && slot <= 10) || (facing != null && facing <= 2);
+  };
+  const lowVolume = merged.rows.filter((row) => Number(row.searchVolume) < minVolume).length;
+  const noSeat = merged.rows.filter((row) => !hasSeat(row)).length;
   merged.rows = merged.rows.filter((row) => (
     (row.openSlot == null || Number(row.openSlot) > 0)
     && ACTIVE_TOPICS.has(String(row.topic || ''))
     && !deadReasons.has(row)
+    && Number(row.searchVolume) >= minVolume
+    && hasSeat(row)
   ));
   if (beforeGate !== merged.rows.length) {
     console.log(
       `  게이트      ${beforeGate} → ${merged.rows.length}행`
-      + ` (자리없음 ${noSlot} · 폐지레인 ${offLane} · 죽은검색어 ${deadReasons.size}, 겹칠 수 있음)`,
+      + ` (자리없음 ${noSlot} · 폐지레인 ${offLane} · 죽은검색어 ${deadReasons.size} · 저볼륨<${minVolume} ${lowVolume} · 1페이지 자리 없음 ${noSeat}, 겹칠 수 있음)`,
     );
+  }
+
+  /*
+   * 광고 실측 접붙임(2026-09-09, 사장님 "광고 클릭률을 보는 게 중요"): 발행 행에 검색광고 실측(노출 광고 수·
+   * 클릭률·클릭 수)이 비어 있으면 키워드도구로 채운다. 5개씩 한 콜, 캐시가 있어 회차마다 다시 묻지 않는다.
+   * 키가 없으면 건너뛴다 — 회차를 죽이지 않는다. 지어내지 않는다(못 받으면 null 그대로).
+   */
+  try {
+    const { EnvironmentManager } = require('../src/utils/environment-manager');
+    const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+    const cfg = (typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager()).getConfig();
+    const adConfig = {
+      accessLicense: cfg.naverSearchAdAccessLicense || process.env.NAVER_SEARCH_AD_ACCESS_LICENSE || '',
+      secretKey: cfg.naverSearchAdSecretKey || process.env.NAVER_SEARCH_AD_SECRET_KEY || '',
+      customerId: cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '',
+    };
+    const need = merged.rows.filter((row) => row.adDepth == null);
+    if (!adConfig.accessLicense || !adConfig.secretKey) {
+      console.log(`  광고 실측    검색광고 키 없음 — ${need.length}행 건너뜀`);
+    } else {
+      let filled = 0; let adCalls = 0;
+      for (let i = 0; i < need.length; i += 5) {
+        const chunk = need.slice(i, i + 5);
+        try {
+          const vols = await getNaverSearchAdKeywordVolume(adConfig, chunk.map((row) => String(row.keyword)));
+          adCalls += 1;
+          const byKey = new Map((vols || []).map((v) => [String(v.keyword || '').replace(/\s+/g, ''), v]));
+          for (const row of chunk) {
+            const v = byKey.get(String(row.keyword).replace(/\s+/g, ''));
+            if (!v) continue;
+            if (typeof v.plAvgDepth === 'number') row.adDepth = v.plAvgDepth;
+            if (typeof v.monthlyAvePcCtr === 'number') row.adCtrPc = v.monthlyAvePcCtr;
+            if (typeof v.monthlyAveMobileCtr === 'number') row.adCtrMobile = v.monthlyAveMobileCtr;
+            if (v.monthlyAvePcClkCnt != null || v.monthlyAveMobileClkCnt != null) {
+              row.adClicks = (Number(v.monthlyAvePcClkCnt) || 0) + (Number(v.monthlyAveMobileClkCnt) || 0);
+            }
+            if (typeof v.plAvgDepth === 'number') filled += 1;
+          }
+        } catch (error) {
+          console.log(`  !! 광고 실측 실패(계속) — ${String((error && error.message) || error).slice(0, 80)}`);
+        }
+      }
+      console.log(`  광고 실측    ${need.length}행 중 ${filled}행 채움 (검색광고 ${adCalls}콜)`);
+    }
+  } catch (error) {
+    console.log(`  !! 광고 실측 단계 건너뜀 — ${String((error && error.message) || error).slice(0, 80)}`);
   }
   if (deadReasons.size > 0) {
     console.log(`  죽은 검색어 ${deadReasons.size}행 — 카드가 답하거나 수익 판정 bad:`);

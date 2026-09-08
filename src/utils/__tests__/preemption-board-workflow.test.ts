@@ -287,4 +287,19 @@ describe('선점 보드 워크플로 — 씨앗 잡 키', () => {
         expect(batch).toContain('allocateBudget(byTopic, Math.floor(maxPerRun / callsPerKeyword))');
         expect(batch).not.toContain('const allocation = allocateBudget(byTopic, maxPerRun);');
     });
+
+    it('보드 발행 스텝은 광고 실측을 위해 검색광고 키를 받는다(2026-09-09)', () => {
+        const at = workflow.indexOf('- name: 보드 발행');
+        const step = workflow.slice(at, workflow.indexOf('- name: 커밋·푸시', at));
+        expect(step).toContain('NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}');
+        expect(step).toContain('NAVER_SEARCH_AD_CUSTOMER_ID');
+    });
+
+    it('발행 게이트는 하한 1,000 과 자리(1페이지 빈자리 또는 정면 ≤2)를 요구한다', () => {
+        const publish = fs.readFileSync(path.join(root, 'scripts', 'publish-preemption-board.js'), 'utf8');
+        expect(publish).toContain('&& Number(row.searchVolume) >= minVolume');
+        expect(publish).toContain('&& hasSeat(row)');
+        const gate = fs.readFileSync(path.join(root, 'src', 'utils', 'preemption-gate.ts'), 'utf8');
+        expect(gate).toContain('minSearchVolume: 1000,');
+    });
 });
