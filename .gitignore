@@ -44,3 +44,6 @@ manus-validation-report-*.json
 manus-validation-run*.log
 manus-stress-*.log
 release-v*.log
+
+# E2E 투어 스크린샷 (scripts/e2e-app-tour.js)
+.e2e-shots/
