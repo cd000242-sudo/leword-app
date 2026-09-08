@@ -12648,12 +12648,17 @@
               naverSearchAdAccessLicense: searchAdLicenseInput?.value?.trim() || '',
               naverSearchAdSecretKey: searchAdSecretInput?.value?.trim() || '',
               naverSearchAdCustomerId: searchAdCustomerIdInput?.value?.trim() || '',
-              anthropicApiKey: anthropicKeyInput?.value?.trim() || '',
-              aiInferenceMode: aiModeRadio?.value || 'auto',
-              manusApiKey: manusKeyInput?.value?.trim() || '',
-              coupangAccessKey: coupangAccessInput?.value?.trim() || '',
-              coupangSecretKey: coupangSecretInput?.value?.trim() || '',
-              coupangSubId: coupangSubInput?.value?.trim() || '',
+              /*
+               * 화면에 없는 칸은 보내지 않는다(2026-09-08 인벤토리 결함). 예전엔 없는 칸을 빈 문자열로
+               * 보내 save-keyword-settings 가 그 값을 그대로 저장했고, 저장할 때마다 Anthropic·Manus·
+               * 쿠팡 키가 지워졌다. 핸들러는 undefined 면 건드리지 않는다.
+               */
+              ...(anthropicKeyInput ? { anthropicApiKey: anthropicKeyInput.value.trim() } : {}),
+              ...(aiModeRadio ? { aiInferenceMode: aiModeRadio.value } : {}),
+              ...(manusKeyInput ? { manusApiKey: manusKeyInput.value.trim() } : {}),
+              ...(coupangAccessInput ? { coupangAccessKey: coupangAccessInput.value.trim() } : {}),
+              ...(coupangSecretInput ? { coupangSecretKey: coupangSecretInput.value.trim() } : {}),
+              ...(coupangSubInput ? { coupangSubId: coupangSubInput.value.trim() } : {}),
               naverApiHubKeyId: document.getElementById('keywordNaverApiHubKeyId')?.value?.trim() || '',
               naverApiHubKey: document.getElementById('keywordNaverApiHubKey')?.value?.trim() || '',
             };
