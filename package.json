@@ -95,7 +95,7 @@
     "release:mac:unsigned": "node scripts/build-mac.js --arch both --unsigned --publish",
     "health:harness": "node scripts/harness-health.js",
     "health:harness:save": "node scripts/harness-health.js --json=.codex-build-cache/harness-health.json",
-    "test:keyword": "vitest run src/utils/__tests__/preemption-gate.test.ts src/utils/__tests__/keyword-intent.test.ts src/utils/__tests__/keyword-completeness.test.ts src/utils/__tests__/keyword-demand-shape.test.ts"
+    "test:keyword": "vitest run src/utils/__tests__/seat-measure.test.ts src/utils/__tests__/seat-measure-wiring.test.ts src/utils/__tests__/preemption-gate.test.ts src/utils/__tests__/keyword-intent.test.ts src/utils/__tests__/keyword-completeness.test.ts src/utils/__tests__/keyword-demand-shape.test.ts"
   },
   "keywords": [
     "keyword",

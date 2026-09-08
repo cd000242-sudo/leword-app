@@ -14,6 +14,7 @@ import { setupKeywordBlueprintHandlers } from './handlers/keyword-blueprint';
 import { setupExposureTrackingHandlers } from './handlers/exposure-tracking';
 import { setupLaneInsightsHandlers } from './handlers/lane-insights';
 import { setupAgentCliHandlers } from './handlers/agent-cli-handlers';
+import { setupSeatMeasureHandlers } from './handlers/seat-measure';
 import { startWebBridgeHost } from './web-bridge-host';
 import { startRefreshScheduler, stopRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker, stopLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
@@ -139,6 +140,8 @@ export function setupKeywordMasterHandlers() {
   setupExposureTrackingHandlers();
   setupLaneInsightsHandlers();
   setupAgentCliHandlers();
+  // 자리 실측기(앱 전용, 2026-09-08) — 내 PC 브라우저로 네이버 자리를 센다.
+  setupSeatMeasureHandlers();
   // 웹 ↔ 클로드코드 브리지 — 사이트가 이 PC 의 구독 CLI 를 쓰는 통로(127.0.0.1 전용).
   startWebBridgeHost();
 

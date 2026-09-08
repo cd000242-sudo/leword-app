@@ -2441,7 +2441,20 @@
           </button>
 
           <!-- 🧭 황금키워드 레인 (2026-08-17 재편: 용도별 분리 화면) -->
-          <button onclick="openGoldenLanesModal()" style="
+          <!-- 자리 실측기 (앱 전용, 2026-09-08): 사이트 표가 안 재는 자리를 내 PC 브라우저로 센다 -->
+        <button onclick="openSeatMeasureModal()"
+                style="display: flex; align-items: center; gap: 16px; padding: 20px 24px; background: linear-gradient(135deg, #065f46, #047857); border: none; border-radius: 16px; cursor: pointer; text-align: left; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 6px 18px rgba(4, 120, 87, 0.28); position: relative;"
+                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 26px rgba(4, 120, 87, 0.38)';"
+                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 6px 18px rgba(4, 120, 87, 0.28)';">
+          <span style="position: absolute; top: 10px; right: 12px; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200;">앱 전용</span>
+          <div style="width: 56px; height: 56px; border-radius: 14px; background: rgba(255,255,255,0.14); display: grid; place-items: center; font-size: 28px; flex: none;">📍</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 17px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">자리 실측기</div>
+            <div style="font-size: 12.5px; color: rgba(255,255,255,0.82);">키워드 붙여넣기 → 내 PC 브라우저로 정면 글·카드 답·광고·빈자리 실측 · 비용 0</div>
+          </div>
+          <span style="font-size: 20px; color: rgba(255,255,255,0.8);">→</span>
+        </button>
+        <button onclick="openGoldenLanesModal()" style="
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
             border: none;
             border-radius: 16px;
@@ -13824,6 +13837,126 @@
         // ========================================
         // 📊 내 노출 추적 (v2.42.72) — RSS 자동 수집 + SERP hit rate
         // ========================================
+        /*
+         * 자리 실측기(앱 전용, 2026-09-08). 사이트 추천표·선점 보드가 "자리는 안 쟀다"고 적는 그 자리를
+         * 내 PC 브라우저로 센다. 판정기는 브라이트데이터 파이프라인 것과 같다(seat-measure.ts).
+         * 센 것만 적는다 — 차단·오류는 '자료없음'으로 남기고 잰 척하지 않는다.
+         */
+        window.openSeatMeasureModal = function openSeatMeasureModal() {
+          if (document.getElementById('seatMeasureModal')) { document.getElementById('seatMeasureModal').style.display = 'flex'; return; }
+          const wrap = document.createElement('div');
+          wrap.id = 'seatMeasureModal';
+          wrap.style.cssText = 'position: fixed; inset: 0; z-index: 9999; background: rgba(2,6,23,0.88); display: flex; align-items: flex-start; justify-content: center; overflow: auto; padding: 40px 16px;';
+          wrap.innerHTML = `
+            <div style="width: min(1180px, 100%); background: linear-gradient(135deg, #0f172a, #020617); border: 1px solid rgba(255,255,255,0.1); border-radius: 18px; padding: 26px 28px 30px; color: #e2e8f0; font-family: inherit;">
+              <div style="display: flex; align-items: flex-start; gap: 14px;">
+                <div style="flex: 1;">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 26px;">📍</span>
+                    <h2 style="margin: 0; font-size: 22px; color: #ffffff;">자리 실측기</h2>
+                    <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200;">앱 전용</span>
+                  </div>
+                  <p style="margin: 8px 0 0; font-size: 13px; color: #94a3b8; max-width: 78ch;">키워드를 넣으면 내 PC 브라우저가 네이버 검색 결과를 열어 상위 10개의 정면 글·카드 답·광고 수·빈자리를 센다. 브라이트데이터 없이, 횟수 제한 없이. 판정 기준은 선점 보드와 같다.</p>
+                </div>
+                <button onclick="document.getElementById('seatMeasureModal').style.display='none'" style="width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 18px; cursor: pointer;">✕</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 260px; gap: 14px; margin-top: 18px;">
+                <textarea id="seatMeasureInput" rows="6" placeholder="키워드를 줄마다 하나씩(쉼표도 됨) · 최대 100개&#10;예) 전주 한옥마을 주차&#10;캠핑 화로대 추천" style="width: 100%; box-sizing: border-box; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; padding: 12px; color: #e2e8f0; font: inherit; font-size: 13.5px; resize: vertical;"></textarea>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <label style="font-size: 12.5px; color: #cbd5e1; display: flex; gap: 8px; align-items: center;"><input type="checkbox" id="seatMeasureStructure" checked> 통합검색도 열어 카드·광고 세기(키워드당 2장)</label>
+                  <button id="seatMeasureRunBtn" onclick="runSeatMeasure()" style="padding: 12px 14px; border-radius: 10px; border: 0; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 14px; cursor: pointer;">자리 재기</button>
+                  <button id="seatMeasureAbortBtn" onclick="abortSeatMeasure()" disabled style="padding: 9px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 13px; cursor: pointer; opacity: 0.6;">중지</button>
+                  <button onclick="exportSeatMeasureCsv()" style="padding: 9px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 13px; cursor: pointer;">CSV 복사</button>
+                </div>
+              </div>
+              <div id="seatMeasureProgress" style="margin-top: 12px; font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">아직 안 쟀다.</div>
+              <div style="overflow-x: auto; margin-top: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;">
+                <table id="seatMeasureTable" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                  <thead><tr style="background: rgba(255,255,255,0.05); color: #94a3b8; font-size: 11.5px;">
+                    <th style="text-align: left; padding: 9px 10px;">키워드</th><th style="text-align: left; padding: 9px 10px;">판정</th>
+                    <th style="text-align: right; padding: 9px 10px;">정면</th><th style="text-align: right; padding: 9px 10px;">부분</th><th style="text-align: right; padding: 9px 10px;">빈자리</th>
+                    <th style="text-align: left; padding: 9px 10px;">카드</th><th style="text-align: right; padding: 9px 10px;">광고</th><th style="text-align: left; padding: 9px 10px;">AI</th>
+                    <th style="text-align: right; padding: 9px 10px;">낡음(일)</th><th style="text-align: left; padding: 9px 10px;">근거</th>
+                  </tr></thead>
+                  <tbody id="seatMeasureBody"></tbody>
+                </table>
+              </div>
+              <p style="margin: 12px 0 0; font-size: 12px; color: #64748b;">정면 = 제목이 검색어를 그대로 담은 글, 부분 = 절반 이상 담은 글, 빈자리 = 절반도 안 담은 첫 순위. 카드·광고는 통합검색 화면 실측. 차단(403/429)은 '자료없음'으로 남기고 5건 연속이면 멈춘다.</p>
+            </div>`;
+          document.body.appendChild(wrap);
+          wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.style.display = 'none'; });
+        };
+
+        window.__seatMeasureRows = [];
+        window.__seatMeasureOff = null;
+        window.runSeatMeasure = async function runSeatMeasure() {
+          const input = document.getElementById('seatMeasureInput');
+          const run = document.getElementById('seatMeasureRunBtn');
+          const abort = document.getElementById('seatMeasureAbortBtn');
+          const progress = document.getElementById('seatMeasureProgress');
+          const body = document.getElementById('seatMeasureBody');
+          const withStructure = !!document.getElementById('seatMeasureStructure')?.checked;
+          const text = String(input?.value || '').trim();
+          if (!text) { progress.textContent = '키워드를 넣어 주세요.'; return; }
+          run.disabled = true; run.style.opacity = '0.6'; abort.disabled = false; abort.style.opacity = '1';
+          body.innerHTML = ''; window.__seatMeasureRows = [];
+          progress.textContent = '내 PC 브라우저를 여는 중…';
+          if (window.__seatMeasureOff) { try { window.__seatMeasureOff(); } catch {} }
+          window.__seatMeasureOff = window.electronAPI.on('seat-measure-progress', (p) => {
+            progress.textContent = `${p.done} / ${p.total} 재는 중 · 차단 ${p.blocked} · 오류 ${p.errored} · 방금: ${p.keyword} → ${p.verdict || p.status}`;
+          });
+          try {
+            const result = await window.electronAPI.invoke('seat-measure-run', { keywords: text, withStructure });
+            if (!result || !result.success) { progress.textContent = '실패: ' + (result && result.error || '알 수 없음'); }
+            const rows = (result && result.rows) || [];
+            window.__seatMeasureRows = rows;
+            renderSeatMeasureRows(rows);
+            if (result && result.summary) {
+              const s = result.summary;
+              progress.textContent = `끝 — ${s.measured}/${s.requested} 잼 · 열림 ${s.open} · 반열림 ${s.contested} · 잠김 ${s.locked} · 카드답 ${s.card} · 차단 ${s.blocked} · ${s.seconds}초` + (result.message ? ' · ' + result.message : '');
+            }
+          } catch (err) {
+            progress.textContent = '오류: ' + (err && err.message || err);
+          } finally {
+            run.disabled = false; run.style.opacity = '1'; abort.disabled = true; abort.style.opacity = '0.6';
+            if (window.__seatMeasureOff) { try { window.__seatMeasureOff(); } catch {} window.__seatMeasureOff = null; }
+          }
+        };
+        window.abortSeatMeasure = async function abortSeatMeasure() {
+          try { await window.electronAPI.invoke('seat-measure-abort'); } catch {}
+          const progress = document.getElementById('seatMeasureProgress');
+          if (progress) progress.textContent += ' · 중지 요청 — 지금 키워드까지 재고 멈춘다';
+        };
+        function seatVerdictChip(v) {
+          const color = v === '열림' ? '#4ade80' : v === '반열림' ? '#fbbf24' : v === '잠김' ? '#f87171' : v === '카드답' ? '#f87171' : '#94a3b8';
+          return `<span style="display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: ${color}; background: ${color}22;">${v || '자료없음'}</span>`;
+        }
+        window.renderSeatMeasureRows = function renderSeatMeasureRows(rows) {
+          const body = document.getElementById('seatMeasureBody');
+          if (!body) return;
+          const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+          const n = (v) => (v == null ? '—' : String(v));
+          body.innerHTML = rows.map((r) => `<tr style="border-top: 1px solid rgba(255,255,255,0.08);">
+            <td style="padding: 8px 10px; white-space: nowrap;"><a href="https://search.naver.com/search.naver?query=${encodeURIComponent(r.keyword)}" target="_blank" style="color: #e2e8f0;">${esc(r.keyword)}</a>${r.status !== 'ok' ? ' <span style="font-size: 11px; color: #f87171;">' + (r.status === 'blocked' ? '차단' : '오류') + '</span>' : ''}</td>
+            <td style="padding: 8px 10px;">${seatVerdictChip(r.verdict)}</td>
+            <td style="padding: 8px 10px; text-align: right;">${r.status === 'ok' ? n(r.facing) + ' /' + n(r.sampled) : '—'}</td>
+            <td style="padding: 8px 10px; text-align: right;">${r.status === 'ok' ? n(r.partial) : '—'}</td>
+            <td style="padding: 8px 10px; text-align: right;">${r.vacancy == null ? '—' : r.vacancy + '위'}</td>
+            <td style="padding: 8px 10px;">${r.cards == null ? '—' : (r.cards.length ? esc(r.cards.join('·')) : '없음')}</td>
+            <td style="padding: 8px 10px; text-align: right;">${n(r.ads)}</td>
+            <td style="padding: 8px 10px;">${r.aiBriefing == null ? '—' : (r.aiBriefing ? '있음' : '없음')}</td>
+            <td style="padding: 8px 10px; text-align: right;">${n(r.staleDays)}</td>
+            <td style="padding: 8px 10px; color: #94a3b8; font-size: 12px; max-width: 420px;">${esc(r.reason || r.error || '')}</td>
+          </tr>`).join('');
+        };
+        window.exportSeatMeasureCsv = async function exportSeatMeasureCsv() {
+          const rows = window.__seatMeasureRows || [];
+          const head = ['키워드', '판정', '정면', '부분', '읽은 제목', '빈자리', '카드', '광고', 'AI브리핑', '낡음(일)', '근거', '실측시각'];
+          const q = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+          const lines = [head.join(',')].concat(rows.map((r) => [r.keyword, r.verdict, r.facing, r.partial, r.sampled, r.vacancy, r.cards ? r.cards.join('·') : '', r.ads, r.aiBriefing == null ? '' : (r.aiBriefing ? '있음' : '없음'), r.staleDays, r.reason || r.error || '', r.measuredAt].map(q).join(',')));
+          try { await navigator.clipboard.writeText(lines.join('\n')); document.getElementById('seatMeasureProgress').textContent = 'CSV 를 복사했다 (' + rows.length + '행).'; } catch (e) { document.getElementById('seatMeasureProgress').textContent = '복사 실패: ' + (e && e.message || e); }
+        };
+
         window.openExposureTrackingModal = async function () {
           const id = 'exposureTrackingModal';
           let modal = document.getElementById(id);

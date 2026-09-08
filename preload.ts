@@ -572,6 +572,7 @@ const electronApi = {
       'golden-discovery-progress',   // v2.42.77: 황금 키워드 자동 발굴 진행률
       'exposure-progress',           // v2.42.72: 노출 추적 진행률
       'keyword-mindmap-progress',    // 마인드맵 생성 진행률
+      'seat-measure-progress',       // 자리 실측기 진행(2026-09-08, 앱 전용)
     ]);
     if (!allowed.has(channel)) {
       throw new Error(`IPC channel not allowed: ${channel}`);
