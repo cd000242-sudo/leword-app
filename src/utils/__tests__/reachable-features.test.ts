@@ -19,6 +19,7 @@ const EXPECTED_CARDS = [
     '자리 실측기',
     'AdSense 승인 키워드 헌터',
     '네이버 AI 메이트 키워드 찾기',
+    '사이트에서 보기',
 ];
 
 function sliceBetween(source: string, startMarker: string, endMarker: string): string {

@@ -4,11 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; connect-src 'self' https://openapi.naver.com https://*.ntruss.com https://*.naver.com https://script.google.com https://suggestqueries.google.com https://trends.google.com https://www.googleapis.com https://signalbz.com https://zum.com https://m.search.daum.net https://m.search.nate.com; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:; media-src 'self'; object-src 'none'; frame-src 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; connect-src 'self' https://openapi.naver.com https://*.ntruss.com https://*.naver.com https://script.google.com https://suggestqueries.google.com https://trends.google.com https://www.googleapis.com https://signalbz.com https://zum.com https://m.search.daum.net https://m.search.nate.com; img-src 'self' data: https:; font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com data:; media-src 'self'; object-src 'none'; frame-src 'none';">
   <title>LEWORD - 키워드마스터</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard/dist/web/static/pretendard.css">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     * {
       margin: 0;
@@ -677,9 +675,6 @@
         <span>v</span><span id="appVersionText">-</span>
       </div>
       <h1>💎LEWORD <span id="appVersionInline" style="font-size:0.45em; font-weight:600; color:#a78bfa; vertical-align:middle; margin-left:8px; padding:3px 10px; background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(168,85,247,0.15)); border:1px solid rgba(168,85,247,0.35); border-radius:12px; letter-spacing:0.3px;" title="현재 버전">v-</span></h1>
-      <p
-        style="font-family: 'Brush Script MT', 'Lucida Handwriting', 'Comic Sans MS', cursive, serif; font-style: italic; font-size: 24px; color: #f59e0b;">
-        leadernam gold keywrod</p>
 
       <!-- 라이선스 상태 배지 + 로그아웃 -->
       <div
@@ -1391,7 +1386,39 @@
             <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🤖</div>
             <div style="flex: 1;">
               <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">네이버 AI 메이트 키워드 찾기</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">AI 브리핑 · 관련질문 · 출처형 글감 · 인용 친화도</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">AI 브리핑 · 관련질문 · 출처형 글감 — 점수 없이 실측만</div>
+            </div>
+            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
+          </button>
+
+          <!-- 🌐 사이트에서 보기 (2026-09-09): 앱에서 뺀 기능은 leaderspro.kr 이 맡는다 -->
+          <button onclick="openLewordSite('golden')" style="
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(148,163,184,0.35);
+            border-radius: 16px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.4);
+            text-align: left;
+          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(15,23,42,0.5)'"
+             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(15,23,42,0.4)'">
+            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.1); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🌐</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">사이트에서 보기</div>
+              <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 8px;">매일 갱신되는 보드는 leaderspro.kr 에서 본다 — 앱은 발굴·실측만 맡는다</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <span onclick="event.stopPropagation(); openLewordSite('golden')" title="leaderspro.kr/leword?tab=golden" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">선점 황금키워드 보드</span>
+                <span onclick="event.stopPropagation(); openLewordSite('issue')" title="leaderspro.kr/leword?tab=issue" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">실검 틈새</span>
+                <span onclick="event.stopPropagation(); openLewordSite('picks')" title="leaderspro.kr/leword?tab=picks" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">오늘의 추천키워드</span>
+                <span onclick="event.stopPropagation(); openLewordSite('kin')" title="leaderspro.kr/leword?tab=kin" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">지식인 황금질문</span>
+                <span onclick="event.stopPropagation(); openLewordSite('affiliate')" title="leaderspro.kr/leword?tab=affiliate" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">제휴 황금키워드</span>
+                <span onclick="event.stopPropagation(); openLewordSite('youtube')" title="leaderspro.kr/leword?tab=youtube" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">유튜브 글감</span>
+                <span onclick="event.stopPropagation(); openLewordSite('rank')" title="leaderspro.kr/leword?tab=rank" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">노출 추적</span>
+              </div>
             </div>
             <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
           </button>
@@ -4331,6 +4358,16 @@
             btn.disabled = false;
           }
         }
+
+        // 2026-09-09: 사이트로 이관한 기능은 브라우저로 연다 — leaderspro.kr/leword?tab=…
+        window.openLewordSite = function(tab) {
+          const url = 'https://leaderspro.kr/leword?tab=' + encodeURIComponent(String(tab || 'golden'));
+          try {
+            if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+            else if (window.blogger?.openLink) window.blogger.openLink(url);
+            else window.open(url, '_blank');
+          } catch (err) { console.warn('[SITE] 열기 실패:', err?.message || err); }
+        };
 
         // v2.42.29: 안전 wrappers (다른 모달/패널에서도 재사용)
         window.lewordNaverSearch = function(kw) {
@@ -8369,7 +8406,7 @@
                   </select>
                 </label>
                 <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
-                  최소 정보의도
+                  정보형 의도 필터
                   <select id="adsenseMinIntent" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
                     <option value="40">40 (느슨)</option>
                     <option value="50">50 (보통)</option>
@@ -8378,7 +8415,7 @@
                   </select>
                 </label>
                 <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
-                  최소 승인점수
+                  승인 기준 필터
                   <select id="adsenseMinApproval" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
                     <option value="60">60 (넓게)</option>
                     <option value="70" selected>70 (권장)</option>
@@ -8468,17 +8505,9 @@
                 <p style="font-size: 11px; color: rgba(255,255,255,0.45); margin: 8px 0 0; line-height:1.5;">⚠️ LLM 없이 보장 판정은 불가합니다. 대신 네이버 API/SERP 실측 신호와 답변형 패턴을 합산해 AI가 인용하기 좋은 글감 후보로 분류합니다.</p>
               </div>
 
-              <div style="background: rgba(3,199,90,0.08); border-radius: 12px; padding: 14px; margin-bottom: 18px; border: 1px solid rgba(3,199,90,0.25);">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-                  <span style="font-size:16px;">🎯</span>
-                  <span style="font-weight:700; color:#22c55e; font-size:13px;">AI 인용 친화도 공식</span>
-                </div>
-                <div style="display:flex; flex-wrap:wrap; gap:8px; font-size:11px;">
-                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">❓ <strong style="color:#22c55e;">질문·답변 의도</strong> 30%</span>
-                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">📚 <strong style="color:#fbbf24;">출처·근거형 글감</strong> 30%</span>
-                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">⚡ <strong style="color:#60a5fa;">AI 브리핑/이슈 신호</strong> 25%</span>
-                  <span style="background:rgba(255,255,255,0.08); padding:4px 10px; border-radius:6px; color:rgba(255,255,255,0.9);">🪑 <strong style="color:#a78bfa;">SERP 빈자리</strong> 15%</span>
-                </div>
+              <!-- 2026-09-09: 인용 친화도 공식(가중치 합산 점수)은 폐기 — 실측만 보인다 -->
+              <div style="background: rgba(3,199,90,0.08); border-radius: 12px; padding: 12px 14px; margin-bottom: 18px; border: 1px solid rgba(3,199,90,0.25); font-size: 12px; color: rgba(255,255,255,0.85); line-height: 1.6;">
+                <strong style="color:#22c55e;">점수는 없다 — 실측만 보인다.</strong> 카드에는 월 검색량·총 문서수·SERP 빈자리·인플루언서·빅도메인·급상승·24h 발행수처럼 잰 값만 싣고, 정렬은 검색량순이다.
               </div>
 
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
@@ -8560,15 +8589,6 @@
                     <option value="90" selected>S+ (끝판왕 기본)</option>
                   </select>
                 </label>
-                <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px;">
-                  최소 AI Mate 점수
-                  <select id="homeMinScore" style="padding:6px 10px; border:1px solid rgba(255,255,255,0.2); border-radius:6px; background:rgba(15,23,42,0.8); color:white;">
-                    <option value="50" selected>50 (후보 풀 확보)</option>
-                    <option value="60">60 (권장 · 40% 통과)</option>
-                    <option value="70">70 (엄격 · 14% 통과)</option>
-                    <option value="80">80 (최강 · 5%↓ 통과)</option>
-                  </select>
-                </label>
                 <label style="display:flex; align-items:center; gap:8px; color:rgba(255,255,255,0.85); font-size:13px; cursor:pointer;" title="SERP 상단에 인플루언서가 1명 이하 — 일반 블로거 진입 가능 신호">
                   <input type="checkbox" id="homeBlockInfluencer" style="width:18px; height:18px; accent-color:#22c55e;">
                   👤 인플루언서 차단 (≤1)
@@ -8647,7 +8667,6 @@
           const blogCategory = document.getElementById('homeBlogCategory').value;
           const requestedCount = parseInt(document.getElementById('homeCount').value, 10);
           const count = Math.max(30, Number.isFinite(requestedCount) ? requestedCount : 30);
-          const minScore = parseInt(document.getElementById('homeMinScore').value, 10);
           const requestedMinResults = parseInt(document.getElementById('homeMinResults')?.value || '30', 10);
           const minResults = Math.max(30, Number.isFinite(requestedMinResults) ? requestedMinResults : 30);
           const minQuality = parseInt(document.getElementById('homeMinQuality')?.value || '92', 10);
@@ -9275,8 +9294,8 @@
                 const aKilled = a.valueGate && a.valueGate.valuable === false && a.valueGate.passedCount < 4;
                 const bKilled = b.valueGate && b.valueGate.valuable === false && b.valueGate.passedCount < 4;
                 if (aKilled !== bKilled) return aKilled ? 1 : -1;
-                // 2차: AI Mate 인용 친화도
-                return getAiMateCitationSignals(b).score - getAiMateCitationSignals(a).score;
+                // 2차: 실측 검색량 (2026-09-09: 친화도 점수 정렬 폐기)
+                return (Number(b.searchVolume) || 0) - (Number(a.searchVolume) || 0);
               });
 
             // 🚫 가치 미달 + 진입 불가 키워드 완전 차단 (10인 평가 통합)
@@ -9296,7 +9315,7 @@
               return true;
             });
 
-            let passed = valuableOnly.filter(x => getAiMateCitationSignals(x).score >= minScore);
+            let passed = [...valuableOnly]; // 2026-09-09: 친화도 점수 컷 폐기 — 실측 게이트만 남는다
             if (blockInfluencer) passed = passed.filter(x => !x.vacancy || x.vacancy.influencerCount <= 1);
             if (requireVacancy) passed = passed.filter(x => x.vacancy && x.vacancy.vacancySlots >= 5);
 
@@ -9321,7 +9340,7 @@
             if (filtered.length === 0) {
               console.warn('[HOME-HUNTER] passed 0건 — 다층 fallback 활성');
 
-              // Tier 1: valuableOnly 점수순
+              // Tier 1: valuableOnly 검색량순 (2026-09-09: 점수 컷이 없어져 인플루언서·빈자리 필터가 다 걸러낸 때만 온다)
               if (valuableOnly.length > 0) {
                 filtered = valuableOnly.slice(0, minResults).map(c => ({ ...c, _tier: 'soft' }));
                 fallbackTier = 'soft';
@@ -9331,7 +9350,7 @@
               // Tier 2: enriched 중 killed 아닌 것 + homeScore≥25 (v2.42.69: vacancy 하드kill 당한 0점 항목 제외)
               const notKilled = enriched.filter(x => (!x.valueGate || !x.valueGate.isKilled) && (x.homeScore?.homeScore || 0) >= 25);
               if (notKilled.length > 0) {
-                const sorted = notKilled.sort((a, b) => getAiMateCitationSignals(b).score - getAiMateCitationSignals(a).score);
+                const sorted = notKilled.sort((a, b) => (Number(b.searchVolume) || 0) - (Number(a.searchVolume) || 0));
                 filtered = sorted.slice(0, minResults).map(c => ({ ...c, _tier: 'salvaged' }));
                 fallbackTier = 'salvaged';
               }
@@ -9373,22 +9392,19 @@
                 .filter(x => !have.has(x.keyword))
                 .filter(x => !strictSPlusMode || (x.valueGate && !x.valueGate.isKilled && (x.valueGate.qualityScore || 0) >= minQuality))
                 .filter(x => (x.homeScore?.homeScore || 0) >= 25) // 핵심: homeScore≥25 미만은 무가치
-                .sort((a, b) => getAiMateCitationSignals(b).score - getAiMateCitationSignals(a).score);
+                .sort((a, b) => (Number(b.searchVolume) || 0) - (Number(a.searchVolume) || 0));
               const topUp = enrichedPool.slice(0, needMore).map(c => ({ ...c, _backfilled: true, _topup: 'enriched' }));
               filtered.push(...topUp);
               backfilled += topUp.length;
             }
             // v2.49.8: 홈판 헌터는 "판단 가능한 후보 30개+"가 목적이므로,
             // 엄격 컷으로 부족하면 killed/hard-vacancy를 뒤로 밀되 제목 생성 가능한 실측 후보를 보강한다.
+            // 2026-09-09: 합성 점수 폐기 — 실측 사실(가치 차단·빈자리 2 미만)은 뒤로, 나머지는 검색량순
             const candidateRankScore = (c) => {
-              const hs = getAiMateCitationSignals(c).score;
-              const quality = c.valueGate?.qualityScore || 0;
-              const vacancy = c.vacancy?.vacancySlots ?? 0;
-              const title = c.bestTitle?.ctrScore || 0;
-              const hasVolume = (c.searchVolume || 0) > 0 ? 10 : 0;
-              const killedPenalty = c.valueGate?.isKilled ? 180 : 0;
-              const hardVacancyPenalty = (typeof c.vacancy?.vacancySlots === 'number' && c.vacancy.vacancySlots < 2) ? 120 : 0;
-              return hs * 4 + quality * 1.2 + vacancy * 18 + title * 0.6 + hasVolume - killedPenalty - hardVacancyPenalty;
+              const sv = Number(c.searchVolume) || 0;
+              const killed = !!c.valueGate?.isKilled;
+              const hardVacancy = typeof c.vacancy?.vacancySlots === 'number' && c.vacancy.vacancySlots < 2;
+              return (killed || hardVacancy) ? sv - 1e9 : sv;
             };
             if (strictSPlusMode && filtered.length < minResults) {
               const have = new Set(filtered.map(x => x.keyword));
@@ -9516,7 +9532,7 @@
               : fallbackTier === 'seedBackfill'
                 ? `<span style="background:rgba(148,163,184,0.16); color:#cbd5e1; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="API 측정 실패/부족으로 시드 후보를 최후 보강">📎 DATA 후보 보강</span>`
                 : fallbackTier === 'soft'
-              ? `<span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="AI Mate 컷(${minScore}) 미달이지만 가치 검증은 통과 — 추정 점수 노출">🔶 SOFT (점수컷 완화)</span>`
+              ? `<span style="background:rgba(251,191,36,0.15); color:#fbbf24; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="인플루언서·빈자리 필터에 걸렸지만 실측 가치 게이트는 통과한 후보로 채움">🔶 SOFT (필터 완화)</span>`
               : fallbackTier === 'salvaged'
                 ? `<span style="background:rgba(96,165,250,0.15); color:#60a5fa; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:700;" title="가치 등급 미달이나 KILL은 아닌 시드 — 점수 미보장">🛟 SALVAGED (가치컷 완화)</span>`
                 : fallbackTier === 'lastResort'
@@ -9532,10 +9548,10 @@
                 ${valueBadge}
                 ${poolBadge}
                 ${learnedInfo}
-                <span style="font-size:11px; color:rgba(255,255,255,0.6);">(최소 ${minScore}+, 인플루언서 차단 ${blockInfluencer ? 'ON' : 'OFF'}, 보장 ${minResults}개)</span>
+                <span style="font-size:11px; color:rgba(255,255,255,0.6);">(인플루언서 차단 ${blockInfluencer ? 'ON' : 'OFF'}, 보장 ${minResults}개)</span>
               </div>
               <div style="font-size:10px; color:rgba(255,255,255,0.5); margin-bottom:14px;">
-                💡 ${backfilled > 0 ? `<strong style="color:#fbbf24;">컷 미달 ${backfilled}개</strong>는 점수순 보충 (변별력 유지). ` : ''}모든 수치는 네이버 API/SERP 실측입니다. AI Mate 점수는 질문형 의도·출처형 글감·신선도·빈자리 신호를 합산한 예측값이며, 실제 AI 인용 보장은 표시하지 않습니다.
+                💡 ${backfilled > 0 ? `<strong style="color:#fbbf24;">컷 미달 ${backfilled}개</strong>는 검색량순 보충. ` : ''}모든 수치는 네이버 API/SERP 실측입니다. AI Mate 점수는 질문형 의도·출처형 글감·신선도·빈자리 신호를 합산한 예측값이며, 실제 AI 인용 보장은 표시하지 않습니다.
               </div>
               <div style="display:flex; flex-direction:column; gap:12px;">
                 ${filtered.map((x, i) => renderHomeKeywordCard(x, i + 1, x._backfilled)).join('')}
@@ -9578,66 +9594,9 @@
           return `<span title="${escapeHtml(tooltip)}" style="background:${bg}; color:${color}; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:800;">${label} ${confIcon}</span>`;
         }
 
-        function getAiMateCitationSignals(x) {
-          const kw = String(x?.keyword || '');
-          const title = String(x?.publishPlan?.primaryTitle || x?.bestTitle?.title || '');
-          const text = `${kw} ${title}`;
-          const signals = [];
-          let score = 18;
-          const add = (amount, label) => {
-            score += amount;
-            if (!signals.includes(label)) signals.push(label);
-          };
-
-          if (/(방법|조건|대상|서류|신청|받는법|가능|비교|차이|정리|체크|체크리스트|FAQ|질문|답변|뜻|원인|해결|기준|순서|주의사항|부작용|효과|가격|후기)/.test(text)) {
-            add(22, '답변형 의도');
-          }
-          if (/(공식|출처|근거|표|리스트|비교표|계산|기준|수치|금액|일정|마감|발표|정책|지원금|환급|보험|세금|법|제도)/.test(text)) {
-            add(20, '출처형 글감');
-          }
-          if (/(2026|2025|최신|변경|업데이트|오늘|이번주|이번 달|시즌|발표|속보|논란|이슈|개봉|방송|경기|결과|일정)/.test(text)) {
-            add(16, '최신 이슈');
-          }
-
-          const quality = x?.valueGate?.qualityScore || 0;
-          if (quality >= 90) add(18, 'S+ 가치');
-          else if (quality >= 75) add(14, '고품질');
-          else if (quality >= 58) add(9, '검증 통과');
-
-          const vacancy = x?.vacancy?.vacancySlots;
-          if (vacancy >= 5) add(12, 'SERP 빈자리');
-          else if (vacancy >= 3) add(8, '진입 여지');
-
-          const surge = x?.fresh?.surgeRatio;
-          if (surge >= 2) add(10, '급상승');
-          else if (surge >= 1.2) add(6, '신선도');
-
-          const sv = Number(x?.searchVolume || 0);
-          const dc = Number(x?.documentCount || 0);
-          if (sv >= 10000) add(8, '대중 수요');
-          else if (sv >= 300) add(6, '검색 수요');
-          if (sv > 0 && dc > 0 && sv / dc >= 5) add(8, '황금비율');
-          else if (sv > 0 && dc > 0 && sv / dc >= 2) add(5, '경쟁 적정');
-
-          const measuredHomeScore = Number(x?.homeScore?.homeScore || 0);
-          score += Math.round(Math.min(12, Math.max(0, measuredHomeScore) / 10));
-
-          const finalScore = Math.max(0, Math.min(100, Math.round(score)));
-          const grade = finalScore >= 85 ? 'CITE-S' : finalScore >= 70 ? 'CITE-A' : finalScore >= 55 ? 'WATCH' : 'LOW';
-          return {
-            score: finalScore,
-            grade,
-            signals: (signals.length ? signals : ['실측 후보']).slice(0, 5),
-            measuredHomeScore,
-          };
-        }
-
         function renderHomeKeywordCard(x, rank, isBackfilled) {
           // v2.42.70: 실측 데이터만 표시 — CTR%/expectedCtr%/노출확률% 같은 하드코딩 추정값 제거
           const hs = x.homeScore || {};
-          const aiMate = getAiMateCitationSignals(x);
-          const score = aiMate.score;
-          const grade = aiMate.grade;
           const v = x.vacancy || {};
           const fr = x.fresh || {};
           const bestTitle = x.bestTitle;
@@ -9651,11 +9610,10 @@
           const planStyle = planStatusColors[plan?.status] || planStatusColors.WATCH;
           const displayTitle = plan?.primaryTitle || bestTitle?.title || '';
 
-          const gradeColor = score >= 85 ? '#22c55e' : score >= 70 ? '#3b82f6' : score >= 55 ? '#fbbf24' : '#f87171';
-          const gradeBg = score >= 85 ? 'rgba(34,197,94,0.15)' : score >= 70 ? 'rgba(59,130,246,0.15)' : score >= 55 ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)';
+          const gradeColor = '#22c55e'; // 2026-09-09: 점수 등급색 폐기 — 고정
+          const gradeBg = 'rgba(34,197,94,0.15)';
           const cardOpacity = isBackfilled ? '0.7' : '1';
           const backfillTag = isBackfilled ? `<span style="background:rgba(251,191,36,0.2); color:#fbbf24; padding:2px 8px; border-radius:6px; font-size:9px; font-weight:800; margin-left:6px;">📉 컷 미달</span>` : '';
-          const aiMateSignalsHtml = aiMate.signals.map(s => `<span style="background:rgba(34,197,94,0.11); color:#a7f3d0; border:1px solid rgba(34,197,94,0.25); padding:3px 8px; border-radius:999px; font-size:10px; font-weight:800;">${escapeHtml(s)}</span>`).join('');
 
           // 실측 신선도 라벨
           const surgeText = (typeof fr.surgeRatio === 'number' && fr.surgeRatio > 0)
@@ -9671,19 +9629,10 @@
                   <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
                     <span style="font-size:11px; font-weight:800; color:rgba(255,255,255,0.5);">#${rank}</span>
                     <span style="font-size:20px; font-weight:800; color:white; word-break:keep-all;">${escapeHtml(x.keyword)}</span>
-                    <span style="background:${gradeBg}; color:${gradeColor}; padding:2px 10px; border-radius:8px; font-size:11px; font-weight:800;">${grade}</span>
                     ${renderValueGateBadge(x.valueGate)}
                     ${backfillTag}
                   </div>
                 </div>
-                <div style="text-align:right; flex-shrink:0;">
-                  <div style="font-size:28px; font-weight:900; color:${gradeColor}; line-height:1;">${score}</div>
-                  <div style="font-size:10px; color:rgba(255,255,255,0.5);" title="질문 의도·출처형 글감·신선도·빈자리 기반 AI 인용 친화도. 실제 AI 인용 보장은 아님">AI Mate</div>
-                </div>
-              </div>
-              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
-                ${aiMateSignalsHtml}
-                ${aiMate.measuredHomeScore ? `<span style="background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.65); padding:3px 8px; border-radius:999px; font-size:10px; font-weight:700;" title="기존 네이버 실측 신호 기반 내부 점수">실측 ${aiMate.measuredHomeScore}/100</span>` : ''}
               </div>
 
               ${displayTitle ? `
@@ -9989,7 +9938,7 @@
               resultsDiv.innerHTML = `
                 <div style="text-align:center; padding:30px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:12px; color:#f87171;">
                   🚨 모든 단계 시도했지만 실측 승인 후보 0건 — 카테고리에 실측 데이터가 없거나 네이버 API 키 미설정 가능성. <br/>
-                  <button onclick="closeAdsenseHunterModal(); openSettingsModal && openSettingsModal();" style="margin-top:12px; padding:8px 14px; background:#4285f4; border:none; border-radius:8px; color:white; cursor:pointer;">설정 확인</button>
+                  <button onclick="closeAdsenseHunterModal(); openKeywordSettingsModal();" style="margin-top:12px; padding:8px 14px; background:#4285f4; border:none; border-radius:8px; color:white; cursor:pointer;">설정 확인</button>
                 </div>`;
               return;
             }
@@ -11895,452 +11844,9 @@
         }
 
       </script>
-      <!-- ==============================================
-         🤖 Leadernam AI Chatbot Widget Integration
-         ============================================== -->
-      <div id="ai-widget-root"
-        style="position: fixed !important; top: 0; left: 0; width: 0; height: 0; z-index: 99999; font-family: 'Pretendard', sans-serif;">
-
-        <!-- 1. Floating Button (Bottom Right) -->
-        <div class="fixed bottom-6 right-6 z-[99999]">
-          <button onclick="toggleChatWindow()"
-            class="w-16 h-16 bg-green-500 rounded-full shadow-2xl flex items-center justify-center text-white hover:bg-green-600 transition-all duration-300 hover:scale-110 animate-bounce active:scale-95 group">
-            <span class="text-2xl group-hover:rotate-12 transition-transform">🤖</span>
-            <!-- Tooltip (Optional) -->
-            <span
-              class="absolute right-full mr-4 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Leadernam AI
-            </span>
-          </button>
-        </div>
-
-        <!-- 2. Chat Window (Hidden by default) -->
-        <div id="chat-window"
-          class="fixed bottom-24 right-6 w-[400px] h-[600px] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-200 z-[99999] transition-all duration-300 transform scale-0 opacity-0 origin-bottom-right"
-          style="display: none;">
-
-          <!-- Header -->
-          <div class="bg-white border-b border-gray-100 p-4 flex justify-between items-center sticky top-0 z-10">
-            <div class="flex items-center space-x-2">
-              <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-lg">🤖</div>
-              <div class="flex flex-col">
-                <h1 class="font-bold text-base text-gray-800 leading-tight">Leadernam AI</h1>
-                <span class="text-[10px] text-green-600 font-medium">Online</span>
-              </div>
-            </div>
-            <div class="flex items-center space-x-1">
-              <button onclick="openSettingsModal()"
-                class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition" title="설정">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </button>
-              <button onclick="toggleChatWindow()"
-                class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition" title="닫기">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Chat Area -->
-          <div id="ai-chat-box" class="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 scroll-smooth">
-            <!-- Welcome Message -->
-            <div class="flex items-start space-x-2 animate-fade-in-up">
-              <div
-                class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
-                AI</div>
-              <div
-                class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800 max-w-[85%] leading-relaxed">
-                안녕하세요! 👋<br>
-                <strong>LEWORD 황금 키워드 탐지기</strong>입니다.<br>
-                무엇을 도와드릴까요?
-              </div>
-            </div>
-          </div>
-
-          <!-- Input Area -->
-          <div class="p-4 bg-white border-t border-gray-100">
-            <div
-              class="relative flex items-center bg-gray-100 rounded-2xl px-4 py-2 focus-within:ring-2 focus-within:ring-green-500 transition-all shadow-inner">
-              <input type="text" id="ai-user-input"
-                class="flex-1 bg-transparent border-none outline-none text-sm py-2 text-gray-800 placeholder-gray-400"
-                placeholder="이곳에 질문을 입력하세요..." onkeypress="if(event.key === 'Enter') sendAiMessage()">
-              <button onclick="sendAiMessage()"
-                class="ml-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white hover:bg-green-600 transition shadow-md transform hover:scale-105 active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                id="ai-send-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </button>
-            </div>
-            <p class="text-[10px] text-center text-gray-400 mt-2 selection:bg-green-100">Powered by Google Gemini Pro
-            </p>
-          </div>
-
-          <!-- Settings Overlay (Absolute inside chat window) -->
-          <div id="ai-settings-overlay" class="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 hidden flex-col">
-            <div class="flex justify-between items-center p-4 border-b border-gray-100">
-              <h2 class="font-bold text-gray-800">⚙️ AI 설정</h2>
-              <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-gray-600">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div class="p-6 space-y-6 flex-1 overflow-y-auto">
-              <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">API Key</label>
-                <input type="password" id="ai-api-key-input"
-                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition bg-gray-50 text-sm"
-                  placeholder="Claude API 키 (sk-ant-...) 또는 Gemini AI Studio 키">
-                <p class="text-xs text-gray-400 mt-2">키는 로컬에만 저장됩니다. Claude 키 발급: <a href="#" onclick="event.preventDefault(); window.electronAPI?.openExternal('https://console.anthropic.com/'); return false;" class="text-indigo-500 underline">console.anthropic.com</a></p>
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">AI 모델 선택</label>
-                <select id="ai-model-select" onchange="toggleAiCustomModel()"
-                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition bg-gray-50 text-sm mb-2">
-                  <option value="claude-sonnet-4-6" selected>Claude Sonnet 4.6 (균형 · 추천)</option>
-                  <option value="claude-opus-4-7">Claude Opus 4.7 (최고 성능 ⭐️)</option>
-                  <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (빠르고 저렴)</option>
-                  <option value="gemini-2.5-flash">Gemini 2.5 Flash (legacy)</option>
-                  <option value="gemini-2.5-pro">Gemini 2.5 Pro (legacy)</option>
-                  <option value="custom">직접 입력...</option>
-                </select>
-                <input type="text" id="ai-model-name-custom"
-                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition bg-gray-50 text-sm hidden"
-                  placeholder="모델 ID (예: claude-sonnet-4-6, gemini-2.5-pro)">
-              </div>
-            </div>
-            <div class="p-4 border-t border-gray-100">
-              <button onclick="saveAiSettings()"
-                class="w-full py-3 bg-green-500 text-white font-bold rounded-xl shadow-lg hover:bg-green-600 transition transform hover:-translate-y-1">
-                설정 저장하기
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <script>
-        // ==========================================
-        // 🤖 Leadernam AI Logic
-        // ==========================================
-
-        // State
-        const AI_STATE = {
-          isOpen: false,
-          history: [],
-          isTyping: false
-        };
-
-        // DOM Elements
-        const chatWindow = document.getElementById('chat-window');
-        const settingsOverlay = document.getElementById('ai-settings-overlay');
-        const chatBox = document.getElementById('ai-chat-box');
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-          loadAiSettings();
-          initDraggable();
-        });
-
-        // Draggable Logic
-        function initDraggable() {
-          const header = chatWindow.querySelector('.sticky.top-0'); // Use header as handle
-          let isDragging = false;
-          let startX, startY, initialLeft, initialTop;
-
-          // Set initial inline styles to fixed pixel values for accurate dragging calculation
-          // Default CSS is bottom-24 right-6. Let's start respecting that but allow override style.
-
-          header.style.cursor = 'move';
-
-          // v2.43.10: 드래그 중에만 mousemove/mouseup 등록 → 매 마우스 이동마다 가드 체크 제거
-          let dragAbort = null;
-          header.addEventListener('mousedown', (e) => {
-            if (e.target.closest('button')) return;
-            isDragging = true;
-
-            const rect = chatWindow.getBoundingClientRect();
-            if (!chatWindow.style.left) {
-              chatWindow.style.right = 'auto';
-              chatWindow.style.bottom = 'auto';
-              chatWindow.style.left = rect.left + 'px';
-              chatWindow.style.top = rect.top + 'px';
-              chatWindow.style.position = 'fixed';
-            }
-
-            startX = e.clientX;
-            startY = e.clientY;
-            initialLeft = parseFloat(chatWindow.style.left) || rect.left;
-            initialTop = parseFloat(chatWindow.style.top) || rect.top;
-            header.classList.add('active:cursor-grabbing');
-
-            // 이전 드래그 잔여 핸들러 정리 후 새로 등록
-            if (dragAbort) dragAbort.abort();
-            dragAbort = new AbortController();
-            const signal = dragAbort.signal;
-
-            document.addEventListener('mousemove', (ev) => {
-              if (!isDragging) return;
-              ev.preventDefault();
-              chatWindow.style.left = (initialLeft + (ev.clientX - startX)) + 'px';
-              chatWindow.style.top = (initialTop + (ev.clientY - startY)) + 'px';
-            }, { signal });
-
-            document.addEventListener('mouseup', () => {
-              isDragging = false;
-              header.classList.remove('active:cursor-grabbing');
-              if (dragAbort) { dragAbort.abort(); dragAbort = null; }
-            }, { signal, once: true });
-          });
-        }
-
-        function toggleChatWindow() {
-          AI_STATE.isOpen = !AI_STATE.isOpen;
-          if (AI_STATE.isOpen) {
-            // Show
-            chatWindow.style.display = 'flex';
-            // Small delay to allow display:flex to apply before transition
-            setTimeout(() => {
-              chatWindow.classList.remove('scale-0', 'opacity-0');
-              chatWindow.classList.add('scale-100', 'opacity-100');
-              document.getElementById('ai-user-input').focus();
-            }, 10);
-
-            // Check API Key on first open
-            const key = localStorage.getItem('chatApiKey');
-            if (!key) {
-              setTimeout(() => openSettingsModal(), 300);
-            }
-          } else {
-            // Hide
-            chatWindow.classList.remove('scale-100', 'opacity-100');
-            chatWindow.classList.add('scale-0', 'opacity-0');
-            setTimeout(() => {
-              chatWindow.style.display = 'none';
-            }, 300);
-          }
-        }
-
-        // Settings Logic
-        function openSettingsModal() {
-          settingsOverlay.classList.remove('hidden');
-          settingsOverlay.classList.add('flex');
-          loadAiSettings();
-        }
-
-        function closeSettingsModal() {
-          settingsOverlay.classList.add('hidden');
-          settingsOverlay.classList.remove('flex');
-        }
-
-        function toggleAiCustomModel() {
-          const select = document.getElementById('ai-model-select');
-          const customInput = document.getElementById('ai-model-name-custom');
-          if (select.value === 'custom') {
-            customInput.classList.remove('hidden');
-            customInput.focus();
-          } else {
-            customInput.classList.add('hidden');
-          }
-        }
-
-        function loadAiSettings() {
-          const key = localStorage.getItem('chatApiKey') || '';
-          let model = localStorage.getItem('chatModelName') || 'claude-sonnet-4-6';
-
-          // v2.42.26: deprecated Gemini 모델 자동 마이그레이션 (gemini-1.5-pro, gemini-exp-1206 등)
-          const deprecatedModels = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-2.0-pro-exp', 'gemini-2.0-flash-thinking-exp-1219', 'gemini-exp-1206'];
-          if (deprecatedModels.includes(model)) {
-            console.log('[AI-SETTINGS] deprecated 모델 감지:', model, '→ claude-sonnet-4-6 자동 전환');
-            model = 'claude-sonnet-4-6';
-            localStorage.setItem('chatModelName', model);
-          }
-
-          document.getElementById('ai-api-key-input').value = key;
-
-          const select = document.getElementById('ai-model-select');
-          const customInput = document.getElementById('ai-model-name-custom');
-
-          const optionExists = [...select.options].some(o => o.value === model);
-          if (optionExists) {
-            select.value = model;
-            customInput.classList.add('hidden');
-          } else {
-            select.value = 'custom';
-            customInput.value = model;
-            customInput.classList.remove('hidden');
-          }
-        }
-
-        function saveAiSettings() {
-          const key = document.getElementById('ai-api-key-input').value.trim();
-          const select = document.getElementById('ai-model-select');
-          const customInput = document.getElementById('ai-model-name-custom');
-
-          let model = select.value === 'custom' ? customInput.value.trim() : select.value;
-          if (!model) model = 'claude-sonnet-4-6';
-
-          if (!key) {
-            alert('API 키를 입력해주세요!');
-            return;
-          }
-
-          localStorage.setItem('chatApiKey', key);
-          localStorage.setItem('chatModelName', model);
-
-          closeSettingsModal();
-          addAiBotMessage(`설정이 저장되었습니다! \n모델: ${model}`);
-        }
-
-        // Chat Logic
-        async function sendAiMessage() {
-          if (AI_STATE.isTyping) return;
-
-          const input = document.getElementById('ai-user-input');
-          const message = input.value.trim();
-          if (!message) return;
-
-          const apiKey = localStorage.getItem('chatApiKey');
-          if (!apiKey) {
-            openSettingsModal();
-            return;
-          }
-
-          // UI Update
-          input.value = '';
-          addAiUserMessage(message);
-          AI_STATE.isTyping = true;
-          toggleSendBtn(false);
-
-          // Loading Indicator
-          const loadingId = addAiLoading();
-
-          try {
-            // Direct Gemini API Call (Node Integration must be enabled)
-            // If 'require' is not available (e.g. contextIsolation: true), this will fail.
-            // Assuming nodeIntegration: true based on file context.
-            let responseText = '';
-
-            const modelName = localStorage.getItem('chatModelName') || 'claude-sonnet-4-6';
-
-            // IPC를 통해 메인 프로세스에서 Gemini API 호출
-            responseText = await window.electronAPI.geminiChat({
-              apiKey: apiKey,
-              message: message,
-              history: AI_STATE.history,
-              modelName: modelName
-            });
-
-            // Update History
-            AI_STATE.history.push({ role: "user", parts: [{ text: message }] });
-            AI_STATE.history.push({ role: "model", parts: [{ text: responseText }] });
-
-            // Limit history to last 20 turns
-            if (AI_STATE.history.length > 40) {
-              AI_STATE.history = AI_STATE.history.slice(AI_STATE.history.length - 40);
-            }
-
-            removeAiLoading(loadingId);
-            addAiBotMessage(responseText);
-
-          } catch (error) {
-            console.error("Gemini Error:", error);
-            removeAiLoading(loadingId);
-            addAiBotMessage(`오류가 발생했습니다: ${error.message}\nAPI 키를 확인하거나 다시 시도해주세요.`);
-          } finally {
-            AI_STATE.isTyping = false;
-            toggleSendBtn(true);
-            document.getElementById('ai-user-input').focus();
-          }
-        }
-
-        // Helper Functions
-        function toggleSendBtn(enable) {
-          const btn = document.getElementById('ai-send-btn');
-          btn.disabled = !enable;
-          btn.classList.toggle('opacity-50', !enable);
-        }
-
-        function addAiUserMessage(text) {
-          const div = document.createElement('div');
-          div.className = "flex items-end justify-end space-x-2 animate-fade-in-up";
-          div.innerHTML = `
-                <div class="bg-green-500 p-3 rounded-2xl rounded-tr-none shadow-md text-sm text-white max-w-[85%] leading-relaxed break-words">
-                    ${text}
-                </div>
-            `;
-          chatBox.appendChild(div);
-          scrollAiChatToBottom();
-        }
-
-        function addAiBotMessage(text) {
-          const div = document.createElement('div');
-          div.className = "flex items-start space-x-2 animate-fade-in-up";
-          const html = marked.parse(text); // Using global marked
-          div.innerHTML = `
-                <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">AI</div>
-                <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 text-sm text-gray-800 max-w-[85%] leading-relaxed break-words markdown-body">
-                    ${html}
-                </div>
-            `;
-          chatBox.appendChild(div);
-          scrollAiChatToBottom();
-        }
-
-        function addAiLoading() {
-          const id = 'ai-loading-' + Date.now();
-          const div = document.createElement('div');
-          div.id = id;
-          div.className = "flex items-start space-x-2 animate-pulse";
-          div.innerHTML = `
-                <div class="w-8 h-8 bg-green-500/50 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">...</div>
-                <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-50 text-sm text-gray-500">
-                    AI가 생각중입니다...
-                </div>
-            `;
-          chatBox.appendChild(div);
-          scrollAiChatToBottom();
-          return id;
-        }
-
-        function removeAiLoading(id) {
-          const el = document.getElementById(id);
-          if (el) el.remove();
-        }
-
-        function scrollAiChatToBottom() {
-          chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        // Simple Animation Style Injection
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeInUp {
-                from { opacity: 0; transform: translateY(10px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            .animate-fade-in-up {
-                animation: fadeInUp 0.3s ease-out forwards;
-            }
-            /* Markdown Styles overrides for Scoped Chat */
-            #ai-chat-box .markdown-body ul { list-style-type: disc; margin-left: 1.5em; }
-            #ai-chat-box .markdown-body ol { list-style-type: decimal; margin-left: 1.5em; }
-            #ai-chat-box .markdown-body strong { color: #16a34a; }
-            #ai-chat-box .markdown-body p { margin-bottom: 0.5em; }
-        `;
-        document.head.appendChild(style);
+        // 2026-09-09: AI 챗 위젯(Leadernam AI Logic)은 삭제 — 아래 모달 최소화 매니저만 남는다.
 
         // ============================================================
         // v2.42.66: 전역 모달 최소화 매니저

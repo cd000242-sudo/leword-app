@@ -344,13 +344,13 @@ assert('home hunter strict S+ mode requires explicit S+ value grade through fina
     && /filter\(x\s*=>\s*!strictSPlusMode\s*\|\|[\s\S]*x\.valueGate\.valueGrade\s*===\s*'S\+'/.test(html),
   'home hunter strict mode can leak non-S+ candidates');
 
+// 2026-09-09: 인용 친화도 공식(가중치 점수)·최소 AI Mate 점수 컷은 폐기 — 화면은 실측만 보이고 검색량순으로 줄 세운다.
 assert('home hunter slot is repurposed to AI Mate citation mode',
   /openNaverMateKeywordModal/.test(html)
     && /네이버 AI 메이트 키워드 찾기/.test(html)
-    && /AI 인용 친화도 공식/.test(html)
-    && /function\s+getAiMateCitationSignals/.test(html)
-    && /getAiMateCitationSignals\(x\)\.score\s*>=\s*minScore/.test(html)
-    && /AI Mate 점수/.test(html)
+    && /점수는 없다 — 실측만 보인다/.test(html)
+    && !/AI 인용 친화도 공식/.test(html)
+    && !/getAiMateCitationSignals/.test(html)
     && /source:\s*'ai-mate-hunter'/.test(html),
   'AI Mate citation mode is not fully wired through UI, scoring, cutoff, and tracking');
 

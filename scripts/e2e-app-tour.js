@@ -22,7 +22,8 @@ fs.mkdirSync(OUT, { recursive: true });
 const env = { ...process.env, LEWORD_E2E_SKIP_SINGLE_INSTANCE: '1' };
 delete env.ELECTRON_RUN_AS_NODE;
 
-const SKIP_LABEL = /발굴 시작|분석 시작|찾기 시작|자리 재기|키워드 조회|자동 황금키워드 발굴|마인드맵/;
+// '사이트에서 보기'는 외부 브라우저(leaderspro.kr)를 띄우는 카드라 투어에서는 누르지 않는다
+const SKIP_LABEL = /발굴 시작|분석 시작|찾기 시작|자리 재기|키워드 조회|자동 황금키워드 발굴|마인드맵|사이트에서 보기/;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const safe = (s) => String(s || '').replace(/[^\w가-힣]+/g, '_').slice(0, 28) || 'x';
 
