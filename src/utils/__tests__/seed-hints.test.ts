@@ -5,6 +5,7 @@ import {
   HINT_ANCHORS,
   HINT_ROWS_CAP,
   SEED_HINTS,
+  TITLE_HEAD_QUERIES,
   hintSourceTag,
   keepHintRow,
   preferSource,
@@ -328,5 +329,41 @@ describe('창고를 다시 긁어야 하나', () => {
   it('창고가 없거나 날짜가 깨졌으면 다시 긁는다', () => {
     expect(warehouseNeedsRebuild(null, { maxAgeDays: 3, now })).toBe(true);
     expect(warehouseNeedsRebuild(fresh({ builtAt: '깨진값' }), { maxAgeDays: 3, now })).toBe(true);
+  });
+});
+
+/*
+ * 제목 머리말(2026-09-08, 사장님 "정직하게 남는 것들을 최대한 극한으로 늘려봐").
+ * 방송·스타·연예인·드라마는 광고 그래프에 콘텐츠 이웃이 없다. 뉴스 제목에서 뽑은
+ * 작품·프로그램·인물 이름을 머리말로 넣으면 연관어가 '폭싹속았수다 출연진·몇부작·결말'
+ * 처럼 온다. 닻 낱말이 없어도 **제목을 품은 행**은 그 주제다.
+ */
+describe('제목 머리말 — 제목을 품은 행은 그 주제다', () => {
+  it('닻이 없어도 머리말(제목)이 들어 있으면 머리말 주제로 담는다', () => {
+    expect(routeHintRow('드라마', '폭싹속았수다출연진', '폭싹속았수다')).toBe('드라마');
+    expect(routeHintRow('드라마', '폭싹속았수다몇부작', '폭싹속았수다')).toBe('드라마');
+    expect(routeHintRow('방송', '나혼자산다출연진', '나혼자산다')).toBe('방송');
+    expect(routeHintRow('스타·연예인', '아이유나이', '아이유')).toBe('스타·연예인');
+  });
+
+  it('머리말을 안 품은 행은 예전 규칙 그대로다 — 닻 없으면 버림', () => {
+    expect(routeHintRow('드라마', '아이유', '폭싹속았수다')).toBeNull();
+  });
+
+  it('거부어와 말 규칙은 제목보다 앞이다', () => {
+    expect(routeHintRow('드라마', '폭싹속았수다토렌트', '폭싹속았수다')).toBeNull();
+    expect(routeHintRow('드라마', '폭싹속았수다넷플릭스요금제', '폭싹속았수다')).toBe('IT·컴퓨터');
+  });
+
+  it('출연진·몇부작·줄거리·명대사 같은 시청자 말이 드라마·방송 닻에 있다', () => {
+    expect(routeHintRow('드라마', '주말드라마출연진')).toBe('드라마');
+    expect(routeHintRow('방송', '토크쇼게스트')).toBe('방송');
+    expect(routeHintRow('드라마', '요즘드라마명대사')).toBe('드라마');
+  });
+
+  it('제목 머리말 뉴스 질의는 얇은 세 주제를 다 덮는다', () => {
+    for (const topic of ['드라마', '방송', '스타·연예인']) {
+      expect(TITLE_HEAD_QUERIES[topic]?.length ?? 0, `${topic} 뉴스 질의가 없다`).toBeGreaterThanOrEqual(3);
+    }
   });
 });

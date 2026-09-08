@@ -94,6 +94,12 @@ jobs:
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
           NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+          # 제목 머리말(2026-09-08) — 뉴스 제목에서 작품·인물 이름을 뽑으려면 오픈 API 키가
+          # 필요하다. 없으면 그 구간만 건너뛴다(창고는 그대로 만들어진다).
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
           # seedsOnly 감사 실행은 강제로 다시 긁는다 — 레포 창고가 3일 안쪽이면
           # 스크립트가 "그대로 씁니다" 하고 끝나 버려서 볼 것이 없다.
           FORCE_REBUILD: ${{ github.event.inputs.seedsOnly == 'true' }}

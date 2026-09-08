@@ -38,8 +38,10 @@ const fs = require('fs');
 const path = require('path');
 const { createHmac } = require('crypto');
 const {
-  SEED_HINTS, HINT_ROWS_CAP, hintSourceTag, routeHintRow, preferSource, warehouseNeedsRebuild,
+  SEED_HINTS, HINT_ROWS_CAP, TITLE_HEAD_QUERIES, TITLE_HEADS_PER_TOPIC,
+  hintSourceTag, routeHintRow, preferSource, warehouseNeedsRebuild,
 } = require('../src/utils/seed-hints');
+const { extractTitleHeads } = require('../src/utils/news-title-heads');
 
 const arg = (name) => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -52,8 +54,13 @@ const DEST = arg('out') ? path.resolve(arg('out')) : path.join(__dirname, '..', 
 const HOST = 'https://api.searchad.naver.com';
 const URI = '/keywordstool';
 
-/** 한 요청. 실패는 빈 배열이다 — 한 칸이 비어도 나머지는 긁는다. */
-async function tool(creds, query) {
+/**
+ * 한 요청. 실패는 빈 배열이다 — 한 칸이 비어도 나머지는 긁는다.
+ * 429(호출 제한)는 잠깐 쉬고 두 번까지 다시 부른다 — 세 번째 감사에서 머리말 78개를
+ * 120ms 간격으로 두드리다 '텃밭' 하나가 429 로 비었다(실측). 머리말이 200개 넘게 늘어
+ * 그냥 두면 구멍이 는다.
+ */
+async function tool(creds, query, attempt = 0) {
   const timestamp = String(Date.now());
   const signature = createHmac('sha256', creds.secretKey)
     .update(`${timestamp}.GET.${URI}`)
@@ -67,6 +74,10 @@ async function tool(creds, query) {
         'X-Customer': String(creds.customerId || ''),
       },
     });
+    if (response.status === 429 && attempt < 2) {
+      await new Promise((done) => setTimeout(done, 1500 * (attempt + 1)));
+      return tool(creds, query, attempt + 1);
+    }
     if (!response.ok) return { ok: false, rows: [], status: response.status };
     const parsed = await response.json().catch(() => null);
     return { ok: true, rows: (parsed && parsed.keywordList) || [], status: 200 };
@@ -131,7 +142,7 @@ async function main() {
   const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
   /** 창구별로 {키워드 → 검색량}. 같은 말이 여러 창구에서 와도 한 번만 센다. */
   const seeds = new Map();
-  const sources = { month: {}, event: {}, biztp: {}, hint: {} };
+  const sources = { month: {}, event: {}, biztp: {}, hint: {}, title: {} };
   let calls = 0;
   let failed = 0;
 
@@ -243,42 +254,104 @@ async function main() {
    * 창고에 안 들어가므로 제 주제 머리말이 뒤에 오면 그때 담긴다.
    * 순위 구간 표본(닻 통과분)을 로그에 남기므로 회차 로그가 곧 감사다.
    */
+  /*
+   * 머리말 하나를 긁어 담는다 — 정적 머리말과 제목 머리말이 같은 길을 쓴다.
+   *
+   * 되보내기(2026-09-08, 사장님 "광고주 그래프도 중요하지 않니"): 닻에 안 맞는 행을
+   * 버리지 않고 말이 가리키는 주제로 보낸다 — 영화 머리말이 끌고 온 '중드추천'은
+   * 드라마로, '넷플릭스요금제'는 IT·컴퓨터로. 어디에도 안 맞는 것만 버린다.
+   * 제목 머리말(titleHead)이면 그 제목을 품은 행은 닻이 없어도 머리말 주제다.
+   */
+  const ingestHint = async (topic, head, bucket, labelPrefix, titleHead) => {
+    const { rows: allRows, ok, status } = await tool(creds, `hintKeywords=${encodeURIComponent(head)}&showDetail=1`);
+    calls += 1;
+    if (!ok) failed += 1;
+    const capped = allRows.slice(0, HINT_ROWS_CAP);
+    const byTarget = new Map();
+    let dropped = 0;
+    for (const row of capped) {
+      const target = routeHintRow(topic, String(row.relKeyword || ''), titleHead);
+      if (!target) { dropped += 1; continue; }
+      if (!byTarget.has(target)) byTarget.set(target, []);
+      byTarget.get(target).push(row);
+    }
+    const kept = byTarget.get(topic) || [];
+    const added = collect(kept, bucket, `${labelPrefix}${head}`, hintSourceTag(topic), {
+      topic, rawRows: allRows.length, capped: capped.length, dropped,
+    });
+    const rerouted = [];
+    let moved = 0;
+    for (const [target, rows] of byTarget) {
+      if (target === topic) continue;
+      const fresh = collect(rows, bucket, `${labelPrefix}${head}→${target}`, hintSourceTag(target), { topic: target, from: head });
+      rerouted.push(`${target} ${rows.length}(새 ${fresh})`);
+      moved += rows.length;
+    }
+    await sleep(gapMs);
+    return { allRows, capped, kept, added, dropped, moved, rerouted, ok, status };
+  };
+
   console.log('■ 힌트(hintKeywords=주제 머리말) — 업종 창구에 없는 연예·문화 주제');
   for (const [topic, heads] of Object.entries(SEED_HINTS)) {
     for (const head of heads) {
-      const { rows: allRows, ok, status } = await tool(creds, `hintKeywords=${encodeURIComponent(head)}&showDetail=1`);
-      calls += 1;
-      if (!ok) failed += 1;
-      const capped = allRows.slice(0, HINT_ROWS_CAP);
-      /*
-       * 되보내기(2026-09-08, 사장님 "광고주 그래프도 중요하지 않니"): 닻에 안 맞는 행을
-       * 버리지 않고 말이 가리키는 주제로 보낸다 — 영화 머리말이 끌고 온 '중드추천'은
-       * 드라마로, '넷플릭스요금제'는 IT·컴퓨터로. 어디에도 안 맞는 것만 버린다.
-       */
-      const byTarget = new Map();
-      let dropped = 0;
-      for (const row of capped) {
-        const target = routeHintRow(topic, String(row.relKeyword || ''));
-        if (!target) { dropped += 1; continue; }
-        if (!byTarget.has(target)) byTarget.set(target, []);
-        byTarget.get(target).push(row);
-      }
-      const kept = byTarget.get(topic) || [];
-      const added = collect(kept, sources.hint, head, hintSourceTag(topic), {
-        topic, rawRows: allRows.length, capped: capped.length, dropped,
-      });
-      const rerouted = [];
-      for (const [target, rows] of byTarget) {
-        if (target === topic) continue;
-        const moved = collect(rows, sources.hint, `${head}→${target}`, hintSourceTag(target), { topic: target, from: head });
-        rerouted.push(`${target} ${rows.length}(새 ${moved})`);
-      }
-      console.log(`  ${topic} / ${head.padEnd(9)} ${String(allRows.length).padStart(5)}개 → 상위 ${String(capped.length).padStart(3)} → 제 주제 ${String(kept.length).padStart(3)} · 새 ${String(added).padStart(4)} · 딴 주제 ${rerouted.length ? rerouted.join(' · ') : '0'} · 버림 ${dropped}${ok ? '' : ` (HTTP ${status})`}`);
+      const r = await ingestHint(topic, head, sources.hint, '', undefined);
+      console.log(`  ${topic} / ${head.padEnd(9)} ${String(r.allRows.length).padStart(5)}개 → 상위 ${String(r.capped.length).padStart(3)} → 제 주제 ${String(r.kept.length).padStart(3)} · 새 ${String(r.added).padStart(4)} · 딴 주제 ${r.rerouted.length ? r.rerouted.join(' · ') : '0'} · 버림 ${r.dropped}${r.ok ? '' : ` (HTTP ${r.status})`}`);
       for (const at of [0, 50, 150]) {
-        if (at >= kept.length) continue;
-        console.log(`      ${String(at + 1).padStart(3)}위~ ${kept.slice(at, at + 6).map((r) => r.relKeyword).join(' · ')}`);
+        if (at >= r.kept.length) continue;
+        console.log(`      ${String(at + 1).padStart(3)}위~ ${r.kept.slice(at, at + 6).map((x) => x.relKeyword).join(' · ')}`);
       }
-      await sleep(gapMs);
+    }
+  }
+
+  /*
+   * 제목 머리말(2026-09-08, 사장님 "정직하게 남는 것들을 최대한 극한으로 늘려봐").
+   *
+   * 방송·스타·연예인·드라마는 정적 머리말로 15·19·35개뿐이었다 — 광고 그래프에 콘텐츠
+   * 이웃이 없어서다. 뉴스 제목에서 **지금 방영 중인 작품·프로그램·인물 이름**을 뽑아
+   * 머리말로 넣는다(news-title-heads.ts). 연관어는 '폭싹속았수다 출연진·몇부작·결말'
+   * 꼴로 오고, 제목을 품은 행은 닻이 없어도 그 주제다. 창고가 월·금마다 다시 긁히므로
+   * 이름도 같이 갱신된다. 오픈 API 키가 없으면 이 구간만 건너뛴다.
+   */
+  const openApi = { clientId: config.naverClientId, clientSecret: config.naverClientSecret };
+  if (!openApi.clientId || !openApi.clientSecret) {
+    console.log('■ 제목 머리말 — 오픈 API 키 없음, 건너뜀(정적 머리말만으로 만든다)');
+  } else {
+    console.log('■ 제목 머리말(뉴스 제목 → 작품·인물 이름 → hintKeywords)');
+    const { naverApiFetch } = require('../src/utils/naver-api-hub');
+    const staticHeads = new Set(Object.values(SEED_HINTS).flat());
+    const newsTitles = async (query) => {
+      const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(query)}&display=100&sort=date`;
+      try {
+        const res = await naverApiFetch(url, {
+          headers: { 'X-Naver-Client-Id': openApi.clientId, 'X-Naver-Client-Secret': openApi.clientSecret },
+        });
+        if (!res.ok) return { titles: [], status: res.status };
+        const data = await res.json().catch(() => null);
+        return { titles: ((data && data.items) || []).map((item) => String(item.title || '')), status: 200 };
+      } catch (error) {
+        return { titles: [], status: 0, message: String((error && error.message) || error).slice(0, 80) };
+      }
+    };
+    for (const [topic, queries] of Object.entries(TITLE_HEAD_QUERIES)) {
+      const titles = [];
+      const newsErrors = [];
+      for (const query of queries) {
+        const r = await newsTitles(query);
+        titles.push(...r.titles);
+        if (r.status !== 200) newsErrors.push(`${query} ${r.status}${r.message ? ` ${r.message}` : ''}`);
+        await sleep(gapMs);
+      }
+      const heads = extractTitleHeads(titles, { minCount: 2, limit: TITLE_HEADS_PER_TOPIC })
+        .filter((head) => !staticHeads.has(head));
+      console.log(`  ${topic}: 뉴스 제목 ${titles.length}건 → 머리말 ${heads.length}개${newsErrors.length ? ` (뉴스 실패 ${newsErrors.join(' · ')})` : ''}`);
+      if (heads.length > 0) console.log(`      ${heads.slice(0, 15).join(' · ')}${heads.length > 15 ? ' …' : ''}`);
+      let keptTotal = 0; let addedTotal = 0; let movedTotal = 0; let droppedTotal = 0;
+      for (const head of heads) {
+        const r = await ingestHint(topic, head, sources.title, `${topic}:`, head);
+        keptTotal += r.kept.length; addedTotal += r.added; movedTotal += r.moved; droppedTotal += r.dropped;
+        if (!r.ok) console.log(`      !! ${head} HTTP ${r.status}`);
+      }
+      console.log(`  ${topic}: 제목 머리말 ${heads.length}개 → 제 주제 ${keptTotal}(새 ${addedTotal}) · 딴 주제 ${movedTotal} · 버림 ${droppedTotal}`);
     }
   }
 

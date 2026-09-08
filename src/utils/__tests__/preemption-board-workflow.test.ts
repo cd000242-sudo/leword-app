@@ -266,3 +266,11 @@ describe('선점 보드 워크플로 — 비용 순서', () => {
         expect(brightData).toBeGreaterThan(trim);
     });
 });
+
+describe('선점 보드 워크플로 — 씨앗 잡 키', () => {
+    it('씨앗 잡에도 오픈 API 키가 있다 — 제목 머리말이 뉴스 제목을 읽는다', () => {
+        const seedsJob = workflow.slice(workflow.indexOf('seeds:'), workflow.indexOf('discover:'));
+        expect(/NAVER_CLIENT_ID/.test(seedsJob)).toBe(true);
+        expect(/NAVER_SEARCH_AD_ACCESS_LICENSE/.test(seedsJob)).toBe(true);
+    });
+});
