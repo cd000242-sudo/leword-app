@@ -1,0 +1,101 @@
+name: 오늘의 글감 (매일 아침)
+
+# 사이트의 '오늘의 글감' 탭(NOW/NEXT/ALWAYS 글감 브리프, 사장님 예시 형식 2026-09-09)에 싣는다.
+# 분야별로 네이버 뉴스 API 기사를 실측해 사실 카드를 만들고, 클로드 CLI(구독 OAuth)가 카드 안에서만 글감을 고르며,
+# 검증기가 카드에 없는 날짜·숫자를 떨어뜨린다. 검색량은 검색광고 실측. 자리(SERP) 실측은 기본 안 한다(미측정 표기) —
+# BD 를 태우려면 workflow_dispatch 의 serp 입력을 brightdata 로 주고 돌린다(유료 재승인 규칙).
+#
+# 시간대: cron 은 UTC. 한국 07:00 은 UTC 전날 22:00. 추천키워드(21:30)와 다른 워크플로라 겹쳐 돌아도 된다.
+on:
+  schedule:
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+    inputs:
+      serp:
+        description: '자리 실측 — none(기본) | brightdata(BD 유료 쿼터, 회당 최대 maxSerp 건)'
+        default: 'none'
+        required: false
+      maxSerp:
+        description: '자리 실측 상한(건)'
+        default: '12'
+        required: false
+
+concurrency:
+  group: topic-briefs
+  cancel-in-progress: false
+
+jobs:
+  briefs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
+
+      - name: 필수 시크릿 확인
+        env:
+          REQUIRED: |
+            NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID != '' }}
+            NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET != '' }}
+            CLAUDE_CODE_OAUTH_TOKEN=${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+            SITE_REPO_SSH_KEY=${{ secrets.SITE_REPO_SSH_KEY != '' }}
+        run: |
+          missing=0
+          while IFS='=' read -r name present; do
+            [ -z "$name" ] && continue
+            if [ "$present" != 'true' ]; then echo "::error::시크릿 없음 — $name"; missing=1; fi
+          done <<< "$REQUIRED"
+          [ "$missing" -eq 1 ] && exit 1
+          echo '필수 시크릿 확인됨.'
+
+      - name: 글감 뽑기 (뉴스 실측 → 사실 카드 → 에이전트 → 검증 → 검색량 실측)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+          BRIGHTDATA_TOKEN: ${{ github.event.inputs.serp == 'brightdata' && secrets.BRIGHTDATA_TOKEN || '' }}
+          BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
+          LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/data/brightdata-quota-state.json
+          SERP_MODE: ${{ github.event.inputs.serp || 'none' }}
+          MAX_SERP: ${{ github.event.inputs.maxSerp || '12' }}
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          node scripts/topic-briefs.js --out=topic-briefs.json --perField=3 --serp="$SERP_MODE" --maxSerp="$MAX_SERP"
+
+      - name: 사이트 레포 체크아웃
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+
+      # 다른 정적 보드와 같은 폴더 — 화면(TopicBriefsBoard)이 /data/topic-briefs.json 을 읽는다.
+      - name: 사이트에 싣기
+        run: cp topic-briefs.json site/spa/public/data/topic-briefs.json
+
+      - name: 커밋·푸시
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/topic-briefs.json
+          if git diff --cached --quiet; then echo '변경 없음.'; exit 0; fi
+          git commit -m "chore(briefs): 오늘의 글감 $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git pull --rebase origin main
+          git push origin HEAD:main

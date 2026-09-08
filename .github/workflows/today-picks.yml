@@ -18,7 +18,7 @@ concurrency:
 jobs:
   picks:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 150  # 2026-09-09 실측: 40분에 32주제 중 15주제(호출 2,141) — 문서수 실측이 주제당 2~3분
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
