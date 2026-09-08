@@ -402,8 +402,8 @@ assert('exposure tracking turns proven winners into mindmap expansion seeds',
     && /expansionSeeds/.test(exposureTracking),
   'exposure winner-to-mindmap loop is missing');
 
-const rankedExpansionHelper = html.match(/window\.fetchLeWordRankedExpansionKeywords[\s\S]*?async function extractKeywordsRecursively/)?.[0] || '';
-const infiniteExtractionBlock = html.match(/async function extractKeywordsRecursively[\s\S]*?function updateInfiniteProgress/)?.[0] || '';
+// 2026-09-09: 무한 키워드 추출 모달(재귀 추출)은 닿는 길이 없어 삭제 — helper 는 마인드맵이 쓰므로 그 뒤 표식 주석까지 잡는다.
+const rankedExpansionHelper = html.match(/window\.fetchLeWordRankedExpansionKeywords[\s\S]*?\/\/ 2026-09-09: 무한 키워드 추출 모달/)?.[0] || '';
 const legacyMindmapExtractionBlock = html.match(/window\.extractMindmapKeywords\s*=\s*async function[\s\S]*?\n\s*};\s*\n\s*window\.updateMindmapProgress/)?.[0] || '';
 const queueMindmapExpansionBlock = html.match(/window\.startInfiniteExpansion\s*=\s*async function[\s\S]*?window\.extractMindmapKeywords/)?.[0] || '';
 const richFeedTopicIdeasBlock = html.match(/window\.rfShowTopicIdeas\s*=\s*async function[\s\S]*?topicSimilarStatus/)?.[0] || '';
@@ -412,7 +412,6 @@ assert('legacy expansion paths use unified ranked expansion helper',
   /get-autocomplete-suggestions[\s\S]*get-keyword-expansions/.test(rankedExpansionHelper)
     && /window\.lewordRankedExpansionCache/.test(rankedExpansionHelper)
     && /cache\.size\s*>\s*250/.test(rankedExpansionHelper)
-    && /fetchLeWordRankedExpansionKeywords/.test(infiniteExtractionBlock)
     && /fetchLeWordRankedExpansionKeywords/.test(legacyMindmapExtractionBlock),
   'legacy keyword expansion can bypass the ranked autocomplete/expansion helper');
 
@@ -447,9 +446,7 @@ assert('mindmap expansion uses completed/live candidates and blocks synthetic ha
   'mindmap can still synthesize hardcoded rows or ignore completed result pools');
 
 assert('legacy recursive direct blogger calls stay disabled after ranked helper migration',
-  /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getRelatedKeywords/.test(infiniteExtractionBlock)
-    && !/if\s*\(\s*window\.blogger\s*&&\s*typeof\s+window\.blogger/.test(infiniteExtractionBlock)
-    && /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getAutoComplete/.test(legacyMindmapExtractionBlock)
+  /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getAutoComplete/.test(legacyMindmapExtractionBlock)
     && /if\s*\(false\s*&&\s*window\.blogger\s*&&\s*typeof\s+window\.blogger\.getRelatedKeywords/.test(legacyMindmapExtractionBlock)
     && !/if\s*\(\s*window\.blogger\s*&&\s*typeof\s+window\.blogger/.test(legacyMindmapExtractionBlock),
   'legacy recursive expansion is calling shallow blogger autocomplete/related sources live again');

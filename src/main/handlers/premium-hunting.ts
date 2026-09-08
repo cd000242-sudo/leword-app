@@ -22,7 +22,7 @@ import { analyzeContentGap } from '../../utils/pro-hunter-v12/content-gap-analyz
 import { mineQAKeywords } from '../../utils/pro-hunter-v12/qa-comment-miner';
 import { recordRejection, recordAcceptance, calculatePreferenceScore, getPreferenceStats, applyPreferenceLearning } from '../../utils/pro-hunter-v12/preference-learner';
 import { calculateHomeScore } from '../../utils/pro-hunter-v12/naver-home-score-engine';
-import { predictTitleCtr, generateOptimizedTitles, batchGenerateTitlesWithCtr } from '../../utils/pro-hunter-v12/title-ctr-predictor';
+import { generateOptimizedTitles, batchGenerateTitlesWithCtr } from '../../utils/pro-hunter-v12/title-ctr-predictor';
 import { buildHomePublishPlan, batchBuildHomePublishPlans } from '../../utils/pro-hunter-v12/home-publish-planner';
 import { analyzeVacancy, batchAnalyzeVacancy } from '../../utils/pro-hunter-v12/vacancy-detector';
 import { getRelatedKeywords as getRelatedKeywordsFromCache } from '../../utils/related-keyword-cache';
@@ -1333,11 +1333,8 @@ export function setupPremiumHuntingHandlers(): void {
     });
     console.log('[KEYWORD-MASTER] ✅ calculate-home-score IPC 등록');
   }
-  if (!ipcMain.listenerCount('predict-title-ctr')) {
-    ipcMain.handle('predict-title-ctr', async (_e, p: { title: string; seedKeyword?: string }) => {
-      try { return { success: true, ...predictTitleCtr(p.title, p.seedKeyword) }; }
-      catch (err: any) { return { success: false, error: err?.message }; }
-    });
+  // 2026-09-09: predict-title-ctr(제목 CTR 예측치)는 화면이 안 부르고 추정치라 삭제. 제목 생성 2종만 남긴다.
+  if (!ipcMain.listenerCount('generate-optimized-titles')) {
     ipcMain.handle('generate-optimized-titles', async (_e, p: { keyword: string; count?: number; category?: string }) => {
       try { return { success: true, titles: await generateOptimizedTitles(p.keyword, { count: p.count, category: p.category }) }; }
       catch (err: any) { return { success: false, error: err?.message }; }
@@ -1346,7 +1343,7 @@ export function setupPremiumHuntingHandlers(): void {
       try { return { success: true, results: await batchGenerateTitlesWithCtr(p.keywords, p.titlesPerKeyword) }; }
       catch (err: any) { return { success: false, error: err?.message }; }
     });
-    console.log('[KEYWORD-MASTER] ✅ predict-title-ctr/generate-optimized-titles/batch IPC 등록');
+    console.log('[KEYWORD-MASTER] ✅ generate-optimized-titles/batch IPC 등록');
   }
   if (!ipcMain.listenerCount('build-home-publish-plan')) {
     ipcMain.handle('build-home-publish-plan', async (_e, p: any) => {
