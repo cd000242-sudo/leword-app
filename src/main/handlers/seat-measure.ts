@@ -5,6 +5,8 @@
  * 차단 회피는 노출 추적(exposure-tracking)과 같은 규칙을 그대로 쓴다:
  *   직렬 호출 · 요청 사이 1.2~1.8초 · 403/429 는 '차단' · 5건 연속 차단이면 중단.
  * 차단·오류는 결과 행으로 남기되 잰 척하지 않는다(verdict '자료없음', blocked/error 표시).
+ *
+ * measureKeywords 는 자리 감시(seat-watch)도 같이 쓴다 — 실측 규칙이 한 벌이어야 한다.
  */
 import { ipcMain } from 'electron';
 import { measureSeat, parseSeatKeywords, seatAllTabUrl, seatBlogTabUrl, type SeatMeasurement } from '../../utils/seat-measure';
@@ -24,6 +26,19 @@ export interface SeatRow extends Partial<SeatMeasurement> {
   keyword: string;
   status: FetchStatus;
   error?: string;
+}
+
+export interface SeatProgress {
+  done: number; total: number; blocked: number; errored: number; keyword: string; verdict?: string; status: FetchStatus;
+}
+
+export interface SeatBatchResult {
+  rows: SeatRow[];
+  summary: {
+    requested: number; measured: number; blocked: number; errored: number; aborted: boolean;
+    open: number; contested: number; locked: number; card: number; seconds: number;
+  };
+  message: string | null;
 }
 
 let abortRequested = false;
@@ -64,6 +79,73 @@ async function fetchHtml(browser: any, url: string): Promise<{ status: FetchStat
   }
 }
 
+/**
+ * 키워드 목록을 직렬로 잰다. 브라우저는 풀에서 하나 빌려 끝까지 쓴다.
+ * shouldAbort 가 true 를 돌려주면 지금 키워드까지 재고 멈춘다.
+ */
+export async function measureKeywords(
+  keywords: string[],
+  opts: { withStructure?: boolean; onProgress?: (p: SeatProgress) => void; shouldAbort?: () => boolean } = {},
+): Promise<SeatBatchResult> {
+  const list = parseSeatKeywords(keywords.join('\n'), SEAT_MEASURE_MAX_KEYWORDS);
+  const withStructure = opts.withStructure !== false;
+  const rows: SeatRow[] = [];
+  let blocked = 0;
+  let errored = 0;
+  let blockedStreak = 0;
+  let aborted = false;
+  const startedAt = Date.now();
+  let browser: any = null;
+  try {
+    const { browserPool } = await import('../../utils/puppeteer-pool');
+    browser = await browserPool.acquire();
+    for (const keyword of list) {
+      if (opts.shouldAbort && opts.shouldAbort()) { aborted = true; break; }
+      const blog = await fetchHtml(browser, seatBlogTabUrl(keyword));
+      let row: SeatRow;
+      if (blog.status !== 'ok') {
+        row = { keyword, status: blog.status, verdict: '자료없음', measuredAt: new Date().toISOString() };
+        if (blog.status === 'blocked') { blocked += 1; blockedStreak += 1; } else { errored += 1; blockedStreak = 0; }
+      } else {
+        await new Promise((resolve) => setTimeout(resolve, 900 + Math.random() * 500));
+        const all = withStructure ? await fetchHtml(browser, seatAllTabUrl(keyword)) : { status: 'ok' as FetchStatus, html: '' };
+        const measured = measureSeat({ keyword, blogTabHtml: blog.html, allTabHtml: all.status === 'ok' && all.html ? all.html : null });
+        row = { ...measured, status: 'ok' };
+        if (all.status === 'blocked') { blocked += 1; blockedStreak += 1; row.error = '통합검색 차단 — 카드·광고는 안 봄'; } else { blockedStreak = 0; }
+      }
+      rows.push(row);
+      if (opts.onProgress) {
+        try { opts.onProgress({ done: rows.length, total: list.length, blocked, errored, keyword, verdict: row.verdict, status: row.status }); } catch { /* 듣는 쪽 사정 */ }
+      }
+      if (blockedStreak >= 5) {
+        console.warn('[SEAT-MEASURE] 차단 5건 연속 → 중단');
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1200 + Math.random() * 600));
+    }
+  } finally {
+    if (browser) {
+      try {
+        const { browserPool } = await import('../../utils/puppeteer-pool');
+        browserPool.release(browser);
+      } catch { /* 풀이 이미 닫혔을 수 있다 */ }
+    }
+  }
+  const measured = rows.filter((r) => r.status === 'ok');
+  const count = (v: string) => measured.filter((r) => r.verdict === v).length;
+  return {
+    rows,
+    summary: {
+      requested: list.length, measured: measured.length, blocked, errored, aborted,
+      open: count('열림'), contested: count('반열림'), locked: count('잠김'), card: count('카드답'),
+      seconds: Math.round((Date.now() - startedAt) / 1000),
+    },
+    message: blockedStreak >= 5
+      ? '네이버가 일시 차단했습니다(IP 보호) — 10~30분 뒤 다시 재세요. 잰 것까지는 남겼습니다.'
+      : (blocked > 0 ? `${blocked}건은 차단돼 못 쟀습니다(다시 재기)` : null),
+  };
+}
+
 export function setupSeatMeasureHandlers(): void {
   if (!ipcMain.listenerCount('seat-measure-abort')) {
     ipcMain.handle('seat-measure-abort', async () => {
@@ -74,74 +156,20 @@ export function setupSeatMeasureHandlers(): void {
 
   if (!ipcMain.listenerCount('seat-measure-run')) {
     ipcMain.handle('seat-measure-run', async (event, payload?: { keywords?: string[] | string; withStructure?: boolean }) => {
-      const list = Array.isArray(payload?.keywords)
-        ? parseSeatKeywords(payload!.keywords!.join('\n'), SEAT_MEASURE_MAX_KEYWORDS)
-        : parseSeatKeywords(String(payload?.keywords || ''), SEAT_MEASURE_MAX_KEYWORDS);
+      const raw = Array.isArray(payload?.keywords) ? payload!.keywords! : String(payload?.keywords || '').split(/[\n,]/);
+      const list = parseSeatKeywords(raw.join('\n'), SEAT_MEASURE_MAX_KEYWORDS);
       if (list.length === 0) return { success: false, error: '잴 키워드가 없습니다(2~40자, 최대 100개).' };
-      const withStructure = payload?.withStructure !== false;
       abortRequested = false;
-
-      let browser: any = null;
-      const rows: SeatRow[] = [];
-      let blocked = 0;
-      let errored = 0;
-      let blockedStreak = 0;
-      let aborted = false;
-      const startedAt = Date.now();
       try {
-        const { browserPool } = await import('../../utils/puppeteer-pool');
-        browser = await browserPool.acquire();
-        for (const keyword of list) {
-          if (abortRequested) { aborted = true; break; }
-          const blog = await fetchHtml(browser, seatBlogTabUrl(keyword));
-          let row: SeatRow;
-          if (blog.status !== 'ok') {
-            row = { keyword, status: blog.status, verdict: '자료없음' };
-            if (blog.status === 'blocked') { blocked += 1; blockedStreak += 1; } else { errored += 1; blockedStreak = 0; }
-          } else {
-            await new Promise((resolve) => setTimeout(resolve, 900 + Math.random() * 500));
-            const all = withStructure ? await fetchHtml(browser, seatAllTabUrl(keyword)) : { status: 'ok' as FetchStatus, html: '' };
-            const measured = measureSeat({ keyword, blogTabHtml: blog.html, allTabHtml: all.status === 'ok' && all.html ? all.html : null });
-            row = { ...measured, status: 'ok' };
-            if (all.status === 'blocked') { blocked += 1; blockedStreak += 1; row.error = '통합검색 차단 — 카드·광고는 안 봄'; } else { blockedStreak = 0; }
-          }
-          rows.push(row);
-          try {
-            event.sender.send(SEAT_MEASURE_PROGRESS_CHANNEL, {
-              done: rows.length, total: list.length, blocked, errored, keyword, verdict: row.verdict, status: row.status,
-            });
-          } catch { /* 창이 닫혔을 수 있다 */ }
-          if (blockedStreak >= 5) {
-            console.warn('[SEAT-MEASURE] 차단 5건 연속 → 중단');
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1200 + Math.random() * 600));
-        }
+        const result = await measureKeywords(list, {
+          withStructure: payload?.withStructure !== false,
+          shouldAbort: () => abortRequested,
+          onProgress: (p) => { try { event.sender.send(SEAT_MEASURE_PROGRESS_CHANNEL, p); } catch { /* 창이 닫혔을 수 있다 */ } },
+        });
+        return { success: true, ...result };
       } catch (error: any) {
-        return { success: false, error: error?.message || '자리 실측 실패', rows };
-      } finally {
-        if (browser) {
-          try {
-            const { browserPool } = await import('../../utils/puppeteer-pool');
-            browserPool.release(browser);
-          } catch { /* 풀이 이미 닫혔을 수 있다 */ }
-        }
+        return { success: false, error: error?.message || '자리 실측 실패', rows: [] };
       }
-
-      const measured = rows.filter((r) => r.status === 'ok');
-      const count = (v: string) => measured.filter((r) => r.verdict === v).length;
-      return {
-        success: true,
-        rows,
-        summary: {
-          requested: list.length, measured: measured.length, blocked, errored, aborted,
-          open: count('열림'), contested: count('반열림'), locked: count('잠김'), card: count('카드답'),
-          seconds: Math.round((Date.now() - startedAt) / 1000),
-        },
-        message: blockedStreak >= 5
-          ? '네이버가 일시 차단했습니다(IP 보호) — 10~30분 뒤 다시 재세요. 잰 것까지는 남겼습니다.'
-          : (blocked > 0 ? `${blocked}건은 차단돼 못 쟀습니다(다시 재기)` : null),
-      };
     });
   }
   console.log('[SEAT-MEASURE] ✅ 자리 실측기 핸들러 등록 완료');

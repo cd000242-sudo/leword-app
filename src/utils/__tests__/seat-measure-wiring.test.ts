@@ -35,6 +35,23 @@ describe('자리 실측기 배선', () => {
         expect(html).not.toMatch(/openSeatMeasureModal\(\)"[^>]*display:\s*none/);
     });
 
+    it('자리 감시가 같은 실측 함수·같은 진행 채널을 쓰고, 등록·스케줄러·모달 패널이 이어져 있다', () => {
+        const hub = read('src', 'main', 'keywordMasterIpcHandlers.ts');
+        const watch = read('src', 'main', 'handlers', 'seat-watch.ts');
+        const html = read('ui', 'keyword-master.html');
+        expect(hub).toContain('setupSeatWatchHandlers();');
+        expect(hub).toContain('startSeatWatchScheduler();');
+        expect(hub).toContain('stopSeatWatchScheduler();');
+        expect(watch).toContain("import { measureKeywords, type SeatRow } from './seat-measure';");
+        for (const ch of ['seat-watch-list', 'seat-watch-add', 'seat-watch-remove', 'seat-watch-run-now']) {
+            expect(watch).toContain("ipcMain.handle('" + ch + "'");
+            expect(html).toContain("invoke('" + ch + "'");
+        }
+        expect(watch).toContain("'seat-measure-progress'");
+        expect(html).toContain('id="seatWatchPanel"');
+        expect(html).toContain('refreshSeatWatch();');
+    });
+
     it('브라이트데이터를 부르지 않는다 — 내 브라우저만', () => {
         const handler = read('src', 'main', 'handlers', 'seat-measure.ts');
         expect(handler).not.toMatch(/brightdata|brightDataFetch/i);
