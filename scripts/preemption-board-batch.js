@@ -31,6 +31,17 @@ require('./load-project-env').loadProjectEnv();
 const fs = require('fs');
 const path = require('path');
 const { brightDataFetch } = require('../src/utils/brightdata-client');
+const { localSerpFetch, closeLocalSerpFetch, localSerpStats } = require('../src/utils/local-serp-fetch');
+
+/*
+ * --fetcher=local (2026-09-09): 브라이트데이터 대신 이 PC 의 크로미엄으로 검색 결과를 받는다.
+ * 회차 34207432274 의 BD 단계가 4시간 넘게 걸려 잡 상한에 걸렸고, 사장님 "오늘 밤 보드는 무조건".
+ * 반환 모양이 같아 verify() 의 판정 코드는 한 줄도 안 바뀐다. BD 장부·쿼터는 안 건드린다(호출 0).
+ */
+const FETCHER = (process.argv.find((a) => a.startsWith('--fetcher=')) || '').slice('--fetcher='.length) || 'brightdata';
+const fetchSerp = FETCHER === 'local'
+  ? (url) => localSerpFetch(url)
+  : (url) => brightDataFetch(url, FEATURE, { zone: ZONE });
 const { analyzeSerp } = require('../src/utils/serp-winnability');
 const { readSerpStructure } = require('../src/utils/naver-serp-structure');
 const { readSerpMeaning } = require('../src/utils/serp-meaning');
@@ -276,7 +287,7 @@ function allTabUrl(keyword) {
  * 같은 일이 반복된다.
  */
 async function verify(keyword, withStructure, gate = async () => {}) {
-  const res = await brightDataFetch(blogTabUrl(keyword), FEATURE, { zone: ZONE });
+  const res = await fetchSerp(blogTabUrl(keyword));
   if (!res.ok) {
     return {
       serp: null,
@@ -290,7 +301,7 @@ async function verify(keyword, withStructure, gate = async () => {}) {
   if (!withStructure) return { serp, quotaBlocked: false, rateLimited: false };
 
   await gate();
-  const whole = await brightDataFetch(allTabUrl(keyword), FEATURE, { zone: ZONE });
+  const whole = await fetchSerp(allTabUrl(keyword));
   if (whole.quotaBlocked) return { serp, quotaBlocked: true, rateLimited: false };
   // 두 번째 호출이 속도 제한을 맞아도 첫 화면은 건졌다 — 회차는 계속 가되
   // 남은 호출은 느리게 돈다.
@@ -364,8 +375,13 @@ async function main() {
     fs.writeFileSync(statePath, JSON.stringify(firstSeen, null, 0), 'utf8');
   }
   const realtime = loadRealtimeKeywords(signalsPath);
-  const allocation = allocateBudget(byTopic, maxPerRun);
-  const planned = [...allocation.values()].reduce((sum, n) => sum + n, 0) * (process.argv.includes('--withStructure') ? 2 : 1);
+  /*
+   * 예산은 **호출 수**다(2026-09-09 실측 수정). 예전엔 키워드 수로 나눠서 --withStructure(키워드당 2콜)면
+   * 2,400 예산에 3,786콜이 나갔고(장부 2,504 → 6,284), BD 속도 제한까지 겹쳐 자리 판정이 4시간 걸렸다.
+   */
+  const callsPerKeyword = withStructure ? 2 : 1;
+  const allocation = allocateBudget(byTopic, Math.floor(maxPerRun / callsPerKeyword));
+  const planned = [...allocation.values()].reduce((sum, n) => sum + n, 0) * callsPerKeyword;
 
   console.log('='.repeat(72));
   console.log(`선점 황금키워드 배치  (존 ${ZONE})`);
@@ -762,6 +778,11 @@ async function main() {
    */
   const pace = bdPacer.stats();
   console.log(`속도 조절 — 시작 ${DELAY_MS}ms · 끝 ${pace.intervalMs}ms · 속도 제한 ${pace.penalties}회 · 회복 ${pace.recoveries}회`);
+  if (FETCHER === 'local') {
+    const st = localSerpStats();
+    console.log(`로컬 페치 — 페이지 ${st.calls}장 · 차단 ${st.blocked}회 (브라이트데이터 0콜)`);
+    await closeLocalSerpFetch();
+  }
   /*
    * 주제 커버리지는 **진짜 주제만** 센다.
    * 되짚기로 라벨을 뗀 행('주제 선택 안 함')까지 세면 커버리지가 부풀려진다.

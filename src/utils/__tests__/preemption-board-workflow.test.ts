@@ -280,4 +280,11 @@ describe('선점 보드 워크플로 — 씨앗 잡 키', () => {
         expect(shards).toBeGreaterThan(1);
         expect(interval).toBe(900 * shards);
     });
+
+    it('BD 예산은 호출 수다 — 통합검색까지 열면 키워드 몫을 절반으로 나눈다(2026-09-09 3,786콜 사고)', () => {
+        const batch = fs.readFileSync(path.join(root, 'scripts', 'preemption-board-batch.js'), 'utf8');
+        expect(batch).toContain('const callsPerKeyword = withStructure ? 2 : 1;');
+        expect(batch).toContain('allocateBudget(byTopic, Math.floor(maxPerRun / callsPerKeyword))');
+        expect(batch).not.toContain('const allocation = allocateBudget(byTopic, maxPerRun);');
+    });
 });
