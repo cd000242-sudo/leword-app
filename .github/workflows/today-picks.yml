@@ -2,7 +2,7 @@ name: 오늘의 네이버 추천키워드 (매일 아침)
 
 # 사이트의 오늘의 네이버 추천키워드 서브탭에 싣는 표(사장님 2026-09-08: 실검
 # 틈새와 키워드 분석 사이 서브탭). 창고(data/seed-db.json)에서 주제별 후보를 넓게 뽑아 블로그
-# 문서수를 오픈 API로 실측하고 황금비 1 이상만 10개씩 남긴다(예외: 시즌 앞). BD 를 안 쓴다 — 무료 최대 3,840콜.
+# 문서수를 오픈 API로 실측하고 황금비 1 이상을 앞에 두고 나머지를 채워 10개씩 남긴다. BD 를 안 쓴다 — 무료 최대 3,840콜.
 #
 # 시간대: cron 은 UTC. 한국 06:30 은 UTC 전날 21:30.
 # 선점 회차(월·금 07:00 KST)가 창고를 새로 커밋한 뒤에 도는 날은 새 창고를, 아니면 직전 창고를 읽는다.
@@ -56,7 +56,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
-        run: node scripts/today-picks.js --out=today-picks.json --perTopic=120 --keep=10 --minRatio=1 --minSeasonRatio=0.3
+        run: node scripts/today-picks.js --out=today-picks.json --perTopic=120 --keep=10 --minRatio=1
 
       - name: 사이트 레포 체크아웃
         uses: actions/checkout@v4
