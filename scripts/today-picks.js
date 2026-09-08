@@ -15,6 +15,7 @@
  * 쓰기:
  *   node scripts/today-picks.js --out=today-picks.json                      # data/seed-db.json 을 읽는다
  *   node scripts/today-picks.js --perTopic=120 --minRatio=1 --minSeasonRatio=0.3
+ *   node scripts/today-picks.js --resume=이전결과.json --perTopic=800   # 황금 10개가 찬 주제는 건너뛰고 얇은 주제만 더 넓게 잰다
  */
 require('ts-node/register/transpile-only');
 require('./load-project-env').loadProjectEnv();
@@ -58,6 +59,10 @@ async function main() {
   const minRatio = Number(arg('minRatio')) || 1;
   const minSeasonRatio = Number(arg('minSeasonRatio')) || 0.3;
   const months = upcomingMonths();
+  // --resume: 이전 결과에서 황금 keep 개가 찬 주제는 그대로 옮기고, 얇은 주제만 다시(더 넓게) 잰다.
+  const resumePath = arg('resume') ? path.resolve(arg('resume')) : '';
+  const resumed = resumePath && fs.existsSync(resumePath) ? JSON.parse(fs.readFileSync(resumePath, 'utf8')) : null;
+  const resumedTopics = new Map((resumed && Array.isArray(resumed.topics) ? resumed.topics : []).map((t) => [t.topic, t]));
 
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const cfg = manager.getConfig();
@@ -106,6 +111,12 @@ async function main() {
   };
   let calls = 0;
   for (const t of topics) {
+    const prev = resumedTopics.get(t);
+    if (prev && (prev.golden || 0) >= keep) {
+      result.topics.push(prev);
+      console.log(`  ${t.padEnd(8)} 이전 결과 재사용 — 황금 ${prev.golden} 이미 찼다`);
+      continue;
+    }
     const cand = byTopic.get(t).sort((a, b) => b.searchVolume - a.searchVolume).slice(0, perTopic);
     const golden = [];
     const season = [];
