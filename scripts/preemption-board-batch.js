@@ -121,6 +121,11 @@ function loadCandidates(inPath) {
       // 애드센스 레인 판정 재료(검색량 응답에 같이 온 실측). 없으면 null.
       cpc: Number.isFinite(Number(row.cpc)) && Number(row.cpc) > 0 ? Number(row.cpc) : null,
       adCompetition: row.adCompetition || null,
+      // 광고 클릭 실측 — 후보가 실어 온 그대로. 없으면 null(못 잰 것).
+      adClicks: Number.isFinite(Number(row.adClicks)) ? Number(row.adClicks) : null,
+      adCtrPc: Number.isFinite(Number(row.adCtrPc)) ? Number(row.adCtrPc) : null,
+      adCtrMobile: Number.isFinite(Number(row.adCtrMobile)) ? Number(row.adCtrMobile) : null,
+      adDepth: Number.isFinite(Number(row.adDepth)) ? Number(row.adDepth) : null,
       monthsToPeak: Number.isFinite(Number(row.monthsToPeak)) ? Number(row.monthsToPeak) : null,
       timing: row.timing || '',
       longTail: Boolean(row.longTail),
@@ -588,6 +593,10 @@ async function main() {
           intentLabel: resolvedIntent.intentLabel || e.candidate.intentLabel || null,
           adCount: e.input.serp ? (e.input.serp.adCount ?? null) : null,
           cpc: e.candidate.cpc ?? null,
+          adClicks: e.candidate.adClicks ?? null,
+          adCtrPc: e.candidate.adCtrPc ?? null,
+          adCtrMobile: e.candidate.adCtrMobile ?? null,
+          adDepth: e.candidate.adDepth ?? null,
         }),
       };
     });

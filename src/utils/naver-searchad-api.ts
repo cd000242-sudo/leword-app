@@ -41,6 +41,20 @@ export interface KeywordSearchVolume {
   monthlyPcQcCnt?: number | null;
   monthlyMobileQcCnt?: number | null;
   monthlyAveCpc?: number | null;
+  /*
+   * 광고 클릭 실측(2026-09-08). keywordstool 이 검색량과 같은 행에 실어 준다 — 추가 호출 없음.
+   * 사장님: "그 키워드로 글을 써서 뜨는 광고가 있으면 그 광고를 클릭해야 돈이 되니까."
+   * 광고가 하나도 안 뜨는 말(plAvgDepth 0)은 글에 광고가 붙어도 클릭이 안 나온다.
+   *   monthlyAve{Pc,Mobile}ClkCnt  월 평균 광고 클릭수
+   *   monthlyAve{Pc,Mobile}Ctr     월 평균 광고 클릭률(%)
+   *   plAvgDepth                   월 평균 노출 광고 수
+   * 이름은 API 원문 그대로다(searchad-apidoc). 못 받으면 null — 지어내지 않는다.
+   */
+  monthlyAvePcClkCnt?: number | null;
+  monthlyAveMobileClkCnt?: number | null;
+  monthlyAvePcCtr?: number | null;
+  monthlyAveMobileCtr?: number | null;
+  plAvgDepth?: number | null;
   pcSearchVolumeLt10?: boolean;
   mobileSearchVolumeLt10?: boolean;
   /**
@@ -232,6 +246,12 @@ export async function getNaverSearchAdKeywordVolume(
           monthlyPcQcCnt: cached.pc,
           monthlyMobileQcCnt: cached.mo,
           monthlyAveCpc: cached.cpc ?? null,
+          // 옛 캐시 항목엔 없다 — undefined 를 null 로 정리해 내보낸다(못 잰 것).
+          monthlyAvePcClkCnt: cached.clkPc ?? null,
+          monthlyAveMobileClkCnt: cached.clkMo ?? null,
+          monthlyAvePcCtr: cached.ctrPc ?? null,
+          monthlyAveMobileCtr: cached.ctrMo ?? null,
+          plAvgDepth: cached.depth ?? null,
           pcSearchVolumeLt10: false,
           mobileSearchVolumeLt10: false,
           svEstimated: false,
@@ -375,6 +395,16 @@ export async function getNaverSearchAdKeywordVolume(
             : null;
           const aveCpc = parseVolumeValue(match.monthlyAveCpc);
           const competition = match.compIdx || match.competition;
+          // 광고 클릭 실측 — 소수(클릭률 0.35, 노출 광고 수 12.3)라 정수 파서를 안 쓴다.
+          const adMetric = (value: unknown): number | null => {
+            const n = typeof value === 'string' ? Number(value.replace(/,/g, '')) : Number(value);
+            return Number.isFinite(n) && n >= 0 ? n : null;
+          };
+          const clkPc = adMetric(match.monthlyAvePcClkCnt);
+          const clkMo = adMetric(match.monthlyAveMobileClkCnt);
+          const ctrPc = adMetric(match.monthlyAvePcCtr);
+          const ctrMo = adMetric(match.monthlyAveMobileCtr);
+          const depth = adMetric(match.plAvgDepth);
 
           // v2.49.22: 휴리스틱 fallback 완전 제거 (사용자 절대 요구: 모든 path 동일 sv).
           //   "황금키워드/PRO트래픽헌터/키워드분석기 - 하나라도 다르면 안 됨"
@@ -391,6 +421,11 @@ export async function getNaverSearchAdKeywordVolume(
             monthlyPcQcCnt: pc,
             monthlyMobileQcCnt: mo,
             monthlyAveCpc: aveCpc,
+            monthlyAvePcClkCnt: clkPc,
+            monthlyAveMobileClkCnt: clkMo,
+            monthlyAvePcCtr: ctrPc,
+            monthlyAveMobileCtr: ctrMo,
+            plAvgDepth: depth,
             pcSearchVolumeLt10,
             mobileSearchVolumeLt10,
             svEstimated: hasLessThanTenRange,
@@ -398,7 +433,9 @@ export async function getNaverSearchAdKeywordVolume(
           });
           // 🗄️ Phase 2: 실측 양수 볼륨을 캐시에 기록 → 다음 실행부터 재측정 스킵 (하루 24회 재측정 제거)
           if (!hasLessThanTenRange) {
-            setSearchAdVolumeCached(requestedKw, { pc, mo, total, comp: competition, cpc: aveCpc });
+            setSearchAdVolumeCached(requestedKw, {
+              pc, mo, total, comp: competition, cpc: aveCpc, clkPc, clkMo, ctrPc, ctrMo, depth,
+            });
           }
         } else {
           // 🔥 v2.24.0 P0-3: 매칭 실패 시 0 저장 → 캐시 영구 고착 (복구 불가). null 로 변경.

@@ -147,6 +147,11 @@ function toPublicRow(row) {
      * 배지를 안 그리면 된다. 네이버 적합 배지는 없다 — 본판 통과 자체가 그 증거다.
      */
     adsenseFit: row.adsenseFit ?? null,
+    // 광고 클릭 실측(검색광고 keywordstool). 화면이 "광고 클릭률 x%" 로 그대로 보여 줄 수 있다.
+    adClicks: row.adClicks ?? null,
+    adCtrPc: row.adCtrPc ?? null,
+    adCtrMobile: row.adCtrMobile ?? null,
+    adDepth: row.adDepth ?? null,
     // 수익 결론(클릭할까·무슨 광고·머물까). 보강이 붙인 행에만 있다.
     monetize: row.monetize ?? null,
     // "지금 왜 검색되는가" AI 추론 + 지식인 질문 수 실측 (2026-08-19 사장님 지시)

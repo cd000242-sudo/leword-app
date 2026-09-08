@@ -489,10 +489,19 @@ async function main() {
           const total = Number(row.pcSearchVolume || 0) + Number(row.mobileSearchVolume || 0);
           const compact = String(row.keyword).replace(/\s+/g, '');
           if (total > 0) volumes.set(compact, total);
+          const adMetric = (value) => (Number.isFinite(Number(value)) && value !== null && value !== undefined
+            ? Number(value) : null);
+          const clkPc = adMetric(row.monthlyAvePcClkCnt);
+          const clkMo = adMetric(row.monthlyAveMobileClkCnt);
           adSignals.set(compact, {
             cpc: Number.isFinite(Number(row.monthlyAveCpc)) && Number(row.monthlyAveCpc) > 0
               ? Number(row.monthlyAveCpc) : null,
             competition: row.competition || null,
+            // 광고 클릭 실측 — 같은 응답 행. 클릭수는 PC+모바일 단순 합(둘 다 없으면 null).
+            adClicks: clkPc === null && clkMo === null ? null : (clkPc || 0) + (clkMo || 0),
+            adCtrPc: adMetric(row.monthlyAvePcCtr),
+            adCtrMobile: adMetric(row.monthlyAveMobileCtr),
+            adDepth: adMetric(row.plAvgDepth),
           });
         }
       } catch { /* 측정 실패분은 후보에서 빠진다 — 지어내지 않는다 */ }
@@ -737,6 +746,15 @@ async function main() {
         // 검색량 응답에 같이 온 실측 — 애드센스 레인 판정 재료. 없으면 null.
         cpc: adSignals.get(row.keyword.replace(/\s+/g, ''))?.cpc ?? null,
         adCompetition: adSignals.get(row.keyword.replace(/\s+/g, ''))?.competition ?? null,
+        /*
+         * 광고 클릭 실측(2026-09-08, 사장님 "광고 클릭률을 보는 게 중요하다"). 같은 응답에
+         * 이미 오던 값이다. 배치·발행이 이름 그대로 복사해야 화면까지 간다 —
+         * preemption-ad-signal-wiring.test.ts 가 네 곳을 대조한다(timing 필드 누락 사고 재발 방지).
+         */
+        adClicks: adSignals.get(row.keyword.replace(/\s+/g, ''))?.adClicks ?? null,
+        adCtrPc: adSignals.get(row.keyword.replace(/\s+/g, ''))?.adCtrPc ?? null,
+        adCtrMobile: adSignals.get(row.keyword.replace(/\s+/g, ''))?.adCtrMobile ?? null,
+        adDepth: adSignals.get(row.keyword.replace(/\s+/g, ''))?.adDepth ?? null,
         // 언제 잰 값인지. 없으면 화면이 "언제쩍 숫자인지" 를 말할 수 없다.
         measuredAt: new Date().toISOString(),
         demandAsOf: recency.asOf,

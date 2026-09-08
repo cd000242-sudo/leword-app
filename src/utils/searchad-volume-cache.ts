@@ -31,6 +31,16 @@ export interface SearchAdVolumeEntry {
   exactDeviceCounts?: boolean;
   comp?: string;
   cpc?: number | null;
+  /*
+   * 광고 클릭 실측(2026-09-08, 사장님 "광고 클릭률을 보는 게 중요하다"). 검색량과 같은
+   * 응답에 오는 값이라 호출이 늘지 않는다. 옛 항목엔 없다 — 그러면 undefined 로 둔다.
+   *   clkPc/clkMo  월 평균 클릭수   ctrPc/ctrMo  월 평균 클릭률(%)   depth  월 평균 노출 광고 수
+   */
+  clkPc?: number | null;
+  clkMo?: number | null;
+  ctrPc?: number | null;
+  ctrMo?: number | null;
+  depth?: number | null;
   at: number; // measured epoch ms
 }
 
@@ -121,7 +131,10 @@ export function getSearchAdVolumeCached(keyword: string): (SearchAdVolumeEntry &
 /** 실측 양수 볼륨만 캐시 (null/0/음수는 저장 안 함 — 라이저 놓치기 방지, 측정실패 캐시 방지) */
 export function setSearchAdVolumeCached(
   keyword: string,
-  v: { pc: number | null; mo: number | null; total: number | null; comp?: string; cpc?: number | null },
+  v: {
+    pc: number | null; mo: number | null; total: number | null; comp?: string; cpc?: number | null;
+    clkPc?: number | null; clkMo?: number | null; ctrPc?: number | null; ctrMo?: number | null; depth?: number | null;
+  },
 ): void {
   if (!keyword) return;
   if (
@@ -145,6 +158,11 @@ export function setSearchAdVolumeCached(
     exactDeviceCounts: true,
     comp: v.comp,
     cpc: v.cpc ?? null,
+    clkPc: v.clkPc ?? null,
+    clkMo: v.clkMo ?? null,
+    ctrPc: v.ctrPc ?? null,
+    ctrMo: v.ctrMo ?? null,
+    depth: v.depth ?? null,
     at: Date.now(),
   });
   scheduleWrite();
