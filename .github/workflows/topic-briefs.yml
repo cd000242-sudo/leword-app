@@ -2,8 +2,11 @@ name: 오늘의 글감 (매일 아침)
 
 # 사이트의 '오늘의 글감' 탭(NOW/NEXT/ALWAYS 글감 브리프, 사장님 예시 형식 2026-09-09)에 싣는다.
 # 분야별로 네이버 뉴스 API 기사를 실측해 사실 카드를 만들고, 클로드 CLI(구독 OAuth)가 카드 안에서만 글감을 고르며,
-# 검증기가 카드에 없는 날짜·숫자를 떨어뜨린다. 검색량은 검색광고 실측. 자리(SERP) 실측은 기본 안 한다(미측정 표기) —
-# BD 를 태우려면 workflow_dispatch 의 serp 입력을 brightdata 로 주고 돌린다(유료 재승인 규칙).
+# 검증기가 카드에 없는 날짜·숫자를 떨어뜨린다. 검색량은 검색광고 실측.
+#
+# 자리(SERP) 실측은 Bright Data 로 회차당 12건(검색량 큰 순) — 사장님 승인 2026-09-09. 기능 'briefs' 장부는
+# 사이트 레포 data/brightdata-quota-briefs.json 에 두고 표와 함께 커밋한다(회차마다 새 러너라 파일이 기억이다).
+# 달 상한 400 = 12 × 31 = 372 의 여유분. 선점(golden)·실검(issue) 장부와 별개이며 무료 5,000 안이다.
 #
 # 시간대: cron 은 UTC. 한국 07:00 은 UTC 전날 22:00. 추천키워드(21:30)와 다른 워크플로라 겹쳐 돌아도 된다.
 on:
@@ -12,8 +15,8 @@ on:
   workflow_dispatch:
     inputs:
       serp:
-        description: '자리 실측 — none(기본) | brightdata(BD 유료 쿼터, 회당 최대 maxSerp 건)'
-        default: 'none'
+        description: '자리 실측 — brightdata(기본, 회차 최대 maxSerp 건) | none(미측정으로 발행)'
+        default: 'brightdata'
         required: false
       maxSerp:
         description: '자리 실측 상한(건)'
@@ -49,6 +52,7 @@ jobs:
             NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID != '' }}
             NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET != '' }}
             CLAUDE_CODE_OAUTH_TOKEN=${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+            BRIGHTDATA_TOKEN=${{ secrets.BRIGHTDATA_TOKEN != '' }}
             SITE_REPO_SSH_KEY=${{ secrets.SITE_REPO_SSH_KEY != '' }}
         run: |
           missing=0
@@ -59,7 +63,15 @@ jobs:
           [ "$missing" -eq 1 ] && exit 1
           echo '필수 시크릿 확인됨.'
 
-      - name: 글감 뽑기 (뉴스 실측 → 사실 카드 → 에이전트 → 검증 → 검색량 실측)
+      # 장부(data/brightdata-quota-briefs.json)를 읽어야 하므로 글감 뽑기보다 먼저 받는다.
+      - name: 사이트 레포 체크아웃
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+
+      - name: 글감 뽑기 (뉴스 실측 → 사실 카드 → 에이전트 → 검증 → 검색량 실측 → 자리 실측)
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
@@ -69,21 +81,17 @@ jobs:
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
           NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
-          BRIGHTDATA_TOKEN: ${{ github.event.inputs.serp == 'brightdata' && secrets.BRIGHTDATA_TOKEN || '' }}
+          BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
-          LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/data/brightdata-quota-state.json
-          SERP_MODE: ${{ github.event.inputs.serp || 'none' }}
+          LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json
+          # 달 400 건에서 기능 자체를 잠근다(12 × 31 = 372 가 이론 최대).
+          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":400}'
+          SERP_MODE: ${{ github.event.inputs.serp || 'brightdata' }}
           MAX_SERP: ${{ github.event.inputs.maxSerp || '12' }}
         run: |
+          mkdir -p site/data
           npm install -g @anthropic-ai/claude-code
           node scripts/topic-briefs.js --out=topic-briefs.json --perField=3 --serp="$SERP_MODE" --maxSerp="$MAX_SERP"
-
-      - name: 사이트 레포 체크아웃
-        uses: actions/checkout@v4
-        with:
-          repository: cd000242-sudo/naver
-          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
-          path: site
 
       # 다른 정적 보드와 같은 폴더 — 화면(TopicBriefsBoard)이 /data/topic-briefs.json 을 읽는다.
       - name: 사이트에 싣기
@@ -95,6 +103,7 @@ jobs:
           git config user.name 'leword-bot'
           git config user.email 'bot@leaderspro.kr'
           git add spa/public/data/topic-briefs.json
+          [ -f data/brightdata-quota-briefs.json ] && git add data/brightdata-quota-briefs.json
           if git diff --cached --quiet; then echo '변경 없음.'; exit 0; fi
           git commit -m "chore(briefs): 오늘의 글감 $(date -u '+%Y-%m-%d %H:%M UTC')"
           git pull --rebase origin main

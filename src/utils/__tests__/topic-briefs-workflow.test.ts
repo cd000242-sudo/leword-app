@@ -31,8 +31,14 @@ describe('오늘의 글감 워크플로', () => {
         expect(workflow).toContain('site/spa/public/data/topic-briefs.json');
     });
 
-    it('BD 는 기본 꺼져 있고(serp=none) 수동 실행 입력으로만 켠다 — 유료 재승인 규칙', () => {
-        expect(/SERP_MODE:\s*\$\{\{\s*github\.event\.inputs\.serp\s*\|\|\s*'none'\s*\}\}/.test(workflow)).toBe(true);
-        expect(workflow).toContain("github.event.inputs.serp == 'brightdata' && secrets.BRIGHTDATA_TOKEN || ''");
+    it('자리 실측은 BD 회차 12건(사장님 승인 2026-09-09) — 기능 briefs 장부를 사이트 레포에 두고 표와 함께 커밋한다', () => {
+        expect(/SERP_MODE:\s*\$\{\{\s*github\.event\.inputs\.serp\s*\|\|\s*'brightdata'\s*\}\}/.test(workflow)).toBe(true);
+        expect(/MAX_SERP:\s*\$\{\{\s*github\.event\.inputs\.maxSerp\s*\|\|\s*'12'\s*\}\}/.test(workflow)).toBe(true);
+        expect(/BRIGHTDATA_TOKEN:\s*\$\{\{\s*secrets\.BRIGHTDATA_TOKEN\s*\}\}/.test(workflow)).toBe(true);
+        expect(workflow).toContain('LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json');
+        expect(workflow).toContain('LEWORD_BRIGHTDATA_FEATURE_CAPS: \'{"briefs":400}\'');
+        expect(workflow).toContain('git add data/brightdata-quota-briefs.json');
+        // 장부를 읽어야 하므로 사이트 체크아웃이 글감 뽑기보다 앞이다
+        expect(workflow.indexOf('사이트 레포 체크아웃')).toBeLessThan(workflow.indexOf('scripts/topic-briefs.js'));
     });
 });

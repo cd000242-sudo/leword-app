@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-    BRIEF_FIELDS, applyMeasuredVolumes, buildBriefPrompt, extractDates, kstToday, markStars, pickFactsForPrompt, serpFitOf, timingOfFact, toFactCards, validateBriefs,
+    BRIEF_FIELDS, applyMeasuredVolumes, buildBriefPrompt, extractDates, extractFutureMonths, kstToday, markStars, pickFactsForPrompt, serpFitOf, timingOfFact, toFactCards, validateBriefs,
     type FactCard,
 } from '../topic-briefs';
 
@@ -25,6 +25,20 @@ describe('extractDates', () => {
     });
     it('kstToday 는 ISO 날짜 자리가 한국 날짜다', () => {
         expect(kstToday(new Date('2026-09-08T20:00:00Z')).toISOString().slice(0, 10)).toBe('2026-09-09');
+    });
+});
+
+describe('extractFutureMonths — 날 없는 예정 달', () => {
+    it('"내년 1월"·"10월 중"·"다음 달부터"는 발행일 이후의 달 1일로, "9월 21일"처럼 날이 붙은 것과 지난 달은 안 센다', () => {
+        expect(extractFutureMonths('내년 1월 결합보증 도입, 10월 중 발표, 다음 달부터 시행. 9월 21일 접종. 지난 3월 통계', '2026-09-08T00:00:00Z'))
+            .toEqual(['2026-10-01', '2027-01-01']);
+    });
+    it('올해 9월 기사의 "9월"은 예정이 아니다', () => {
+        expect(extractFutureMonths('9월 물가 동향', '2026-09-08T00:00:00Z')).toEqual([]);
+    });
+    it('예정 달만 있는 카드도 NEXT 다', () => {
+        const card: FactCard = { id: 'f1', field: 'x', title: '청년 월세 결합보증 내년 1월 도입', snippet: '', press: 'p', link: 'l', publishedAt: '2026-09-08T00:00:00.000Z', dates: [] };
+        expect(timingOfFact(card, TODAY)).toBe('NEXT');
     });
 });
 
@@ -68,6 +82,9 @@ describe('validateBriefs — 카드에 없는 것은 못 들어간다', () => {
     it('카드의 발행일(KST)은 근거다 — "8일 발표"는 본문이 아니라 발행일에서 온다', () => {
         const r = validateBriefs([{ ...good, timing: 'NOW', factIds: ['f1'], value: '8일 질병관리청이 발표했다.' }], facts, '건강', TODAY);
         expect(r.ok).toHaveLength(1);
+    });
+    it('factIds 는 "[f1]"·"F1 " 표기도 받는다(게임 회차 통째 탈락 재발 방지)', () => {
+        expect(validateBriefs([{ ...good, factIds: ['[f1]', 'F1 '] }], facts, '건강', TODAY).ok[0]?.factIds).toEqual(['f1']);
     });
     it('카드 id 가 없거나 NEXT 인데 미래 날짜 근거가 없으면 떨어진다', () => {
         expect(validateBriefs([{ ...good, factIds: ['x9'] }], facts, '건강', TODAY).ok).toHaveLength(0);

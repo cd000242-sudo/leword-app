@@ -157,10 +157,39 @@ export function kstToday(now = new Date()): Date {
   return new Date(now.getTime() + 9 * 3600 * 1000);
 }
 
-/** 카드의 시기 — 미래 날짜가 있으면 NEXT, 최근 5일 안이면 NOW, 그 밖은 null(브리프 근거로만). */
+/**
+ * 날 없이 달만 잡힌 예정 — "내년 1월 시행"·"10월 중 발표"·"다음 달부터"·"오는 11월". 발행일 달보다 뒤인 것만 그 달 1일로.
+ * v3·CI 실주행에서 "NEXT 인데 미래 날짜 근거 없음"으로 떨어진 것의 대부분이 이 꼴이었다(청년 월세 결합보증 '내년 1월').
+ */
+export function extractFutureMonths(text: string, publishedAt: string): string[] {
+  const base = new Date(publishedAt);
+  if (Number.isNaN(base.getTime())) return [];
+  const baseIdx = base.getUTCFullYear() * 12 + base.getUTCMonth(); // 0-based 달 지수
+  const out = new Set<string>();
+  const iso = (idx: number) => `${Math.floor(idx / 12)}-${String((idx % 12) + 1).padStart(2, '0')}-01`;
+  const src = String(text || '');
+  const re = /(내년|올해|오는|지난|작년)?\s*(\d{1,2})월(?!\s*\d{1,2}\s*일)(?=\s*(?:중|부터|까지|초|말|께|경|안에|내|에|,|\.|\s|$))/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    const month = Number(m[2]);
+    if (month < 1 || month > 12) continue;
+    if (m[1] === '지난' || m[1] === '작년') continue; // 지난 달 이야기는 예정이 아니다
+    let year = base.getUTCFullYear();
+    if (m[1] === '내년') year += 1;
+    else if (m[1] !== '올해' && month - 1 < base.getUTCMonth()) year += 1; // 지난 달 이름은 다음 해로(9월 기사의 "1월")
+    const idx = year * 12 + (month - 1);
+    if (idx > baseIdx) out.add(iso(idx));
+  }
+  if (/(다음\s*달|내달)\s*(부터|중|초|말|에|께|,|\s)/.test(src)) out.add(iso(baseIdx + 1));
+  if (/내년\s*(부터|초|상반기|하반기|중|에|,|\s)/.test(src)) out.add(iso((base.getUTCFullYear() + 1) * 12));
+  return [...out].sort();
+}
+
+/** 카드의 시기 — 미래 날짜(달만이라도)가 있으면 NEXT, 최근 5일 안이면 NOW, 그 밖은 null(브리프 근거로만). */
 export function timingOfFact(fact: FactCard, today: Date): BriefTiming | null {
   const todayIso = today.toISOString().slice(0, 10);
   if (fact.dates.some((d) => d > todayIso)) return 'NEXT';
+  if (extractFutureMonths(`${fact.title} ${fact.snippet}`, fact.publishedAt).some((d) => d.slice(0, 7) > todayIso.slice(0, 7))) return 'NEXT';
   const age = today.getTime() - new Date(fact.publishedAt).getTime();
   if (age >= 0 && age <= 5 * 24 * 3600 * 1000) return 'NOW';
   return null;
@@ -193,7 +222,10 @@ export function buildBriefPrompt(field: string, facts: FactCard[], today: Date, 
     ' "experience": "직접 경험이 있으면 어디에 쓰나 / 없으면 무엇을 쓰면 안 되나(후기 날조 금지)",',
     ' "differentiation": "이미 있는 글과 다르게 만드는 구조 한 문장",',
     ' "keywords": ["사람들이 네이버에 실제로 치는 검색어 2~3개, 넓은 것부터. 1~3어절, 조사·설명 없이. 예: \'독감 무료접종\', \'독감 무료접종 대상\'. \'가을 진드기 물림 예방 수칙\' 같은 문장형 금지"],',
-    ' "factIds": ["근거 카드 id 1개 이상"]}',
+    ' "factIds": ["근거 카드 id 1개 이상 — 위 목록의 대괄호 안 id 그대로(예: \\"f3\\"). 제목이나 번호로 대신 쓰지 마라"]}',
+    '',
+    '규칙: value 에 쓰는 날짜는 인용한 카드(factIds)에 있는 날짜여야 한다. "8일 발표했다"처럼 발행일을 쓰려면 그 날 발행된 카드를 인용하라.',
+    'timing 을 NEXT 로 두려면 인용 카드에 앞으로의 날짜(또는 "내년 1월"·"다음 달" 같은 예정 달)가 있어야 한다. 없으면 NOW 나 ALWAYS 로 두라.',
     '',
     '최종 출력은 JSON 배열 하나만. 설명·머리말 없이.',
   ].join('\n');
@@ -211,7 +243,8 @@ export function validateBriefs(raw: unknown, facts: FactCard[], field: string, t
     const d = item as Partial<BriefDraft>;
     const title = cleanText(String(d?.title || ''));
     if (title.length < 8) { dropped.push({ title: title || '(제목 없음)', reason: '제목 없음' }); continue; }
-    const ids = Array.isArray(d.factIds) ? d.factIds.map(String).filter((id) => byId.has(id)) : [];
+    // "[f3]"·"f3 "·"F3" 처럼 적어도 받는다 — 게임 분야 회차가 표기 차이로 통째로 떨어졌다(2026-09-09 v3).
+    const ids = [...new Set((Array.isArray(d.factIds) ? d.factIds : []).map((id) => String(id).toLowerCase().replace(/[^a-z0-9]/g, '')).filter((id) => byId.has(id)))];
     if (ids.length === 0) { dropped.push({ title, reason: '근거 카드 없음' }); continue; }
     const cited = ids.map((id) => byId.get(id) as FactCard);
     const timing = (['NOW', 'NEXT', 'ALWAYS'] as const).find((t) => t === d.timing);

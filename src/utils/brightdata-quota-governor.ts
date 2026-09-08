@@ -57,6 +57,8 @@ export type BrightDataFeature =
   | 'golden'
   /** 실검 틈새 보드 자리 실측(블로그탭 상위 10) — 회차 12건 × 하루 3회, 월 상한은 FEATURE_CAPS 로 1,100. */
   | 'issue'
+  /** 오늘의 글감 자리 실측(블로그탭) — 하루 1회 × 12건, 월 상한은 FEATURE_CAPS 로 400. 사장님 승인 2026-09-09. */
+  | 'briefs'
   | 'affiliate'
   | 'youtube'
   | 'mindmap'

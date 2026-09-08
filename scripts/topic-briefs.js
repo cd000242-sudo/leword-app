@@ -141,11 +141,13 @@ async function main() {
       const { localSerpFetch, closeLocalSerpFetch } = require('../src/utils/local-serp-fetch');
       fetchPage = localSerpFetch; close = closeLocalSerpFetch;
     } else if (serpMode === 'brightdata') {
+      // 기능 'briefs' 장부로 센다(선점 'golden' 과 분리). 상한은 워크플로의 FEATURE_CAPS(월 400). 사장님 승인 2026-09-09.
       const { brightDataFetch } = require('../src/utils/brightdata-client');
-      fetchPage = (url) => brightDataFetch(url, 'golden', { zone: process.env.BRIGHTDATA_ZONE || '77' });
+      fetchPage = (url) => brightDataFetch(url, 'briefs', { zone: process.env.BRIGHTDATA_ZONE || '77' });
     }
     let measured = 0;
-    const targets = all.slice(0, maxSerp);
+    // 검색량 큰 순으로 상한까지 — 트래픽이 있는 글감부터 자리를 확인한다.
+    const targets = [...all].sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0)).slice(0, maxSerp);
     for (const b of targets) {
       const res = await fetchPage(seatBlogTabUrl(b.coreKeyword));
       if (!res.ok) continue;
