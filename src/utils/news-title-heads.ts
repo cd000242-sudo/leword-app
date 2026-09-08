@@ -19,6 +19,12 @@ export interface TitleHeadOptions {
   minCount?: number;
   /** 최대 개수. 검색광고 호출 한 번이 머리말 하나다. */
   limit?: number;
+  /**
+   * 받아들일지 밖에서 정한다 — **상한을 자르기 전에** 적용한다. 연예 기사에 따옴표로 든
+   * 병명('미주신경기능저하')이 방송 머리말이 되어 그 연관어가 방송에 실렸다(실측). 부르는
+   * 쪽이 말 규칙으로 딴 주제인 것을 거른다(seed-hints.titleHeadFitsTopic).
+   */
+  accept?: (head: string) => boolean;
 }
 
 /** 여는 따옴표 → 닫는 따옴표. 대괄호는 [단독]·[포토] 꼬리표라 뺀다. */
@@ -42,7 +48,16 @@ const STOP_HEADS = new Set([
   '사망', '별세', '응원', '감사', '기대', '축하', '화제', '폭소', '감동', '소름', '반전', '최초', '공개', '종영',
   '첫방', '시청률', '하차', '복귀', '컴백', '데뷔', '기자', '뉴스', '드라마', '영화', '예능', '배우', '가수',
   '아이돌', '신곡', '앨범', '무대', '출연', '방송', '라디오', '팬', '팬들', '시즌', '특집',
+  // 네 번째 감사(34177425968)의 실제 뉴스에서 새어 나온 것들
+  '최고', '1위', '천만', '쌍천만', '대상', '함께', '출격', '강렬', '진짜', '매진', '커리어하이', '역대급',
+  '완벽', '대박', '폭풍', '열일', '심경', '고백', '건강이상', '활동중단', '영상산업', '최고시청률', '조찬모임',
 ]);
+
+/*
+ * 낱말 목록만으론 끝이 없어 꼴로도 막는다 — 숫자+위·관왕·천만, ~시청률·~산업·~모임·~서밋·
+ * ~저하·~이상·~중단·~돌파·~기록·~경신·~기념. 작품 제목이 이런 꼴로 끝나는 일은 드물다.
+ */
+const NOISE_HEAD = /^\d+(?:위|관왕|천만|만명|억|주년|번째)$|^(?:쌍)?천만$|(?:시청률|산업|모임|서밋|저하|이상|중단|돌파|기록|경신|기념)$/;
 
 const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -61,7 +76,7 @@ function toHead(span: string): string | null {
     .replace(/\s+/g, '');
   if (compact.length < 2 || compact.length > 15) return null;
   if (!/^[가-힣A-Za-z0-9]+$/.test(compact)) return null;
-  if (STOP_HEADS.has(compact)) return null;
+  if (STOP_HEADS.has(compact) || NOISE_HEAD.test(compact)) return null;
   return compact;
 }
 
@@ -106,6 +121,7 @@ export function extractTitleHeads(titles: readonly string[], options: TitleHeadO
       count: compactTitles.filter((title) => title.includes(head)).length,
     }))
     .filter((entry) => entry.count >= minCount)
+    .filter((entry) => !options.accept || options.accept(entry.head))
     .sort((a, b) => a.kind - b.kind || b.count - a.count || a.order - b.order);
 
   return counted.slice(0, limit).map((entry) => entry.head);

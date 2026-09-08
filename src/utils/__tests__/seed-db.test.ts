@@ -290,3 +290,31 @@ describe('roundFromDate', () => {
     expect(roundFromDate(new Date(2026, 8, 7))).not.toBe(roundFromDate(new Date(2026, 8, 8)));
   });
 });
+
+/*
+ * 건강·의학·스포츠 말 규칙(2026-09-08, 네 번째 감사). 연예 기사에 따옴표로 든 병명이 방송에,
+ * 영화 '오디세이' 머리말이 끌고 온 '오디세이퍼터'가 스타·연예인에 실렸다. 말이 가리키는
+ * 주제로 보낸다. 반려동물이 먼저다 — 강아지피부염·강아지수영장은 반려동물이다.
+ */
+describe('topicOfSeed — 건강·의학·스포츠 말 규칙', () => {
+  const of = (keyword: string) => topicOfSeed({ keyword, searchVolume: 1000, source: 'month:5' });
+
+  it('병명·증상·치료는 건강·의학', () => {
+    for (const k of ['미주신경기능저하', '과민성대장증후군', '무릎통증치료법', '어깨수술비용', '영양제추천']) expect(of(k), k).toBe('건강·의학');
+  });
+
+  it('운동·구기·장비는 스포츠', () => {
+    for (const k of ['오디세이퍼터', '골프레슨', '테니스라켓추천', '헬스장추천', '마라톤대회']) expect(of(k), k).toBe('스포츠');
+  });
+
+  it('반려동물이 먼저다', () => {
+    expect(of('강아지피부염')).toBe('반려동물');
+    expect(of('강아지수영장')).toBe('반려동물');
+  });
+
+  it('부분일치 함정 — 재활용·동물병원·캠핑장추천', () => {
+    expect(of('재활용')).not.toBe('건강·의학');
+    expect(of('동물병원')).not.toBe('건강·의학');
+    expect(of('캠핑장추천')).toBe('국내여행');
+  });
+});

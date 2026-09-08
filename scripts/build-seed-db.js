@@ -39,7 +39,7 @@ const path = require('path');
 const { createHmac } = require('crypto');
 const {
   SEED_HINTS, HINT_ROWS_CAP, TITLE_HEAD_QUERIES, TITLE_HEADS_PER_TOPIC,
-  hintSourceTag, routeHintRow, preferSource, warehouseNeedsRebuild,
+  hintSourceTag, routeHintRow, titleHeadFitsTopic, preferSource, warehouseNeedsRebuild,
 } = require('../src/utils/seed-hints');
 const { extractTitleHeads } = require('../src/utils/news-title-heads');
 
@@ -341,8 +341,12 @@ async function main() {
         if (r.status !== 200) newsErrors.push(`${query} ${r.status}${r.message ? ` ${r.message}` : ''}`);
         await sleep(gapMs);
       }
-      const heads = extractTitleHeads(titles, { minCount: 2, limit: TITLE_HEADS_PER_TOPIC })
-        .filter((head) => !staticHeads.has(head));
+      // 말 규칙이 딴 주제라고 하는 말(인턴·병명)은 상한을 자르기 전에 뺀다 — 자리를 안 잡아먹게.
+      const heads = extractTitleHeads(titles, {
+        minCount: 2,
+        limit: TITLE_HEADS_PER_TOPIC,
+        accept: (head) => !staticHeads.has(head) && titleHeadFitsTopic(topic, head),
+      });
       console.log(`  ${topic}: 뉴스 제목 ${titles.length}건 → 머리말 ${heads.length}개${newsErrors.length ? ` (뉴스 실패 ${newsErrors.join(' · ')})` : ''}`);
       if (heads.length > 0) console.log(`      ${heads.slice(0, 15).join(' · ')}${heads.length > 15 ? ' …' : ''}`);
       let keptTotal = 0; let addedTotal = 0; let movedTotal = 0; let droppedTotal = 0;

@@ -10,6 +10,7 @@ import {
   keepHintRow,
   preferSource,
   routeHintRow,
+  titleHeadFitsTopic,
   warehouseNeedsRebuild,
 } from '../seed-hints';
 
@@ -365,5 +366,38 @@ describe('제목 머리말 — 제목을 품은 행은 그 주제다', () => {
     for (const topic of ['드라마', '방송', '스타·연예인']) {
       expect(TITLE_HEAD_QUERIES[topic]?.length ?? 0, `${topic} 뉴스 질의가 없다`).toBeGreaterThanOrEqual(3);
     }
+  });
+});
+
+/*
+ * 제목 머리말 거부권(2026-09-08, 네 번째 감사): 뉴스 따옴표에 든 말이 다른 주제의 말이면
+ * 머리말로 쓰지 않는다 — '인턴'(비즈니스·경제)이 스타·연예인 머리말이 되고, 병명
+ * '미주신경기능저하'(건강·의학)가 방송 머리말이 되어 그 연관어가 방송에 실렸다(실측).
+ */
+describe('제목 머리말 거부권 — 말 규칙이 딴 주제라면 머리말이 아니다', () => {
+  it('제 주제거나 규칙이 없는 말은 받는다', () => {
+    expect(titleHeadFitsTopic('드라마', '유부녀킬러')).toBe(true);
+    expect(titleHeadFitsTopic('방송', '틈만나면')).toBe(true);
+    expect(titleHeadFitsTopic('드라마', '주말드라마')).toBe(true);
+  });
+
+  it('딴 주제의 말은 거른다', () => {
+    expect(titleHeadFitsTopic('스타·연예인', '인턴')).toBe(false);
+    expect(titleHeadFitsTopic('방송', '미주신경기능저하')).toBe(false);
+    expect(titleHeadFitsTopic('방송', '혁신소상공인')).toBe(false);
+    expect(titleHeadFitsTopic('스타·연예인', '워터밤페스티벌')).toBe(false);
+  });
+
+  it('거부어는 머리말이 못 된다', () => {
+    expect(titleHeadFitsTopic('영화', '웹하드')).toBe(false);
+  });
+
+  /*
+   * 제목을 품은 행이라도 말 규칙이 먼저다 — '오디세이'(영화) 머리말이 '오디세이퍼터'(골프)를
+   * 끌고 왔다(실측). 스포츠 말 규칙이 그것을 스포츠로 보낸다.
+   */
+  it('제목을 품어도 말 규칙이 딴 주제면 그리로 간다', () => {
+    expect(routeHintRow('스타·연예인', '오디세이퍼터', '오디세이')).toBe('스포츠');
+    expect(routeHintRow('영화', '오디세이쿠키영상', '오디세이')).toBe('영화');
   });
 });

@@ -166,6 +166,21 @@ export function keepHintRow(topic: string, keyword: string): boolean {
   return routeHintRow(topic, keyword) === topic;
 }
 
+/**
+ * 뉴스에서 뽑은 말을 이 주제의 제목 머리말로 써도 되나(2026-09-08, 네 번째 감사).
+ *
+ * 따옴표에 든 말이 다른 주제의 말이면 안 쓴다 — '인턴'(비즈니스·경제)이 스타·연예인
+ * 머리말이 되고, 병명 '미주신경기능저하'(건강·의학)가 방송 머리말이 되어 그 연관어가
+ * 방송에 실렸다. 거부어도 안 쓴다. 규칙이 없는 말(작품명 대부분)은 받는다.
+ * extractTitleHeads 의 accept 로 넘겨 **상한을 자르기 전에** 걸러야 자리를 안 잡아먹는다.
+ */
+export function titleHeadFitsTopic(topic: string, head: string): boolean {
+  const compact = String(head || '').replace(/\s+/g, '');
+  if (!compact || HINT_DENY.test(compact)) return false;
+  const byWord = topicOfSeed({ keyword: compact, searchVolume: 0 });
+  return !byWord || byWord === topic;
+}
+
 /*
  * 같은 말이 여러 창구에서 오면 어느 출처를 남기나.
  *
