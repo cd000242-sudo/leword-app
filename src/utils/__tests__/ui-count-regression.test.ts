@@ -363,9 +363,10 @@ assert('blogger profile backend enforces one representative category',
   'backend singleton profile guard missing');
 
 
+// 2026-09-09: 쇼핑 커넥트 화면은 사이트(leaderspro.kr/leword?tab=affiliate)로 이관해 앱 렌더러에서 뺐다.
+// shopping-connect-search 핸들러는 모바일 계약(contracts.ts)이 잡고 있어 남는다 — 핸들러 쪽만 잠근다.
 assert('shopping connect no-keyword discovery requests 30 seeds',
-  /autoDiscoveryLimit:\s*30/.test(html)
-    && /requestedRecommendationLimit\s*=\s*params\?\.targetCount\s*\?\?\s*params\?\.autoDiscoveryLimit/.test(configUtility)
+  /requestedRecommendationLimit\s*=\s*params\?\.targetCount\s*\?\?\s*params\?\.autoDiscoveryLimit/.test(configUtility)
     && /normalizeShoppingAutoDiscoveryLimit\(params\?\.autoDiscoveryLimit\s*\?\?\s*params\?\.targetCount\)/.test(configUtility)
     && /getShoppingRecommendationLimit\(autoDiscovery,\s*requestedRecommendationLimit\)/.test(configUtility)
     && /getShoppingAutoDiscoveryExpansionLimit\(discoverySeeds\.length,\s*autoDiscoveryLimit\)/.test(configUtility)
@@ -373,8 +374,7 @@ assert('shopping connect no-keyword discovery requests 30 seeds',
     && /balanceDiscovery:\s*true/.test(configUtility)
     && /maxPerDiscoveryQuery:\s*3/.test(configUtility)
     // v2.49.72: 최종 추천은 실측 황금비 우선 재랭킹으로 산출(옛 opportunityRanked.slice 대체) — 여전히 recommendationLimit 개
-    && /rankByProductGolden\(goldenPool,\s*recommendationLimit\)/.test(configUtility)
-    && /autoSeeds\.slice\(0,\s*30\)/.test(html),
+    && /rankByProductGolden\(goldenPool,\s*recommendationLimit\)/.test(configUtility),
   'shopping auto discovery is not using/showing 30 diversified seeds and final recommendations');
 
 assert('shopping connect scores expanded products by their discovery query',
@@ -395,11 +395,11 @@ assert('realtime all mode includes policy briefing source',
     && /else\s+if\s*\(p\s*===\s*'bokjiro'\)\s*result\.bokjiro\s*=\s*converted/.test(keywordDiscovery),
   'realtime all mode can still finish with policy=0 because policy source is not collected');
 
+// 2026-09-09: 내 노출 추적 화면은 사이트(leaderspro.kr/leword?tab=rank)로 이관해 앱 렌더러에서 뺐다.
+// 엔진(exposure-tracking.ts)은 뒤 단계가 다시 쓰므로 핸들러 쪽 배선만 잠근다.
 assert('exposure tracking turns proven winners into mindmap expansion seeds',
   /rankExposureGrowthSeeds\(tracked,\s*\{\s*limit:\s*12,\s*expansionLimit:\s*6\s*\}\)/.test(exposureTracking)
-    && /expansionSeeds/.test(exposureTracking)
-    && /const\s+growthSeeds\s*=\s*r\.expansionSeeds\s*\|\|\s*\[\]/.test(html)
-    && /lewordMindmapResearch\s*&&\s*lewordMindmapResearch\('\$\{safeKwJs\}'\)/.test(html),
+    && /expansionSeeds/.test(exposureTracking),
   'exposure winner-to-mindmap loop is missing');
 
 const rankedExpansionHelper = html.match(/window\.fetchLeWordRankedExpansionKeywords[\s\S]*?async function extractKeywordsRecursively/)?.[0] || '';

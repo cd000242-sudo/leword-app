@@ -7,7 +7,6 @@ import { EnvironmentManager } from '../../utils/environment-manager';
 import { crawlNewsSnippets } from '../../utils/keyword-competition/naver-search-crawler';
 import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-api';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getNaverPopularNews, PopularNews } from '../../utils/naver-news-crawler';
 import { withSmartRetry, withCacheAndRetry, naverApiCall, parallelProcess, apiHealthCheck, clearCache } from '../../utils/api-reliability';
 import * as licenseManager from '../../utils/licenseManager';
 
@@ -732,43 +731,6 @@ export function setupConfigUtilityHandlers(): void {
     console.log('[KEYWORD-MASTER] ✅ save-tutorial-video 핸들러 등록 완료');
   }
 
-  if (!ipcMain.listenerCount('get-naver-popular-news')) {
-    ipcMain.handle('get-naver-popular-news', async () => {
-      try {
-        console.log('[NAVER-NEWS] 네이버 실시간 인기 뉴스 조회 시작...');
-
-        const result = await getNaverPopularNews();
-
-        if (result.success) {
-          console.log(`[NAVER-NEWS] ✅ ${result.news.length}개 뉴스 조회 완료`);
-          return {
-            success: true,
-            news: result.news,
-            timestamp: result.timestamp
-          };
-        } else {
-          console.error('[NAVER-NEWS] ❌ 조회 실패:', result.error);
-          return {
-            success: false,
-            error: result.error || '뉴스 조회 실패',
-            news: [],
-            timestamp: result.timestamp
-          };
-        }
-
-      } catch (error: any) {
-        console.error('[NAVER-NEWS] ❌ 오류:', error);
-        return {
-          success: false,
-          error: error.message || '뉴스 조회 중 오류가 발생했습니다.',
-          news: [],
-          timestamp: new Date().toLocaleString('ko-KR')
-        };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ get-naver-popular-news 핸들러 등록 완료');
-  }
-
   // 🔥 네이버 지식인 황금질문 헌터 v3.0 - 끝판왕!
   // ========================================
   if (!ipcMain.listenerCount('search-kin-questions')) {
@@ -1410,142 +1372,6 @@ export function setupConfigUtilityHandlers(): void {
       }
     });
     console.log('[KEYWORD-MASTER] ✅ shopping-connect-search 핸들러 등록 완료');
-  }
-
-  // 🤖 쇼핑 커넥트 — 구매·사용 욕구 문구 AI 강화 (버튼 클릭 시에만, 비용 그때만)
-  //   규칙 문구를 시드로 주고 Claude가 더 자연스럽게 다듬는다.
-  //   키 미설정/AI 실패 시 규칙 문구를 그대로 돌려줘 항상 결과가 있게 한다.
-  if (!ipcMain.listenerCount('shopping-connect-ai-angle')) {
-    ipcMain.handle('shopping-connect-ai-angle', async (_event, payload: any) => {
-      try {
-        const product = payload?.product || {};
-        const keyword = String(payload?.keyword ?? '').trim();
-        const { buildPurchaseDesireAngles, buildAiAnglePrompt } = await import('../../utils/shopping-purchase-angle');
-        const ruleAngles = buildPurchaseDesireAngles(product, keyword);
-
-        /*
-         * [2026-08-18] ANTHROPIC_API_KEY(종량 과금) 경로를 버리고 **구독 CLI**
-         * (클로드코드 → 코덱스 → 제미나이)로 간다. 사장님 원칙: "API 로 하면
-         * 따로 비용이 발생하니까 클로드코드를 연동해라". 세 개 다 없으면
-         * 규칙 문구를 유지하고 설치를 안내한다.
-         */
-        const { runClaude } = await import('../../utils/agent-cli/claudeRunner');
-        const { runCodex } = await import('../../utils/agent-cli/codexRunner');
-        const { runGemini } = await import('../../utils/agent-cli/geminiRunner');
-        const { runGrok } = await import('../../utils/agent-cli/grokRunner');
-        const { runWithAnyAgent } = await import('../../utils/agent-cli/runAny');
-        const { tryExtractJson } = await import('../../utils/agent-cli/parse');
-
-        const prompt = buildAiAnglePrompt(product, keyword, ruleAngles);
-        try {
-          const run = await runWithAnyAgent(prompt, [
-            { provider: 'claude', run: runClaude },
-            { provider: 'codex', run: runCodex },
-            { provider: 'gemini', run: runGemini },
-            { provider: 'grok', run: runGrok },
-          ], { timeoutMs: 60_000 });
-          const parsed = tryExtractJson(run.reply);
-          let aiAngles: Array<{ text: string; kind: string; basis: string }> = [];
-          if (Array.isArray(parsed)) {
-            aiAngles = parsed
-              .filter((a: any) => a && typeof a.text === 'string' && a.text.trim())
-              .map((a: any) => ({ text: String(a.text).trim().slice(0, 40), kind: String(a.kind || '구매욕구'), basis: `AI 생성(${run.provider} 구독)` }))
-              .slice(0, 3);
-          }
-          if (aiAngles.length === 0) {
-            return { success: false, source: 'rule', angles: ruleAngles, message: 'AI 응답 파싱 실패 — 규칙 문구 유지' };
-          }
-          return { success: true, source: `${run.provider}(구독)`, angles: aiAngles };
-        } catch (err: any) {
-          // 구독 CLI 가 하나도 없거나 전부 실패 — 규칙 문구로 버티고 연동을 안내한다.
-          return { success: false, needsKey: true, source: 'rule', angles: ruleAngles,
-            message: `AI 엔진 연동 필요 — 🤖 AI 엔진 연동에서 클로드코드/코덱스를 연동하면 내 구독으로 무료 강화됩니다. (${String(err?.message || '').slice(0, 80)})` };
-        }
-      } catch (err: any) {
-        console.error('[SHOPPING-CONNECT] AI 앵글 오류:', err?.message ?? err);
-        return { success: false, source: 'rule', angles: [], error: err?.message ?? 'AI 앵글 생성 실패' };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ shopping-connect-ai-angle 핸들러 등록 완료');
-  }
-
-  // 🛒 쇼핑 커넥트 — 추천 키워드 (모달 열자마자 노출)
-  if (!ipcMain.listenerCount('shopping-connect-suggestions')) {
-    ipcMain.handle('shopping-connect-suggestions', async () => {
-      try {
-        const { getShoppingSuggestions } = await import('../../utils/shopping-keyword-suggestions');
-        const s = await getShoppingSuggestions();
-        return { success: true, ...s };
-      } catch (err: any) {
-        console.error('[SHOPPING-CONNECT] 추천 키워드 로드 실패:', err?.message);
-        return { success: false, error: err?.message, dynamic: [], verified: [], static: [] };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ shopping-connect-suggestions 핸들러 등록 완료');
-  }
-
-  // 🛒 쇼핑 커넥트 — 정적 풀 실시간 검증 (첫 로드 시 10~15초 소요, 이후 24h 캐시)
-  if (!ipcMain.listenerCount('shopping-connect-verify')) {
-    ipcMain.handle('shopping-connect-verify', async () => {
-      try {
-        const { getVerifiedShoppingSuggestions } = await import('../../utils/shopping-keyword-suggestions');
-        const items = await getVerifiedShoppingSuggestions(30);
-        return { success: true, items };
-      } catch (err: any) {
-        console.error('[SHOPPING-CONNECT] 검증 실패:', err?.message);
-        return { success: false, error: err?.message, items: [] };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ shopping-connect-verify 핸들러 등록 완료');
-  }
-
-  // v2.43.56 Phase 1 100점화: 블로그 본문 초안 생성 (Manus 1순위 + Claude fallback)
-  if (!ipcMain.listenerCount('shopping-connect-blog-draft-start')) {
-    ipcMain.handle('shopping-connect-blog-draft-start', async (_event, payload: any) => {
-      try {
-        const { startBlogDraft } = await import('../../utils/shopping-blog-draft');
-        const r = startBlogDraft(payload);
-        return { success: true, ...r };
-      } catch (err: any) {
-        console.error('[SHOPPING-CONNECT-DRAFT] start 실패:', err?.message);
-        return { success: false, error: err?.message };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ shopping-connect-blog-draft-start 핸들러 등록 완료');
-  }
-  if (!ipcMain.listenerCount('shopping-connect-blog-draft-status')) {
-    ipcMain.handle('shopping-connect-blog-draft-status', async (_event, requestId: string) => {
-      try {
-        const { getBlogDraftStatus } = await import('../../utils/shopping-blog-draft');
-        const s = getBlogDraftStatus(requestId);
-        if (!s) return { success: false, error: 'requestId 없음 (만료됐을 수 있음)' };
-        return { success: true, ...s };
-      } catch (err: any) {
-        return { success: false, error: err?.message };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ shopping-connect-blog-draft-status 핸들러 등록 완료');
-  }
-
-  // v2.42.56 Phase 5: 쇼핑 커넥트 피드백 루프 (👍/👎)
-  if (!ipcMain.listenerCount('shopping-connect-feedback')) {
-    ipcMain.handle('shopping-connect-feedback', async (_event, payload: any) => {
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const { app } = require('electron');
-        const dir = app.getPath('userData');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        const file = path.join(dir, 'shopping-connect-feedback.jsonl');
-        // JSONL: 한 줄 한 레코드 (append-only)
-        fs.appendFileSync(file, JSON.stringify(payload) + '\n', 'utf8');
-        return { success: true };
-      } catch (err: any) {
-        console.error('[SHOPPING-CONNECT-FEEDBACK] 실패:', err?.message);
-        return { success: false, error: err?.message };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ shopping-connect-feedback IPC 등록');
   }
 
   // 🔥 100점짜리 뉴스 스니펫 크롤링 (IPC 핸들러)

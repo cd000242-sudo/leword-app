@@ -16,15 +16,9 @@ const html = fs.readFileSync(path.join(root, 'ui', 'keyword-master.html'), 'utf8
 /** 리뉴얼 후 남아야 하는 추가 기능 카드 — 순서 그대로. */
 const EXPECTED_CARDS = [
     'PRO 트래픽 폭발 키워드 헌터',
-    '내 노출 추적',
     '자리 실측기',
-    '황금키워드 레인',
-    '쇼핑 커넥트',
-    '유튜브 황금키워드',
     'AdSense 승인 키워드 헌터',
     '네이버 AI 메이트 키워드 찾기',
-    '지식인 황금질문',
-    '상위노출 틈새키워드',
 ];
 
 function sliceBetween(source: string, startMarker: string, endMarker: string): string {

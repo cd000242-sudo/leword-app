@@ -204,7 +204,6 @@ export type BloggerApi = {
   stopKeywordDiscovery(keyword: string): Promise<{ success: boolean }>;
   getTrendingKeywords(source: 'naver' | 'google' | 'youtube'): Promise<any[]>;
   getRealtimeKeywords(options?: { platform?: 'zum' | 'google' | 'nate' | 'daum' | 'all', limit?: number }): Promise<{ success: boolean; data?: any; timestamp?: string; error?: string }>;
-  huntIssueNicheKeywords(options?: any): Promise<any>;
   checkKeywordRank(data: { keyword: string; blogUrl: string }): Promise<any>;
   analyzeCompetitors(keyword: string): Promise<any>;
   getSchedules(): Promise<any[]>;
@@ -489,7 +488,6 @@ const api: BloggerApi = {
   stopKeywordDiscovery: (keyword: string) => ipcRenderer.invoke('stop-keyword-discovery', keyword),
   getTrendingKeywords: (source: 'naver' | 'google' | 'youtube') => ipcRenderer.invoke('get-trending-keywords', source),
   getRealtimeKeywords: (options?: { platform?: 'zum' | 'google' | 'nate' | 'daum' | 'all', limit?: number }) => ipcRenderer.invoke('get-realtime-keywords', options),
-  huntIssueNicheKeywords: (options: any) => ipcRenderer.invoke('hunt-issue-niche-keywords', options),
   checkKeywordRank: (data: { keyword: string; blogUrl: string }) => ipcRenderer.invoke('check-keyword-rank', data),
   analyzeCompetitors: (keyword: string) => ipcRenderer.invoke('analyze-competitors', keyword),
   getSchedules: () => ipcRenderer.invoke('get-schedules'),
@@ -562,7 +560,6 @@ const electronApi = {
       'keyword-expansion-progress',
       'keyword-discovery-progress',
       'keyword-discovery-chunk',
-      'issue-niche-progress',
       'ultimate-niche-progress',
       'keyWizard:progress',
       'keyWizard:result',

@@ -9,7 +9,6 @@ import {
   generateGoldenKeywords,
   crossReferenceWithNaver,
 } from '../../utils/youtube-trend-analyzer';
-import { getTrendingShorts, ShortsQuery } from '../../utils/youtube-shorts-benchmarker';
 
 function getYouTubeApiKey(): string {
   const envManager = EnvironmentManager.getInstance();
@@ -90,70 +89,6 @@ export function registerYouTubeAnalysisHandlers(): void {
   });
 
   console.log('[YOUTUBE] youtube-golden-keywords 핸들러 등록 완료');
-
-  // 🎬 유튜브 숏츠 벤치마킹 — 따라 만들면 성공할 숏츠 발굴
-  if (!ipcMain.listenerCount('youtube-shorts-benchmark')) {
-    ipcMain.handle('youtube-shorts-benchmark', async (_event, params: ShortsQuery = {}) => {
-      console.log('[YOUTUBE] youtube-shorts-benchmark 요청:', params);
-
-      const denied = licenseGate();
-      if (denied) return denied;
-
-      const apiKey = getYouTubeApiKey();
-      if (!apiKey) {
-        return { error: true, message: 'YouTube API 키가 설정되지 않았습니다. 환경설정 → API 키 → YouTube API Key 입력 후 저장 → 앱 재시작' };
-      }
-      // v2.42.95: 진단 — 키 길이 표시
-      console.log(`[YOUTUBE] API 키 ${apiKey.length}자, 앞 8자: ${apiKey.slice(0, 8)}...`);
-
-      try {
-        const result = await getTrendingShorts({
-          period: params?.period || '24h',
-          categoryId: params?.categoryId || undefined,
-          categoryIds: (params as any)?.categoryIds,
-          preset: (params as any)?.preset,
-          maxResults: params?.maxResults || 30,
-          sort: params?.sort || 'score',
-          excludeOfficial: (params as any)?.excludeOfficial === true,
-          koreanOnly: (params as any)?.koreanOnly === true,
-        });
-        const items = result.items;
-        const avgScore = items.length > 0
-          ? Math.round(items.reduce((a, b) => a + b.benchmarkScore, 0) / items.length * 10) / 10
-          : 0;
-        const channelFreq = new Map<string, number>();
-        for (const it of items) channelFreq.set(it.channelTitle, (channelFreq.get(it.channelTitle) || 0) + 1);
-        const topChannel = Array.from(channelFreq.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
-        console.log(`[YOUTUBE] ✅ 결과: ${items.length}건, 평균 ${avgScore}, fromCache=${result.fromCache}, quota=${result.quotaUsedToday}`);
-
-        // 결과 0건이라도 diagnostics 함께 반환 (UI가 원인 표시)
-        return {
-          success: true,
-          data: {
-            items,
-            total: items.length,
-            avgScore,
-            topChannel,
-            period: params?.period || '24h',
-            diagnostics: result.diagnostics,
-            fromCache: result.fromCache,
-            cacheAgeSec: result.cacheAgeSec,
-            quotaUsedToday: result.quotaUsedToday,
-          },
-        };
-      } catch (err: any) {
-        console.error('[YOUTUBE] youtube-shorts-benchmark 오류:', err.message);
-        // KEY_INVALID / QUOTA_EXCEEDED 등 명시적 에러 코드 매핑
-        const code = err?.code || '';
-        let message = err?.message || '숏츠 수집 실패';
-        if (code === 'KEY_INVALID') message = `YouTube API 키가 유효하지 않습니다. 환경설정 → API 키 → YouTube API Key 재발급 후 입력하세요.`;
-        else if (code === 'QUOTA_EXCEEDED') message = `YouTube Data API v3 일일 quota(10,000) 초과 — 한국 시간 익일 자정 PT(오후 4~5시) 이후 재시도하세요.`;
-        else if (code === 'API_NOT_ENABLED') message = `YouTube Data API v3가 활성화되지 않았습니다. https://console.cloud.google.com/apis/library/youtube.googleapis.com 에서 활성화하세요.`;
-        return quotaError(err) || { error: true, message, code };
-      }
-    });
-    console.log('[YOUTUBE] youtube-shorts-benchmark 핸들러 등록 완료');
-  }
 
   // v2.42.95: 진단 — API 키 + 환경 빠른 점검
   if (!ipcMain.listenerCount('youtube-api-diagnose')) {
