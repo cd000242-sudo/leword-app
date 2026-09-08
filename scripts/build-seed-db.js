@@ -351,7 +351,8 @@ async function main() {
       if (heads.length > 0) console.log(`      ${heads.slice(0, 15).join(' · ')}${heads.length > 15 ? ' …' : ''}`);
       let keptTotal = 0; let addedTotal = 0; let movedTotal = 0; let droppedTotal = 0;
       for (const head of heads) {
-        const r = await ingestHint(topic, head, sources.title, `${topic}:`, head);
+        // 머리말 집합을 통째로 준다 — 형제 제목(유부녀킬러 → 욕망의덫)도 그 주제다.
+        const r = await ingestHint(topic, head, sources.title, `${topic}:`, heads);
         keptTotal += r.kept.length; addedTotal += r.added; movedTotal += r.moved; droppedTotal += r.dropped;
         if (!r.ok) console.log(`      !! ${head} HTTP ${r.status}`);
       }

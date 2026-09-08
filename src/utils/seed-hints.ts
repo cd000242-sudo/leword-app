@@ -142,18 +142,40 @@ const HINT_TOPICS: readonly string[] = Object.keys(SEED_HINTS);
  * 첫 감사에서 ②④ 없이 버린 920행 중 548행이 창고에서 아예 사라졌다 — 넷플릭스요금제
  * 73,000 · IRP계좌 37,780 · 중드추천 33,270. 되보내기가 그것을 되살린다.
  *
- * `head` 를 주면(제목 머리말) ②와 ③ 사이에 한 단계가 더 있다: 행이 **그 제목을 품고 있으면**
+ * `heads` 를 주면(제목 머리말) ②와 ③ 사이에 한 단계가 더 있다: 행이 **그 제목을 품고 있으면**
  * 닻 낱말이 없어도 머리말 주제다 — '폭싹속았수다출연진'은 드라마다. 제목 머리말의 연관어는
- * 거의 다 이 꼴이라 닻만으로는 못 담는다.
+ * 거의 다 이 꼴이라 닻만으로는 못 담는다. 집합으로 주면 형제 제목도 산다 — 유부녀킬러의
+ * 연관어에 오는 '욕망의덫'(다섯 번째 감사에서 드라마 버림 180의 대부분).
+ * 두 글자 제목은 정확히 같거나 시청자 말이 바로 붙은 것만 받는다 — 안나(안나푸르나)·
+ * 문무(문무대왕릉)·정희(사람 이름)가 창고에 실제로 있다.
  */
-export function routeHintRow(headTopic: string, keyword: string, head?: string): string | null {
+const VIEWER_SUFFIX = '(?:출연진|등장인물|몇부작|줄거리|결말|다시보기|시청률|인물관계도|명대사|OST|촬영지|재방송|편성표|방송시간|출연자|게스트)';
+
+function containsTitle(compact: string, heads: readonly string[]): boolean {
+  for (const raw of heads) {
+    const head = String(raw || '').replace(/\s+/g, '');
+    if (head.length < 2) continue;
+    if (head.length >= 3) {
+      if (compact.includes(head)) return true;
+      continue;
+    }
+    if (new RegExp(`^${head.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}${VIEWER_SUFFIX}?$`).test(compact)) return true;
+  }
+  return false;
+}
+
+export function routeHintRow(
+  headTopic: string,
+  keyword: string,
+  heads?: string | readonly string[],
+): string | null {
   const compact = String(keyword || '').replace(/\s+/g, '');
   if (!compact || HINT_DENY.test(compact)) return null;
   // 출처 없이 물으면 말 규칙만 답한다 — 힌트 출처를 달면 늘 그 주제라고 답해 의미가 없다.
   const byWord = topicOfSeed({ keyword: compact, searchVolume: 0 });
   if (byWord) return byWord;
-  const compactHead = String(head || '').replace(/\s+/g, '');
-  if (compactHead.length >= 2 && compact.includes(compactHead)) return headTopic;
+  const headList = typeof heads === 'string' ? [heads] : (heads || []);
+  if (headList.length > 0 && containsTitle(compact, headList)) return headTopic;
   if ((HINT_ANCHORS[headTopic] ?? NEVER).test(compact)) return headTopic;
   for (const other of HINT_TOPICS) {
     if (other !== headTopic && HINT_ANCHORS[other].test(compact)) return other;

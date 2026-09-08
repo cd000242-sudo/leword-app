@@ -401,3 +401,33 @@ describe('제목 머리말 거부권 — 말 규칙이 딴 주제라면 머리�
     expect(routeHintRow('영화', '오디세이쿠키영상', '오디세이')).toBe('영화');
   });
 });
+
+/*
+ * 형제 제목 되살리기(2026-09-08, 다섯 번째 감사): 작품 머리말의 연관어엔 **같은 주제의 다른
+ * 작품**이 많다(유부녀킬러 → 욕망의덫·안나). 닻도 없고 그 머리말도 아니라서 버려졌다
+ * (드라마 버림 180). 머리말 집합을 통째로 주면 그 안의 어느 제목을 품어도 그 주제다.
+ * 두 글자 머리말은 부분일치가 위험하다 — 안나(안나푸르나)·문무(문무대왕릉)·정희(이름) —
+ * 그래서 두 글자는 정확히 같거나 시청자 말(출연진·몇부작·결말)이 바로 붙은 것만 받는다.
+ */
+describe('제목 머리말 집합 — 형제 제목도 그 주제다', () => {
+  const heads = ['유부녀킬러', '욕망의덫', '안나', '문무'];
+
+  it('머리말 집합의 어느 제목을 품어도 그 주제다', () => {
+    expect(routeHintRow('드라마', '욕망의덫', heads)).toBe('드라마');
+    expect(routeHintRow('드라마', '욕망의덫출연진', heads)).toBe('드라마');
+    expect(routeHintRow('드라마', '유부녀킬러몇부작', heads)).toBe('드라마');
+  });
+
+  it('두 글자 머리말은 정확히 같거나 시청자 말이 바로 붙은 것만', () => {
+    expect(routeHintRow('드라마', '안나', heads)).toBe('드라마');
+    expect(routeHintRow('드라마', '안나출연진', heads)).toBe('드라마');
+    expect(routeHintRow('드라마', '안나결말', heads)).toBe('드라마');
+    expect(routeHintRow('드라마', '안나푸르나', heads)).toBeNull();
+    expect(routeHintRow('드라마', '문무대왕릉', heads)).toBeNull();
+    expect(routeHintRow('드라마', '안나스타일', heads)).toBeNull();
+  });
+
+  it('문자열 하나를 줘도 예전처럼 된다', () => {
+    expect(routeHintRow('드라마', '폭싹속았수다출연진', '폭싹속았수다')).toBe('드라마');
+  });
+});
