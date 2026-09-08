@@ -42,6 +42,7 @@ const {
   hintSourceTag, routeHintRow, titleHeadFitsTopic, preferSource, warehouseNeedsRebuild,
 } = require('../src/utils/seed-hints');
 const { extractTitleHeads } = require('../src/utils/news-title-heads');
+const { BLOG_SECTION_DIRECTORY, blogSectionUrl, parseBlogSectionTitles, extractSectionHeads, sectionSourceTag } = require('../src/utils/blog-section-seeds');
 
 const arg = (name) => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -142,7 +143,7 @@ async function main() {
   const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
   /** 창구별로 {키워드 → 검색량}. 같은 말이 여러 창구에서 와도 한 번만 센다. */
   const seeds = new Map();
-  const sources = { month: {}, event: {}, biztp: {}, hint: {}, title: {} };
+  const sources = { month: {}, event: {}, biztp: {}, hint: {}, title: {}, section: {} };
   let calls = 0;
   let failed = 0;
 
@@ -262,7 +263,7 @@ async function main() {
    * 드라마로, '넷플릭스요금제'는 IT·컴퓨터로. 어디에도 안 맞는 것만 버린다.
    * 제목 머리말(titleHead)이면 그 제목을 품은 행은 닻이 없어도 머리말 주제다.
    */
-  const ingestHint = async (topic, head, bucket, labelPrefix, titleHead) => {
+  const ingestHint = async (topic, head, bucket, labelPrefix, titleHead, tagFor = hintSourceTag) => {
     const { rows: allRows, ok, status } = await tool(creds, `hintKeywords=${encodeURIComponent(head)}&showDetail=1`);
     calls += 1;
     if (!ok) failed += 1;
@@ -276,14 +277,14 @@ async function main() {
       byTarget.get(target).push(row);
     }
     const kept = byTarget.get(topic) || [];
-    const added = collect(kept, bucket, `${labelPrefix}${head}`, hintSourceTag(topic), {
+    const added = collect(kept, bucket, `${labelPrefix}${head}`, tagFor(topic), {
       topic, rawRows: allRows.length, capped: capped.length, dropped,
     });
     const rerouted = [];
     let moved = 0;
     for (const [target, rows] of byTarget) {
       if (target === topic) continue;
-      const fresh = collect(rows, bucket, `${labelPrefix}${head}→${target}`, hintSourceTag(target), { topic: target, from: head });
+      const fresh = collect(rows, bucket, `${labelPrefix}${head}→${target}`, tagFor(target), { topic: target, from: head });
       rerouted.push(`${target} ${rows.length}(새 ${fresh})`);
       moved += rows.length;
     }
@@ -357,6 +358,52 @@ async function main() {
         if (!r.ok) console.log(`      !! ${head} HTTP ${r.status}`);
       }
       console.log(`  ${topic}: 제목 머리말 ${heads.length}개 → 제 주제 ${keptTotal}(새 ${addedTotal}) · 딴 주제 ${movedTotal} · 버림 ${droppedTotal}`);
+    }
+  }
+
+  /*
+   * 블로그 섹션 창구(2026-09-09, 사장님 "독보적인 씨앗을 가져올 수 있는 곳" 승인).
+   * section.blog.naver.com 이 네이버의 32주제 분류 그대로 지금 올라오는 글 제목을 공개 API 로 준다(키 불필요).
+   * 검색광고(광고주 어휘)·뉴스(연예)에 없는 생활·취미·예술 주제의 진짜 어휘가 여기 있다 — 실측에서
+   * 미술·사진·취미·원예는 창고에 황금이 0이었다. 제목 → 구절 머리말 → hintKeywords 실측 → section:주제.
+   * 제목은 씨앗이 아니다. 검색량이 실측된 말만 씨앗이다. --sectionPages 로 주제당 페이지 수(기본 20 = 200제목).
+   */
+  const sectionPages = Number(arg('sectionPages')) || 20;
+  const sectionHeadsPerTopic = Number(arg('sectionHeads')) || 40;
+  if (sectionPages > 0) {
+    console.log(`■ 블로그 섹션(주제별 글 제목 → 구절 머리말 → hintKeywords) — 주제당 ${sectionPages}쪽·머리말 ${sectionHeadsPerTopic}개`);
+    const sectionFetch = async (url) => {
+      try {
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36', Referer: 'https://section.blog.naver.com/ThemePost.naver' } });
+        return { status: res.status, text: res.ok ? await res.text() : '' };
+      } catch (error) {
+        return { status: 0, text: '', message: String(error && error.message || error).slice(0, 60) };
+      }
+    };
+    for (const [topic, seq] of Object.entries(BLOG_SECTION_DIRECTORY)) {
+      const titles = [];
+      let failedPages = 0;
+      for (let page = 1; page <= sectionPages; page += 1) {
+        const r = await sectionFetch(blogSectionUrl(seq, page));
+        const got = parseBlogSectionTitles(r.text);
+        if (got.length === 0) { failedPages += 1; if (failedPages >= 3) break; }
+        titles.push(...got);
+        await sleep(150);
+      }
+      const heads = extractSectionHeads(titles, {
+        minCount: 2,
+        limit: sectionHeadsPerTopic,
+        accept: (head) => titleHeadFitsTopic(topic, head),
+      });
+      console.log(`  ${topic}: 글 제목 ${titles.length}건 → 머리말 ${heads.length}개${failedPages ? ` (빈 쪽 ${failedPages})` : ''}`);
+      if (heads.length > 0) console.log(`      ${heads.slice(0, 15).join(' · ')}${heads.length > 15 ? ' …' : ''}`);
+      let keptTotal = 0; let addedTotal = 0; let movedTotal = 0; let droppedTotal = 0;
+      for (const head of heads) {
+        const r = await ingestHint(topic, head.replace(/\s+/g, ''), sources.section, `${topic}:`, heads, sectionSourceTag);
+        keptTotal += r.kept.length; addedTotal += r.added; movedTotal += r.moved; droppedTotal += r.dropped;
+        if (!r.ok) console.log(`      !! ${head} HTTP ${r.status}`);
+      }
+      console.log(`  ${topic}: 섹션 머리말 ${heads.length}개 → 제 주제 ${keptTotal}(새 ${addedTotal}) · 딴 주제 ${movedTotal} · 버림 ${droppedTotal}`);
     }
   }
 

@@ -317,4 +317,10 @@ describe('topicOfSeed — 건강·의학·스포츠 말 규칙', () => {
     expect(of('동물병원')).not.toBe('건강·의학');
     expect(of('캠핑장추천')).toBe('국내여행');
   });
+
+    it('블로그 섹션 출처(section:주제)는 그 주제로 간다 — 말 규칙이 먼저다(2026-09-09)', () => {
+        expect(topicOfSeed({ keyword: '배롱나무길', searchVolume: 900, source: 'section:국내여행' })).toBe('국내여행');
+        expect(topicOfSeed({ keyword: '드로잉패드', searchVolume: 900, source: 'section:미술·디자인' })).toBe('미술·디자인');
+        expect(topicOfSeed({ keyword: '아무말', searchVolume: 900, source: 'section:' })).toBeNull();
+    });
 });

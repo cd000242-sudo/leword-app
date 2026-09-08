@@ -21,7 +21,7 @@ export interface SeedDbEntry {
   keyword: string;
   /** 검색광고 실측 월간 검색량(PC+모바일). 창고를 만들 때 함께 받아 둔 값이다. */
   searchVolume: number;
-  /** 어느 창구에서 왔나 — `biztp:17` · `month:11` · `event:23` · `hint:영화`. 옛 창고엔 없다. */
+  /** 어느 창구에서 왔나 — `biztp:17` · `month:11` · `event:23` · `hint:영화` · `section:사진`. 옛 창고엔 없다. */
   source?: string;
   /**
    * 광고 실측(2026-09-08, 사장님 "광고 클릭률을 보는 게 중요하다"). 같은 응답에 오는 값이라
@@ -299,6 +299,8 @@ export function topicOfSeed(entry: SeedDbEntry): string | null {
    * 출처로 가르므로 부분일치 오탐이 없다. 라벨이 비면 null.
    */
   if (source.startsWith('hint:')) return source.slice(5) || null;
+  // 블로그 섹션 창구(2026-09-09) — 네이버의 32주제 분류 그대로라 출처가 곧 주제다(blog-section-seeds.ts).
+  if (source.startsWith('section:')) return source.slice(8) || null;
   if (!source.startsWith('biztp:')) return null;
   return BIZTP_TOPIC[source.slice(6)] || null;
 }
