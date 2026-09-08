@@ -38,7 +38,7 @@ const fs = require('fs');
 const path = require('path');
 const { createHmac } = require('crypto');
 const {
-  SEED_HINTS, HINT_ROWS_CAP, hintSourceTag, keepHintRow, preferSource, warehouseNeedsRebuild,
+  SEED_HINTS, HINT_ROWS_CAP, hintSourceTag, routeHintRow, preferSource, warehouseNeedsRebuild,
 } = require('../src/utils/seed-hints');
 
 const arg = (name) => {
@@ -147,6 +147,19 @@ async function main() {
    * 안 되므로, 그 말이 업종에서도 왔다는 사실이 통째로 버려진 것이다.
    * 우선순위(힌트 > 업종 > 월·시즌)는 seed-hints.preferSource 가 정한다.
    */
+  /*
+   * 광고 실측도 같이 남긴다(2026-09-08, 사장님 "광고 클릭률을 보는 게 중요하다").
+   * 같은 응답 행에 오는 값이라 호출이 늘지 않는다. 파일이 월·금마다 커밋되므로 짧게:
+   * comp 는 H/M/L 한 글자, depth 는 반올림 정수. 못 받으면 안 적는다.
+   */
+  const COMP_CODE = { 높음: 'H', 중간: 'M', 낮음: 'L' };
+  const adFacts = (row) => {
+    const comp = COMP_CODE[String(row.compIdx || '').trim()];
+    const depthRaw = Number(row.plAvgDepth);
+    const depth = Number.isFinite(depthRaw) && depthRaw >= 0 ? Math.round(depthRaw) : undefined;
+    return { ...(comp ? { comp } : {}), ...(depth !== undefined ? { depth } : {}) };
+  };
+
   const collect = (rows, bucket, label, sourceTag, extra = {}) => {
     let added = 0;
     for (const row of rows) {
@@ -156,6 +169,8 @@ async function main() {
       const previous = seeds.get(keyword);
       if (!previous) added += 1;
       seeds.set(keyword, {
+        ...(previous || {}),
+        ...adFacts(row),
         // 같은 말이 두 창구에서 오면 큰 값을 남긴다 — 어느 쪽도 지어낸 값이 아니다.
         searchVolume: Math.max(previous ? previous.searchVolume : 0, volume),
         source: previous ? preferSource(previous.source, sourceTag) : sourceTag,
@@ -235,11 +250,30 @@ async function main() {
       calls += 1;
       if (!ok) failed += 1;
       const capped = allRows.slice(0, HINT_ROWS_CAP);
-      const kept = capped.filter((row) => keepHintRow(topic, String(row.relKeyword || '')));
+      /*
+       * 되보내기(2026-09-08, 사장님 "광고주 그래프도 중요하지 않니"): 닻에 안 맞는 행을
+       * 버리지 않고 말이 가리키는 주제로 보낸다 — 영화 머리말이 끌고 온 '중드추천'은
+       * 드라마로, '넷플릭스요금제'는 IT·컴퓨터로. 어디에도 안 맞는 것만 버린다.
+       */
+      const byTarget = new Map();
+      let dropped = 0;
+      for (const row of capped) {
+        const target = routeHintRow(topic, String(row.relKeyword || ''));
+        if (!target) { dropped += 1; continue; }
+        if (!byTarget.has(target)) byTarget.set(target, []);
+        byTarget.get(target).push(row);
+      }
+      const kept = byTarget.get(topic) || [];
       const added = collect(kept, sources.hint, head, hintSourceTag(topic), {
-        topic, rawRows: allRows.length, capped: capped.length,
+        topic, rawRows: allRows.length, capped: capped.length, dropped,
       });
-      console.log(`  ${topic} / ${head.padEnd(9)} ${String(allRows.length).padStart(5)}개 → 상위 ${String(capped.length).padStart(3)} → 닻 통과 ${String(kept.length).padStart(3)} · 새 ${String(added).padStart(4)}${ok ? '' : ` (HTTP ${status})`}`);
+      const rerouted = [];
+      for (const [target, rows] of byTarget) {
+        if (target === topic) continue;
+        const moved = collect(rows, sources.hint, `${head}→${target}`, hintSourceTag(target), { topic: target, from: head });
+        rerouted.push(`${target} ${rows.length}(새 ${moved})`);
+      }
+      console.log(`  ${topic} / ${head.padEnd(9)} ${String(allRows.length).padStart(5)}개 → 상위 ${String(capped.length).padStart(3)} → 제 주제 ${String(kept.length).padStart(3)} · 새 ${String(added).padStart(4)} · 딴 주제 ${rerouted.length ? rerouted.join(' · ') : '0'} · 버림 ${dropped}${ok ? '' : ` (HTTP ${status})`}`);
       for (const at of [0, 50, 150]) {
         if (at >= kept.length) continue;
         console.log(`      ${String(at + 1).padStart(3)}위~ ${kept.slice(at, at + 6).map((r) => r.relKeyword).join(' · ')}`);
@@ -256,7 +290,13 @@ async function main() {
    */
   const keepFrom = Number(arg('keepBelow')) || 500;
   const all = [...seeds.entries()]
-    .map(([keyword, entry]) => ({ keyword, searchVolume: entry.searchVolume, source: entry.source }))
+    .map(([keyword, entry]) => ({
+      keyword,
+      searchVolume: entry.searchVolume,
+      source: entry.source,
+      ...(entry.comp ? { comp: entry.comp } : {}),
+      ...(entry.depth !== undefined ? { depth: entry.depth } : {}),
+    }))
     .filter((entry) => entry.searchVolume >= keepFrom)
     .sort((a, b) => b.searchVolume - a.searchVolume);
   const dropped = seeds.size - all.length;

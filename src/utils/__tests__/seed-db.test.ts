@@ -211,6 +211,79 @@ describe('topicOfSeed — 힌트 출처', () => {
   });
 });
 
+/*
+ * 상업 말 규칙(2026-09-08). 창고 45,366개 중 22,239개가 주제 없이 놀고 있었고 그 안에
+ * 렌탈·설치 525 · 학원 166 · 통신 88 · 금융 58 이 있었다. 사장님: "광고 수익으로 먹고사는
+ * 게 블로거인데" — 상업 말이라서 버리지 않는다. 말이 가리키는 주제로 보낸다.
+ * 규칙은 배열 순서가 곧 우선순위다: 세계여행이 국내여행보다 앞(오사카가볼만한곳),
+ * 반려동물·자동차가 부동산·금융보다 앞(강아지분양·중고차매매).
+ */
+describe('topicOfSeed — 상업 말 규칙', () => {
+  const of = (keyword: string) => topicOfSeed({ keyword, searchVolume: 1000, source: 'month:5' });
+
+  it('금융·취업·부동산은 비즈니스·경제', () => {
+    for (const k of ['청년창업대출', 'IRP계좌개설', '연금저축펀드', '신용카드추천', '재테크', '40대알바', '구인구직사이트', '인턴', '아파트분양', '전세대출']) {
+      expect(of(k), k).toBe('비즈니스·경제');
+    }
+  });
+
+  it('통신·디지털은 IT·컴퓨터', () => {
+    for (const k of ['넷플릭스요금제', '알뜰폰요금제', 'IPTV비교', '유튜브프리미엄가격', 'YOUTUBE', '갤럭시S25', '엑셀단축키']) {
+      expect(of(k), k).toBe('IT·컴퓨터');
+    }
+  });
+
+  it('나들이 말은 국내여행, 해외 지명이면 세계여행', () => {
+    for (const k of ['경기도가볼만한곳', '서울놀거리', '당일치기여행', '호캉스']) expect(of(k), k).toBe('국내여행');
+    for (const k of ['오사카가볼만한곳', '도쿄여행', '방콕호텔', '항공권특가']) expect(of(k), k).toBe('세계여행');
+  });
+
+  it('외식 브랜드·카페는 맛집, 생활 서비스는 일상·생각', () => {
+    for (const k of ['맥도날드', '빽다방', '브런치카페', '맛집추천']) expect(of(k), k).toBe('맛집');
+    for (const k of ['에어컨청소', '입주청소', '정수기렌탈', '포장이사비용']) expect(of(k), k).toBe('일상·생각');
+  });
+
+  it('반려동물·자동차·어학·교육 — 부동산·금융 규칙에 빼앗기지 않는다', () => {
+    expect(of('강아지분양')).toBe('반려동물');
+    expect(of('중고차매매')).toBe('자동차');
+    expect(of('토익공부법')).toBe('어학·외국어');
+    expect(of('공무원시험일정')).toBe('교육·학문');
+  });
+
+  it('기존 규칙이 먼저다 — 지원금·축제·게임', () => {
+    expect(of('창업지원금')).toBe('사회·정치');
+    expect(of('부산불꽃축제')).toBe('국내여행');
+    expect(of('스팀게임할인')).toBe('게임');
+  });
+
+  it('부분일치 함정 — 창고에 실제로 있는 말', () => {
+    expect(of('파리채')).not.toBe('세계여행');
+    expect(of('세부사항')).not.toBe('세계여행');
+    expect(of('대만족')).not.toBe('세계여행');
+    expect(of('홍콩야자')).not.toBe('세계여행');
+    expect(of('카펫')).not.toBe('반려동물');
+    expect(of('전세버스')).not.toBe('비즈니스·경제');
+    expect(of('크롬도금')).not.toBe('IT·컴퓨터');
+    expect(of('윈도우필름')).not.toBe('IT·컴퓨터');
+    expect(of('부산요트투어')).toBeNull();
+    expect(of('고속버스표예매')).toBeNull();
+    // 창고 감사(2026-09-08)에서 실제로 잘못 잡혔던 넷
+    expect(of('스타벅스주가')).not.toBe('맛집');
+    expect(of('대형카페트')).not.toBe('맛집');
+    expect(of('엑셀세라퓨틱스')).not.toBe('IT·컴퓨터');
+    expect(of('수능도시락')).not.toBe('교육·학문');
+  });
+
+  it('감사에서 갈 곳 없이 버려지던 말들 — 검색량이 있는데 주제가 없었다', () => {
+    expect(of('집들이선물')).toBe('상품리뷰');
+    expect(of('베스트셀러순위')).toBe('문학·책');
+    expect(of('서울근교나들이')).toBe('국내여행');
+    expect(of('성수팝업스토어')).toBe('국내여행');
+    expect(of('맥세이프충전기')).toBe('IT·컴퓨터');
+    expect(of('평생교육원')).toBe('교육·학문');
+  });
+});
+
 describe('roundFromDate', () => {
   it('같은 날은 같은 회차 번호', () => {
     expect(roundFromDate(new Date(2026, 8, 7, 3))).toBe(roundFromDate(new Date(2026, 8, 7, 20)));

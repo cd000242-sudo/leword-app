@@ -126,3 +126,41 @@ describe('애드센스 적합 — 의도 실측 기반', () => {
         expect(verdict.adsenseFit).toBeNull();
     });
 });
+
+/*
+ * 광고 클릭 실측(2026-09-08, 사장님 "광고 클릭률을 보는 게 중요하다"). 검색광고
+ * keywordstool 이 검색량과 같이 주는 노출 광고 수·클릭률을 레인 판정 근거로 쓴다.
+ * 0 은 실측(광고주 없음)이고 null 은 못 잰 것이다 — 둘을 섞지 않는다.
+ */
+describe('애드센스 적합 — 광고 실측', () => {
+    it('노출 광고 0개면 정보형이라도 부적합: 광고주가 안 붙는 말이다', () => {
+        const verdict = judgePlatformLane({ keyword: '모나크cc 날씨', intentLabel: '정보', adDepth: 0, serpSections: ['웹사이트'] });
+        expect(verdict.adsenseFit).toBe(false);
+        expect(verdict.adsenseReason).toContain('노출 0개');
+    });
+
+    it('노출 광고 수를 못 쟀으면(null) 정보형은 그대로 적합', () => {
+        const verdict = judgePlatformLane({ keyword: '몬스테라 무름병', intentLabel: '정보', adDepth: null, serpSections: ['인기글'] });
+        expect(verdict.adsenseFit).toBe(true);
+    });
+
+    it('정보형 + 클릭률 실측이 있으면 근거에 그대로 적는다', () => {
+        const verdict = judgePlatformLane({
+            keyword: '넷플릭스 요금제 비교', intentLabel: '정보', cpc: 410, adDepth: 14.6, adCtrMobile: 2.31, serpSections: ['웹사이트'],
+        });
+        expect(verdict.adsenseFit).toBe(true);
+        expect(verdict.adsenseReason).toContain('광고 클릭률 2.31%');
+        expect(verdict.adsenseReason).toContain('노출 광고 15개');
+    });
+
+    it('의도 불명 + CPC 낮아도 노출 광고 3개 이상이면 적합 — 광고주가 붙는 검색어다', () => {
+        const verdict = judgePlatformLane({ keyword: '에어컨 청소 비용', cpc: 120, adDepth: 6, serpSections: ['웹사이트'] });
+        expect(verdict.adsenseFit).toBe(true);
+        expect(verdict.adsenseReason).toContain('노출 광고 6개');
+    });
+
+    it('의도 불명 + 노출 광고 1~2개 + CPC 낮음이면 여전히 판정하지 않는다', () => {
+        const verdict = judgePlatformLane({ keyword: '어떤 말', cpc: 50, adDepth: 1, serpSections: ['웹사이트'] });
+        expect(verdict.adsenseFit).toBeNull();
+    });
+});

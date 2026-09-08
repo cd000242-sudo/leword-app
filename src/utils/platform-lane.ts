@@ -39,6 +39,16 @@ export interface PlatformLaneInput {
   adCount?: number | null;
   /** 검색광고 monthlyAveCpc 실측(원). null = 못 쟀음. */
   cpc?: number | null;
+  /*
+   * 광고 클릭 실측(2026-09-08, 사장님 "광고 클릭률을 보는 게 중요하다 — 그 광고를
+   * 클릭해야 돈이 되니까"). 검색광고 keywordstool 이 검색량과 같이 준다. null = 못 쟀음.
+   */
+  /** 월 평균 노출 광고 수(plAvgDepth). 0 이면 광고주가 안 붙는 말이다. */
+  adDepth?: number | null;
+  /** 월 평균 모바일 광고 클릭률(%). */
+  adCtrMobile?: number | null;
+  /** 월 평균 광고 클릭수(PC+모바일). */
+  adClicks?: number | null;
 }
 
 export interface PlatformLaneVerdict {
@@ -69,23 +79,46 @@ function judgeShoppingEvidence(input: PlatformLaneInput): string[] {
   return reasons;
 }
 
+/** 의도 불명일 때 애드센스 적합을 인정할 노출 광고 수 하한. 광고주가 셋 이상 붙은 말. */
+const ADSENSE_DEPTH_FLOOR = 3;
+
+/** 실측 광고 클릭률·노출 수를 근거 문장 꼬리로. 없으면 빈 문자열 — 지어내지 않는다. */
+function adNote(input: PlatformLaneInput): string {
+  const parts: string[] = [];
+  if (typeof input.cpc === 'number' && input.cpc > 0) parts.push(`CPC ${Math.round(input.cpc)}원`);
+  if (typeof input.adDepth === 'number' && input.adDepth > 0) parts.push(`노출 광고 ${Math.round(input.adDepth)}개`);
+  if (typeof input.adCtrMobile === 'number' && input.adCtrMobile > 0) parts.push(`광고 클릭률 ${input.adCtrMobile.toFixed(2)}%`);
+  return parts.length > 0 ? ` (${parts.join(' · ')} 실측)` : '';
+}
+
 function judgeAdsenseFit(input: PlatformLaneInput): { fit: boolean | null; reason: string } {
   if (input.intentLabel === '거래') {
     return { fit: false, reason: '거래형 검색 — 구매 직전이라 광고 클릭이 거의 없다' };
   }
+  /*
+   * 노출 광고 0개(2026-09-08): 검색광고에 광고주가 하나도 안 붙는 말이다. 사장님 —
+   * "그 키워드로 글을 작성해서 뜨는 광고가 있으면 그 광고를 클릭해야 돈이 되니까."
+   * 정보형이라도 광고주가 없으면 광고 클릭 기대가 낮다. 0 은 실측이고 null 은 못 잰 것이다.
+   */
+  if (input.adDepth === 0) {
+    return { fit: false, reason: '검색광고 노출 0개 실측 — 광고주가 안 붙는 말이라 광고 클릭 기대가 낮다' };
+  }
   if (input.intentLabel === '정보') {
-    const cpcNote = typeof input.cpc === 'number' && input.cpc > 0
-      ? ` (CPC ${Math.round(input.cpc)}원 실측)`
-      : '';
-    return { fit: true, reason: `정보형 검색 — 광고 게재·클릭 최적${cpcNote}` };
+    return { fit: true, reason: `정보형 검색 — 광고 게재·클릭 최적${adNote(input)}` };
   }
   if (typeof input.cpc === 'number' && input.cpc >= ADSENSE_CPC_FLOOR) {
     return {
       fit: true,
-      reason: `CPC ${Math.round(input.cpc)}원 실측 — 광고주가 이미 돈을 넣는 검색어다`,
+      reason: `CPC ${Math.round(input.cpc)}원 실측 — 광고주가 이미 돈을 넣는 검색어다${adNote(input)}`,
     };
   }
-  return { fit: null, reason: '의도·CPC 실측 부족 — 판정하지 않는다' };
+  if (typeof input.adDepth === 'number' && input.adDepth >= ADSENSE_DEPTH_FLOOR) {
+    return {
+      fit: true,
+      reason: `노출 광고 ${Math.round(input.adDepth)}개 실측 — 광고주가 붙는 검색어다${adNote(input)}`,
+    };
+  }
+  return { fit: null, reason: '의도·CPC·광고 실측 부족 — 판정하지 않는다' };
 }
 
 export function judgePlatformLane(input: PlatformLaneInput): PlatformLaneVerdict {

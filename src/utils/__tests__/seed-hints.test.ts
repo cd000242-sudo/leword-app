@@ -8,6 +8,7 @@ import {
   hintSourceTag,
   keepHintRow,
   preferSource,
+  routeHintRow,
   warehouseNeedsRebuild,
 } from '../seed-hints';
 
@@ -127,23 +128,35 @@ describe('닻 필터 — 그 주제의 말이 있어야 담는다', () => {
     }
   });
 
-  it('광고주 말(대여·설치·제작·학원 아닌 업체·대출)은 버린다', () => {
+  /*
+   * 이 머리말 아래에는 안 담는다 — 딴 주제로 가거나(routeHintRow 가 정한다) 버려진다.
+   * 사장님(2026-09-08) "광고주 그래프도 중요하지 않니": 상업 말이라서 버리지 않는다.
+   * 그래서 가족사진보정업체(사진)·조경업체(원예)·대리티켓팅업체(공연)는 이제 제 머리말
+   * 아래 남는다 — 자리는 SERP 가 잰다. 여기 목록에서 뺐다.
+   */
+  it('제 주제 말이 없는 행은 이 머리말 아래 안 담는다', () => {
     const drop: Array<[string, string]> = [
       ['드라마', '촬영장소대여'], ['드라마', '로케이션섭외'], ['드라마', '실시간TV보기'],
       ['방송', '지역케이블'], ['방송', 'IPTV비교'], ['방송', '픽업아티스트'], ['방송', '알뜰인터넷요금제'],
       ['스타·연예인', '금속키링제작'], ['스타·연예인', '댄스학원'], ['스타·연예인', '팝업스토어대관'],
       ['만화·애니', '맥세이프충전기'], ['만화·애니', '레고테크닉'], ['만화·애니', '수영'],
       ['미술·디자인', '맥도날드'], ['미술·디자인', '빽다방'], ['미술·디자인', '국민취업지원제도'], ['미술·디자인', '경기도가볼만한곳'],
-      ['사진', '누끼따기사이트'], ['사진', '가족사진보정업체'],
+      ['사진', '누끼따기사이트'],
       ['좋은글·이미지', '한자사전'], ['좋은글·이미지', '이북리더기'], ['좋은글·이미지', '케이크토퍼'],
-      ['원예·재배', '집들이선물'], ['원예·재배', '조경업체'],
+      ['원예·재배', '집들이선물'],
       ['영화', 'YOUTUBE'], ['영화', '넷플릭스요금제'], ['영화', '웹하드'],
       ['사회·정치', '청년창업대출'], ['사회·정치', '인턴'], ['사회·정치', '구인구직사이트'],
-      ['공연·전시', '대리티켓팅업체'], ['공연·전시', '브런치카페'],
+      ['공연·전시', '브런치카페'],
     ];
     for (const [topic, keyword] of drop) {
       expect(keepHintRow(topic, keyword), `${topic}/${keyword} 를 남겼다`).toBe(false);
     }
+  });
+
+  it('상업 말이라도 제 주제 말이 있으면 남긴다 — 자리는 SERP 가 잰다', () => {
+    expect(keepHintRow('사진', '가족사진보정업체')).toBe(true);
+    expect(keepHintRow('원예·재배', '조경업체')).toBe(true);
+    expect(keepHintRow('공연·전시', '대리티켓팅업체')).toBe(true);
   });
 
   /*
@@ -182,6 +195,78 @@ describe('닻 필터 — 그 주제의 말이 있어야 담는다', () => {
 
   it('닻이 없는 주제는 아무것도 담지 않는다', () => {
     expect(keepHintRow('없는주제', '아무말')).toBe(false);
+  });
+});
+
+/*
+ * 되보내기(2026-09-08, 사장님 "광고주 그래프도 중요하지 않니, 광고 수익으로 먹고사는 게
+ * 블로거인데"). 첫 감사에서 닻에 안 맞는 920행을 버렸는데 548행은 창고에서 아예
+ * 사라졌다 — 넷플릭스요금제 73,000 · IRP계좌 37,780 · 중드추천 33,270 은 글이 되고
+ * 광고도 붙는 말이다. 이제 버리지 않고 **말이 가리키는 주제로** 보낸다.
+ * 순서: 거부어 → 말 규칙 → 제 머리말의 닻 → 다른 주제의 닻 → 없으면 버림.
+ */
+describe('되보내기 — 닻에 안 맞는 행은 버리지 않고 제 주제로', () => {
+  it('제 주제 말이 있으면 머리말 주제 그대로다', () => {
+    expect(routeHintRow('영화', '롯데시네마')).toBe('영화');
+    expect(routeHintRow('원예·재배', '안스리움')).toBe('원예·재배');
+  });
+
+  it('다른 주제의 닻이 맞으면 그 주제로 보낸다 — 첫 감사에서 사라졌던 행들', () => {
+    expect(routeHintRow('영화', '중드추천')).toBe('드라마');
+    expect(routeHintRow('영화', '일일드라마')).toBe('드라마');
+    expect(routeHintRow('드라마', '촬영장소대여')).toBe('사진');
+    expect(routeHintRow('사회·정치', '국민취업지원제도')).toBe('사회·정치');
+  });
+
+  it('말 규칙이 정한 주제가 닻보다 앞이다 — 상업 말은 제 주제로', () => {
+    expect(routeHintRow('사회·정치', 'IRP계좌')).toBe('비즈니스·경제');
+    expect(routeHintRow('사회·정치', '청년창업대출')).toBe('비즈니스·경제');
+    expect(routeHintRow('사회·정치', '인턴')).toBe('비즈니스·경제');
+    expect(routeHintRow('영화', '넷플릭스요금제')).toBe('IT·컴퓨터');
+    expect(routeHintRow('영화', '유튜브프리미엄가격')).toBe('IT·컴퓨터');
+    expect(routeHintRow('방송', 'IPTV비교')).toBe('IT·컴퓨터');
+    expect(routeHintRow('미술·디자인', '맥도날드')).toBe('맛집');
+    expect(routeHintRow('미술·디자인', '경기도가볼만한곳')).toBe('국내여행');
+    expect(routeHintRow('공연·전시', '오사카가볼만한곳')).toBe('세계여행');
+    expect(routeHintRow('스타·연예인', '뮤지컬')).toBe('공연·전시');
+  });
+
+  it('어디에도 안 맞으면 버린다', () => {
+    for (const [topic, keyword] of [
+      ['만화·애니', '수영'], ['만화·애니', '레고테크닉'], ['방송', '지역케이블'], ['방송', '픽업아티스트'],
+      ['스타·연예인', '댄스학원'], ['스타·연예인', '금속키링제작'], ['좋은글·이미지', '한자사전'],
+    ] as Array<[string, string]>) {
+      expect(routeHintRow(topic, keyword), `${topic}/${keyword} 가 어딘가로 갔다`).toBeNull();
+    }
+  });
+
+  it('거부어는 어디로도 안 보낸다 — B2B 조달어·성인·불법복제만', () => {
+    for (const [topic, keyword] of [
+      ['드라마', '로케이션섭외'], ['스타·연예인', '팝업스토어대관'], ['스타·연예인', '행사용역'],
+      ['영화', '웹하드'], ['영화', 'AV영화'], ['드라마', '일드다운'],
+    ] as Array<[string, string]>) {
+      expect(routeHintRow(topic, keyword), `${topic}/${keyword} 가 어딘가로 갔다`).toBeNull();
+    }
+  });
+
+  /*
+   * 되보내기는 닻을 남의 행에도 대므로 부분일치 위험이 커진다. 창고 45,366개에서
+   * 실제로 있는 말들이다 — 한 글자 낱말을 닻으로 두면 전부 딴 밭으로 간다.
+   */
+  it('부분일치로 딴 주제에 보내지 않는다', () => {
+    expect(routeHintRow('사회·정치', '기타소득')).not.toBe('음악');
+    expect(routeHintRow('원예·재배', '나무위키')).not.toBe('원예·재배');
+    expect(routeHintRow('게임', '전기스위치')).not.toBe('게임');
+    expect(routeHintRow('공연·전시', 'KTX예매')).not.toBe('공연·전시');
+    expect(routeHintRow('좋은글·이미지', '신용카드추천')).toBe('비즈니스·경제');
+    expect(routeHintRow('사회·정치', '공학용계산기')).not.toBe('사회·정치');
+    expect(routeHintRow('영화', '쿠키레시피')).not.toBe('영화');
+    expect(routeHintRow('방송', '컴퓨터프로그램')).not.toBe('방송');
+    expect(routeHintRow('만화·애니', '캐릭터케이크')).not.toBe('만화·애니');
+    expect(routeHintRow('음악', '비트코인')).not.toBe('음악');
+    expect(routeHintRow('음악', '멜론')).not.toBe('음악');
+    expect(routeHintRow('영화', '파리채')).not.toBe('세계여행');
+    expect(routeHintRow('원예·재배', '홍콩야자')).toBe('원예·재배');
   });
 });
 
