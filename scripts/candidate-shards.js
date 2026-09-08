@@ -39,7 +39,7 @@ const path = require('path');
  * @param {number} shards 총 샤드 수
  * @returns {string[]} 이 샤드가 맡을 주제
  */
-function shardTopics(topics, shard, shards) {
+function shardTopics(topics, shard, shards, weights) {
     const total = Number(shards);
     const index = Number(shard);
     if (!Number.isInteger(total) || total < 1) {
@@ -48,7 +48,25 @@ function shardTopics(topics, shard, shards) {
     if (!Number.isInteger(index) || index < 0 || index >= total) {
         throw new Error(`샤드 번호가 범위를 벗어났다: ${shard} (0~${total - 1})`);
     }
-    return (Array.isArray(topics) ? topics : []).filter((_, i) => i % total === index);
+    const list = Array.isArray(topics) ? topics : [];
+    if (!weights || typeof weights !== 'object') return list.filter((_, i) => i % total === index);
+    /*
+     * 무게 기준 균형(2026-09-08 실측): 라운드로빈은 스포츠(완결 1,403건) 같은 무거운 주제를 한 샤드에
+     * 몰아 그 샤드만 240분 상한에 걸려 8주제를 잃었다. 무거운 것부터 가장 가벼운 샤드에 준다(LPT).
+     * 입력 순서와 무게가 같으면 어느 샤드가 계산해도 같은 배정이 나온다.
+     */
+    const order = list
+        .map((topic, i) => ({ topic, i, w: Math.max(0, Number(weights[topic]) || 0) }))
+        .sort((a, b) => (b.w - a.w) || (a.i - b.i));
+    const load = new Array(total).fill(0);
+    const owner = new Map();
+    for (const item of order) {
+        let best = 0;
+        for (let s = 1; s < total; s += 1) if (load[s] < load[best]) best = s;
+        owner.set(item.topic, best);
+        load[best] += item.w + 1; // +1: 무게 0 인 주제도 골고루 퍼진다
+    }
+    return list.filter((topic) => owner.get(topic) === index);
 }
 
 /** 샤드 파일 하나를 읽는다. 못 읽으면 null — 회차를 죽이지 않는다. */
@@ -92,6 +110,7 @@ function mergeCandidateFiles(files, options = {}) {
 
     const topics = {};
     for (const { data } of alive) {
+        if (data.partial) console.log(`  ::warning::샤드 ${file} 는 부분 결과다(주제 도중 상한) — 잰 만큼만 합친다`);
         const shardTopicMap = (data.topics && typeof data.topics === 'object') ? data.topics : {};
         for (const [topic, rows] of Object.entries(shardTopicMap)) {
             const list = Array.isArray(rows) ? rows : [];

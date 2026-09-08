@@ -57,6 +57,21 @@ describe('주제 샤딩', () => {
         expect(shard0).toEqual(['무거움1', '가벼움1']);
     });
 
+    /*
+     * 2026-09-08 실측: 라운드로빈은 스포츠(완결 1,403) 같은 무거운 주제를 한 샤드에 몰아
+     * 그 샤드만 240분 상한에 걸렸다. 무게(씨앗 수)를 주면 무거운 것부터 가장 가벼운 샤드로 간다.
+     */
+    it('무게를 주면 무거운 주제가 서로 다른 샤드로 흩어지고 총량이 고르다', () => {
+        const names = ['스포츠', '국내여행', '문학·책', '건강', '게임', '사진', '음악', '취미'];
+        const weights: Record<string, number> = { '스포츠': 1571, '국내여행': 900, '문학·책': 600, '건강': 500, '게임': 200, '사진': 150, '음악': 100, '취미': 50 };
+        const parts = Array.from({ length: 4 }, (_, i) => shardTopics(names, i, 4, weights));
+        expect([...parts.flat()].sort()).toEqual([...names].sort());
+        const loads = parts.map((p) => p.reduce((n, t) => n + weights[t], 0));
+        expect(Math.max(...loads) - Math.min(...loads)).toBeLessThan(1571);
+        expect(parts.find((p) => p.includes('스포츠'))).not.toContain('국내여행');
+        expect(shardTopics(names, 2, 4, weights)).toEqual(shardTopics(names, 2, 4, weights));
+    });
+
     it('샤드가 하나면 전부 한 샤드에 들어간다', () => {
         expect(shardTopics(topics, 0, 1)).toEqual(topics);
     });

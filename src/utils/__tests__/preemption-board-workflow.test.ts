@@ -273,4 +273,11 @@ describe('선점 보드 워크플로 — 씨앗 잡 키', () => {
         expect(/NAVER_CLIENT_ID/.test(seedsJob)).toBe(true);
         expect(/NAVER_SEARCH_AD_ACCESS_LICENSE/.test(seedsJob)).toBe(true);
     });
+
+    it('발굴 러너는 검색광고 간격을 러너 수만큼 늘린다 — 4러너 동시 호출 429 방지(2026-09-08)', () => {
+        const shards = Number(/--shards=(\d+)/.exec(workflow)?.[1]);
+        const interval = Number(/LEWORD_SEARCHAD_MIN_INTERVAL_MS:\s*'(\d+)'/.exec(workflow)?.[1]);
+        expect(shards).toBeGreaterThan(1);
+        expect(interval).toBe(900 * shards);
+    });
 });

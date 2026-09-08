@@ -23,8 +23,21 @@ import {
 } from './searchad-result-alignment';
 
 let lastSearchAdRequestAt = 0;
-// 429 발생 시 적응형으로 상향(상한 4s), 성공 시 완만히 회복(하한 900ms) — rate-limit 자동 완화
-let searchAdAdaptiveIntervalMs = 900;
+/*
+ * 샤드 분산 회차 실측(2026-09-08): 러너 4개가 한 검색광고 계정을 동시에 부르니 429 가 러너당
+ * 700~1,150회 나고 백오프로 자동완성 단계가 2시간 10분이 됐다. 러너 안 간격을 러너 수만큼
+ * 늘리면(900×4) 계정 전체 초당 호출이 러너 하나일 때로 돌아간다 — 워크플로가
+ * LEWORD_SEARCHAD_MIN_INTERVAL_MS 로 넘긴다. 없으면 예전 그대로 900ms.
+ * 연관 제안 조회(아래 500ms 간격)도 같은 계정을 쓰므로 env 가 있으면 같은 간격을 쓴다.
+ */
+const SEARCHAD_BASE_INTERVAL_MS = Math.max(900, Number(process.env['LEWORD_SEARCHAD_MIN_INTERVAL_MS']) || 900);
+const SEARCHAD_SUGGEST_INTERVAL_MS = process.env['LEWORD_SEARCHAD_MIN_INTERVAL_MS'] ? SEARCHAD_BASE_INTERVAL_MS : 500;
+/** 테스트·진단용 — 지금 프로세스가 쓰는 간격. */
+export function searchAdPacing(): { baseMs: number; suggestMs: number } {
+  return { baseMs: SEARCHAD_BASE_INTERVAL_MS, suggestMs: SEARCHAD_SUGGEST_INTERVAL_MS };
+}
+// 429 발생 시 적응형으로 상향(상한 4s 또는 base×2), 성공 시 완만히 회복(하한 base) — rate-limit 자동 완화
+let searchAdAdaptiveIntervalMs = SEARCHAD_BASE_INTERVAL_MS;
 
 export interface NaverSearchAdConfig {
   accessLicense: string;
@@ -333,11 +346,11 @@ export async function getNaverSearchAdKeywordVolume(
         }
 
         if (response.ok) {
-          searchAdAdaptiveIntervalMs = Math.max(900, searchAdAdaptiveIntervalMs - 150); // 성공 시 완만히 회복
+          searchAdAdaptiveIntervalMs = Math.max(SEARCHAD_BASE_INTERVAL_MS, searchAdAdaptiveIntervalMs - 150); // 성공 시 완만히 회복
           break;
         }
         if (response.status === 429 || response.status >= 500) {
-          searchAdAdaptiveIntervalMs = Math.min(4000, searchAdAdaptiveIntervalMs + 600); // 적응형 throttle 상향
+          searchAdAdaptiveIntervalMs = Math.min(Math.max(4000, SEARCHAD_BASE_INTERVAL_MS * 2), searchAdAdaptiveIntervalMs + 600); // 적응형 throttle 상향
           // 이미 소프트상한 도달이면 daily-quota 429로 간주 → 재시도는 쿼터만 태움 → 즉시 중단
           if (searchAdRemaining(accountId) <= 0) {
             console.warn(`[NAVER-SEARCHAD] 🛡️ 429 + 소프트상한 도달 → daily-quota 판단, 재시도 중단`);
@@ -551,7 +564,7 @@ export async function getNaverSearchAdKeywordSuggestions(
 
     // Rate Limit 조절 (Atomic-like scheduling)
     const now = Date.now();
-    lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + 500); // 최소 0.5초 간격 유지
+    lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + SEARCHAD_SUGGEST_INTERVAL_MS); // 최소 0.5초(샤드 회차면 base) 간격 유지
     const waitMs = lastSearchAdRequestAt - now;
     if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
 

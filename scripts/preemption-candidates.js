@@ -51,7 +51,7 @@ const { seasonalSeedsForTopic, seasonalSeedProblems } = require('../src/utils/se
  * 밭이 좁다는 사장님 지적(2026-09-07 "씨앗은 방대할수록 좋지 않니")에 대한 답이다.
  * 창고가 없으면 조용히 0개 — 기존 씨앗으로 그대로 돈다.
  */
-const { loadSeedDb, pickSeeds, seedDbAgeDays } = require('../src/utils/seed-db');
+const { loadSeedDb, pickSeeds, seedDbAgeDays, topicOfSeed } = require('../src/utils/seed-db');
 const { createInterval, mapWithConcurrency } = require('../src/utils/rate-limited-pool');
 const { titleCoverage, DEFAULT_SERP_THRESHOLDS: SERP_THRESHOLDS } = require('../src/utils/serp-winnability');
 // 검색량 하한은 게이트가 단일 출처다. 여기 숫자를 따로 적으면 두 값이 갈라지고,
@@ -98,6 +98,22 @@ function loadRealtime(signalsPath) {
     return set;
   } catch {
     return new Set();
+  }
+}
+
+/** 창고의 주제별 씨앗 수 — 샤드 균형의 무게. 창고가 없거나 못 읽으면 null(라운드로빈). */
+function seedWeightsByTopic(allTopics) {
+  try {
+    const db = loadSeedDb();
+    if (!db || !Array.isArray(db.seeds)) return null;
+    const weights = Object.fromEntries(allTopics.map((t) => [t, 0]));
+    for (const seed of db.seeds) {
+      const t = topicOfSeed(seed);
+      if (t && Object.prototype.hasOwnProperty.call(weights, t)) weights[t] += 1;
+    }
+    return weights;
+  } catch {
+    return null;
   }
 }
 
@@ -213,10 +229,16 @@ async function main() {
    */
   const shards = Number(arg('shards')) || 1;
   const shardIndex = Number(arg('shard')) || 0;
-  const topics = shards > 1 ? shardTopics(allTopics, shardIndex, shards) : allTopics;
+  /*
+   * 샤드 균형(2026-09-08 실측): 라운드로빈은 스포츠(완결 1,403) 같은 무거운 주제를 한 샤드에 몰아
+   * 그 샤드만 240분 상한에 걸렸다. 창고의 주제별 씨앗 수를 무게로 삼는다 — 모든 샤드가 같은
+   * 창고 아티팩트를 읽으므로 배정도 같다. 창고가 없으면 예전 라운드로빈.
+   */
+  const topicWeights = shards > 1 ? seedWeightsByTopic(allTopics) : null;
+  const topics = shards > 1 ? shardTopics(allTopics, shardIndex, shards, topicWeights) : allTopics;
   if (shards > 1) {
-    console.log(`샤드 ${shardIndex + 1}/${shards} — 전체 ${allTopics.length}주제 중 ${topics.length}개를 맡는다`);
-    console.log(`  ${topics.join(' · ')}`);
+    console.log(`샤드 ${shardIndex + 1}/${shards} — 전체 ${allTopics.length}주제 중 ${topics.length}개를 맡는다${topicWeights ? ' (씨앗 수 균형)' : ' (라운드로빈)'}`);
+    console.log(`  ${topics.map((t) => (topicWeights ? `${t}(${topicWeights[t] || 0})` : t)).join(' · ')}`);
   }
   if (topics.length === 0) {
     console.log('이 샤드가 맡은 주제가 없다 — 빈 결과를 남기고 정상 종료한다.');
@@ -287,7 +309,11 @@ async function main() {
    * 천장은 간격기다: 문서수 120ms → 초당 8.3건이 이 회차의 하한 시간을 정한다.
    */
   const concurrency = Number(arg('concurrency')) || 6;
-  const adGate = createInterval(220);
+  /*
+   * 검색광고 게이트는 러너 수만큼 넓힌다(2026-09-08 실측: 4러너 동시 호출로 429 폭주).
+   * 계정 전체 초당 호출을 러너 하나일 때(220ms)로 되돌리는 값이다. --adGateMs 로 덮어쓸 수 있다.
+   */
+  const adGate = createInterval(Number(arg('adGateMs')) || 220 * Math.max(1, shards));
   const autoGate = createInterval(150);
   const docGate = createInterval(120);
   const trendGate = createInterval(150);
@@ -318,7 +344,36 @@ async function main() {
     console.log('씨앗 창고 없음 — 기존 씨앗으로만 돕니다(node scripts/build-seed-db.js 로 만듭니다).');
   }
 
+  /*
+   * 부분 저장(2026-09-08 실측): 샤드 3 이 240분 상한에 걸려 취소되자, 결과를 끝에 한 번만 쓰던
+   * 이 스크립트는 8주제 몫을 통째로 잃었다(업로드 스텝은 if: always() 라 파일만 있으면 살렸다).
+   * 주제 하나가 끝날 때마다 같은 모양으로 저장해 두고 partial: true 를 붙인다. 최종 저장이
+   * 덮어쓴다. 합치기(candidate-shards.js)는 partial 을 경고로 알린다.
+   */
+  const partialResults = [];
+  const savePartial = () => {
+    try {
+      const partialByTopic = {};
+      for (const r of partialResults) {
+        if (r && r.measured && r.measured.length > 0) partialByTopic[r.topic] = r.measured;
+      }
+      fs.mkdirSync(path.dirname(path.resolve(outPath)), { recursive: true });
+      fs.writeFileSync(path.resolve(outPath), JSON.stringify({
+        generatedAt: new Date().toISOString(),
+        partial: true,
+        partialTopicsDone: partialResults.filter(Boolean).map((r) => r.topic),
+        filters: { minWords, minVolume },
+        starvedTopics: [...starvedTopics],
+        report: partialResults.filter(Boolean).map((r) => r.report),
+        topics: partialByTopic,
+      }, null, 1), 'utf8');
+    } catch (error) {
+      console.log(`  !! 부분 저장 실패(계속) — ${String((error && error.message) || error).slice(0, 80)}`);
+    }
+  };
+
   const perTopicResults = await mapWithConcurrency(topics, concurrency, async (topic) => {
+    const result = await (async () => {
     const coverage = BLOG_TOPIC_COVERAGE.find((e) => e.topic === topic);
     if (!coverage) { console.log(`  ?? ${topic} — 커버리지 표에 없음`); return null; }
 
@@ -805,6 +860,9 @@ async function main() {
       incompleteSamples: incompleteLog.slice(0, 8),
       },
     };
+    })();
+    if (result) { partialResults.push(result); savePartial(); }
+    return result;
   }, (error, topic) => {
     // 주제 하나가 죽어도 회차를 버리지 않는다 — 예전 루프도 그렇게 돌았다.
     console.log(`  !! ${topic} — ${String(error && error.message || error).slice(0, 90)}`);
