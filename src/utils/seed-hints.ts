@@ -215,7 +215,7 @@ export function titleHeadFitsTopic(topic: string, head: string): boolean {
  * 같은 급이면 먼저 만난 것을 남긴다 — 옛 동작 그대로라 기존 창고와 어긋나지 않는다.
  */
 // section(블로그 섹션, 2026-09-09)은 주제를 알지만 자동 추출이라 업종과 같은 급 — 먼저 만난 것을 남긴다.
-const SOURCE_RANK: Readonly<Record<string, number>> = Object.freeze({ hint: 3, biztp: 2, section: 2, month: 1, event: 1 });
+const SOURCE_RANK: Readonly<Record<string, number>> = Object.freeze({ hint: 3, biztp: 2, section: 2, shopping: 2, month: 1, event: 1 });
 
 function rankOf(tag: string): number {
   const prefix = tag.split(':')[0];

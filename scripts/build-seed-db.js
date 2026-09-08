@@ -43,6 +43,7 @@ const {
 } = require('../src/utils/seed-hints');
 const { extractTitleHeads } = require('../src/utils/news-title-heads');
 const { BLOG_SECTION_DIRECTORY, blogSectionUrl, parseBlogSectionTitles, extractSectionHeads, sectionSourceTag } = require('../src/utils/blog-section-seeds');
+const { SHOPPING_CATEGORIES, SHOPPING_RANK_URL, shoppingRankBody, parseShoppingRanks, chunkHintKeywords, shoppingSourceTag } = require('../src/utils/shopping-insight-seeds');
 
 const arg = (name) => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -143,7 +144,7 @@ async function main() {
   const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
   /** 창구별로 {키워드 → 검색량}. 같은 말이 여러 창구에서 와도 한 번만 센다. */
   const seeds = new Map();
-  const sources = { month: {}, event: {}, biztp: {}, hint: {}, title: {}, section: {} };
+  const sources = { month: {}, event: {}, biztp: {}, hint: {}, title: {}, section: {}, shopping: {} };
   let calls = 0;
   let failed = 0;
 
@@ -404,6 +405,51 @@ async function main() {
         if (!r.ok) console.log(`      !! ${head} HTTP ${r.status}`);
       }
       console.log(`  ${topic}: 섹션 머리말 ${heads.length}개 → 제 주제 ${keptTotal}(새 ${addedTotal}) · 딴 주제 ${movedTotal} · 버림 ${droppedTotal}`);
+    }
+  }
+
+  /*
+   * 쇼핑인사이트 창구(2026-09-09, 사장님 "진행"). 데이터랩 쇼핑인사이트 화면의 분야별 인기 검색어(지난 7일)를
+   * 그대로 받아(키 불필요, 쪽당 20건) 그 말의 검색량을 키워드도구로 실측한다. 순위 키워드 자체가 검색어라
+   * hintKeywords 5개씩 묶어 부르고, 응답 행 중 **요청한 말과 같은 행만** 담는다(연관어까지 담으면 광고주 목록이
+   * 되풀이된다). --shoppingPages 로 분야당 쪽 수(기본 5 = 100건).
+   */
+  const shoppingPages = Number(arg('shoppingPages')) || 5;
+  if (shoppingPages > 0) {
+    console.log(`■ 쇼핑인사이트(분야별 인기 검색어 → 그 말의 검색량) — 분야당 ${shoppingPages}쪽`);
+    for (const category of SHOPPING_CATEGORIES) {
+      const ranked = [];
+      for (let page = 1; page <= shoppingPages; page += 1) {
+        let text = '';
+        try {
+          const res = await fetch(SHOPPING_RANK_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              Referer: 'https://datalab.naver.com/shoppingInsight/sCategory.naver',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+            },
+            body: shoppingRankBody(category.cid, page),
+          });
+          text = res.ok ? await res.text() : '';
+        } catch { text = ''; }
+        const got = parseShoppingRanks(text);
+        if (got.length === 0) break;
+        ranked.push(...got.map((r) => r.keyword));
+        await sleep(200);
+      }
+      const wanted = new Set(ranked.map((k) => k.replace(/\s+/g, '')));
+      let added = 0; let matched = 0;
+      for (const chunk of chunkHintKeywords(ranked)) {
+        const { rows, ok } = await tool(creds, `hintKeywords=${encodeURIComponent(chunk.join(','))}&showDetail=1`);
+        calls += 1;
+        if (!ok) failed += 1;
+        const exact = rows.filter((row) => wanted.has(String(row.relKeyword || '').replace(/\s+/g, '')));
+        matched += exact.length;
+        added += collect(exact, sources.shopping, `${category.name}:${chunk[0]}…`, shoppingSourceTag(category.cid), { topic: category.topic, asked: chunk.length });
+        await sleep(gapMs);
+      }
+      console.log(`  ${category.name.padEnd(8)} 순위 ${String(ranked.length).padStart(3)}건 → 검색량 실측 ${String(matched).padStart(3)} · 새 씨앗 ${added} → ${category.topic}`);
     }
   }
 

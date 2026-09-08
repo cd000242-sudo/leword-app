@@ -14,6 +14,7 @@
  *
  * 창고가 없으면 빈 배열이다 — 발굴은 기존 씨앗으로 그대로 돈다(회차를 죽이지 않는다).
  */
+import { shoppingTopicOfSource } from './shopping-insight-seeds';
 import fs from 'fs';
 import path from 'path';
 
@@ -301,6 +302,8 @@ export function topicOfSeed(entry: SeedDbEntry): string | null {
   if (source.startsWith('hint:')) return source.slice(5) || null;
   // 블로그 섹션 창구(2026-09-09) — 네이버의 32주제 분류 그대로라 출처가 곧 주제다(blog-section-seeds.ts).
   if (source.startsWith('section:')) return source.slice(8) || null;
+  // 쇼핑인사이트 창구(2026-09-09) — 분야(cid)가 주제를 정한다(shopping-insight-seeds.ts).
+  if (source.startsWith('shopping:')) return shoppingTopicOfSource(source);
   if (!source.startsWith('biztp:')) return null;
   return BIZTP_TOPIC[source.slice(6)] || null;
 }

@@ -323,4 +323,10 @@ describe('topicOfSeed — 건강·의학·스포츠 말 규칙', () => {
         expect(topicOfSeed({ keyword: '드로잉패드', searchVolume: 900, source: 'section:미술·디자인' })).toBe('미술·디자인');
         expect(topicOfSeed({ keyword: '아무말', searchVolume: 900, source: 'section:' })).toBeNull();
     });
+
+    it('쇼핑인사이트 출처(shopping:분야)는 분야의 주제로 간다(2026-09-09)', () => {
+        expect(topicOfSeed({ keyword: '음식물처리기', searchVolume: 900, source: 'shopping:50000003' })).toBe('IT·컴퓨터');
+        expect(topicOfSeed({ keyword: '식탁의자', searchVolume: 900, source: 'shopping:50000004' })).toBe('인테리어·DIY');
+        expect(topicOfSeed({ keyword: '아무말', searchVolume: 900, source: 'shopping:1' })).toBeNull();
+    });
 });
