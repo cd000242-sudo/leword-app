@@ -100,44 +100,182 @@
       }
     }
 
+    /* ========================================
+       셸 통일 (2026-09-09): 밝은 런처 + 어두운 모달 두 세계를 하나의 다크 작업대로.
+       팔레트는 앱 모달이 이미 쓰던 것 — 바탕 #020617/#0f172a · 패널 #1e293b · 글자 #e2e8f0/#94a3b8 · 골드 #fbbf24
+       ======================================== */
     body {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: #020617;
       min-height: 100vh;
-      padding: 24px;
-      color: #1e293b;
+      color: #e2e8f0;
     }
 
-    .keyword-master-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 24px;
-      padding: 32px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-      /* backdrop-filter 제거: position:fixed 자식 모달의 containing block을 깨던 원인 */
+    .leword-shell {
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr);
+      min-height: 100vh;
     }
 
-    .page-header {
-      text-align: center;
-      margin-bottom: 48px;
-      padding-bottom: 24px;
-      border-bottom: 2px solid #e0e0e0;
+    .leword-side {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: #0f172a;
+      border-right: 1px solid rgba(255, 255, 255, 0.09);
+      padding: 14px 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
-    .page-header h1 {
-      font-size: 42px;
+    .leword-brand {
+      padding: 4px 10px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .leword-brand small {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .leword-account {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 0 6px;
+    }
+
+    .leword-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .leword-nav button {
+      all: unset;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 13.5px;
+      line-height: 1.3;
+      word-break: keep-all;
+      transition: background 0.12s;
+    }
+
+    .leword-nav button:hover {
+      background: rgba(255, 255, 255, 0.04);
+      color: #e2e8f0;
+    }
+
+    .leword-nav button[aria-selected="true"] {
+      background: rgba(251, 191, 36, 0.14);
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+
+    .leword-nav button:focus-visible {
+      outline: 2px solid #fbbf24;
+      outline-offset: 1px;
+    }
+
+    .leword-nav .k {
+      flex: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: #232a36;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-family: ui-monospace, Consolas, monospace;
+      color: #fbbf24;
+    }
+
+    .leword-nav .new {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: #fbbf24;
+      color: #1a1200;
       font-weight: 700;
-      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 12px;
     }
 
-    .page-header p {
-      font-size: 18px;
+    .leword-keys {
+      margin-top: auto;
+      border-top: 1px solid rgba(255, 255, 255, 0.09);
+      padding: 10px 6px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11.5px;
+      color: #94a3b8;
+    }
+
+    .leword-main {
+      min-width: 0;
+      padding: 20px 22px 32px;
+    }
+
+    .leword-screen {
+      display: none;
+    }
+
+    .leword-screen[data-active] {
+      display: block;
+    }
+
+    .leword-screen-empty {
+      padding: 40px 0;
+      text-align: center;
       color: #64748b;
-      font-weight: 500;
+      font-size: 13px;
+    }
+
+    .leword-site-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .leword-site-card {
+      all: unset;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 10px;
+      background: #1e293b;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+    }
+
+    .leword-site-card:hover {
+      border-color: rgba(251, 191, 36, 0.5);
+      background: #243049;
+    }
+
+    .leword-site-card:focus-visible {
+      outline: 2px solid #fbbf24;
+      outline-offset: 2px;
+    }
+
+    .leword-site-card b {
+      font-size: 14px;
+      color: #e2e8f0;
+    }
+
+    .leword-site-card span {
+      font-size: 12px;
+      color: #94a3b8;
     }
 
     .main-feature {
@@ -146,11 +284,9 @@
 
     .golden-keyword-finder {
       background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      border-radius: 24px;
-      padding: 40px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
+      border-radius: 12px;
+      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
     }
 
     .golden-keyword-finder h2 {
@@ -267,118 +403,6 @@
       opacity: 0.6;
       cursor: not-allowed;
       transform: none;
-    }
-
-    .additional-features {
-      margin-top: 48px;
-      padding-top: 32px;
-      border-top: 2px solid #e0e0e0;
-    }
-
-    .additional-features h2 {
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 32px;
-      text-align: center;
-      color: #1e293b;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 32px;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-
-    .feature-button {
-      background: white;
-      border: none;
-      border-radius: 20px;
-      padding: 32px 28px;
-      text-align: left;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-      position: relative;
-      overflow: hidden;
-      min-height: 180px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .feature-button::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-      transition: left 0.5s;
-    }
-
-    .feature-button:hover::before {
-      left: 100%;
-    }
-
-    .feature-button:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    }
-
-    .feature-button .icon {
-      font-size: 56px;
-      margin-bottom: 20px;
-      display: block;
-      line-height: 1;
-    }
-
-    .feature-button .title {
-      font-size: 24px;
-      font-weight: 700;
-      margin-bottom: 12px;
-      color: #1e293b;
-      line-height: 1.3;
-    }
-
-    .feature-button .description {
-      font-size: 16px;
-      color: #64748b;
-      line-height: 1.6;
-    }
-
-    .feature-button.red {
-      border-left: 4px solid #ef4444;
-    }
-
-    .feature-button.blue {
-      border-left: 4px solid #3b82f6;
-    }
-
-    .feature-button.purple {
-      border-left: 4px solid #8b5cf6;
-    }
-
-    .feature-button.green {
-      border-left: 4px solid #10b981;
-    }
-
-    .feature-button.orange {
-      border-left: 4px solid #f59e0b;
-    }
-
-    .feature-button.indigo {
-      border-left: 4px solid #6366f1;
-    }
-
-    .feature-button.pink {
-      border-left: 4px solid #ec4899;
-    }
-
-    .feature-button.cyan {
-      border-left: 4px solid #06b6d4;
     }
 
     /* ========================================
@@ -617,10 +641,6 @@
     }
 
     @media (max-width: 768px) {
-      .features-grid {
-        grid-template-columns: 1fr;
-      }
-
       .keyword-input-section {
         flex-direction: column;
       }
@@ -666,58 +686,61 @@
       }
     });
   </script>
-  <div class="keyword-master-container" style="position:relative;">
-
-    <!-- 헤더 -->
-    <div class="page-header">
-      <!-- v2.42.23: 우측 상단 버전 뱃지 (업데이트 후 현재 버전 확인용) -->
-      <div id="appVersionBadge" style="position:absolute; top:14px; right:18px; padding:5px 12px; background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(168,85,247,0.15)); border:1px solid rgba(168,85,247,0.4); border-radius:14px; font-size:11px; font-weight:700; color:#a78bfa;" title="현재 버전">
-        <span>v</span><span id="appVersionText">-</span>
+  <!-- 셸 통일 (2026-09-09): 왼쪽 사이드바 + 오른쪽 화면. 화면은 showScreen(id) 가 바꾼다 -->
+  <div class="leword-shell">
+    <aside class="leword-side" aria-label="작업대 사이드바">
+      <div class="leword-brand">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 16px; font-weight: 800; color: #f8fafc; letter-spacing: 0.02em;">LEWORD</span>
+          <span id="appVersionInline" title="현재 버전" style="font-family: ui-monospace, Consolas, monospace; font-size: 10.5px; font-weight: 600; color: #fbbf24; padding: 1px 7px; border: 1px solid rgba(251, 191, 36, 0.35); border-radius: 999px;">v-</span>
+        </div>
+        <small>실측 작업대</small>
       </div>
-      <h1>💎LEWORD <span id="appVersionInline" style="font-size:0.45em; font-weight:600; color:#a78bfa; vertical-align:middle; margin-left:8px; padding:3px 10px; background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(168,85,247,0.15)); border:1px solid rgba(168,85,247,0.35); border-radius:12px; letter-spacing:0.3px;" title="현재 버전">v-</span></h1>
 
       <!-- 라이선스 상태 배지 + 로그아웃 -->
-      <div
-        style="margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <div class="leword-account">
         <div id="licenseBadge" onclick="refreshLicenseFromServer()" title="클릭하여 라이선스 서버 동기화"
-          style="padding: 8px 16px; border-radius: 20px; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: #475569; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.3s;">
+          style="padding: 6px 10px; border-radius: 8px; background: #1e293b; color: #cbd5e1; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.3s;">
           <span>👤</span>
           <span>무료 사용자</span>
         </div>
         <button id="logoutBtn" onclick="confirmLogout()" title="로그아웃"
-          style="display: none; padding: 6px 14px; border-radius: 18px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: #ef4444; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+          style="display: none; padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.1); color: #ef4444; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; align-self: flex-start;"
           onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">
           ↩ 로그아웃
         </button>
       </div>
 
-      <!-- API 키 연동 상태 배지 -->
-      <div
-        style="margin-top: 12px; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap;">
-        <div id="naverApiBadge"
-          style="padding: 8px 16px; border-radius: 20px; background: #fee2e2; color: #991b1b; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+      <nav class="leword-nav" role="tablist" aria-label="화면">
+        <button role="tab" data-screen="realtime" aria-selected="true" onclick="showScreen('realtime')"><span class="k">1</span>실시간 검색어</button>
+        <button role="tab" data-screen="golden" aria-selected="false" onclick="showScreen('golden')"><span class="k">2</span>황금키워드 발굴</button>
+        <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">3</span>자리 실측기<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="pro" aria-selected="false" onclick="openProTrafficModal()"><span class="k">4</span>PRO 트래픽 폭발 키워드 헌터</button>
+        <button role="tab" data-screen="adsense" aria-selected="false" onclick="openAdsenseHunterModal()"><span class="k">5</span>AdSense 승인 키워드 헌터</button>
+        <button role="tab" data-screen="mate" aria-selected="false" onclick="openNaverMateKeywordModal()"><span class="k">6</span>네이버 AI 메이트 키워드 찾기</button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">7</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">8</span>설정 · 키</button>
+      </nav>
+
+      <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
+      <div class="leword-keys">
+        <div style="font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: #64748b;">키 상태 · 누르면 설정</div>
+        <div id="naverApiBadge" onclick="showScreen('settings')" style="padding: 4px 10px; border-radius: 999px; background: #fee2e2; color: #991b1b; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
           <span>⚠️</span>
           <span>네이버 API: 미연동</span>
         </div>
-        <div id="youtubeApiBadge"
-          style="padding: 8px 16px; border-radius: 20px; background: #fee2e2; color: #991b1b; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+        <div id="youtubeApiBadge" onclick="showScreen('settings')" style="padding: 4px 10px; border-radius: 999px; background: #fee2e2; color: #991b1b; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
           <span>⚠️</span>
           <span>유튜브 API: 미연동</span>
         </div>
-        <div id="naverSearchAdApiBadge"
-          style="padding: 8px 16px; border-radius: 20px; background: #fee2e2; color: #991b1b; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+        <div id="naverSearchAdApiBadge" onclick="showScreen('settings')" style="padding: 4px 10px; border-radius: 999px; background: #fee2e2; color: #991b1b; font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
           <span>⚠️</span>
           <span>검색광고 API: 미연동</span>
         </div>
-        <button onclick="openKeywordSettingsModal()"
-          style="padding: 8px 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);"
-          onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102, 126, 234, 0.4)'"
-          onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(102, 126, 234, 0.3)'">
-          <span>⚙️</span>
-          <span>키워드 설정</span>
-        </button>
       </div>
-    </div>
+    </aside>
+
+    <main class="leword-main">
 
     <script>
       /*
@@ -736,17 +759,19 @@
       };
     </script>
 
+    <!-- 화면 1: 실시간 검색어 (기본 화면) -->
+    <section class="leword-screen" data-screen="realtime" data-active>
     <!-- 실시간 검색어 모니터링 섹션 (2x2 그리드) -->
     <div id="realtimeKeywordsSection"
-      style="margin-bottom: 32px; padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); border-radius: 16px; border: 2px solid #cbd5e1;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <h3 style="font-size: 20px; font-weight: 700; color: #1e293b; margin: 0;">
+      style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.09);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
           📊 실시간 검색어 모니터링
         </h3>
         <div style="display: flex; gap: 8px; align-items: center;">
-          <span id="realtimeTimestamp" style="font-size: 12px; color: #64748b;">마지막 업데이트: -</span>
+          <span id="realtimeTimestamp" style="font-size: 12px; color: #94a3b8;">마지막 업데이트: -</span>
           <button id="refreshRealtimeTop"
-            style="padding: 8px 16px; border: none; border-radius: 8px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; font-weight: 600; cursor: pointer; font-size: 12px;">
+            style="padding: 7px 12px; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 8px; background: transparent; color: #e2e8f0; font-weight: 600; cursor: pointer; font-size: 12px;">
             🔄 새로고침
           </button>
         </div>
@@ -853,6 +878,7 @@
         </div>
       </div>
     </div>
+    </section>
 
 
     <!-- v2.42.91/98: 트레이 + 성능 옵션 플로팅 (우측 상단 고정) -->
@@ -1014,6 +1040,8 @@
     </script>
 
     <!-- 메인 기능: 키워드 발굴 -->
+    <!-- 화면 2: 황금키워드 발굴 (본판) -->
+    <section class="leword-screen" data-screen="golden">
     <div class="main-feature">
       <div class="golden-keyword-finder">
         <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px;">
@@ -1291,162 +1319,48 @@
         </div>
       </div>
 
-      <!-- 🎁 추가 기능 섹션 (v2.2.4 재구성) -->
-      <div class="additional-features">
-        <h2>🎁 추가 기능</h2>
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 12px;">
+    </div>
+    </section>
 
-          <!-- 🏆 PRO 트래픽 폭발 키워드 헌터 -->
-          <!-- 2026-09-09 사장님 "보이게 하고 사용 가능하게" — v2.49.72 의 숨김(display:none) 을 푼다 -->
-          <button onclick="openProTrafficModal()" style="
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            border: none;
-            border-radius: 16px;
-            padding: 24px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
-            text-align: left;
-          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(245, 158, 11, 0.4)'"
-             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(245, 158, 11, 0.3)'">
-            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🏆</div>
-            <div style="flex: 1;">
-              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">PRO 트래픽 폭발 키워드 헌터</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">16개 소스 실시간 이슈 + 경쟁분석 + 최적 발행시간</div>
-            </div>
-            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
-          </button>
-
-          <!-- 자리 실측기 (앱 전용, 2026-09-08): 사이트 표가 안 재는 자리를 내 PC 브라우저로 센다 -->
-        <button onclick="openSeatMeasureModal()"
-                style="display: flex; align-items: center; gap: 16px; padding: 20px 24px; background: linear-gradient(135deg, #065f46, #047857); border: none; border-radius: 16px; cursor: pointer; text-align: left; transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: 0 6px 18px rgba(4, 120, 87, 0.28); position: relative;"
-                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 26px rgba(4, 120, 87, 0.38)';"
-                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 6px 18px rgba(4, 120, 87, 0.28)';">
-          <span style="position: absolute; top: 10px; right: 12px; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200;">앱 전용</span>
-          <div style="width: 56px; height: 56px; border-radius: 14px; background: rgba(255,255,255,0.14); display: grid; place-items: center; font-size: 28px; flex: none;">📍</div>
-          <div style="flex: 1; min-width: 0;">
-            <div style="font-size: 17px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">자리 실측기</div>
-            <div style="font-size: 12.5px; color: rgba(255,255,255,0.82);">키워드 붙여넣기 → 내 PC 브라우저로 정면 글·카드 답·광고·빈자리 실측 · 비용 0</div>
-          </div>
-          <span style="font-size: 20px; color: rgba(255,255,255,0.8);">→</span>
-        </button>
-
-          <!--
-            🤖 AI 엔진 연동은 [⚙️ 키워드 API 설정] 안으로 옮겼다(2026-08-22).
-            사장님 지적: "환경설정을 정리해 놨는데 거기 있어야 하는 거 아니니?"
-            키를 설정하는 일이라 다른 키들과 같은 자리에 있어야 한다.
-          -->
-
-          <!-- ✅ AdSense 승인 키워드 헌터 (리뉴얼) -->
-          <button onclick="openAdsenseHunterModal()" style="
-            background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 16px;
-            padding: 24px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            box-shadow: 0 4px 20px rgba(66, 133, 244, 0.4);
-            text-align: left;
-            position: relative;
-          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(66, 133, 244, 0.5)'"
-             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(66, 133, 244, 0.4)'">
-            <span style="position:absolute; top:-8px; right:8px; background:linear-gradient(135deg,#22c55e,#10b981); color:white; padding:3px 10px; border-radius:10px; font-size:10px; font-weight:900;">승인용 실측</span>
-            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">✅</div>
-            <div style="flex: 1;">
-              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">AdSense 승인 키워드 헌터</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">실측 검색량+문서수 · 정보형 의도 · YMYL 안전 · 제목/글감 플랜</div>
-            </div>
-            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
-          </button>
-
-          <!-- 🤖 네이버 AI 메이트 키워드 찾기 -->
-          <button onclick="openNaverMateKeywordModal()" style="
-            background: linear-gradient(135deg, #03c75a 0%, #00b04f 100%);
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 16px;
-            padding: 24px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            box-shadow: 0 4px 20px rgba(3, 199, 90, 0.4);
-            text-align: left;
-            position: relative;
-          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(3, 199, 90, 0.5)'"
-             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(3, 199, 90, 0.4)'">
-            <span style="position:absolute; top:-8px; right:8px; background:linear-gradient(135deg,#ef4444,#dc2626); color:white; padding:3px 10px; border-radius:10px; font-size:10px; font-weight:900;">NEW</span>
-            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🤖</div>
-            <div style="flex: 1;">
-              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">네이버 AI 메이트 키워드 찾기</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.85);">AI 브리핑 · 관련질문 · 출처형 글감 — 점수 없이 실측만</div>
-            </div>
-            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
-          </button>
-
-          <!-- 🌐 사이트에서 보기 (2026-09-09): 앱에서 뺀 기능은 leaderspro.kr 이 맡는다 -->
-          <button onclick="openLewordSite('golden')" style="
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border: 1px solid rgba(148,163,184,0.35);
-            border-radius: 16px;
-            padding: 24px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.4);
-            text-align: left;
-          " onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 30px rgba(15,23,42,0.5)'"
-             onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(15,23,42,0.4)'">
-            <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.1); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0;">🌐</div>
-            <div style="flex: 1; min-width: 0;">
-              <div style="font-size: 18px; font-weight: 800; color: white; margin-bottom: 3px;">사이트에서 보기</div>
-              <div style="font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 8px;">매일 갱신되는 보드는 leaderspro.kr 에서 본다 — 앱은 발굴·실측만 맡는다</div>
-              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                <span onclick="event.stopPropagation(); openLewordSite('golden')" title="leaderspro.kr/leword?tab=golden" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">선점 황금키워드 보드</span>
-                <span onclick="event.stopPropagation(); openLewordSite('issue')" title="leaderspro.kr/leword?tab=issue" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">실검 틈새</span>
-                <span onclick="event.stopPropagation(); openLewordSite('picks')" title="leaderspro.kr/leword?tab=picks" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">오늘의 추천키워드</span>
-                <span onclick="event.stopPropagation(); openLewordSite('kin')" title="leaderspro.kr/leword?tab=kin" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">지식인 황금질문</span>
-                <span onclick="event.stopPropagation(); openLewordSite('affiliate')" title="leaderspro.kr/leword?tab=affiliate" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">제휴 황금키워드</span>
-                <span onclick="event.stopPropagation(); openLewordSite('youtube')" title="leaderspro.kr/leword?tab=youtube" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">유튜브 글감</span>
-                <span onclick="event.stopPropagation(); openLewordSite('rank')" title="leaderspro.kr/leword?tab=rank" style="padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(148,163,184,0.35); color: #e2e8f0; font-size: 11px; font-weight: 700; cursor: pointer;" onmouseover="this.style.background='rgba(255,255,255,0.18)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">노출 추적</span>
-              </div>
-            </div>
-            <span style="font-size: 24px; color: white; opacity: 0.8;">→</span>
-          </button>
-
-
-        </div>
+    <!-- 화면 7: 사이트에서 보기 — 앱에서 뺀 기능은 leaderspro.kr 이 맡는다 -->
+    <section class="leword-screen" data-screen="sites">
+      <div style="margin-bottom: 14px;">
+        <h2 style="margin: 0; font-size: 19px; color: #f8fafc;">🌐 사이트에서 보기</h2>
+        <p style="margin: 4px 0 0; font-size: 13px; color: #94a3b8;">매일 갱신되는 보드는 leaderspro.kr 에서 본다 — 앱은 발굴·실측만 맡는다. 누르면 브라우저가 열린다.</p>
       </div>
+      <div class="leword-site-grid">
+          <button class="leword-site-card" onclick="openLewordSite('golden')" title="leaderspro.kr/leword?tab=golden"><b>선점 황금키워드 보드</b><span>자리·의도·AI 브리핑 실측 회차 보드</span></button>
+          <button class="leword-site-card" onclick="openLewordSite('issue')" title="leaderspro.kr/leword?tab=issue"><b>실검 틈새</b><span>실시간 이슈 3게이트 틈새 판정</span></button>
+          <button class="leword-site-card" onclick="openLewordSite('picks')" title="leaderspro.kr/leword?tab=picks"><b>오늘의 추천키워드</b><span>32주제 × 10개 · 매일 아침 갱신</span></button>
+          <button class="leword-site-card" onclick="openLewordSite('kin')" title="leaderspro.kr/leword?tab=kin"><b>지식인 황금질문</b><span>답변 자리가 빈 질문</span></button>
+          <button class="leword-site-card" onclick="openLewordSite('affiliate')" title="leaderspro.kr/leword?tab=affiliate"><b>제휴 황금키워드</b><span>상품 니즈 실측 정렬</span></button>
+          <button class="leword-site-card" onclick="openLewordSite('youtube')" title="leaderspro.kr/leword?tab=youtube"><b>유튜브 글감</b><span>영상에서 건진 글감</span></button>
+          <button class="leword-site-card" onclick="openLewordSite('rank')" title="leaderspro.kr/leword?tab=rank"><b>노출 추적</b><span>내 글의 검색 노출 추적</span></button>
+      </div>
+    </section>
 
       <!-- 하단 버튼 영역 제거됨 (우측 상단에 동일 기능 있음) -->
 
-      <!-- 키워드 설정 모달 -->
+      <!-- 화면 8: 설정 · 키 (옛 키워드 설정 모달 — 입력 id·저장·확인 함수는 그대로, 겉만 화면) -->
+      <section class="leword-screen" data-screen="settings">
       <div id="keywordSettingsModal"
-        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10100; backdrop-filter: blur(5px); overflow-y: auto; overflow-x: hidden;">
+        style="display: none;">
         <div
-          style="min-height: 100%; padding: 40px 20px; display: flex; align-items: flex-start; justify-content: center; box-sizing: border-box;">
+          style="padding: 0; box-sizing: border-box;">
           <div
-            style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 24px; padding: 40px; max-width: 800px; width: 100%; margin: 40px auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); border: 2px solid rgba(255, 255, 255, 0.1); position: relative; box-sizing: border-box;">
+            style="background: #0f172a; border-radius: 12px; padding: 22px 24px; width: 100%; margin: 0; border: 1px solid rgba(255, 255, 255, 0.09); position: relative; box-sizing: border-box; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start;">
             <!-- 닫기 버튼 -->
             <button onclick="closeKeywordSettingsModal()"
-              style="position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.1); border: none; border-radius: 50%; color: white; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;"
+              style="position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; background: rgba(255, 255, 255, 0.1); border: none; border-radius: 50%; color: white; font-size: 24px; cursor: pointer; display: none; align-items: center; justify-content: center; transition: all 0.3s ease;"
               onmouseover="this.style.background='rgba(255, 255, 255, 0.2)'"
               onmouseout="this.style.background='rgba(255, 255, 255, 0.1)'">
               ✕
             </button>
 
             <!-- 모달 헤더 -->
-            <div style="margin-bottom: 32px; text-align: center;">
-              <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
-                <h2 style="font-size: 32px; font-weight: 700; color: white; margin: 0;">⚙️ 키워드 API 설정</h2>
+            <div style="grid-column: 1 / -1; margin-bottom: 2px; text-align: left;">
+              <div style="display: flex; align-items: center; justify-content: flex-start; gap: 12px;">
+                <h2 style="font-size: 20px; font-weight: 700; color: white; margin: 0;">⚙️ 키워드 API 설정</h2>
                 <span onclick="showFeatureGuide('api-settings');"
                   style="width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 16px;"
                   onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'"
@@ -1462,7 +1376,7 @@
                 추가 기능 섹션에서는 뺐다.
               -->
               <div onclick="openAgentCliModal()"
-                style="background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; border: 2px solid rgba(148, 163, 184, 0.35); margin-bottom: 20px; cursor: pointer; transition: border-color .2s, transform .2s;"
+                style="grid-column: 1 / -1; order: 5; background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 18px 20px; border: 1px solid rgba(148, 163, 184, 0.35); cursor: pointer; transition: border-color .2s, transform .2s;"
                 onmouseover="this.style.borderColor='rgba(148,163,184,0.7)'; this.style.transform='translateY(-2px)'"
                 onmouseout="this.style.borderColor='rgba(148,163,184,0.35)'; this.style.transform='translateY(0)'">
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -1480,9 +1394,9 @@
                 </div>
               </div>
 
-              <!-- 네이버 API -->
+              <!-- 네이버 API (NAVER API HUB 칸까지 첫 화면에 보이게 왼쪽 열을 두 줄 차지) -->
               <div
-                style="background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; border: 2px solid rgba(16, 185, 129, 0.3);">
+                style="grid-row: span 2; background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 18px 20px; border: 1px solid rgba(16, 185, 129, 0.3);">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
                   <div style="display: flex; align-items: center; gap: 12px;">
                     <div
@@ -1563,7 +1477,7 @@
 
               <!-- 유튜브 API -->
               <div
-                style="background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; border: 2px solid rgba(255, 0, 0, 0.3);">
+                style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 18px 20px; border: 1px solid rgba(255, 0, 0, 0.3);">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
                   <div style="display: flex; align-items: center; gap: 12px;">
                     <div
@@ -1609,8 +1523,8 @@
 
               <!-- 네이버 검색광고 API -->
               <div
-                style="background: rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 24px; border: 2px solid rgba(3, 199, 90, 0.3);">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                style="background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 18px 20px; border: 1px solid rgba(3, 199, 90, 0.3);">
+                <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 0;">
                   <div style="display: flex; align-items: center; gap: 12px;">
                     <div
                       style="width: 40px; height: 40px; background: linear-gradient(135deg, #03c75a 0%, #00a149 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
@@ -1642,7 +1556,7 @@
                       API 키 발급
                     </button>
                   </div>
-                  <div style="display: flex; flex-direction: column; gap: 12px;">
+                  <div style="flex: 1 1 100%; display: flex; flex-direction: column; gap: 12px;">
                     <div>
                       <label
                         style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: rgba(255, 255, 255, 0.9);">Access
@@ -1678,9 +1592,9 @@
 
               <!-- 저장 버튼 -->
               <div
-                style="display: flex; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 2px solid rgba(255, 255, 255, 0.1);">
+                style="grid-column: 1 / -1; order: 6; display: flex; gap: 12px; margin-top: 4px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                 <button onclick="saveKeywordSettings()"
-                  style="flex: 1; padding: 16px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3); transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 8px;"
+                  style="flex: 1; padding: 14px 32px; background: #fbbf24; color: #1a1200; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3); transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 8px;"
                   onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 12px 32px rgba(102, 126, 234, 0.4)'"
                   onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 8px 24px rgba(102, 126, 234, 0.3)'">
                   <span>💾</span>
@@ -1697,9 +1611,88 @@
           </div>
         </div>
       </div>
+      </section>
 
       <!-- 모달 컨테이너 (동적으로 생성) -->
       <div id="modalContainer"></div>
+
+      <script>
+        // =====================================================
+        // 셸 통일 (2026-09-09): 화면 라우터 + 모달→화면 어댑터
+        //   - showScreen(id): 섹션 표시 토글 + 사이드바 선택 표시. 모달로 만들던 기능은 기존 열기 함수를 그대로 부른 뒤
+        //     뿌리 요소를 섹션 안으로 옮기고 오버레이 스타일(fixed·배경·z-index)만 푼다. 기능 내부는 손대지 않는다.
+        //   - 등록표의 open 은 window 전역 함수 이름, root 는 그 함수가 만드는 뿌리 요소 id.
+        // =====================================================
+        const SCREENS = {
+          realtime: {},
+          golden: {},
+          sites: {},
+          settings: { open: 'openKeywordSettingsModal', root: 'keywordSettingsModal', reopen: true },
+        };
+
+        window.activateScreen = function activateScreen(id) {
+          document.querySelectorAll('section.leword-screen').forEach((s) => {
+            if (s.getAttribute('data-screen') === id) s.setAttribute('data-active', '');
+            else s.removeAttribute('data-active');
+          });
+          document.querySelectorAll('.leword-nav button[data-screen]').forEach((b) => {
+            b.setAttribute('aria-selected', b.getAttribute('data-screen') === id ? 'true' : 'false');
+          });
+          try { window.scrollTo(0, 0); } catch (e) { /* 무시 */ }
+        };
+
+        /** 모달 뿌리 요소를 화면 섹션에 싣고 오버레이 스타일만 푼다. 닫기(✕)는 숨긴다 — 화면은 사이드바로 옮긴다. */
+        window.mountModalAsScreen = function mountModalAsScreen(root, screenId) {
+          const section = document.querySelector('section.leword-screen[data-screen="' + screenId + '"]');
+          if (!section) return false;
+          const empty = section.querySelector('.leword-screen-empty');
+          if (!root) {
+            if (empty) { empty.hidden = false; empty.textContent = '화면을 열지 못했다 — 사이드바에서 다시 눌러라.'; }
+            return false;
+          }
+          if (empty) empty.hidden = true;
+          if (root.parentElement !== section) section.appendChild(root);
+          Object.assign(root.style, {
+            position: 'static', inset: 'auto', top: 'auto', left: 'auto', right: 'auto', bottom: 'auto',
+            width: 'auto', height: 'auto', minHeight: '0', maxHeight: 'none',
+            background: 'transparent', backdropFilter: 'none', padding: '0', margin: '0',
+            zIndex: 'auto', display: 'block', overflow: 'visible', alignItems: '', justifyContent: '',
+          });
+          const box = root.firstElementChild;
+          if (box) {
+            Object.assign(box.style, { maxHeight: 'none', maxWidth: 'none', width: '100%', margin: '0', boxShadow: 'none', overflowY: 'visible' });
+          }
+          root.querySelectorAll('button').forEach((b) => {
+            const oc = b.getAttribute('onclick') || '';
+            if (b.textContent.trim() === '✕' && /close[A-Za-z]*Modal\(\)|style\.display\s*=\s*'none'/.test(oc)) b.style.display = 'none';
+            if (b.title === '최소화') b.remove();
+          });
+          // 바깥 클릭 = 닫기 리스너가 뿌리 요소에 걸려 있다 — 화면에서는 무효
+          if (!root.__lewordScreenGuard) {
+            root.__lewordScreenGuard = true;
+            root.addEventListener('click', (e) => { if (e.target === root) e.stopImmediatePropagation(); }, true);
+          }
+          if (typeof unlockBodyScroll === 'function') unlockBodyScroll();
+          return true;
+        };
+
+        window.showScreen = async function showScreen(id) {
+          const spec = SCREENS[id];
+          if (!spec) { console.warn('[SHELL] 모르는 화면:', id); return false; }
+          window.activateScreen(id);
+          if (!spec.open) return true;
+          const section = document.querySelector('section.leword-screen[data-screen="' + id + '"]');
+          const mounted = section && section.querySelector('#' + spec.root);
+          if (!mounted || spec.reopen) {
+            const opener = window[spec.open];
+            if (typeof opener === 'function') {
+              try { await opener(); } catch (e) { console.warn('[SHELL] 화면 열기 실패:', id, e); }
+            }
+          }
+          window.mountModalAsScreen(document.getElementById(spec.root), id);
+          return true;
+        };
+      </script>
 
       <script>
         // =====================================================
@@ -6611,6 +6604,8 @@
           if (modal) {
             modal.style.display = 'none';
           }
+          // 셸 통일: 설정은 화면이라 닫으면 첫 화면(실시간 검색어)으로 돌아간다
+          if (typeof window.showScreen === 'function') window.showScreen('realtime');
         };
 
         // 키워드 설정 로드 (checkApiStatus와 동일한 방식 사용)
@@ -12153,6 +12148,8 @@
         })();
 
       </script>
+    </main>
+  </div>
 </body>
 
 
