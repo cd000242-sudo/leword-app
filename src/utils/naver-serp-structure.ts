@@ -86,6 +86,18 @@ const POSITIONED_MARKERS: Record<string, RegExp[]> = {
   인플루언서: [/(?<![\w.])in\.naver\.com\/[A-Za-z0-9_-]{3,}/],
   // 카페 게시글은 `/카페아이디/글번호` 형태다. 카페 홈 링크만으로는 결과가 아니다.
   카페: [/cafe\.naver\.com\/[A-Za-z0-9_-]+\/[0-9]{3,}/],
+  /*
+   * 답을 카드로 주는 구획(2026-09-08). 이게 떠 있으면 블로그 클릭이 없다 — 검색한
+   * 사람은 예보 한 줄·출생 한 줄로 만족하고 나간다. 발행 보드 122행 중 30행이 이
+   * 부류였는데 구획 판독기가 카드를 몰라 '자리 비어 있음'으로 읽었다.
+   *
+   * 실측(같은 날 통합검색 4장 대조): 날씨 모듈은 `scui/weather_new` 스타일시트와
+   * `.weather_layer_pop` 을 싣고(모나크cc 날씨 1·3, 대조군 셋 0·0), 인물 모듈은
+   * "네이버 인물정보" 제목과 `_cm_content_area_profile` 통을 싣는다(송강 프로필 11,
+   * 대조군 0). 조각은 naver-serp-answer-cards.test.ts 에 그대로 있다.
+   */
+  날씨: [/scui\/weather_new\//, /weather_layer_pop/],
+  인물정보: [/네이버 인물정보/, /_cm_content_area_profile/],
 };
 
 export interface SerpStructure {

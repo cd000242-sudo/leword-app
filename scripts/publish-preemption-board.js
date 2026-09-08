@@ -39,6 +39,8 @@ const { mergeCarryRows } = require('../src/utils/board-carry');
 const { TIER_ORDER } = require('../src/utils/preemption-gate');
 // 줄 세우기 — 피크 검색량순, 상위 포화(정면 8/10↑)는 뒤로. 판정은 board-order 가 단일 출처.
 const { orderForPublish } = require('../src/utils/board-order');
+// 죽은 행 — 카드로 답이 나오는 검색어·수익 판정 bad. 등급(검색량÷문서수)은 의도를 못 본다.
+const { judgeDeadRow } = require('../src/utils/board-dead-rows');
 
 const DEFAULT_DEST = path.join(
   __dirname, '..', 'tmp', 'leaderspro-admin-work', 'spa', 'public', 'data', 'preemption-board.json',
@@ -405,14 +407,34 @@ async function main() {
   const beforeGate = merged.rows.length;
   const noSlot = merged.rows.filter((row) => row.openSlot != null && Number(row.openSlot) <= 0).length;
   const offLane = merged.rows.filter((row) => !ACTIVE_TOPICS.has(String(row.topic || ''))).length;
+  /*
+   * 죽은 행(2026-09-08, 사장님 "블로그로 날씨 같은 걸 찾아볼까?"): 카드로 답이 나오는
+   * 검색어와 보강 AI 수익 판정 bad. 직전 보드 122행 중 30행이 'xx cc 날씨'·'송강 프로필'
+   * 류였고 초황금이 붙어 있었다 — 등급이 검색량÷문서수뿐이라 의도를 못 본다.
+   * 이월 행에도 걸리므로 이번 회차에 보드가 청소된다. 사유는 로그와 원장에 남긴다.
+   */
+  const deadReasons = new Map();
+  merged.rows.forEach((row) => {
+    const verdict = judgeDeadRow(row);
+    if (verdict.dead) deadReasons.set(row, verdict.reason);
+  });
   merged.rows = merged.rows.filter((row) => (
-    (row.openSlot == null || Number(row.openSlot) > 0) && ACTIVE_TOPICS.has(String(row.topic || ''))
+    (row.openSlot == null || Number(row.openSlot) > 0)
+    && ACTIVE_TOPICS.has(String(row.topic || ''))
+    && !deadReasons.has(row)
   ));
   if (beforeGate !== merged.rows.length) {
     console.log(
       `  게이트      ${beforeGate} → ${merged.rows.length}행`
-      + ` (자리없음 ${noSlot} · 폐지레인 ${offLane}, 겹칠 수 있음)`,
+      + ` (자리없음 ${noSlot} · 폐지레인 ${offLane} · 죽은검색어 ${deadReasons.size}, 겹칠 수 있음)`,
     );
+  }
+  if (deadReasons.size > 0) {
+    console.log(`  죽은 검색어 ${deadReasons.size}행 — 카드가 답하거나 수익 판정 bad:`);
+    [...deadReasons.entries()].slice(0, 12).forEach(([row, reason]) => {
+      console.log(`    · [${row.topic}] ${row.keyword} — ${reason}`);
+    });
+    if (deadReasons.size > 12) console.log(`    · … 외 ${deadReasons.size - 12}행`);
   }
 
   /*

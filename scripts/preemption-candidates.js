@@ -60,7 +60,7 @@ const { DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate'
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { analyzeKeywordSignals, sortWeight } = require('../src/utils/keyword-intent');
 const { sharesSeedToken } = require('../src/utils/seed-drift');
-const { judgeEphemeralKeyword } = require('../src/utils/preemption-supply-guards');
+const { judgeEphemeralKeyword, judgeAnswerCardKeyword } = require('../src/utils/preemption-supply-guards');
 const { shardTopics } = require('./candidate-shards');
 
 function arg(name, fallback = '') {
@@ -332,6 +332,8 @@ async function main() {
     const overflow = [];
     /** 유통기한 며칠짜리 일정 조회. 자리가 비어 있어도 글이 바로 부패한다. */
     const ephemeralLog = [];
+    /** 카드로 답이 나오는 검색어 — 날씨·프로필·주가·운세. 블로그 클릭이 없다(2026-09-08). */
+    const answerCardLog = [];
     let expansionWarned = false;
 
     // ── 1) 확장 씨앗을 넓힌다 ──────────────────────────────────────────
@@ -535,6 +537,19 @@ async function main() {
       const rot = judgeEphemeralKeyword(row.keyword);
       if (rot.ephemeral) {
         ephemeralLog.push(`${row.keyword} — ${rot.reason}`);
+        continue;
+      }
+      /*
+       * 카드 답 컷(2026-09-08, 사장님 "블로그로 날씨 같은 걸 찾아볼까?") — 문서수 조회 전에.
+       *
+       * 직전 보드 122행 중 30행이 'xx cc 날씨'·'송강 프로필' 류였다. 골프장 이름이
+       * 씨앗으로 들어오면 자동완성이 '날씨'를 붙이고, 아무도 그 글을 안 쓰니 문서수가
+       * 적어 황금 비율이 된다 — 자리가 빈 게 아니라 쓸 게 없는 것이다. 발행 게이트도
+       * 같은 판정(board-dead-rows)을 하지만, 여기서 자르면 BD 크레딧을 안 태운다.
+       */
+      const card = judgeAnswerCardKeyword(row.keyword);
+      if (card.answerCard) {
+        answerCardLog.push(`${row.keyword} — ${card.reason}`);
         continue;
       }
       /*
@@ -755,7 +770,7 @@ async function main() {
     console.log(
       `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
       + ` 씨앗 ${String(expansionSeeds.size).padStart(3)} → 완결 ${String(phrases.size).padStart(4)}(조각 ${incompleteLog.length}·이탈 ${driftLog.length} 제외)`
-      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length}·부패 ${ephemeralLog.length} 제외) → 무료선별 ${String(preScreened.length).padStart(3)} 제외 → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
+      + ` → 수요통과 ${String(shortlist.length).padStart(3)}(식음 ${decliningLog.length}·부패 ${ephemeralLog.length}·카드 ${answerCardLog.length} 제외) → 무료선별 ${String(preScreened.length).padStart(3)} 제외 → 후보 ${String(measured.length).padStart(3)}건  ${seconds}초`,
     );
     return {
       topic,
@@ -766,6 +781,7 @@ async function main() {
       incomplete: incompleteLog.length, drift: driftLog.length, shortlist: shortlist.length,
       declining: decliningLog.length, decliningSamples: decliningLog.slice(0, 5),
       ephemeral: ephemeralLog.length, ephemeralSamples: ephemeralLog.slice(0, 5),
+      answerCard: answerCardLog.length, answerCardSamples: answerCardLog.slice(0, 5),
       driftSamples: driftLog.slice(0, 5),
       rows: measured.length, seconds,
       incompleteSamples: incompleteLog.slice(0, 8),
@@ -846,8 +862,15 @@ async function main() {
       const promotedRows = [];
       const promoScreened = [];
       const promoDeclining = [];
+      const promoCard = [];
       await mapWithConcurrency(withSv, concurrency, async (seedRow) => {
         if ((promotedByTopic[seedRow.topic] || 0) >= promotedPerTopic) return;
+        // 카드 답 검색어는 승격하지 않는다 — 본 발굴과 같은 컷(무료, 문서수 조회 전).
+        const card = judgeAnswerCardKeyword(seedRow.keyword);
+        if (card.answerCard) {
+          promoCard.push(`${seedRow.keyword} — ${card.reason}`);
+          return;
+        }
         let documentCount = null;
         try {
           documentCount = await getNaverBlogDocumentCount(seedRow.keyword, { config: openApi });
@@ -941,7 +964,7 @@ async function main() {
       }
       console.log(
         `승격 큐: 풀·서브 ${rawSeeds.length} → 검색량 확보 ${withSv.length}`
-        + ` → 승격 ${promotedRows.length}건 (무료선별 ${promoScreened.length}·식음 ${promoDeclining.length} 제외, 주제당 ≤${promotedPerTopic})`,
+        + ` → 승격 ${promotedRows.length}건 (무료선별 ${promoScreened.length}·식음 ${promoDeclining.length}·카드 ${promoCard.length} 제외, 주제당 ≤${promotedPerTopic})`,
       );
     } catch (error) {
       console.log(`승격 큐 건너뜀 — ${String(error && error.message || error).slice(0, 90)}`);

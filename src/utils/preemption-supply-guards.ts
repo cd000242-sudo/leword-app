@@ -33,6 +33,48 @@ const EPHEMERAL_PATTERNS: ReadonlyArray<{ pattern: RegExp; label: string }> = [
   { pattern: /방영일|방영 ?시간/, label: '방영 일정 조회 — 편성이 끝나면 죽는 검색이다' },
 ];
 
+export interface AnswerCardVerdict {
+  answerCard: boolean;
+  reason: string;
+}
+
+/*
+ * 카드 답 검색어 — 네이버가 결과 맨 위 카드로 직접 답해서 블로그 클릭이 없는 말.
+ *
+ * 왜(사장님 2026-09-08 "블로그로 날씨 같은 걸 찾아볼까? 프로필을 검색하지만 블로그를
+ * 찾아보는 사람이 있니?"): 발행 보드 122행 중 30행이 이 부류였고 24행이 'xx cc 날씨'였다.
+ * 검색량÷문서수는 크다 — 아무도 골프장 날씨 글을 안 쓰니까. 그런데 검색한 사람은
+ * 날씨 카드 한 줄로 만족하고 나간다. 자리가 빈 게 아니라 쓸 게 없는 것이다.
+ * 보강 AI 도 이미 "만족 조건이 전부 '한 줄 사실'"이라 판정했는데 등급이 못 봤다.
+ *
+ * 끝맺음(`$`)으로만 잡는다. 한글은 낱말 경계가 없어서 '나이'를 넣으면 톤틴연금
+ * 가입'나이'·쳇지피티 재미'나이'(Gemini)·'나이'스차저가 걸린다 — 실제 보드에 있던
+ * 행들이다. 사람 사실(나이·키·본명)은 여기서 안 잡고 SERP 인물 카드 마커(실측)와
+ * 수익 판정이 잡는다. 뒤에 말이 붙으면 글감이다('날씨 옷차림'·'금시세 전망'·'로또 명당').
+ */
+const ANSWER_CARD_PATTERNS: ReadonlyArray<{ pattern: RegExp; label: string }> = [
+  { pattern: /날씨$/, label: '날씨 카드가 답한다 — 예보 한 줄이면 나간다' },
+  { pattern: /프로필$/, label: '인물 정보 카드가 답한다 — 한 줄 사실 검색이다' },
+  { pattern: /(?:주가|환율)$|(?:금|은|코인|비트코인|이더리움|달러)시세$/, label: '증권·시세 카드가 답한다 — 숫자 하나면 나간다' },
+  { pattern: /운세$/, label: '운세 카드가 답한다' },
+  { pattern: /로또$|로또(?:당첨)?(?:번호|결과)(?:조회)?$/, label: '로또 결과 카드가 답한다' },
+  { pattern: /(?:주소|영업시간|전화번호|위치|오시는길)$/, label: '플레이스 카드가 답한다 — 주소·시간은 지도가 준다' },
+  { pattern: /지도$/, label: '지도 카드가 답한다' },
+  { pattern: /(?:사전|뜻|의미|영어로|한자로|일본어로|중국어로)$/, label: '사전 카드가 답한다' },
+  { pattern: /가사$/, label: '가사 카드가 답한다' },
+  { pattern: /(?:택배|배송|운송장)조회$|배송추적$/, label: '배송조회 카드가 답한다' },
+];
+
+/** 네이버가 카드로 직접 답하는 검색어인가. 순수 함수 — 판정 근거를 문장으로 남긴다. */
+export function judgeAnswerCardKeyword(keyword: string): AnswerCardVerdict {
+  const text = String(keyword || '').replace(/\s+/g, '').trim();
+  if (!text) return { answerCard: false, reason: '' };
+  for (const { pattern, label } of ANSWER_CARD_PATTERNS) {
+    if (pattern.test(text)) return { answerCard: true, reason: label };
+  }
+  return { answerCard: false, reason: '' };
+}
+
 /** 며칠짜리 일정 조회인가. 걸리면 이유(패턴 근거)를 같이 낸다. */
 export function judgeEphemeralKeyword(keyword: string): EphemeralVerdict {
   const text = String(keyword || '');
