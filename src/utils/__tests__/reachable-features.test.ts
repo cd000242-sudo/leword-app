@@ -102,11 +102,8 @@ describe('셸 사이드바 기능 도달 가능성', () => {
         expect(nav.map((n) => [n.screen, n.label])).toEqual(EXPECTED_NAV);
     });
 
-    it('라우터로 여는 항목마다 같은 이름의 화면 섹션이 있고, 라우터 등록표에도 있다', () => {
-        // 1단계: 모달 4종(자리 실측기·PRO·AdSense·AI 메이트)은 아직 열기 함수를 직접 부른다 — 2단계에서 화면으로 싣는다
-        const routed = nav.filter((n) => n.onclick.startsWith('showScreen('));
-        expect(routed.length).toBeGreaterThanOrEqual(4);
-        for (const { screen } of routed) {
+    it('항목마다 같은 이름의 화면 섹션이 있고, 화면은 라우터 등록표에도 있다', () => {
+        for (const [screen] of EXPECTED_NAV) {
             expect(html, `화면 섹션 없음: ${screen}`).toContain(`<section class="leword-screen" data-screen="${screen}"`);
             expect(screensJs, `등록표에 없음: ${screen}`).toMatch(new RegExp(`^\\s*${screen}:\\s*\\{`, 'm'));
         }
