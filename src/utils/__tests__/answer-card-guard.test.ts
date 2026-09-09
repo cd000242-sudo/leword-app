@@ -67,4 +67,10 @@ describe('카드 답 가드 — 블로그 글이 되는 말은 남긴다', () =>
         expect(judgeAnswerCardKeyword('').answerCard).toBe(false);
         expect(judgeAnswerCardKeyword(undefined as unknown as string).answerCard).toBe(false);
     });
+
+    it('시간표·물때 뒤에 시점이 붙어도 카드 답이다(제부도 물때시간표 2026년 8월)', () => {
+        expect(judgeAnswerCardKeyword('제부도 물때시간표 2026년 8월').answerCard).toBe(true);
+        expect(judgeAnswerCardKeyword('서울 지하철 시간표 9월').answerCard).toBe(true);
+        expect(judgeAnswerCardKeyword('시간표 만드는 법').answerCard).toBe(false);
+    });
 });
