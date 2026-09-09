@@ -117,8 +117,17 @@ jobs:
           node scripts/topic-briefs.js --out=topic-briefs.json --perField=5 --carry=site/spa/public/data/topic-briefs.json --serp="$SERP_MODE" --maxSerp="$MAX_SERP" --maxAltSerp=70 --skipIfSlotDone="$SKIP_IF_DONE"
 
       # 다른 정적 보드와 같은 폴더 — 화면(TopicBriefsBoard)이 /data/topic-briefs.json 을 읽는다.
+      #
+      # 파일이 없으면 건너뛴다. --skipIfSlotDone 으로 곧장 나간 틱은 결과 파일을 만들지 않는다 —
+      # 그걸 그대로 cp 하면 "No such file" 로 회차가 빨갛게 실패한다(2026-09-09 23:23 틱이 그랬다).
+      # 일 안 한 틱은 실패가 아니라 정상이다.
       - name: 사이트에 싣기
-        run: cp topic-briefs.json site/spa/public/data/topic-briefs.json
+        run: |
+          if [ ! -f topic-briefs.json ]; then
+            echo '이번 틱은 이미 실린 회차라 건너뛰었다 — 실을 것이 없다.'
+            exit 0
+          fi
+          cp topic-briefs.json site/spa/public/data/topic-briefs.json
 
       - name: 커밋·푸시
         working-directory: site

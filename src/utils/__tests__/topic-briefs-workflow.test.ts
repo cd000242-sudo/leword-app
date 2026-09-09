@@ -25,6 +25,14 @@ describe('오늘의 글감 워크플로', () => {
         expect(workflow).toContain('--skipIfSlotDone="$SKIP_IF_DONE"');
     });
 
+    it('건너뛴 틱은 실을 것이 없으므로 싣기 단계가 파일 없음을 견딘다', () => {
+        // 2026-09-09 23:23 틱 실사고: 건너뛰기는 제대로 동작했는데 다음 단계가 그대로 cp 해서
+        // "cannot stat 'topic-briefs.json'" 으로 회차가 실패로 찍혔다. 일 안 한 틱은 실패가 아니다.
+        const load = workflow.slice(workflow.indexOf('- name: 사이트에 싣기'), workflow.indexOf('- name: 커밋·푸시'));
+        expect(load).toContain('if [ ! -f topic-briefs.json ]');
+        expect(load).toContain('exit 0');
+    });
+
     it('뉴스 실측 오픈 API 키·구독 토큰·검색광고 키·사이트 배포키를 넘긴다', () => {
         expect(/NAVER_CLIENT_ID:\s*\$\{\{\s*secrets\.NAVER_CLIENT_ID\s*\}\}/.test(workflow)).toBe(true);
         expect(/CLAUDE_CODE_OAUTH_TOKEN:\s*\$\{\{\s*secrets\.CLAUDE_CODE_OAUTH_TOKEN\s*\}\}/.test(workflow)).toBe(true);
