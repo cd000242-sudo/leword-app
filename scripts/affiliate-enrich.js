@@ -75,10 +75,18 @@ async function main() {
       .replace(/\b\d+(?:\.\d+)?(?:kg|g|ml|l)\b/gi, ' ')
       .replace(/[,·+/×x]|\d+\s*[x×]\s*\d+/g, ' ')
       .replace(/\s+/g, ' ').trim();
-    const tokens = cleaned.split(' ').filter((t) => t && !/^\d+$/.test(t) && !/^[A-Za-z0-9-]{4,}$/.test(t)); // 모델명(영숫자 4+) 제외
-    let seed = '';
-    for (const t of tokens) { const next = seed ? `${seed} ${t}` : t; if (next.replace(/\s+/g, '').length > 15) break; seed = next; if (seed.split(' ').length >= 3) break; }
-    return seed;
+    /*
+     * 상품명에 흔한 수식어·색·치수는 품목이 아니다 — 3차 실주행에서 '가정용'(문서 795만)·'내외'·'무라벨'·'퓨어'·'컴팩트'가
+     * 씨앗이 됐다. 목록은 실측한 상품명에서 모은 것이고, 여기 없는 말은 남긴다(품목일 수 있다).
+     */
+    const STOP = new Set(['가정용', '업소용', '내외', '무라벨', '퓨어', '컴팩트', '프리미엄', '대용량', '소용량', '세트', '기획', '실속', '벌크', '정품', '신형', '구형',
+      '국내산', '국산', '수입', '미니', '라이트', '플러스', '오리지널', '스탠다드', '클래식', '베이직', '기본', '특대', '대', '중', '소', '사이즈', '전연령', '혼합', '모음',
+      '블랙', '화이트', '그레이', '라이트그레이', '네이비', '베이지', '와인', '핑크', '브라운', '레드', '블루', '그린', '옐로우', '아이보리', '차콜', '카키',
+      'free', 'xl', 'xxl', '2x', '3x', '원데이', '더', '신', '왕', '순', '생', '냉동', '냉장', '추가', '증정', '택1', '선택', '랜덤', '개입']);
+    const tokens = cleaned.split(' ').filter((t) => t && !/^\d+$/.test(t) && !/^[A-Za-z0-9-]{4,}$/.test(t) && !STOP.has(t.toLowerCase()) && !/^\d+[a-zA-Z가-힣]{0,2}$/.test(t)); // 모델명(영숫자 4+)·수식어·색·치수 제외
+    // 자르지 않고 전부 돌려준다 — 후보(뒤 두 어절·뒤 한 어절·앞 두 어절·앞 한 어절)를 만들 때 15자를 본다.
+    // 4차 실주행: 앞에서 3어절로 자르니 '코코에르 뽀송 에어'가 남고 품목 '바디 드라이어'가 잘려 나갔다.
+    return tokens.join(' ');
   };
   const tokensOf = (s) => String(s || '').toLowerCase().split(/[\s·,/()\-]+/).map((t) => t.replace(/[^0-9a-z가-힣]/g, '')).filter((t) => t.length >= 2);
   if (has('deriveMissing') && adConfig.accessLicense && adConfig.secretKey) {
@@ -96,7 +104,8 @@ async function main() {
        * '다리 마사지기' → '마사지기' → '굿프렌드 굿핏' → '굿프렌드' 순. 연관어가 잡히는 첫 씨앗에서 멈춘다.
        * 연관어는 띄어쓰기 없이 오기도 해서 토큰 일치가 아니라 **포함**으로 본다.
        */
-      const words = fullSeed.split(' ').filter((w) => w.length >= 2);
+      // 짧은 라틴 토큰(CAT·No·DOG)은 후보에서 뺀다 — 'CAT' 이 씨앗이 되어 'CATERPILLAR' 가 니즈로 붙었다(4차 실주행).
+      const words = fullSeed.split(' ').filter((w) => w.length >= 2 && !/^[A-Za-z]{1,3}$/.test(w));
       const seedCandidates = [...new Set([
         words.slice(-2).join(' '), words.slice(-1).join(' '), words.slice(0, 2).join(' '), words[0] || '',
       ].filter((s) => s && s.replace(/\s+/g, '').length >= 2 && s.replace(/\s+/g, '').length <= 15))];
@@ -118,14 +127,19 @@ async function main() {
       for (const cand of seedCandidates) {
         seed = cand;
         const head = norm(cand.split(' ').slice(-1)[0]); // 머리 명사(마지막 어절)
+        const headIsKorean = /[가-힣]/.test(head);
         let suggestions = [];
-        try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, cand, 80); } catch { suggestions = []; }
-        await sleep(1200);
+        for (let attempt = 0; attempt < 2 && suggestions.length === 0; attempt += 1) {
+          try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, cand, 80); } catch { suggestions = []; }
+          await sleep(attempt === 0 ? 1500 : 3000); // 몰아 부르면 429 — 비면 한 번 더
+        }
         pool = suggestions
-          .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && norm(s.keyword).length <= 20 && head.length >= 2 && norm(s.keyword).includes(head))
+          .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && norm(s.keyword).length <= 20 && head.length >= 2
+            // 한글 머리는 포함으로, 라틴 머리는 통째 일치로(부분 일치는 딴 말을 부른다)
+            && (headIsKorean ? norm(s.keyword).includes(head) : norm(s.keyword) === head))
           .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume);
         seedVolume = await volumeOf(cand);
-        await sleep(1200);
+        await sleep(1500);
         if (pool.length > 0 || (typeof seedVolume === 'number' && seedVolume >= 100)) break;
       }
       // 연관어에 없으면 씨앗 자신이 니즈다('깻잎무침'·'배수구 냄새 제거제' — 연관어는 딴 말만 주는데 씨앗엔 검색량이 있다).
