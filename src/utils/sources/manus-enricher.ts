@@ -19,6 +19,9 @@ import {
   ProTrafficKeyword,
 } from '../pro-traffic-keyword-hunter';
 import { callAI } from '../pro-hunter-v12/ai-client';
+import { runClaude } from '../agent-cli/claudeRunner';
+import { runCodex } from '../agent-cli/codexRunner';
+import { runWithAnyAgent } from '../agent-cli/runAny';
 
 const MANUS_API_BASE = 'https://api.manus.ai/v2';
 const MANUS_AGENT_PROFILE = 'manus-1.6';
@@ -530,7 +533,11 @@ function pruneOldTasks(): void {
   }
 }
 
-export type EnrichmentProvider = 'manus' | 'claude';
+/**
+ * 'agent' = 구독 CLI(클로드코드 → 코덱스 폴백). 사장님 2026-09-09 "이것도 에이전트로 바꿔. API 는 안 쓸 거야, 돈 들고 비싸".
+ * 'claude'(Anthropic API 키)·'manus'(건당 $1~5)는 코드만 남긴다 — 화면에서는 안 고른다.
+ */
+export type EnrichmentProvider = 'manus' | 'claude' | 'agent';
 
 export interface StartEnrichmentOptions {
   category?: string;
@@ -546,7 +553,7 @@ export function startEnrichment<T extends { keyword: string; manusInsight?: Manu
   pruneOldTasks();
 
   const requestId = randomUUID();
-  const provider: EnrichmentProvider = options.provider || 'manus';
+  const provider: EnrichmentProvider = options.provider || 'agent';
   const now = Date.now();
 
   // 키 검증 — provider별
@@ -628,7 +635,7 @@ async function runEnrichmentBackground<T extends { keyword: string; manusInsight
   if (!task) return;
   task.status = 'running';
 
-  const provider: EnrichmentProvider = options.provider || 'manus';
+  const provider: EnrichmentProvider = options.provider || 'agent';
   const topN = Math.min(options.topN || MAX_TOP_N, MAX_TOP_N);
   const targets = keywords.slice(0, topN);
   const tag = `${provider.toUpperCase()}`;
@@ -671,6 +678,16 @@ async function runEnrichmentBackground<T extends { keyword: string; manusInsight
       task.rawContentSample = pollResult.rawSample;
       task.rawDataKeys = pollResult.rawKeys;
       console.log(`[MANUS] [${requestId}] 응답 수신 — assistant_messages=${assistantTexts.length}, json 첨부=${jsonAttachments.length}`);
+    } else if (provider === 'agent') {
+      // 구독 CLI — 건당 비용 0. 클로드코드가 막히면 코덱스로 넘어간다(runWithAnyAgent).
+      const t = taskRegistry.get(requestId);
+      if (t) t.manusStatus = 'calling agent';
+      const run = await runWithAnyAgent(prompt, [
+        { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'opus' }) },
+        { provider: 'codex', run: runCodex },
+      ], { timeoutMs: 240_000 });
+      assistantTexts = [run.reply];
+      if (t) t.manusStatus = `parsing (${run.provider})`;
     } else {
       // Claude 단발 호출 — Manus 대비 50~100배 저렴, 단 실시간 웹 데이터 X
       console.log(`[CLAUDE] [${requestId}] callAI 호출 — 단발 (5~15초 예상)`);

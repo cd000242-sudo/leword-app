@@ -1000,7 +1000,7 @@ export function setupPremiumHuntingHandlers(): void {
       category?: string;
       topN?: number;
       targetRookie?: boolean;
-      provider?: 'manus' | 'claude';
+      provider?: 'manus' | 'claude' | 'agent';
     }) => {
       try {
         const keywords = Array.isArray(payload?.keywords) ? payload.keywords : [];
@@ -1008,7 +1008,7 @@ export function setupPremiumHuntingHandlers(): void {
           category: payload.category,
           topN: payload.topN,
           targetRookie: payload.targetRookie,
-          provider: payload.provider || 'manus',
+          provider: payload.provider || 'agent',
         });
         return { success: true, requestId, immediate: immediate || null };
       } catch (err: any) {
