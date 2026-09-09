@@ -44,6 +44,13 @@ describe('validateKeywordBrief', () => {
     });
 });
 
+describe('오늘 날짜는 언제나 근거', () => {
+    it('"9월 9일 기준"은 카드 없이도 통과한다', () => {
+        const r = validateKeywordBrief({ ...good, timing: 'ALWAYS', factIds: [], value: '9월 9일 기준 월 검색량 2,940 에 정면 글 2건뿐이다.' }, row, [], TODAY);
+        expect(r.ok).not.toBeNull();
+    });
+});
+
 describe('본문 카드 표기 걷기', () => {
     it('"(f4)"·"[f2, f3]"는 문장에서 빠진다', () => {
         const r = validateKeywordBrief({ ...good, value: '월 검색량 2,940 인데 정면 글이 2건뿐이다(f1). 상시 문의가 있다 [f1, f2].' }, row, facts, TODAY);

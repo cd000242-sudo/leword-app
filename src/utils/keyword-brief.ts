@@ -132,7 +132,8 @@ export function validateKeywordBrief(raw: unknown, row: KeywordBriefRow, facts: 
    * 날짜·숫자의 허용 출처는 그 키워드의 카드 **전부**다(인용 여부와 무관). 카드는 모두 그 키워드로 실측한 기사라
    * 근거이고, 첫 실주행(2026-09-09)에서 6/19 가 "인용 안 한 카드의 날짜"로 떨어졌다. 화면의 근거 링크는 인용분만.
    */
-  const evidenceDates = facts.flatMap((f) => [...f.dates, kstToday(new Date(f.publishedAt)).toISOString().slice(0, 10)]);
+  // 오늘 날짜("9월 9일 기준")는 언제나 근거다 — 제휴 첫 실주행에서 이걸로 떨어졌다.
+  const evidenceDates = [today.toISOString().slice(0, 10), ...facts.flatMap((f) => [...f.dates, kstToday(new Date(f.publishedAt)).toISOString().slice(0, 10)])];
   const foreignDates = extractDates(value, today.toISOString()).filter((x) => !evidenceDates.some((c) => sameDate(x, c)));
   if (foreignDates.length) return { ok: null, reason: `근거에 없는 날짜 ${foreignDates.join(',')} — "${value.slice(0, 80)}"` };
   // 숫자 — 실측 수치 목록이나 카드 본문에 있어야 한다.
