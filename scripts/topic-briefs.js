@@ -51,6 +51,21 @@ async function main() {
   try { carried = carryPath && fs.existsSync(carryPath) ? JSON.parse(fs.readFileSync(carryPath, 'utf8')) : null; } catch { carried = null; }
   const priorRounds = todaysRounds(carried && Array.isArray(carried.rounds) ? carried.rounds : [], today);
 
+  /*
+   * --skipIfSlotDone: 이 회차가 오늘 이미 실렸으면 아무것도 하지 않고 나간다.
+   *
+   * 왜(사장님 2026-09-10 "오늘의 글감도 또 안바껴"): 깃허브 예약이 늦거나 아예 빠진다.
+   * 실측 — 09-09 09:23 예약이 13:47 에 돌았고(4.4시간), 21:23·03:23 예약은 돌지 않았다.
+   * 늦으면 회차 이름까지 밀린다(아침 예약이 11시 넘어 돌면 '오후'로 기록된다).
+   * 그래서 회차마다 예약을 여러 번 걸고, 먼저 도는 하나만 일하고 나머지는 여기서 곧장 나간다.
+   * 비용이 드는 단계(뉴스·에이전트·검색광고·자리 실측) 앞이라 헛돈이 안 나간다.
+   */
+  if (arg('skipIfSlotDone') === 'true' && priorRounds.some((r) => r.slot === slot)) {
+    const done = priorRounds.find((r) => r.slot === slot);
+    console.log(`${slot} 회차는 오늘 이미 실렸다(${done.builtAt} · 글감 ${done.briefs.length}). 아무것도 하지 않고 나간다.`);
+    process.exit(0);
+  }
+
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const cfg = manager.getConfig();
   const openApi = { clientId: cfg.naverClientId || process.env.NAVER_CLIENT_ID || '', clientSecret: cfg.naverClientSecret || process.env.NAVER_CLIENT_SECRET || '' };

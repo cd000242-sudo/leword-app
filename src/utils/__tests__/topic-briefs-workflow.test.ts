@@ -10,8 +10,19 @@ const root = path.join(__dirname, '..', '..', '..');
 const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'topic-briefs.yml'), 'utf8');
 
 describe('오늘의 글감 워크플로', () => {
-    it('하루 3회차 — 정각을 피한 06:23 · 12:23 · 18:23 KST (UTC 21:23 · 03:23 · 09:23). 정각 스케줄은 GitHub 가 미루거나 떨어뜨린다(2026-09-09 실측)', () => {
-        expect([...workflow.matchAll(/cron:\s*'([^']+)'/g)].map((m) => m[1])).toEqual(['23 21 * * *', '23 3 * * *', '23 9 * * *']);
+    it('회차마다 예약을 세 번 건다 — 아침·오후·저녁 각 3틱. 먼저 도는 하나만 일한다', () => {
+        // :23 으로 옮긴 뒤에도 09-09 09:23 예약이 13:47 에 돌았고(4.4시간), 21:23·03:23 은 아예 안 돌았다.
+        // 늦으면 회차 이름까지 밀려 아침이 통째로 빈다 — 그래서 한 회차에 예약을 여러 번 건다.
+        expect([...workflow.matchAll(/cron:\s*'([^']+)'/g)].map((m) => m[1])).toEqual([
+            '23 21 * * *', '23 22 * * *', '23 23 * * *',
+            '23 3 * * *', '23 4 * * *', '23 5 * * *',
+            '23 9 * * *', '23 10 * * *', '23 11 * * *',
+        ]);
+    });
+
+    it('예약 실행은 이미 실린 회차를 건너뛴다 — 수동 실행은 건너뛰지 않는다', () => {
+        expect(workflow).toContain("SKIP_IF_DONE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}");
+        expect(workflow).toContain('--skipIfSlotDone="$SKIP_IF_DONE"');
     });
 
     it('뉴스 실측 오픈 API 키·구독 토큰·검색광고 키·사이트 배포키를 넘긴다', () => {

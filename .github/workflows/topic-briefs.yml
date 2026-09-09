@@ -13,9 +13,24 @@ on:
   schedule:
     # 하루 3회차 — 아침 07:00 · 오후 13:00 · 저녁 19:00 KST (사장님 2026-09-09: 시의성 글감은 낮에도 생긴다)
     # 정각을 피한다(:23) — GitHub 는 정각 스케줄을 몰려서 미루거나 떨어뜨린다. 2026-09-09 13:00 회차가 안 돌았고 추천키워드 06:30 은 2시간 늦게 돌았다(실측).
+    #
+    # 회차마다 예약을 세 번 건다(2026-09-10). :23 으로 옮긴 뒤에도 예약이 늦거나 빠졌다 —
+    # 09-09 09:23 예약은 13:47 에 돌았고(4.4시간 늦음), 21:23·03:23 예약은 아예 돌지 않았다.
+    # 늦으면 회차 이름까지 밀린다: 아침 예약이 한국시간 11시를 넘겨 돌면 '오후'로 기록되고
+    # 아침 회차는 그날 통째로 빈다(09-09 아침이 그랬다).
+    # 먼저 도는 하나만 일하고 나머지는 --skipIfSlotDone 으로 곧장 나간다(비용 드는 단계 앞에서).
+    # 아침 = 한국 06:23 · 07:23 · 08:23
     - cron: '23 21 * * *'
+    - cron: '23 22 * * *'
+    - cron: '23 23 * * *'
+    # 오후 = 한국 12:23 · 13:23 · 14:23
     - cron: '23 3 * * *'
+    - cron: '23 4 * * *'
+    - cron: '23 5 * * *'
+    # 저녁 = 한국 18:23 · 19:23 · 20:23
     - cron: '23 9 * * *'
+    - cron: '23 10 * * *'
+    - cron: '23 11 * * *'
   workflow_dispatch:
     inputs:
       serp:
@@ -93,10 +108,13 @@ jobs:
           LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":12000}'
           SERP_MODE: ${{ github.event.inputs.serp || 'brightdata' }}
           MAX_SERP: ${{ github.event.inputs.maxSerp || '80' }}
+          SKIP_IF_DONE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
         run: |
           mkdir -p site/data
           npm install -g @anthropic-ai/claude-code
-          node scripts/topic-briefs.js --out=topic-briefs.json --perField=5 --carry=site/spa/public/data/topic-briefs.json --serp="$SERP_MODE" --maxSerp="$MAX_SERP" --maxAltSerp=70
+          # skipIfSlotDone: 이 회차가 오늘 이미 실렸으면 곧장 나간다(예약을 회차마다 세 번 걸어 둔 까닭).
+          # 수동 실행(workflow_dispatch)은 다시 돌리려는 뜻이므로 건너뛰지 않는다.
+          node scripts/topic-briefs.js --out=topic-briefs.json --perField=5 --carry=site/spa/public/data/topic-briefs.json --serp="$SERP_MODE" --maxSerp="$MAX_SERP" --maxAltSerp=70 --skipIfSlotDone="$SKIP_IF_DONE"
 
       # 다른 정적 보드와 같은 폴더 — 화면(TopicBriefsBoard)이 /data/topic-briefs.json 을 읽는다.
       - name: 사이트에 싣기
