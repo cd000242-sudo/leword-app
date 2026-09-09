@@ -4155,6 +4155,8 @@
             if (loginBtn) { await agentCliLoginFlow(loginBtn); return; }
             const codeBtn = e.target.closest('[data-agent-codesubmit]');
             if (codeBtn) { await agentCliSubmitCode(codeBtn); return; }
+            const copyBtn = e.target.closest('[data-agent-copylog]');
+            if (copyBtn) { try { await navigator.clipboard.writeText(copyBtn.getAttribute('data-copy-text') || ''); copyBtn.textContent = '복사됨'; } catch { copyBtn.textContent = '복사 실패'; } return; }
             const testBtn = e.target.closest('[data-agent-test]');
             if (testBtn) { await agentCliTest(testBtn); return; }
             const subBtn = e.target.closest('[data-agent-subscribe]');
@@ -4235,20 +4237,34 @@
          * 자동 설치 — 앱 전용 공간(userData)에 설치하므로 관리자 권한도,
          * Node.js 설치도 필요 없다. 진행 콜백이 없는 API 라 단일 스피너다.
          */
+        /*
+         * 설치 단계 진단(사장님 2026-09-09 "초보자도 쉽게, 안 되는 컴도 있고 계속 물어볼 순 없다").
+         * 어느 길(공식 설치기 → npm)에서 왜 멈췄는지 한 줄씩 보이고, [로그 복사]로 그대로 보낼 수 있게 한다.
+         */
+        function agentInstallStepsHtml(res) {
+          const steps = (res && Array.isArray(res.steps)) ? res.steps : [];
+          if (!steps.length) return '';
+          const mark = (st) => st === 'ok' ? '✅' : st === 'failed' ? '❌' : '⏭';
+          const lines = steps.map((s, i) => '<div style="font-size:11.5px; color:#475569; margin-top:3px;">' + (i + 1) + '. ' + mark(s.status) + ' ' + laneEsc(s.name) + (s.detail ? ' — ' + laneEsc(s.detail) : '') + '</div>').join('');
+          const text = steps.map((s, i) => (i + 1) + '. ' + mark(s.status) + ' ' + s.name + (s.detail ? ' — ' + s.detail : '')).join('\n');
+          return '<div style="margin-top:6px; padding:8px 10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">' + lines
+            + '<button type="button" data-agent-copylog="1" data-copy-text="' + laneEsc(text) + '" style="margin-top:6px; border:1px solid #cbd5e1; background:white; border-radius:6px; padding:3px 9px; font-size:11px; cursor:pointer;">📋 로그 복사</button></div>';
+        }
+
         async function agentCliInstall(btn) {
           const provider = btn.getAttribute('data-agent-install');
           const slot = document.getElementById(btn.getAttribute('data-slot') || '');
           if (!slot) return;
           slot.style.display = 'block';
-          slot.innerHTML = '<span style="color:#64748b;">⬇ 설치 중… 최대 5분 (앱 전용 공간 — 관리자 권한·Node 설치 불필요)</span>';
+          slot.innerHTML = '<span style="color:#64748b;">⬇ 설치 중… 최대 5분 — 공식 설치기(Node·관리자 권한 불필요)로 먼저 받고, 안 되면 앱 전용 공간에 npm 으로 받습니다</span>';
           btn.disabled = true;
           try {
             const res = await sendIPCRequest('agent-cli-install', { provider });
             if (res && res.success) {
-              slot.innerHTML = `<span style="color:#15803d; font-weight:700;">✅ 설치 완료${res.version ? ' (v' + laneEsc(res.version) + ')' : ''} — 이제 로그인만 하면 연동됩니다.</span>`;
+              slot.innerHTML = `<span style="color:#15803d; font-weight:700;">✅ 설치 완료${res.version ? ' (v' + laneEsc(res.version) + ')' : ''}${res.method === 'native' ? ' · 공식 설치기' : res.method === 'npm' ? ' · 앱 전용 공간' : ''} — 이제 로그인만 하면 연동됩니다.</span>` + agentInstallStepsHtml(res);
               await agentCliRefresh(true);
             } else {
-              slot.innerHTML = `<span style="color:#dc2626;">❌ 설치 실패: ${laneEsc(res && res.error)}</span>`;
+              slot.innerHTML = `<span style="color:#dc2626;">❌ 설치 실패: ${laneEsc(res && res.error)}</span>` + agentInstallStepsHtml(res);
             }
           } finally {
             btn.disabled = false;
@@ -4280,15 +4296,15 @@
            * 누르면 "CLI 를 못 찾음"으로 끝났다 — 사용자는 왜 안 되는지 모른다.
            */
           if (btn.getAttribute('data-needs-install') === '1') {
-            slot.innerHTML = '<span style="color:#64748b;">⬇ 먼저 설치합니다… 최대 5분 (앱 전용 공간 — 관리자 권한·Node 설치 불필요)</span>';
+            slot.innerHTML = '<span style="color:#64748b;">⬇ 먼저 설치합니다… 최대 5분 — 공식 설치기(Node·관리자 권한 불필요)로 먼저 받고, 안 되면 앱 전용 공간에 npm 으로 받습니다</span>';
             btn.disabled = true;
             try {
               const installed = await sendIPCRequest('agent-cli-install', { provider });
               if (!installed || !installed.success) {
-                slot.innerHTML = `<span style="color:#dc2626;">❌ 설치 실패: ${laneEsc(installed && installed.error)}</span>`;
+                slot.innerHTML = `<span style="color:#dc2626;">❌ 설치 실패: ${laneEsc(installed && installed.error)}</span>` + agentInstallStepsHtml(installed);
                 return;
               }
-              slot.innerHTML = '<span style="color:#15803d;">✅ 설치 완료 — 이어서 로그인합니다…</span>';
+              slot.innerHTML = `<span style="color:#15803d;">✅ 설치 완료${installed.method === 'native' ? ' (공식 설치기)' : ''} — 이어서 로그인합니다…</span>`;
             } catch (error) {
               slot.innerHTML = `<span style="color:#dc2626;">❌ 설치 실패: ${laneEsc(String(error && error.message || error))}</span>`;
               return;

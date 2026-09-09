@@ -23,6 +23,8 @@ import {
   buildGrokSubscriptionEnv,
 } from './subscriptionEnv';
 import { resolveNpmInvocation } from './npmInvocation';
+import { buildNpmInstallEnv } from './subscriptionEnv';
+import { describeNativeInstallFailure, nativeInstallCommand, type InstallStep } from './nativeInstaller';
 import { AgentCliError, type AgentCliStatus, type AgentProvider } from './types';
 import { requireAgentProvider } from './validation';
 import { sanitizeUserVisibleError } from './userVisibleError';
@@ -142,8 +144,75 @@ function buildAgentCommandEnv(provider: AgentProvider): NodeJS.ProcessEnv {
  * Install the CLI globally via npm and confirm it became reachable.
  * @throws AgentCliError on npm failure or if the binary is still missing afterwards.
  */
-export async function installAgent(provider: AgentProvider): Promise<{ version?: string }> {
+export interface InstallAgentResult {
+  version?: string;
+  /** 어느 길로 깔렸나 — 'native'(공식 단일 실행 파일) | 'npm'(앱 전용 프리픽스) */
+  method: 'native' | 'npm';
+  /** 단계별 진단 — 렌더러가 그대로 보여 주고 "로그 복사"로 복사한다. */
+  steps: InstallStep[];
+}
+
+/** 실패해도 단계 진단을 함께 돌려준다 — 초보자가 "왜 안 되는지"를 볼 수 있어야 한다. */
+export class AgentInstallError extends AgentCliError {
+  constructor(base: AgentCliError, public readonly steps: InstallStep[]) {
+    super(base.code, base.provider, base.message, base.detail);
+    this.name = 'AgentInstallError';
+  }
+}
+
+/**
+ * Claude 는 **네이티브 설치기**를 먼저 쓴다(사장님 2026-09-09 "되는 컴이 있는 반면 안 되는 컴도 있다").
+ * npm 부트스트랩(registry.npmjs.org 에서 npm 내려받기)이 백신·회사망에 막히던 컴에서도, 공식 스크립트는
+ * claude.ai 에서 단일 실행 파일만 받아 사용자 폴더에 놓는다 — Node·npm·관리자 권한 전부 불필요.
+ * 실패하면 예전 npm 길로 폴백한다. 어느 길이든 마지막은 detect 재검증이다.
+ */
+export async function installAgent(provider: AgentProvider): Promise<InstallAgentResult> {
   provider = requireAgentProvider(provider);
+  const steps: InstallStep[] = [];
+  const verify = async (method: InstallAgentResult['method']): Promise<InstallAgentResult | null> => {
+    const { clearAgentDetectionCache, detectAgent } = await import('./detect');
+    clearAgentDetectionCache(provider);
+    const status = await detectAgent(provider, { forceRefresh: true });
+    if (status.installed) {
+      steps.push({ name: 'CLI 감지', status: 'ok', detail: status.version ? `v${status.version}` : undefined });
+      return { version: status.version, method, steps };
+    }
+    steps.push({ name: 'CLI 감지', status: 'failed', detail: '설치는 끝났다는데 실행 파일을 못 찾음' });
+    return null;
+  };
+
+  if (provider === 'claude') {
+    const cmd = nativeInstallCommand();
+    try {
+      const res = await spawnCollect({ command: cmd.command, args: cmd.args, provider, timeoutMs: INSTALL_TIMEOUT_MS, env: buildNpmInstallEnv() });
+      if (res.code === 0) {
+        steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'ok' });
+        const verified = await verify('native');
+        if (verified) return verified;
+      } else {
+        steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'failed', detail: describeNativeInstallFailure(res.code, res.stdout, res.stderr) });
+      }
+    } catch (err) {
+      steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'failed', detail: sanitizeUserVisibleError((err as Error)?.message || String(err)).slice(0, 200) });
+    }
+  } else {
+    steps.push({ name: '네이티브 설치', status: 'skipped', detail: `${provider} 는 npm 으로만 설치` });
+  }
+
+  try {
+    const result = await installViaNpm(provider, steps);
+    steps.push({ name: 'npm 설치(앱 전용 공간)', status: 'ok' });
+    const verified = await verify('npm');
+    if (verified) return { ...verified, version: verified.version || result.version };
+    throw new AgentCliError('not_installed', provider, '설치는 끝났지만 CLI를 아직 찾지 못했습니다. 앱을 재시작한 뒤 다시 시도해주세요.');
+  } catch (err) {
+    const base = err instanceof AgentCliError ? err : new AgentCliError('nonzero_exit', provider, String((err as Error)?.message || err));
+    if (!steps.some((s) => s.name.startsWith('npm 설치'))) steps.push({ name: 'npm 설치(앱 전용 공간)', status: 'failed', detail: base.message });
+    throw new AgentInstallError(base, steps);
+  }
+}
+
+async function installViaNpm(provider: AgentProvider, _steps: InstallStep[]): Promise<{ version?: string }> {
   const pkg = AGENT_NPM_PACKAGES[provider];
   const packageSpec = `${pkg}@${AGENT_NPM_PACKAGE_VERSIONS[provider]}`;
 
@@ -206,17 +275,9 @@ export async function installAgent(provider: AgentProvider): Promise<{ version?:
     );
   }
 
-  const { clearAgentDetectionCache, detectAgent } = await import('./detect');
-  clearAgentDetectionCache(provider);
-  const status = await detectAgent(provider);
-  if (!status.installed) {
-    throw new AgentCliError(
-      'not_installed',
-      provider,
-      '설치는 끝났지만 CLI를 아직 찾지 못했습니다. 앱(또는 터미널)을 재시작한 뒤 다시 시도해주세요.',
-    );
-  }
-  return { version: status.version };
+  // 감지 재검증은 installAgent 의 verify() 가 한다(네이티브·npm 공통).
+  const versionMatch = /(\d+\.\d+\.\d+)/.exec(res.stdout || '');
+  return { version: versionMatch ? versionMatch[1] : undefined };
 }
 
 /**

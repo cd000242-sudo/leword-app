@@ -21,7 +21,7 @@ import type { AgentProvider, AgentCliStatus } from '../../utils/agent-cli/types'
 import { runClaude } from '../../utils/agent-cli/claudeRunner';
 import { runCodex } from '../../utils/agent-cli/codexRunner';
 import { runGemini } from '../../utils/agent-cli/geminiRunner';
-import { installAgent, loginAgent, logoutAgent } from '../../utils/agent-cli/installer';
+import { AgentInstallError, installAgent, loginAgent, logoutAgent } from '../../utils/agent-cli/installer';
 
 const PROVIDERS: readonly AgentProvider[] = ['claude', 'codex', 'gemini', 'grok'];
 
@@ -93,11 +93,13 @@ export function setupAgentCliHandlers(): void {
     try {
       const result = await installAgent(provider);
       clearAgentDetectionCache(provider);
-      return { success: true, provider, version: result.version || '', elapsedMs: Date.now() - started };
+      // method·steps 를 그대로 넘긴다 — 렌더러가 단계별로 보여 주고 "로그 복사"에 쓴다(사장님 2026-09-09).
+      return { success: true, provider, version: result.version || '', method: result.method, steps: result.steps, elapsedMs: Date.now() - started };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[AGENT-CLI] ${provider} 설치 실패:`, message);
-      return { success: false, provider, error: message, elapsedMs: Date.now() - started };
+      const steps = error instanceof AgentInstallError ? error.steps : [];
+      console.error(`[AGENT-CLI] ${provider} 설치 실패:`, message, steps);
+      return { success: false, provider, error: message, steps, elapsedMs: Date.now() - started };
     }
   });
 

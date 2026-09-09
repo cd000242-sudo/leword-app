@@ -98,6 +98,17 @@ export function getGrokInstallDirs(): readonly string[] {
   return home ? [join(home, '.grok', 'bin')] : [];
 }
 
+/**
+ * Claude Code **네이티브 설치기**가 두는 곳 — Node·npm 없이 도는 단일 실행 파일(사장님 2026-09-09
+ * "되는 컴이 있는 반면 안 되는 컴도 있다"). 공식 설치 스크립트(claude.ai/install.ps1 · install.sh)는
+ * 사용자 프로필 `.local/bin` 에 claude(.exe) 를 놓고 사용자 PATH 에 더한다 — 앱은 그 PATH 갱신을
+ * 못 보므로(로그온 환경 고정) 이 폴더를 직접 PATH 앞에 얹는다. 웹 2회 교차 확인(code.claude.com/docs/en/setup).
+ */
+export function getClaudeNativeInstallDirs(env: NodeJS.ProcessEnv = process.env): readonly string[] {
+  const home = env.USERPROFILE || env.HOME;
+  return home ? [join(home, '.local', 'bin')] : [];
+}
+
 function pathKeyOf(env: NodeJS.ProcessEnv): string {
   return Object.keys(env).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH';
 }
