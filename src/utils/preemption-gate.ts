@@ -103,8 +103,9 @@ export const DEFAULT_PREEMPTION_THRESHOLDS: PreemptionThresholds = {
    * 이 값은 후보 선별(preemption-candidates)·게이트·batch 의 단일 출처라 한 곳만
    * 올리면 세 곳에 함께 반영된다(주석 아래 minSearchVolume 설명 참조).
    */
-  // 1,000(2026-09-09, 사장님): 500~1천 구간이 보드의 절반이었는데 1위를 해도 하루 몇 명이다. 추천키워드 표는 500 을 따로 쓴다.
-  minSearchVolume: 1000,
+  // 500(2026-09-09 오후, 사장님 "진행해"): 1,000 으로 올렸더니 19행뿐이라 500~999 구간(지난 회차 52행)을 다시 연다.
+  // 자리 게이트·죽은 검색어 게이트는 그대로다 — 하한만 내린다. 1,000 은 하루 만에 실측(146→19)으로 과했음이 드러났다.
+  minSearchVolume: 500,
   minSampledTitles: 5,
   topSlots: 3,
   /*

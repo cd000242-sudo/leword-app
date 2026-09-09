@@ -295,11 +295,11 @@ describe('선점 보드 워크플로 — 씨앗 잡 키', () => {
         expect(step).toContain('NAVER_SEARCH_AD_CUSTOMER_ID');
     });
 
-    it('발행 게이트는 하한 1,000 과 자리(1페이지 빈자리 또는 정면 ≤2)를 요구한다', () => {
+    it('발행 게이트는 하한 500 과 자리(1페이지 빈자리 또는 정면 ≤2)를 요구한다', () => {
         const publish = fs.readFileSync(path.join(root, 'scripts', 'publish-preemption-board.js'), 'utf8');
         expect(publish).toContain('&& Number(row.searchVolume) >= minVolume');
         expect(publish).toContain('&& hasSeat(row)');
         const gate = fs.readFileSync(path.join(root, 'src', 'utils', 'preemption-gate.ts'), 'utf8');
-        expect(gate).toContain('minSearchVolume: 1000,');
+        expect(gate).toContain('minSearchVolume: 500,');
     });
 });
