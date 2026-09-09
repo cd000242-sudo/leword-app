@@ -778,7 +778,8 @@
       </div>
 
       <!-- v2.42.73: 5개 패널로 확장 (네이버 + ZUM + 네이트 + 다음 + 스타뉴스) -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+      <!-- 2×2 고정(사장님 2026-09-09 "3X3 이 아니라 2X2 로") — auto-fit 은 넓은 화면에서 3+1 로 깨졌다. -->
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
         <!-- 네이버 (Signal.bz) - 메인! -->
         <div
           style="background: white; border-radius: 16px; padding: 20px; border: 3px solid #03c75a; box-shadow: 0 4px 12px rgba(3, 199, 90, 0.3);">
