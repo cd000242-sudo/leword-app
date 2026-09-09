@@ -56,6 +56,66 @@ async function main() {
   const cfg = manager.getConfig();
   const openApi = { clientId: cfg.naverClientId || process.env.NAVER_CLIENT_ID || '', clientSecret: cfg.naverClientSecret || process.env.NAVER_CLIENT_SECRET || '' };
 
+  /*
+   * 0) 검색어가 없는 상품에 검색어를 붙인다(--deriveMissing, 사장님 2026-09-09 "초보자들이 뭘 적어야 될지 모르는데").
+   * 수집기는 상품당 24개까지만 검색어를 뽑아 토스 126 중 111 이 빈 채였다. 상품명에서 씨앗(수량·단위·브랜드 꼬리를 뺀
+   * 앞 두세 어절, 검색광고 힌트 한도 15자)을 만들고, 검색광고 연관어 중 같은 주제·검색량 100+ 를 니즈 검색어로 삼아
+   * 검색량·블로그 문서수를 실측한다. 전부 실측이고 추정은 없다.
+   */
+  const adConfig = {
+    accessLicense: cfg.naverSearchAdAccessLicense || process.env.NAVER_SEARCH_AD_ACCESS_LICENSE || '',
+    secretKey: cfg.naverSearchAdSecretKey || process.env.NAVER_SEARCH_AD_SECRET_KEY || '',
+    customerId: cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '',
+  };
+  const seedOf = (name) => {
+    const cleaned = String(name || '')
+      .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+      .replace(/\b\d+(?:\.\d+)?\s*(?:kg|g|ml|l|리터|개|개입|팩|봉|박스|세트|매|장|정|캡슐|포|병|캔|입|p|ea|호|인용|인분|과|미|마리|롤|통|스틱)\b/gi, ' ')
+      .replace(/\b\d+(?:\.\d+)?(?:kg|g|ml|l)\b/gi, ' ')
+      .replace(/[,·+/×x]|\d+\s*[x×]\s*\d+/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+    const tokens = cleaned.split(' ').filter((t) => t && !/^\d+$/.test(t) && !/^[A-Za-z0-9-]{4,}$/.test(t)); // 모델명(영숫자 4+) 제외
+    let seed = '';
+    for (const t of tokens) { const next = seed ? `${seed} ${t}` : t; if (next.replace(/\s+/g, '').length > 15) break; seed = next; if (seed.split(' ').length >= 3) break; }
+    return seed;
+  };
+  const tokensOf = (s) => String(s || '').toLowerCase().split(/[\s·,/()\-]+/).map((t) => t.replace(/[^0-9a-z가-힣]/g, '')).filter((t) => t.length >= 2);
+  if (has('deriveMissing') && adConfig.accessLicense && adConfig.secretKey) {
+    const { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+    const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
+    const missing = items.filter((it) => !it.needKeyword && !it.keyword);
+    console.log(`검색어 붙이기 — 대상 ${missing.length}`);
+    let derived = 0;
+    for (const item of missing) {
+      const seed = seedOf(item.name);
+      if (seed.length < 2) continue;
+      let suggestions = [];
+      try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, seed, 60); } catch { suggestions = []; }
+      const seedTokens = new Set(tokensOf(seed));
+      const pool = suggestions
+        .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && s.keyword.trim().split(/\s+/).length <= 4 && tokensOf(s.keyword).some((t) => seedTokens.has(t)))
+        .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume);
+      let seedVolume = null;
+      try { const v = await getNaverSearchAdKeywordVolume(adConfig, [seed]); const row = (v || []).find((x) => String(x.keyword || '').replace(/\s+/g, '') === seed.replace(/\s+/g, '')); seedVolume = row && typeof row.totalSearchVolume === 'number' ? row.totalSearchVolume : null; } catch { seedVolume = null; }
+      const need = pool[0] || null;
+      item.keyword = seed;
+      item.searchVolume = seedVolume;
+      if (need) {
+        item.needKeyword = need.keyword;
+        item.needVolume = need.totalSearchVolume;
+        try { item.needDocs = await getNaverBlogDocumentCount(need.keyword, { config: openApi }); } catch { item.needDocs = null; }
+        item.needRatio = typeof item.needDocs === 'number' && item.needDocs > 0 ? Number((need.totalSearchVolume / item.needDocs).toFixed(3)) : null;
+      }
+      try { item.documentCount = await getNaverBlogDocumentCount(seed, { config: openApi }); } catch { item.documentCount = null; }
+      item.derivedAt = new Date().toISOString();
+      derived += 1;
+      console.log(`  + ${item.name.slice(0, 28)} → 씨앗 "${seed}"(${seedVolume ?? '<10'}) · 니즈 "${need ? need.keyword : '없음'}"${need ? `(${need.totalSearchVolume}, 문서 ${item.needDocs ?? '?'})` : ''}`);
+      await sleep(350);
+      fs.writeFileSync(outPath, JSON.stringify(snapshot, null, 2), 'utf8');
+    }
+    console.log(`  검색어 붙임 ${derived}/${missing.length}`);
+  }
+
   // 1) 자리 실측 — 후보 검색어(니즈 → 상품명)마다 블로그탭을 받아 잰다. 같은 검색어는 한 번만.
   const candidatesOf = (item) => [...new Set([item.needKeyword, item.keyword].map((k) => String(k || '').trim()).filter((k) => k.length >= 2))];
   const targets = items.filter((item) => candidatesOf(item).length > 0);
@@ -99,8 +159,12 @@ async function main() {
       return toFactCards((data && data.items) || [], '제휴').sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 10);
     } catch { return []; }
   };
-  const briefTargets = targets.filter((it) => it.seat && (it.seat.verdict === '열림' || it.seat.verdict === '반열림') && !(it.brief && it.brief.builtAt && Date.now() - new Date(it.brief.builtAt).getTime() < 7 * 24 * 3600 * 1000)).slice(0, maxAi);
-  console.log(`  브리프 대상 ${briefTargets.length} (자리 열림·반열림, 상한 ${maxAi})`);
+  // --briefAll: 자리가 잠긴 상품에도 붙인다(사장님 2026-09-09 "초보자들이 뭘 적어야 될지 모르는데") — 브리프의 '차별화'가 우회 각도를 준다.
+  const briefTargets = targets.filter((it) => it.seat && (has('briefAll') || it.seat.verdict === '열림' || it.seat.verdict === '반열림') && !(it.brief && it.brief.builtAt && Date.now() - new Date(it.brief.builtAt).getTime() < 7 * 24 * 3600 * 1000))
+    .sort((a, b) => ({ '열림': 0, '반열림': 1 }[a.seat.verdict] ?? 2) - ({ '열림': 0, '반열림': 1 }[b.seat.verdict] ?? 2))
+    .slice(0, maxAi);
+  console.log(`  브리프 대상 ${briefTargets.length} (${has('briefAll') ? '자리 잰 상품 전부' : '자리 열림·반열림'}, 상한 ${maxAi})`);
+  snapshot.enrichedAt = new Date().toISOString();
   let done = 0; let failed = 0;
   for (const item of briefTargets) {
     const kw = item.seat.keyword;
@@ -120,7 +184,8 @@ async function main() {
     };
     const facts = await newsFacts(kw);
     const prompt = buildKeywordBriefPrompt(row, facts, today)
-      + '\n\n이 글감은 제휴 상품 글이다: 글 안에서 위 제휴 상품을 자연스럽게 다루되, 검색하는 사람의 질문(비교·선택 기준·사용법)에 먼저 답하는 구조여야 한다. angle 에 그 연결을 한 문장으로 적어라.';
+      + '\n\n이 글감은 제휴 상품 글이다: 글 안에서 위 제휴 상품을 자연스럽게 다루되, 검색하는 사람의 질문(비교·선택 기준·사용법)에 먼저 답하는 구조여야 한다. angle 에 그 연결을 한 문장으로 적어라.'
+      + (item.seat.verdict === '잠김' ? '\n자리가 잠긴 검색어다(상위 10 이 정면 글로 찼다). differentiation 과 angle 은 정면 승부가 아니라 초보 블로그가 비집을 좁은 각도(대상·상황·조건을 붙인 제목)를 구체적으로 제시하라.' : '');
     let reply = '';
     try { reply = (await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 150_000 })).reply; } catch (error) { failed += 1; console.log(`  ✗ ${kw} — 에이전트 ${String((error && error.message) || error).slice(0, 60)}`); continue; }
     const { ok, reason } = validateKeywordBrief(tryExtractJson(reply), row, facts, today);
