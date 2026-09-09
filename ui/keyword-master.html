@@ -2303,6 +2303,7 @@
                 <th style="padding: 12px; text-align: center; font-weight: 700;">총 검색량</th>
                 <th style="padding: 12px; text-align: center; font-weight: 700;">문서수</th>
                 <th style="padding: 12px; text-align: center; font-weight: 700;">황금비율</th>
+                <th style="padding: 12px; text-align: center; font-weight: 700;" title="내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 센 값 — [자리 실측] 버튼을 누르면 채워집니다">자리 실측</th>
                 <th style="padding: 12px; text-align: center; font-weight: 700;">타입</th>
                 <th style="padding: 12px; text-align: center; font-weight: 700;">액션</th>
               </tr>
@@ -2412,6 +2413,7 @@
                 ${goldenRatioDisplay}
               </span>
             </td>
+            <td class="seat-cell" data-seat-kw="${String(kw.keyword || '').replace(/"/g, '&quot;')}" style="padding: 12px; text-align: center; font-size: 12px; color: #94a3b8;">—</td>
             <td style="padding: 12px; text-align: center;">
               <span style="font-size: 11px; font-weight: 600; color: ${typeColor}; background: ${typeColor}20; padding: 4px 8px; border-radius: 6px;">
                 ${typeLabel}
@@ -2441,6 +2443,7 @@
       `;
 
           resultsDiv.innerHTML = html;
+          if (typeof window.injectSeatBar === 'function') window.injectSeatBar(resultsDiv);
 
           // 발굴 개수 업데이트
           const countSpan = document.getElementById('discoveryCount');
@@ -3937,6 +3940,7 @@
                 <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">합산 검색량</th>
                 <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">문서량</th>
                 <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">황금비율</th>
+                <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;" title="내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 센 값">자리 실측</th>
                 <th style="padding: 14px 10px; text-align: left; font-size: 13px; font-weight: 700;">판정</th>
                 <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">월수익</th>
                 <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;">검색</th>
@@ -4022,6 +4026,7 @@
             <td style="padding: 12px 10px; text-align: right; font-weight: 700; color: #334155;">${totalVolDisplay}</td>
             <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #64748b;">${docCount.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: right; color: ${goldenRatioColor}; font-weight: 800;">${goldenRatioDisplay}</td>
+            <td class="seat-cell" data-seat-kw="${String(item.keyword || '').replace(/"/g, '&quot;')}" style="padding: 12px 10px; text-align: center; font-size: 12px; color: #94a3b8;">—</td>
             <td style="padding: 12px 10px; text-align: left; max-width: 200px;">
               <div style="font-size: 11px; color: #64748b; line-height: 1.4; word-break: keep-all;">${verdictPrefix}${goldenReason}</div>
             </td>
@@ -4072,6 +4077,7 @@
       `;
 
           resultsDiv.innerHTML = html;
+          if (typeof window.injectSeatBar === 'function') window.injectSeatBar(resultsDiv);
         }
 
         // HTML 이스케이프 — 아래 AI 엔진 연동 화면이 쓴다(황금키워드 레인은 2026-09-09 사이트로 이관, 여기서 삭제).
@@ -8056,6 +8062,80 @@
          * 내 PC 브라우저로 센다. 판정기는 브라이트데이터 파이프라인 것과 같다(seat-measure.ts).
          * 센 것만 적는다 — 차단·오류는 '자료없음'으로 남기고 잰 척하지 않는다.
          */
+        /*
+         * 발굴 결과 자리 실측 — 사장님 2026-09-10 "황금키워드 발굴도 SERP 로 찾게, 앱은 사이트보다 할 수 있는 게 많을 텐데".
+         * 앱만 할 수 있는 것: 내 PC 브라우저로 네이버 블로그탭·통합검색을 실제로 받아(무료, BD 없음) 빈자리·정면 글·카드·광고를 센다.
+         * 결과 표 위 [자리 실측] 버튼 → 표 순서대로 상위 N개를 자리 실측기(seat-measure-run)로 보내 '자리 실측' 칸을 채우고,
+         * [자리순 정렬] 로 열림 → 반열림 → 잠김 → 카드답 순으로 세운다. 안 잰 행은 '—' 그대로(0 이 아니라 모름).
+         */
+        window.injectSeatBar = function injectSeatBar(container) {
+          if (!container || !container.querySelector('td.seat-cell')) return;
+          if (container.querySelector('[data-seat-bar]')) return;
+          const total = container.querySelectorAll('td.seat-cell').length;
+          const bar = document.createElement('div');
+          bar.setAttribute('data-seat-bar', '1');
+          bar.style.cssText = 'display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; padding:10px 12px; border-radius:10px; background:#0f172a; color:#e2e8f0; font-size:12.5px;';
+          bar.innerHTML = '<strong style="color:#fbbf24;">🪑 자리 실측</strong>'
+            + '<span style="opacity:.8;">내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 셉니다 (무료 · 건당 약 2초)</span>'
+            + '<select data-seat-limit style="font:inherit; padding:4px 8px; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#e2e8f0;">'
+            + '<option value="20">상위 20개</option><option value="30" selected>상위 30개</option><option value="50">상위 50개</option><option value="100">상위 100개</option></select>'
+            + '<button type="button" data-seat-run style="font:inherit; font-weight:800; padding:6px 12px; border-radius:8px; border:1px solid #fbbf24; background:#fbbf24; color:#1e293b; cursor:pointer;">자리 실측 시작</button>'
+            + '<button type="button" data-seat-sort style="font:inherit; font-weight:700; padding:6px 12px; border-radius:8px; border:1px solid #475569; background:transparent; color:#e2e8f0; cursor:pointer;" disabled>자리순 정렬</button>'
+            + '<span data-seat-status style="opacity:.85;">' + total + '개 중 아직 안 잼</span>';
+          container.insertBefore(bar, container.firstChild);
+          bar.querySelector('[data-seat-run]').addEventListener('click', () => { void window.seatEnrichResults(container, Number(bar.querySelector('[data-seat-limit]').value) || 30); });
+          bar.querySelector('[data-seat-sort]').addEventListener('click', () => window.seatSortResults(container));
+        };
+
+        const SEAT_VERDICT_RANK = { '열림': 0, '반열림': 1, '자료없음': 2, '잠김': 3, '카드답': 4 };
+        const SEAT_VERDICT_STYLE = {
+          '열림': 'background:#dcfce7; color:#166534;', '반열림': 'background:#fef3c7; color:#92400e;',
+          '잠김': 'background:#fee2e2; color:#991b1b;', '카드답': 'background:#fee2e2; color:#991b1b;', '자료없음': 'background:#e2e8f0; color:#475569;',
+        };
+        function seatCellHtml(row) {
+          if (!row || row.status === 'blocked') return '<span style="color:#f59e0b;">막힘(429)</span>';
+          if (!row.verdict) return '<span style="color:#94a3b8;">못 잼</span>';
+          const detail = [row.vacancy != null ? row.vacancy + '위 빔' : null, typeof row.facing === 'number' ? '정면 ' + row.facing : null, row.aiBriefing ? 'AI브리핑' : null, row.cards && row.cards.length ? row.cards.join('·') + ' 카드' : null].filter(Boolean).join(' · ');
+          return '<span data-seat-verdict="' + row.verdict + '" style="display:inline-block; padding:2px 8px; border-radius:999px; font-weight:800; font-size:11px; ' + (SEAT_VERDICT_STYLE[row.verdict] || '') + '">' + row.verdict + '</span>'
+            + (detail ? '<div style="font-size:11px; color:#64748b; margin-top:3px;">' + detail + '</div>' : '');
+        }
+        window.seatEnrichResults = async function seatEnrichResults(container, limit) {
+          const bar = container.querySelector('[data-seat-bar]'); if (!bar) return;
+          const runBtn = bar.querySelector('[data-seat-run]'); const status = bar.querySelector('[data-seat-status]');
+          const cells = Array.from(container.querySelectorAll('td.seat-cell')).filter((c) => !c.hasAttribute('data-seat-done')).slice(0, limit);
+          if (cells.length === 0) { status.textContent = '더 잴 행이 없습니다.'; return; }
+          const keywords = cells.map((c) => c.getAttribute('data-seat-kw') || '').filter(Boolean);
+          runBtn.disabled = true; status.textContent = '실측 준비 중… (' + keywords.length + '개)';
+          if (typeof window.__seatMeasureOff === 'function') { try { window.__seatMeasureOff(); } catch {} }
+          window.__seatMeasureOff = window.electronAPI.on('seat-measure-progress', (pr) => {
+            if (!pr) return;
+            status.textContent = '실측 중 ' + pr.done + '/' + pr.total + (pr.blocked ? ' · 막힘 ' + pr.blocked : '') + (pr.keyword ? ' · ' + pr.keyword + (pr.verdict ? ' → ' + pr.verdict : '') : '');
+          });
+          try {
+            const result = await window.electronAPI.invoke('seat-measure-run', { keywords: keywords.join('\n'), withStructure: true });
+            const byKw = new Map(((result && result.rows) || []).map((r) => [String(r.keyword || '').replace(/\s+/g, ''), r]));
+            for (const cell of cells) {
+              const row = byKw.get(String(cell.getAttribute('data-seat-kw') || '').replace(/\s+/g, ''));
+              cell.innerHTML = seatCellHtml(row);
+              if (row && row.verdict) cell.setAttribute('data-seat-done', '1');
+            }
+            const sm = (result && result.summary) || {};
+            status.textContent = '끝 — 잰 것 ' + (sm.measured || 0) + ' · 열림 ' + (sm.open || 0) + ' · 경합 ' + (sm.contested || 0) + ' · 잠김 ' + (sm.locked || 0) + ' · 카드답 ' + (sm.card || 0) + (sm.blocked ? ' · 막힘 ' + sm.blocked + '(잠시 뒤 다시)' : '') + ' · ' + (sm.seconds || 0) + '초';
+            bar.querySelector('[data-seat-sort]').disabled = false;
+          } catch (error) {
+            status.textContent = '실측 실패: ' + String((error && error.message) || error);
+          } finally {
+            runBtn.disabled = false;
+            if (typeof window.__seatMeasureOff === 'function') { try { window.__seatMeasureOff(); } catch {} window.__seatMeasureOff = null; }
+          }
+        };
+        window.seatSortResults = function seatSortResults(container) {
+          const tbody = container.querySelector('tbody'); if (!tbody) return;
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          const rank = (tr) => { const v = tr.querySelector('[data-seat-verdict]'); return v ? (SEAT_VERDICT_RANK[v.getAttribute('data-seat-verdict')] ?? 5) : 9; };
+          rows.map((tr, i) => ({ tr, i, r: rank(tr) })).sort((a, b) => a.r - b.r || a.i - b.i).forEach(({ tr }) => tbody.appendChild(tr));
+        };
+
         window.openSeatMeasureModal = function openSeatMeasureModal() {
           if (document.getElementById('seatMeasureModal')) { document.getElementById('seatMeasureModal').style.display = 'flex'; return; }
           const wrap = document.createElement('div');
