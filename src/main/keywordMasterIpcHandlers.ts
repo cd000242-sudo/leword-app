@@ -17,6 +17,7 @@ import { setupAgentCliHandlers } from './handlers/agent-cli-handlers';
 import { setupSeatMeasureHandlers } from './handlers/seat-measure';
 import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler } from './handlers/seat-watch';
 import { setupBlogClassHandlers } from './handlers/blog-class';
+import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
 import { startWebBridgeHost } from './web-bridge-host';
 import { startRefreshScheduler, stopRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker, stopLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
@@ -68,6 +69,7 @@ function stopBackgroundWorkers(): void {
   stopPrecrawler();
   stopRankTracker();
   stopSeatWatchScheduler();
+  stopRealtimeNicheScheduler();
   stopLifecycleTracker();
   stopRefreshScheduler();
 }
@@ -150,6 +152,8 @@ export function setupKeywordMasterHandlers() {
   startSeatWatchScheduler();
   // 내 블로그 체급(앱 전용, 2026-09-10) — 내 블로그 사실을 초보자 말로 읽어 준다.
   setupBlogClassHandlers();
+  // 실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 같은 판정을 이 PC 브라우저로 상한 없이.
+  setupRealtimeNicheHandlers();
   // 웹 ↔ 클로드코드 브리지 — 사이트가 이 PC 의 구독 CLI 를 쓰는 통로(127.0.0.1 전용).
   startWebBridgeHost();
 

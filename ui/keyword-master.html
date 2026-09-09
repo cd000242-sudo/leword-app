@@ -761,6 +761,39 @@
 
     <!-- 화면 1: 실시간 검색어 (기본 화면) -->
     <section class="leword-screen" data-screen="realtime" data-active>
+    <!--
+      실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 **같은 판정**을 이 PC 브라우저로 상한 없이 돌린다.
+      사이트: 브라이트데이터(유료 쿼터) · 하루 3회 · 자리 20건 상한 — PC 가 꺼져 있어도 도는 보장선.
+      앱  : 이 PC 크로미엄 · 비용 0 · 자리 상한 없음 · 몇 분 간격으로 실시간을 따라간다.
+      두 판이 다른 답을 내지 않도록 엔진과 자리 판정 코드를 그대로 공유한다.
+    -->
+    <div id="realtimeNichePanel"
+      style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.09); margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+        <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
+          🎯 실시간 틈새 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
+        </h3>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <select id="realtimeNicheAuto" onchange="setRealtimeNicheAuto()"
+            style="padding: 7px 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 12.5px;">
+            <option value="0" selected>자동 끔</option>
+            <option value="30">30분마다</option>
+            <option value="60">1시간마다</option>
+          </select>
+          <button id="realtimeNicheRunBtn" onclick="runRealtimeNiche()"
+            style="padding: 8px 14px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">지금 재기</button>
+          <button id="realtimeNicheAbortBtn" onclick="abortRealtimeNiche()" disabled
+            style="padding: 8px 12px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer; opacity: 0.6;">중지</button>
+        </div>
+      </div>
+      <p style="margin: 0 0 10px; font-size: 12px; color: #64748b;">
+        실시간 검색어에서 후보를 뽑아 검색량·문서수·데이터랩 수요를 재고, 통과한 것은 이 PC 브라우저로 블로그탭 자리를 <b style="color:#94a3b8;">전부</b> 잽니다.
+        비용 0 · 건당 약 2초 · 네이버가 막으면(403/429) 멈췄다 다시 합니다.
+      </p>
+      <div id="realtimeNicheStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums; margin-bottom: 8px;">아직 안 쟀습니다.</div>
+      <div id="realtimeNicheBody"></div>
+    </div>
+
     <!-- 실시간 검색어 모니터링 섹션 (2x2 그리드) -->
     <div id="realtimeKeywordsSection"
       style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.09);">
@@ -2868,6 +2901,7 @@
             setTimeout(() => { try { window.loadStarNewsTrending?.(); } catch {} }, 600);
             setTimeout(() => { try { window.loadPolicyBriefingFresh?.(); } catch {} }, 700);
             setTimeout(() => {
+              if (typeof window.loadRealtimeNiche === 'function') window.loadRealtimeNiche();
               if (typeof window.loadRealtimeKeywordsTop === 'function') {
                 console.log('[KEYWORD-MASTER] loadRealtimeKeywordsTop 호출 시작');
                 window.loadRealtimeKeywordsTop().catch(err => {
@@ -8287,6 +8321,126 @@
             button.disabled = false; button.style.opacity = '1';
             if (window.__blogClassOff) { try { window.__blogClassOff(); } catch {} window.__blogClassOff = null; }
           }
+        };
+
+        /*
+         * 실시간 틈새 — 화면 쪽. 판정·문장은 전부 메인 프로세스가 만든 것을 그대로 찍는다.
+         * 여기서 등급이나 확률을 새로 만들지 않는다(추정치 금지).
+         */
+        const NICHE_VERDICT_STYLE = {
+          niche: 'background:#dcfce7; color:#166534;',
+          preemption: 'background:#fef3c7; color:#92400e;',
+          pending: 'background:#e2e8f0; color:#475569;',
+        };
+        const NICHE_VERDICT_LABEL = { niche: '틈새', preemption: '선점 후보', pending: '자리 대기', out: '탈락' };
+        const NICHE_SEAT_STYLE = { '열림': 'color:#22c55e;', '반열림': 'color:#f59e0b;', '잠김': 'color:#f87171;', '못 잼': 'color:#64748b;' };
+
+        window.loadRealtimeNiche = async function loadRealtimeNiche() {
+          try {
+            const res = await window.electronAPI.invoke('realtime-niche-get');
+            if (res && res.success) {
+              if (res.result) renderRealtimeNiche(res.result);
+              const auto = document.getElementById('realtimeNicheAuto');
+              if (auto && res.autoMinutes) auto.value = String(res.autoMinutes);
+            }
+          } catch { /* 저장된 게 없으면 그냥 둔다 */ }
+        };
+
+        function nicheNum(value) { return value === null || value === undefined ? '—' : Number(value).toLocaleString('ko-KR'); }
+
+        window.renderRealtimeNiche = function renderRealtimeNiche(result) {
+          const body = document.getElementById('realtimeNicheBody');
+          const status = document.getElementById('realtimeNicheStatus');
+          if (!body || !result) return;
+          const s = result.summary || {};
+          const when = result.ranAt ? new Date(result.ranAt).toLocaleTimeString('ko-KR') : '';
+          status.innerHTML = '<b style="color:#e2e8f0;">틈새 ' + (s.niche || 0) + '</b>'
+            + ' · 선점 후보 ' + (s.preemption || 0) + ' · 자리 대기 ' + (s.pending || 0)
+            + ' &nbsp;|&nbsp; 이슈 ' + (s.issues || 0) + ' → 후보 ' + (s.candidates || 0)
+            + ' · 트래픽 ' + (s.trafficPass || 0) + ' · 수요 ' + (s.demandPass || 0)
+            + ' · 자리 잰 것 ' + (s.slotMeasured || 0) + (s.blocked ? ' · 막힘 ' + s.blocked : '')
+            + ' &nbsp;|&nbsp; ' + when + ' · ' + (result.seconds || 0) + '초'
+            + ((result.newKeywords && result.newKeywords.length) ? ' &nbsp;|&nbsp; <span style="color:#fbbf24;">새로 들어온 검색어 ' + result.newKeywords.length + '</span>' : '');
+          const rows = result.rows || [];
+          if (rows.length === 0) {
+            body.innerHTML = '<div style="padding:14px; color:#64748b; font-size:13px;">이번 회차에는 트래픽·수요를 통과한 검색어가 없습니다. 실시간 이슈가 바뀌면 다시 잡힙니다.</div>';
+            return;
+          }
+          const isNew = new Set(result.newKeywords || []);
+          body.innerHTML = '<div style="overflow-x:auto; border:1px solid rgba(255,255,255,0.1); border-radius:10px;">'
+            + '<table style="width:100%; border-collapse:collapse; font-size:13px;">'
+            + '<thead><tr style="background:rgba(255,255,255,0.05); color:#94a3b8; font-size:11.5px;">'
+            + '<th style="text-align:left; padding:9px 10px;">검색어</th>'
+            + '<th style="text-align:left; padding:9px 10px;">이슈</th>'
+            + '<th style="text-align:right; padding:9px 10px;">검색량</th>'
+            + '<th style="text-align:right; padding:9px 10px;">문서수</th>'
+            + '<th style="text-align:left; padding:9px 10px;">수요</th>'
+            + '<th style="text-align:left; padding:9px 10px;">자리</th>'
+            + '<th style="text-align:left; padding:9px 10px;">판정</th>'
+            + '<th style="padding:9px 6px;"></th></tr></thead><tbody>'
+            + rows.map((r) => '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
+              + '<td style="padding:9px 10px; font-weight:600;">' + r.keyword
+                + (isNew.has(r.keyword) ? ' <span style="font-size:10px; font-weight:800; padding:1px 6px; border-radius:999px; background:rgba(251,191,36,0.18); color:#fbbf24;">NEW</span>' : '')
+              + '</td>'
+              + '<td style="padding:9px 10px; color:#94a3b8;">' + (r.baseKeyword || '') + '</td>'
+              + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + nicheNum(r.searchVolume) + '</td>'
+              + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + nicheNum(r.documentCount) + '</td>'
+              + '<td style="padding:9px 10px;">' + (r.hasLiveDemand ? '<span style="color:#22c55e;">▲ 실측</span>' : '<span style="color:#64748b;">—</span>') + '</td>'
+              + '<td style="padding:9px 10px;"><span style="font-weight:700; ' + (NICHE_SEAT_STYLE[r.seat] || '') + '">' + r.seat + '</span>'
+                + (r.seatFacing !== null && r.seatFacing !== undefined ? '<span style="color:#64748b; font-size:11.5px;"> · 정면 ' + r.seatFacing + '</span>' : '') + '</td>'
+              + '<td style="padding:9px 10px;"><span style="display:inline-block; padding:2px 8px; border-radius:999px; font-weight:800; font-size:11px; ' + (NICHE_VERDICT_STYLE[r.verdict] || '') + '">' + (NICHE_VERDICT_LABEL[r.verdict] || r.verdict) + '</span></td>'
+              + '<td style="padding:9px 6px; text-align:right;"><button onclick="openNaverSearch(\'' + String(r.keyword).replace(/'/g, "\\'") + '\')" style="padding:4px 9px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#e2e8f0; font-size:11.5px; cursor:pointer;">네이버</button></td>'
+              + '</tr>').join('')
+            + '</tbody></table></div>';
+        };
+
+        window.openNaverSearch = function openNaverSearch(keyword) {
+          const url = 'https://search.naver.com/search.naver?ssc=tab.blog.all&query=' + encodeURIComponent(keyword);
+          if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(url);
+          else window.open(url, '_blank');
+        };
+
+        window.runRealtimeNiche = async function runRealtimeNiche() {
+          const run = document.getElementById('realtimeNicheRunBtn');
+          const abort = document.getElementById('realtimeNicheAbortBtn');
+          const status = document.getElementById('realtimeNicheStatus');
+          run.disabled = true; run.style.opacity = '0.6';
+          abort.disabled = false; abort.style.opacity = '1';
+          status.textContent = '실시간 검색어를 받는 중…';
+          if (window.__realtimeNicheOff) { try { window.__realtimeNicheOff(); } catch {} }
+          window.__realtimeNicheOff = window.electronAPI.on('realtime-niche-progress', (p) => {
+            if (!p) return;
+            if (p.result) { renderRealtimeNiche(p.result); return; }
+            status.textContent = p.message || '재는 중…';
+          });
+          try {
+            const res = await window.electronAPI.invoke('realtime-niche-run', {});
+            if (res && res.success) renderRealtimeNiche(res.result);
+            else status.innerHTML = '<span style="color:#fca5a5;">' + ((res && res.error) || '실측 실패') + '</span>';
+          } catch (error) {
+            status.innerHTML = '<span style="color:#fca5a5;">' + String((error && error.message) || error) + '</span>';
+          } finally {
+            run.disabled = false; run.style.opacity = '1';
+            abort.disabled = true; abort.style.opacity = '0.6';
+            if (window.__realtimeNicheOff) { try { window.__realtimeNicheOff(); } catch {} window.__realtimeNicheOff = null; }
+          }
+        };
+
+        window.abortRealtimeNiche = async function abortRealtimeNiche() {
+          try { await window.electronAPI.invoke('realtime-niche-abort'); } catch {}
+          const status = document.getElementById('realtimeNicheStatus');
+          if (status) status.textContent = '중지 요청 — 재던 것까지만 남깁니다…';
+        };
+
+        window.setRealtimeNicheAuto = async function setRealtimeNicheAuto() {
+          const minutes = Number(document.getElementById('realtimeNicheAuto')?.value) || 0;
+          try {
+            const res = await window.electronAPI.invoke('realtime-niche-auto', { minutes });
+            const status = document.getElementById('realtimeNicheStatus');
+            if (status && res && res.success) {
+              status.textContent = res.autoMinutes ? res.autoMinutes + '분마다 자동으로 다시 잽니다.' : '자동 회차를 껐습니다.';
+            }
+          } catch { /* 무시 */ }
         };
 
         window.__seatMeasureRows = [];
