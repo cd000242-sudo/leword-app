@@ -32,6 +32,7 @@ describe('오늘의 글감 워크플로', () => {
         // 앞 회차를 이어받아 아침·오후·저녁을 한 파일에 쌓고, 주제마다 5개 이상
         expect(workflow).toContain('--carry=site/spa/public/data/topic-briefs.json');
         expect(workflow).toContain('--perField=5');
+        expect(workflow).toContain('--maxAltSerp=70');
     });
 
     it('자리 실측은 BD 로 회차 글감 전부(상한 80, 달 8,000 — 사장님 2026-09-09 오후) — 기능 briefs 장부를 사이트 레포에 두고 표와 함께 커밋한다', () => {
@@ -39,7 +40,7 @@ describe('오늘의 글감 워크플로', () => {
         expect(/MAX_SERP:\s*\$\{\{\s*github\.event\.inputs\.maxSerp\s*\|\|\s*'80'\s*\}\}/.test(workflow)).toBe(true);
         expect(/BRIGHTDATA_TOKEN:\s*\$\{\{\s*secrets\.BRIGHTDATA_TOKEN\s*\}\}/.test(workflow)).toBe(true);
         expect(workflow).toContain('LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json');
-        expect(workflow).toContain('LEWORD_BRIGHTDATA_FEATURE_CAPS: \'{"briefs":8000}\'');
+        expect(workflow).toContain('LEWORD_BRIGHTDATA_FEATURE_CAPS: \'{"briefs":12000}\'');
         expect(workflow).toContain('git add data/brightdata-quota-briefs.json');
         // 장부를 읽어야 하므로 사이트 체크아웃이 글감 뽑기보다 앞이다
         expect(workflow.indexOf('사이트 레포 체크아웃')).toBeLessThan(workflow.indexOf('scripts/topic-briefs.js'));

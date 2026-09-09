@@ -50,6 +50,19 @@ export interface TopicBrief extends BriefDraft {
   serpVacancy: number | null;
   serpFit: '높음' | '보통' | '낮음' | '미측정';
   star: boolean;
+  /**
+   * 대안 검색어 — 핵심 검색어가 '낮음/보통'일 때, 같은 주제의 더 좁은 검색어 중 자리를 실측해 열린 것
+   * (사장님 2026-09-09 "SERP 적합성이 낮으면 그 글을 쓰면 별로 안 좋은 거 아니야"). 없으면 null = 재 봤는데 없음, 미정의 = 안 잼.
+   */
+  alternative?: BriefAlternative | null;
+}
+
+export interface BriefAlternative {
+  keyword: string;
+  searchVolume: number | null;
+  serpFacing: number | null;
+  serpVacancy: number | null;
+  serpFit: '높음' | '보통' | '낮음' | '미측정';
 }
 
 /** 분야와 뉴스 질의 — 공식 신호어(시행·접수·출시·개봉·접종·축제·예매·발표)를 섞는다. */
@@ -337,10 +350,49 @@ export function serpFitOf(facing: number | null, vacancy: number | null): TopicB
 
 /** ★ — 실측이 뒷받침하는 것만: 적합성 높음이면서 검색량이 있거나(≥500) NOW/NEXT 로 날짜가 박힌 것. */
 export function markStars(briefs: TopicBrief[]): TopicBrief[] {
-  return briefs.map((b) => ({
-    ...b,
-    star: b.serpFit === '높음' && ((b.searchVolume != null && b.searchVolume >= 500) || b.timing !== 'ALWAYS'),
-  }));
+  return briefs.map((b) => {
+    // 핵심 검색어가 열렸거나, 대안 검색어가 열렸으면 — 그 열린 검색어의 검색량으로 판단한다.
+    const viaCore = b.serpFit === '높음';
+    const viaAlt = !viaCore && b.alternative?.serpFit === '높음';
+    const volume = viaCore ? b.searchVolume : viaAlt ? (b.alternative?.searchVolume ?? null) : null;
+    return { ...b, star: (viaCore || viaAlt) && ((volume != null && volume >= 500) || b.timing !== 'ALWAYS') };
+  });
+}
+
+const tokensOf = (s: string) => s.toLowerCase().split(/[\s·,/()\-]+/).map((t) => t.replace(/[^0-9a-z가-힣]/g, '')).filter((t) => t.length >= 2);
+
+/**
+ * 대안 검색어 후보 — 브리프의 다른 후보 검색어 + 검색광고 연관어 중 같은 주제(핵심 검색어와 토큰 하나 이상 공유),
+ * 검색량 100+, 5어절 이하, 핵심과 다른 것. 검색량 큰 순 limit 개. 자리는 호출 쪽이 잰다.
+ */
+export function pickAltCandidates(
+  brief: Pick<TopicBrief, 'coreKeyword' | 'keywords'>,
+  suggestions: ReadonlyArray<{ keyword: string; totalSearchVolume: number | null }>,
+  volumesOfOwn: ReadonlyMap<string, number | null>,
+  limit = 3,
+): Array<{ keyword: string; searchVolume: number }> {
+  const norm = (k: string) => k.replace(/\s+/g, '').toLowerCase();
+  const core = norm(brief.coreKeyword);
+  const coreTokens = new Set(brief.keywords.flatMap(tokensOf));
+  const pool = new Map<string, number>();
+  for (const k of brief.keywords) {
+    // 검색량 지도는 스크립트가 공백만 걷은 키로 둔다(applyMeasuredVolumes 와 같은 키).
+    const v = volumesOfOwn.get(k.replace(/\s+/g, ''));
+    if (typeof v === 'number') pool.set(k, v);
+  }
+  for (const s of suggestions) if (typeof s.totalSearchVolume === 'number') pool.set(s.keyword, s.totalSearchVolume);
+  return [...pool.entries()]
+    .filter(([k, v]) => v >= 100 && norm(k) !== core && k.trim().split(/\s+/).length <= 5 && tokensOf(k).some((t) => coreTokens.has(t)))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([keyword, searchVolume]) => ({ keyword, searchVolume }));
+}
+
+/** 잰 대안 중 고르기 — 열린 것(높음) 우선, 없으면 정면 글이 가장 적은 것. 하나도 못 쟀으면 null. */
+export function chooseAlternative(measured: ReadonlyArray<BriefAlternative>): BriefAlternative | null {
+  const rank = (f: BriefAlternative['serpFit']) => (f === '높음' ? 0 : f === '보통' ? 1 : f === '낮음' ? 2 : 3);
+  const sorted = [...measured].filter((m) => m.serpFit !== '미측정').sort((a, b) => rank(a.serpFit) - rank(b.serpFit) || ((a.serpFacing ?? 99) - (b.serpFacing ?? 99)) || ((b.searchVolume ?? 0) - (a.searchVolume ?? 0)));
+  return sorted[0] ?? null;
 }
 
 /* ───────────── 하루 3회차(아침·오후·저녁) — 사장님 2026-09-09: "오전 오후 저녁 나눠서" ───────────── */

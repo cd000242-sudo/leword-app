@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   BRIEF_FIELDS, toFactCards, pickFactsForPrompt, buildBriefPrompt, validateBriefs, serpFitOf, markStars, kstToday, applyMeasuredVolumes,
-  roundSlotOf, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats,
+  roundSlotOf, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats, pickAltCandidates, chooseAlternative,
 } = require('../src/utils/topic-briefs');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
@@ -117,8 +117,8 @@ async function main() {
 
   // 3) 검색량 실측 — 후보 검색어 전부 재서 가장 큰 것을 핵심 검색어로(null = '< 10' 실측)
   let measuredBriefs = all;
+  const volumes = new Map(); // 공백 걷은 검색어 → 월 검색량(null = '< 10'). 5) 대안 검색어 후보에도 쓴다.
   if (adConfig.accessLicense && adConfig.secretKey && all.length > 0) {
-    const volumes = new Map();
     const wanted = [...new Set(all.flatMap((b) => b.keywords))];
     for (let i = 0; i < wanted.length; i += 5) {
       const chunk = wanted.slice(i, i + 5);
@@ -163,8 +163,45 @@ async function main() {
       const seat = measureSeat({ keyword: b.coreKeyword, blogTabHtml: res.body, allTabHtml: null });
       if (seat.sampled >= 3) { b.serpFacing = seat.facing; b.serpVacancy = seat.vacancy; measured += 1; }
     }
-    await close();
     console.log(`  자리 실측    ${targets.length}건 중 ${measured}건 (${serpMode})`);
+    for (const b of all) b.serpFit = serpFitOf(b.serpFacing, b.serpVacancy);
+
+    /*
+     * 5) 대안 검색어 — 핵심 검색어가 '낮음/보통'인 글감(사장님 2026-09-09 "적합성이 낮으면 그 글을 쓰면 별로 안 좋은 거 아니야").
+     * 같은 주제의 더 좁은 검색어(브리프 후보 + 검색광고 연관어)를 검색량 순 3개까지 재서 열린 것을 붙인다.
+     * 앞 회차가 이미 붙인 글감은 건너뛴다. 상한 --maxAltSerp(기본 70) — 회차 전체 SERP 는 80 + 70.
+     */
+    const maxAltSerp = Number(arg('maxAltSerp')) || 70;
+    if (adConfig.accessLicense && adConfig.secretKey && maxAltSerp > 0) {
+      const { getNaverSearchAdKeywordSuggestions } = require('../src/utils/naver-searchad-api');
+      const needAlt = all.filter((b) => (b.serpFit === '낮음' || b.serpFit === '보통') && b.alternative === undefined)
+        .sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0));
+      let altFetched = 0; let altFound = 0; let altTried = 0;
+      for (const b of needAlt) {
+        if (altFetched >= maxAltSerp) break;
+        let suggestions = [];
+        try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, b.coreKeyword, 60); } catch { suggestions = []; }
+        await sleep(300);
+        const candidates = pickAltCandidates(b, suggestions, volumes, 3);
+        if (candidates.length === 0) { b.alternative = null; continue; }
+        altTried += 1;
+        const measuredAlts = [];
+        for (const c of candidates) {
+          if (altFetched >= maxAltSerp) break;
+          altFetched += 1;
+          const res = await fetchPage(seatBlogTabUrl(c.keyword));
+          if (!res.ok) continue;
+          const seat = measureSeat({ keyword: c.keyword, blogTabHtml: res.body, allTabHtml: null });
+          if (seat.sampled < 3) continue;
+          measuredAlts.push({ keyword: c.keyword, searchVolume: c.searchVolume, serpFacing: seat.facing, serpVacancy: seat.vacancy, serpFit: serpFitOf(seat.facing, seat.vacancy) });
+          if (measuredAlts[measuredAlts.length - 1].serpFit === '높음') break; // 열린 것을 찾았으면 더 안 잰다
+        }
+        b.alternative = chooseAlternative(measuredAlts);
+        if (b.alternative && b.alternative.serpFit === '높음') altFound += 1;
+      }
+      console.log(`  대안 검색어  대상 ${needAlt.length} · 후보 있음 ${altTried} · 자리 실측 ${altFetched}회 · 열린 대안 ${altFound}`);
+    }
+    await close();
   }
   for (const b of all) b.serpFit = serpFitOf(b.serpFacing, b.serpVacancy);
   const briefs = markStars(all);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-    BRIEF_FIELDS, applyMeasuredVolumes, buildBriefPrompt, carrySeats, dropRepeats, excludeListOf, extractDates, extractFutureMonths, kstToday, markStars, pickFactsForPrompt, roundCounts, roundSlotOf, serpFitOf, timingOfFact, toFactCards, todaysRounds, validateBriefs,
+    BRIEF_FIELDS, applyMeasuredVolumes, buildBriefPrompt, carrySeats, chooseAlternative, dropRepeats, excludeListOf, pickAltCandidates, extractDates, extractFutureMonths, kstToday, markStars, pickFactsForPrompt, roundCounts, roundSlotOf, serpFitOf, timingOfFact, toFactCards, todaysRounds, validateBriefs,
     type BriefRound, type FactCard, type TopicBrief,
 } from '../topic-briefs';
 
@@ -169,5 +169,36 @@ describe('하루 3회차 — 아침·오후·저녁(사장님 2026-09-09)', () =
 describe('extractDates — ISO·슬래시 꼴', () => {
     it('"2026-09-30"·"2026.9.30"·"9/30"을 읽고, 소수 "0.8"·시각 "12:30"은 안 읽는다', () => {
         expect(extractDates('마감 2026-09-30, 발표 2026.9.30, 접수 9/30, 클릭률 0.8%, 12:30 시작', '2026-09-08T00:00:00Z')).toEqual(['2026-09-30']);
+    });
+});
+
+describe('대안 검색어 — 핵심이 낮음/보통일 때 좁은 검색어로(사장님 2026-09-09)', () => {
+    const brief = { coreKeyword: '추석 기차표 예매', keywords: ['추석 기차표 예매', '추석 KTX 예매'] };
+    it('후보는 같은 주제(토큰 공유)·검색량 100+·5어절 이하·핵심 제외, 검색량 순 3개', () => {
+        const picked = pickAltCandidates(brief, [
+            { keyword: '추석 호남선 KTX 예매', totalSearchVolume: 900 },
+            { keyword: '명절 선물', totalSearchVolume: 5000 }, // 주제 다름
+            { keyword: '추석 기차표 예매', totalSearchVolume: 120200 }, // 핵심 자신
+            { keyword: '추석 열차 예매 시간', totalSearchVolume: 50 }, // 100 미만
+            { keyword: 'SRT 추석 예매', totalSearchVolume: 3000 },
+        ], new Map([['추석KTX예매', 2500]]));
+        expect(picked.map((c) => c.keyword)).toEqual(['SRT 추석 예매', '추석 KTX 예매', '추석 호남선 KTX 예매']);
+    });
+    it('잰 대안 중 열린 것이 우선이고, 열린 게 없으면 정면 글 적은 것', () => {
+        const alt = chooseAlternative([
+            { keyword: 'a', searchVolume: 900, serpFacing: 7, serpVacancy: null, serpFit: '낮음' },
+            { keyword: 'b', searchVolume: 300, serpFacing: 1, serpVacancy: 2, serpFit: '높음' },
+        ]);
+        expect(alt?.keyword).toBe('b');
+        expect(chooseAlternative([{ keyword: 'x', searchVolume: 1, serpFacing: null, serpVacancy: null, serpFit: '미측정' }])).toBeNull();
+    });
+    it('★은 대안이 열렸을 때도 붙는다 — 그 대안의 검색량으로', () => {
+        const base = { title: 't', timing: 'ALWAYS' as const, types: [], primaryIntent: '', value: '', experience: '', differentiation: '', coreKeyword: 'k', keywords: ['k'], factIds: ['f1'], field: 'x', facts: [], searchVolume: 120000, serpFacing: 9, serpVacancy: null, serpFit: '낮음' as const, star: false };
+        const out = markStars([
+            { ...base, alternative: { keyword: 'k2', searchVolume: 900, serpFacing: 1, serpVacancy: 2, serpFit: '높음' } },
+            { ...base, alternative: { keyword: 'k3', searchVolume: 200, serpFacing: 1, serpVacancy: 2, serpFit: '높음' } },
+            { ...base, alternative: null },
+        ]);
+        expect(out.map((b) => b.star)).toEqual([true, false, false]);
     });
 });
