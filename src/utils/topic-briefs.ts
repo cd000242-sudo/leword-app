@@ -89,8 +89,22 @@ export function extractDates(text: string, publishedAt: string): string[] {
   const out = new Set<string>();
   const iso = (y: number, mo: number, d: number) => `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   const src = String(text || '');
-  const re = /(?:(20\d\d)년\s*)?(\d{1,2})월\s*(\d{1,2})일/g;
+  // "2026-09-30"·"2026.9.30"·"9/30" 꼴 — 기사 요약과 모델 답 양쪽에 섞여 나온다(황금 브리프 첫 실주행).
+  const isoRe = /(?:(20\d\d)[-./]\s?)?(\d{1,2})[-./](\d{1,2})(?![\d:])/g;
   let m: RegExpExecArray | null;
+  while ((m = isoRe.exec(src))) {
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) continue;
+    if (!m[1] && !src.slice(m.index, m.index + m[0].length).includes('/')) continue; // 연도 없는 "9.30"은 소수와 헷갈려 슬래시만 받는다
+    let year = m[1] ? Number(m[1]) : baseYear;
+    if (!m[1] && valid) {
+      const candidate = new Date(Date.UTC(year, month - 1, day));
+      if (candidate.getTime() < base.getTime() - 183 * 24 * 3600 * 1000) year += 1;
+    }
+    out.add(iso(year, month, day));
+  }
+  const re = /(?:(20\d\d)년\s*)?(\d{1,2})월\s*(\d{1,2})일/g;
   while ((m = re.exec(src))) {
     const month = Number(m[2]);
     const day = Number(m[3]);
@@ -107,7 +121,7 @@ export function extractDates(text: string, publishedAt: string): string[] {
    * 모델이 옮긴 9월 11일이 카드에 '11일'로만 있어 검증기가 떨어뜨렸다). 발행일 기준으로 달을 정한다:
    * 내달/다음달 → 다음 달, 지난 → 발행일 이전(같은 달이거나 지난 달), 오는·맨 날 → 발행일 이후(같은 달이거나 다음 달).
    */
-  const rest = src.replace(re, ' '); // 달이 붙은 날짜는 위에서 읽었다 — 그 '일'을 또 세지 않는다
+  const rest = src.replace(re, ' ').replace(isoRe, ' '); // 달이 붙은 날짜는 위에서 읽었다 — 그 '일'을 또 세지 않는다
   const bare = /(내달|다음\s*달|지난|오는)?\s*(?<![0-9])(\d{1,2})일(?!\s*(?:간|째|만|분|차|정|후|전|이내|이상|이하|[0-9]))/g;
   while ((m = bare.exec(rest))) {
     const day = Number(m[2]);

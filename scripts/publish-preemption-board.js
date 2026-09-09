@@ -156,6 +156,8 @@ function toPublicRow(row) {
     monetize: row.monetize ?? null,
     // "지금 왜 검색되는가" AI 추론 + 지식인 질문 수 실측 (2026-08-19 사장님 지시)
     whySearch: row.whySearch ?? null,
+    // 글감 브리프(Primary Intent·작성가치·경험활용·차별화·각도) — 실측 수치+뉴스 카드 안에서만, 검증 통과분 (사장님 2026-09-09)
+    brief: row.brief ?? null,
     kinCount: typeof row.kinCount === 'number' ? row.kinCount : null,
     kinTop: Array.isArray(row.kinTop) ? row.kinTop : null,
     // kinMode 마커가 발행본에 남아야 다음 보강이 재조회 여부를 안다.
