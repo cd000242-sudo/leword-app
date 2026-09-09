@@ -1,17 +1,20 @@
-name: 오늘의 글감 (매일 아침)
+name: 오늘의 글감 (하루 3회차)
 
 # 사이트의 '오늘의 글감' 탭(NOW/NEXT/ALWAYS 글감 브리프, 사장님 예시 형식 2026-09-09)에 싣는다.
 # 분야별로 네이버 뉴스 API 기사를 실측해 사실 카드를 만들고, 클로드 CLI(구독 OAuth)가 카드 안에서만 글감을 고르며,
 # 검증기가 카드에 없는 날짜·숫자를 떨어뜨린다. 검색량은 검색광고 실측.
 #
-# 자리(SERP) 실측은 Bright Data 로 회차당 12건(검색량 큰 순) — 사장님 승인 2026-09-09. 기능 'briefs' 장부는
+# 자리(SERP) 실측은 Bright Data 로 회차당 12건(검색량 큰 순, 앞 회차가 잰 검색어는 재활용) — 사장님 승인 2026-09-09. 기능 'briefs' 장부는
 # 사이트 레포 data/brightdata-quota-briefs.json 에 두고 표와 함께 커밋한다(회차마다 새 러너라 파일이 기억이다).
-# 달 상한 400 = 12 × 31 = 372 의 여유분. 선점(golden)·실검(issue) 장부와 별개이며 무료 5,000 안이다.
+# 달 상한 1,200 = 12 × 3회 × 31 = 1,116 의 여유분. 선점(golden)·실검(issue) 장부와 별개이며 무료 5,000 안이다.
 #
 # 시간대: cron 은 UTC. 한국 07:00 은 UTC 전날 22:00. 추천키워드(21:30)와 다른 워크플로라 겹쳐 돌아도 된다.
 on:
   schedule:
+    # 하루 3회차 — 아침 07:00 · 오후 13:00 · 저녁 19:00 KST (사장님 2026-09-09: 시의성 글감은 낮에도 생긴다)
     - cron: '0 22 * * *'
+    - cron: '0 4 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch:
     inputs:
       serp:
@@ -30,7 +33,7 @@ concurrency:
 jobs:
   briefs:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -84,14 +87,14 @@ jobs:
           BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
           LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json
-          # 달 400 건에서 기능 자체를 잠근다(12 × 31 = 372 가 이론 최대).
-          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":400}'
+          # 달 1,200 건에서 기능 자체를 잠근다(12 × 3회 × 31 = 1,116 이 이론 최대 — 앞 회차 재활용으로 실제는 더 적다).
+          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":1200}'
           SERP_MODE: ${{ github.event.inputs.serp || 'brightdata' }}
           MAX_SERP: ${{ github.event.inputs.maxSerp || '12' }}
         run: |
           mkdir -p site/data
           npm install -g @anthropic-ai/claude-code
-          node scripts/topic-briefs.js --out=topic-briefs.json --perField=3 --serp="$SERP_MODE" --maxSerp="$MAX_SERP"
+          node scripts/topic-briefs.js --out=topic-briefs.json --perField=5 --carry=site/spa/public/data/topic-briefs.json --serp="$SERP_MODE" --maxSerp="$MAX_SERP"
 
       # 다른 정적 보드와 같은 폴더 — 화면(TopicBriefsBoard)이 /data/topic-briefs.json 을 읽는다.
       - name: 사이트에 싣기
@@ -105,6 +108,6 @@ jobs:
           git add spa/public/data/topic-briefs.json
           [ -f data/brightdata-quota-briefs.json ] && git add data/brightdata-quota-briefs.json
           if git diff --cached --quiet; then echo '변경 없음.'; exit 0; fi
-          git commit -m "chore(briefs): 오늘의 글감 $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git commit -m "chore(briefs): 오늘의 글감 회차 $(date -u '+%Y-%m-%d %H:%M UTC')"
           git pull --rebase origin main
           git push origin HEAD:main

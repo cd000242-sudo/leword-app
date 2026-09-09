@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   BRIEF_FIELDS, toFactCards, pickFactsForPrompt, buildBriefPrompt, validateBriefs, serpFitOf, markStars, kstToday, applyMeasuredVolumes,
+  roundSlotOf, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats,
 } = require('../src/utils/topic-briefs');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
@@ -39,10 +40,16 @@ const AGENT_CHAIN = [
 
 async function main() {
   const outPath = path.resolve(arg('out', 'topic-briefs.json'));
-  const perField = Number(arg('perField')) || 3;
+  const perField = Number(arg('perField')) || 5; // 사장님 2026-09-09: 주제마다 5개 이상
   const serpMode = arg('serp', 'none'); // local | brightdata | none
   const maxSerp = Number(arg('maxSerp')) || 40;
   const today = kstToday(); // ISO 날짜 자리 = 한국 날짜
+  const slot = roundSlotOf(today);
+  // --carry: 사이트에 실린 직전 파일. 오늘(KST) 앞 회차를 남기고 이번 회차를 덧붙인다(아침·오후·저녁).
+  const carryPath = arg('carry') ? path.resolve(arg('carry')) : '';
+  let carried = null;
+  try { carried = carryPath && fs.existsSync(carryPath) ? JSON.parse(fs.readFileSync(carryPath, 'utf8')) : null; } catch { carried = null; }
+  const priorRounds = todaysRounds(carried && Array.isArray(carried.rounds) ? carried.rounds : [], today);
 
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const cfg = manager.getConfig();
@@ -54,7 +61,7 @@ async function main() {
     customerId: cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '',
   };
 
-  console.log(`오늘의 글감 — ${today.toISOString().slice(0, 10)} · 분야 ${BRIEF_FIELDS.length} · 분야당 ${perField}개 · 자리 실측 ${serpMode}`);
+  console.log(`오늘의 글감 — ${today.toISOString().slice(0, 10)} ${slot} 회차 · 분야 ${BRIEF_FIELDS.length} · 분야당 ${perField}개+ · 자리 실측 ${serpMode} · 앞 회차 ${priorRounds.length}(${priorRounds.map((r) => r.slot).join('·') || '없음'})`);
 
   // 1) 사실 카드
   const newsItems = async (query) => {
@@ -77,7 +84,7 @@ async function main() {
       cards.push(...toFactCards(items, field, seen));
       await sleep(120);
     }
-    const picked = pickFactsForPrompt(cards, today, 18);
+    const picked = pickFactsForPrompt(cards, today, 24);
     fieldFacts.set(field, picked);
     console.log(`  ${field.padEnd(14)} 기사 ${String(cards.length).padStart(3)} → 근거 카드 ${String(picked.length).padStart(2)}`);
   }
@@ -89,11 +96,12 @@ async function main() {
   for (const { field } of BRIEF_FIELDS) {
     const facts = fieldFacts.get(field) || [];
     if (facts.length < 2) { console.log(`  ${field}: 근거 카드 ${facts.length}개 — 건너뜀`); continue; }
-    const prompt = buildBriefPrompt(field, facts, today, perField);
+    // 5개 이상을 받기 위해 한 개 더 청한다 — 검증기에서 한둘 떨어져도 5가 남게.
+    const prompt = buildBriefPrompt(field, facts, today, perField + 1, excludeListOf(priorRounds, field));
     let reply = '';
     let provider = '';
     try {
-      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 150_000 });
+      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000 });
       reply = run.reply; provider = run.provider; agentCalls += 1;
     } catch (error) {
       console.log(`  ${field}: 에이전트 실패 — ${String((error && error.message) || error).slice(0, 80)}`);
@@ -101,9 +109,10 @@ async function main() {
     }
     const parsed = tryExtractJson(reply);
     const { ok, dropped } = validateBriefs(parsed, facts, field, today);
-    all.push(...ok);
-    droppedAll.push(...dropped.map((d) => ({ field, ...d })));
-    console.log(`  ${field.padEnd(14)} ${provider} → 글감 ${ok.length} · 떨어짐 ${dropped.length}${dropped.length ? ` (${dropped.map((d) => d.reason).join(' / ')})` : ''}`);
+    const { kept, repeated } = dropRepeats(ok, priorRounds);
+    all.push(...kept);
+    droppedAll.push(...dropped.map((d) => ({ field, ...d })), ...repeated.map((b) => ({ field, title: b.title, reason: '앞 회차와 같은 검색어' })));
+    console.log(`  ${field.padEnd(14)} ${provider} → 글감 ${kept.length} · 떨어짐 ${dropped.length + repeated.length}${dropped.length + repeated.length ? ` (${[...dropped.map((d) => d.reason), ...repeated.map(() => '앞 회차 중복')].join(' / ')})` : ''}`);
   }
 
   // 3) 검색량 실측 — 후보 검색어 전부 재서 가장 큰 것을 핵심 검색어로(null = '< 10' 실측)
@@ -130,10 +139,10 @@ async function main() {
   } else if (all.length > 0) {
     console.log('  검색광고 키 없음 — 검색량은 null 로 둔다');
   }
-  all.length = 0; all.push(...measuredBriefs);
+  all.length = 0; all.push(...carrySeats(measuredBriefs, priorRounds)); // 앞 회차가 잰 자리는 그대로(BD 절약)
 
-  // 4) 자리 실측
-  if (serpMode !== 'none' && all.length > 0) {
+  // 4) 자리 실측 — 아직 안 잰 것만, 검색량 큰 순으로 상한까지
+  if (serpMode !== 'none' && all.some((b) => b.serpFacing == null)) {
     const { measureSeat, seatBlogTabUrl } = require('../src/utils/seat-measure');
     let fetchPage = null;
     let close = async () => {};
@@ -147,7 +156,7 @@ async function main() {
     }
     let measured = 0;
     // 검색량 큰 순으로 상한까지 — 트래픽이 있는 글감부터 자리를 확인한다.
-    const targets = [...all].sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0)).slice(0, maxSerp);
+    const targets = all.filter((b) => b.serpFacing == null).sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0)).slice(0, maxSerp);
     for (const b of targets) {
       const res = await fetchPage(seatBlogTabUrl(b.coreKeyword));
       if (!res.ok) continue;
@@ -162,8 +171,15 @@ async function main() {
 
   const order = { NOW: 0, NEXT: 1, ALWAYS: 2 };
   briefs.sort((a, b) => (order[a.timing] - order[b.timing]) || (Number(b.star) - Number(a.star)) || ((b.searchVolume || 0) - (a.searchVolume || 0)));
+  const builtAt = new Date().toISOString();
+  const thisRound = { slot, builtAt, counts: roundCounts(briefs), briefs };
+  // 같은 회차 이름이 오늘 이미 있으면(수동 재실행) 그 자리를 갈아끼운다.
+  const rounds = [...priorRounds.filter((r) => r.slot !== slot), thisRound];
   const result = {
-    builtAt: new Date().toISOString(),
+    builtAt,
+    slot,
+    // 오늘의 회차들(아침·오후·저녁) — 화면은 이걸 회차 탭으로 그린다. briefs 는 이번 회차(호환용).
+    rounds,
     method: {
       facts: '네이버 뉴스 API 실측 기사(분야별 질의, 최신순). 카드에 없는 날짜·숫자는 검증기가 떨어뜨린다',
       timing: 'NOW=최근 5일 안 기사 · NEXT=기사에 미래 날짜 · ALWAYS=철 안 타는 제도(카드 근거 필수)',
@@ -177,7 +193,9 @@ async function main() {
   };
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, JSON.stringify(result, null, 1), 'utf8');
-  console.log(`끝 — 글감 ${briefs.length} (NOW ${result.counts.now} · NEXT ${result.counts.next} · ALWAYS ${result.counts.always} · ★ ${result.counts.star}) · 떨어짐 ${droppedAll.length} · 뉴스 ${newsCalls}콜 · 에이전트 ${agentCalls}콜 → ${outPath}`);
+  const perFieldCounts = BRIEF_FIELDS.map(({ field }) => `${field.split('·')[0]} ${briefs.filter((b) => b.field === field).length}`).join(' · ');
+  console.log(`  분야별: ${perFieldCounts}`);
+  console.log(`끝 — ${slot} 회차 글감 ${briefs.length} (NOW ${result.counts.now} · NEXT ${result.counts.next} · ALWAYS ${result.counts.always} · ★ ${result.counts.star}) · 오늘 누적 ${rounds.reduce((s, r) => s + r.briefs.length, 0)}(${rounds.map((r) => r.slot).join('·')}) · 떨어짐 ${droppedAll.length} · 뉴스 ${newsCalls}콜 · 에이전트 ${agentCalls}콜 → ${outPath}`);
   process.exit(0);
 }
 

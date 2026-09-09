@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-    BRIEF_FIELDS, applyMeasuredVolumes, buildBriefPrompt, extractDates, extractFutureMonths, kstToday, markStars, pickFactsForPrompt, serpFitOf, timingOfFact, toFactCards, validateBriefs,
-    type FactCard,
+    BRIEF_FIELDS, applyMeasuredVolumes, buildBriefPrompt, carrySeats, dropRepeats, excludeListOf, extractDates, extractFutureMonths, kstToday, markStars, pickFactsForPrompt, roundCounts, roundSlotOf, serpFitOf, timingOfFact, toFactCards, todaysRounds, validateBriefs,
+    type BriefRound, type FactCard, type TopicBrief,
 } from '../topic-briefs';
 
 /** 오늘의 글감 브리프(NOW/NEXT/ALWAYS) — 순수 부분: 날짜 읽기·시기·검증기·적합성. */
@@ -131,5 +131,37 @@ describe('serpFitOf · markStars · 프롬프트', () => {
         expect(p).toContain('2026-09-21');
         expect(p).toContain('JSON 배열 하나만');
         expect(BRIEF_FIELDS.length).toBeGreaterThanOrEqual(12);
+    });
+});
+
+describe('하루 3회차 — 아침·오후·저녁(사장님 2026-09-09)', () => {
+    const mk = (over: Partial<TopicBrief>): TopicBrief => ({ title: 't', timing: 'NOW', types: [], primaryIntent: '', value: '', experience: '', differentiation: '', coreKeyword: 'k', keywords: ['k'], factIds: ['f1'], field: '건강', facts: [], searchVolume: null, serpFacing: null, serpVacancy: null, serpFit: '미측정', star: false, ...over });
+    it('회차 이름은 KST 시각으로 — 07시 아침 · 13시 오후 · 19시 저녁', () => {
+        expect(roundSlotOf(kstToday(new Date('2026-09-08T22:05:00Z')))).toBe('아침');
+        expect(roundSlotOf(kstToday(new Date('2026-09-09T04:05:00Z')))).toBe('오후');
+        expect(roundSlotOf(kstToday(new Date('2026-09-09T10:05:00Z')))).toBe('저녁');
+    });
+    it('오늘(KST) 회차만 남기고 어제 회차는 버린다', () => {
+        const rounds: BriefRound[] = [
+            { slot: '저녁', builtAt: '2026-09-08T10:30:00Z', counts: roundCounts([]), briefs: [] },
+            { slot: '아침', builtAt: '2026-09-08T22:30:00Z', counts: roundCounts([]), briefs: [] },
+        ];
+        expect(todaysRounds(rounds, kstToday(new Date('2026-09-09T04:00:00Z'))).map((r) => r.slot)).toEqual(['아침']);
+        expect(todaysRounds(undefined, TODAY)).toEqual([]);
+    });
+    it('앞 회차의 제목·검색어가 제외 목록이 되고, 같은 검색어는 뒤 회차에서 빠지며, 잰 자리는 이어받는다', () => {
+        const prior: BriefRound[] = [{ slot: '아침', builtAt: '2026-09-08T22:30:00Z', counts: roundCounts([]), briefs: [mk({ title: '독감 접종 일정', coreKeyword: '독감 접종', serpFacing: 2, serpVacancy: 1 })] }];
+        expect(excludeListOf(prior, '건강')).toEqual(['독감 접종 일정(독감 접종)']);
+        expect(excludeListOf(prior, '게임')).toEqual([]);
+        const { kept, repeated } = dropRepeats([mk({ coreKeyword: '독감접종' }), mk({ coreKeyword: '진드기 물림' })], prior);
+        expect(kept.map((b) => b.coreKeyword)).toEqual(['진드기 물림']);
+        expect(repeated).toHaveLength(1);
+        const carried = carrySeats([mk({ coreKeyword: '독감 접종' }), mk({ coreKeyword: '진드기 물림' })], prior);
+        expect([carried[0]?.serpFacing, carried[0]?.serpVacancy, carried[1]?.serpFacing]).toEqual([2, 1, null]);
+    });
+    it('프롬프트는 제외 목록을 싣고 N-1~N개를 청한다', () => {
+        const p = buildBriefPrompt('건강', [], TODAY, 6, ['독감 접종 일정(독감 접종)']);
+        expect(p).toContain('독감 접종 일정(독감 접종)');
+        expect(p).toContain('5~6개');
     });
 });

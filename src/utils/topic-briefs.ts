@@ -203,16 +203,20 @@ export function pickFactsForPrompt(facts: FactCard[], today: Date, limit = 18): 
     .slice(0, limit);
 }
 
-export function buildBriefPrompt(field: string, facts: FactCard[], today: Date, maxBriefs = 3): string {
+export function buildBriefPrompt(field: string, facts: FactCard[], today: Date, maxBriefs = 3, exclude: ReadonlyArray<string> = []): string {
   const todayText = today.toISOString().slice(0, 10);
   const factLines = facts.map((f) => `[${f.id}] (${f.publishedAt.slice(0, 10)} · ${f.press}) ${f.title} — ${f.snippet.slice(0, 160)}${f.dates.length ? ` · 날짜: ${f.dates.join(', ')}` : ''}`);
+  const excludeLines = exclude.length
+    ? ['', `오늘 앞 회차에 이미 실은 글감(같은 사실·같은 검색어는 다시 내지 마라. 새 사실이나 새 각도만): ${exclude.slice(0, 40).join(' / ')}`]
+    : [];
   return [
     `오늘은 ${todayText}(KST)다. 너는 네이버 블로그 글감 편집자다. 아래는 뉴스 API 로 실측한 사실 카드다(분야: ${field}).`,
     '카드에 없는 사실·날짜·숫자는 절대 쓰지 마라. 모르면 그 브리프를 만들지 마라.',
     '',
     ...factLines,
+    ...excludeLines,
     '',
-    `이 분야에서 블로그 글로 쓸 만한 글감을 최대 ${maxBriefs}개 골라라. 뉴스 요약이 아니라 "검색하는 사람이 원하는 답"이 글감이다.`,
+    `이 분야에서 블로그 글로 쓸 만한 글감을 ${Math.max(1, maxBriefs - 1)}~${maxBriefs}개 골라라(카드가 정말 모자라면 되는 만큼). 뉴스 요약이 아니라 "검색하는 사람이 원하는 답"이 글감이다.`,
     '각 글감은 JSON 객체다:',
     '{"title": "글 제목(구체적·날짜/조건 포함, 30자 안팎, 낚시 금지)",',
     ' "timing": "NOW|NEXT|ALWAYS",  // NOW=이번 주 안에 찾는 것, NEXT=날짜가 정해진 예정, ALWAYS=철 안 타는 기준·제도',
@@ -323,4 +327,71 @@ export function markStars(briefs: TopicBrief[]): TopicBrief[] {
     ...b,
     star: b.serpFit === '높음' && ((b.searchVolume != null && b.searchVolume >= 500) || b.timing !== 'ALWAYS'),
   }));
+}
+
+/* ───────────── 하루 3회차(아침·오후·저녁) — 사장님 2026-09-09: "오전 오후 저녁 나눠서" ───────────── */
+
+export type RoundSlot = '아침' | '오후' | '저녁';
+
+export interface BriefRound {
+  slot: RoundSlot;
+  builtAt: string;
+  counts: { briefs: number; now: number; next: number; always: number; star: number };
+  briefs: TopicBrief[];
+}
+
+/** 회차 이름 — KST 시각으로. 07:00 아침 · 13:00 오후 · 19:00 저녁 크론에 맞춘 경계(11시·17시). */
+export function roundSlotOf(kstNow: Date): RoundSlot {
+  const hour = kstNow.getUTCHours(); // kstToday() 로 민 Date 라 UTC 자리가 KST 시각
+  if (hour < 11) return '아침';
+  if (hour < 17) return '오후';
+  return '저녁';
+}
+
+export function roundCounts(briefs: ReadonlyArray<TopicBrief>): BriefRound['counts'] {
+  return {
+    briefs: briefs.length,
+    now: briefs.filter((b) => b.timing === 'NOW').length,
+    next: briefs.filter((b) => b.timing === 'NEXT').length,
+    always: briefs.filter((b) => b.timing === 'ALWAYS').length,
+    star: briefs.filter((b) => b.star).length,
+  };
+}
+
+const briefKey = (b: Pick<TopicBrief, 'coreKeyword'>) => b.coreKeyword.replace(/\s+/g, '').toLowerCase();
+
+/** 오늘(KST) 앞 회차만 남긴다 — 어제 회차는 표에서 빠진다. */
+export function todaysRounds(previous: ReadonlyArray<BriefRound> | undefined, kstNow: Date): BriefRound[] {
+  const todayIso = kstNow.toISOString().slice(0, 10);
+  return (previous || []).filter((r) => r && r.builtAt && kstToday(new Date(r.builtAt)).toISOString().slice(0, 10) === todayIso);
+}
+
+/** 앞 회차에 이미 실은 글감의 제목·검색어 — 프롬프트 제외 목록. */
+export function excludeListOf(rounds: ReadonlyArray<BriefRound>, field: string): string[] {
+  return rounds.flatMap((r) => r.briefs.filter((b) => b.field === field).map((b) => `${b.title}(${b.coreKeyword})`));
+}
+
+/** 앞 회차와 핵심 검색어가 같은 글감은 뺀다(모델이 제외 목록을 어겼을 때의 마지막 방어). */
+export function dropRepeats(briefs: ReadonlyArray<TopicBrief>, rounds: ReadonlyArray<BriefRound>): { kept: TopicBrief[]; repeated: TopicBrief[] } {
+  const seen = new Set(rounds.flatMap((r) => r.briefs.map(briefKey)));
+  const kept: TopicBrief[] = [];
+  const repeated: TopicBrief[] = [];
+  for (const b of briefs) {
+    const key = briefKey(b);
+    if (seen.has(key)) { repeated.push(b); continue; }
+    seen.add(key);
+    kept.push(b);
+  }
+  return { kept, repeated };
+}
+
+/** 앞 회차에서 같은 검색어의 자리를 이미 쟀으면 그대로 쓴다 — BD 를 다시 안 태운다. */
+export function carrySeats(briefs: ReadonlyArray<TopicBrief>, rounds: ReadonlyArray<BriefRound>): TopicBrief[] {
+  const measured = new Map<string, Pick<TopicBrief, 'serpFacing' | 'serpVacancy'>>();
+  for (const r of rounds) for (const b of r.briefs) if (b.serpFacing != null) measured.set(briefKey(b), { serpFacing: b.serpFacing, serpVacancy: b.serpVacancy });
+  return briefs.map((b) => {
+    if (b.serpFacing != null) return b;
+    const prior = measured.get(briefKey(b));
+    return prior ? { ...b, ...prior } : b;
+  });
 }
