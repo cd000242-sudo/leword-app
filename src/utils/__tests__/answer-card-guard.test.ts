@@ -73,4 +73,12 @@ describe('카드 답 가드 — 블로그 글이 되는 말은 남긴다', () =>
         expect(judgeAnswerCardKeyword('서울 지하철 시간표 9월').answerCard).toBe(true);
         expect(judgeAnswerCardKeyword('시간표 만드는 법').answerCard).toBe(false);
     });
+
+    it('예매·상영표·극장 검색은 클릭이 예매 사이트로 간다(2026-09-09 오디세이)', () => {
+        expect(judgeAnswerCardKeyword('롯데시네마 영화 상영표').answerCard).toBe(true);
+        expect(judgeAnswerCardKeyword('오디세이 영화 예매').answerCard).toBe(true);
+        expect(judgeAnswerCardKeyword('CGV 영화 예매 할인').answerCard).toBe(true);
+        // 예매 '요령'을 묻는 말은 글이 답한다
+        expect(judgeAnswerCardKeyword('추석 기차표 예매 꿀팁').answerCard).toBe(false);
+    });
 });

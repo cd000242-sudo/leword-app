@@ -10,8 +10,8 @@ const root = path.join(__dirname, '..', '..', '..');
 const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'topic-briefs.yml'), 'utf8');
 
 describe('오늘의 글감 워크플로', () => {
-    it('매일 아침(KST 07:00 = UTC 22:00) 돈다', () => {
-        expect(workflow.match(/cron:\s*'([^']+)'/)?.[1]).toBe('0 22 * * *');
+    it('하루 3회차 — 정각을 피한 06:23 · 12:23 · 18:23 KST (UTC 21:23 · 03:23 · 09:23). 정각 스케줄은 GitHub 가 미루거나 떨어뜨린다(2026-09-09 실측)', () => {
+        expect([...workflow.matchAll(/cron:\s*'([^']+)'/g)].map((m) => m[1])).toEqual(['23 21 * * *', '23 3 * * *', '23 9 * * *']);
     });
 
     it('뉴스 실측 오픈 API 키·구독 토큰·검색광고 키·사이트 배포키를 넘긴다', () => {
