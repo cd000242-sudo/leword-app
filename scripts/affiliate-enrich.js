@@ -101,21 +101,33 @@ async function main() {
         words.slice(-2).join(' '), words.slice(-1).join(' '), words.slice(0, 2).join(' '), words[0] || '',
       ].filter((s) => s && s.replace(/\s+/g, '').length >= 2 && s.replace(/\s+/g, '').length <= 15))];
       const norm = (k) => String(k || '').replace(/\s+/g, '').toLowerCase();
+      const volumeOf = async (kw) => {
+        try {
+          const v = await getNaverSearchAdKeywordVolume(adConfig, [kw]);
+          const row = (v || []).find((x) => norm(x.keyword) === norm(kw));
+          return row && typeof row.totalSearchVolume === 'number' ? row.totalSearchVolume : null;
+        } catch { return null; }
+      };
+      /*
+       * 후보마다: 연관어(머리 명사 포함, 2차 실주행 교훈 — '공기압'만 맞으면 '타이어공기압', '라이트'면 'UV라이트'가 붙는다)
+       * → 없으면 후보 자신의 검색량이 100+ 면 후보가 니즈. 검색광고는 몰아 부르면 429 라 호출마다 1.2초 쉰다.
+       */
       let seed = seedCandidates[0] || fullSeed;
+      let seedVolume = null;
       let pool = [];
       for (const cand of seedCandidates) {
+        seed = cand;
+        const head = norm(cand.split(' ').slice(-1)[0]); // 머리 명사(마지막 어절)
         let suggestions = [];
         try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, cand, 80); } catch { suggestions = []; }
-        await sleep(300);
-        const candTokens = tokensOf(cand);
+        await sleep(1200);
         pool = suggestions
-          .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && norm(s.keyword).length <= 20 && candTokens.some((t) => norm(s.keyword).includes(t)))
+          .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && norm(s.keyword).length <= 20 && head.length >= 2 && norm(s.keyword).includes(head))
           .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume);
-        seed = cand;
-        if (pool.length > 0) break;
+        seedVolume = await volumeOf(cand);
+        await sleep(1200);
+        if (pool.length > 0 || (typeof seedVolume === 'number' && seedVolume >= 100)) break;
       }
-      let seedVolume = null;
-      try { const v = await getNaverSearchAdKeywordVolume(adConfig, [seed]); const row = (v || []).find((x) => String(x.keyword || '').replace(/\s+/g, '') === seed.replace(/\s+/g, '')); seedVolume = row && typeof row.totalSearchVolume === 'number' ? row.totalSearchVolume : null; } catch { seedVolume = null; }
       // 연관어에 없으면 씨앗 자신이 니즈다('깻잎무침'·'배수구 냄새 제거제' — 연관어는 딴 말만 주는데 씨앗엔 검색량이 있다).
       const need = pool[0] || (typeof seedVolume === 'number' && seedVolume >= 100 ? { keyword: seed, totalSearchVolume: seedVolume } : null);
       item.keyword = seed;
