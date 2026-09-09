@@ -8154,6 +8154,24 @@
                 </div>
                 <button onclick="document.getElementById('seatMeasureModal').style.display='none'" style="width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 18px; cursor: pointer;">✕</button>
               </div>
+              <!--
+                내 블로그 카드(2026-09-10) — 자리를 재기 전에 "나는 지금 어떤 블로그인가"를 먼저 본다.
+                전부 네이버가 이미 화면에 싣는 값이다(모바일 블로그 화면·글 목록·인플루언서 홈). 비용 0.
+                문장은 plain-words.ts 가 만든 것을 그대로 찍는다 — 여기서 말을 새로 지어내지 않는다.
+              -->
+              <div id="blogClassPanel" style="margin-top: 18px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 16px; background: rgba(255,255,255,0.03);">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <h3 style="margin: 0; font-size: 16px; color: #ffffff;">🧭 내 블로그</h3>
+                  <input id="blogClassInput" placeholder="blog.naver.com/내아이디" style="flex: 1; min-width: 220px; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 8px 10px; color: #e2e8f0; font: inherit; font-size: 13px;">
+                  <select id="blogClassSample" style="background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 8px 10px; color: #e2e8f0; font: inherit; font-size: 12.5px;">
+                    <option value="50" selected>최근 50개</option>
+                    <option value="100">최근 100개</option>
+                    <option value="200">최근 200개</option>
+                  </select>
+                  <button id="blogClassRunBtn" onclick="runBlogClassMeasure()" style="padding: 8px 14px; border-radius: 8px; border: 0; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">내 블로그 보기</button>
+                </div>
+                <div id="blogClassBody" style="margin-top: 12px; font-size: 13.5px; color: #cbd5e1;">아직 안 봤어요. 블로그 주소를 넣고 [내 블로그 보기]를 눌러 주세요.</div>
+              </div>
               <div style="display: grid; grid-template-columns: 1fr 260px; gap: 14px; margin-top: 18px;">
                 <textarea id="seatMeasureInput" rows="6" placeholder="키워드를 줄마다 하나씩(쉼표도 됨) · 최대 100개&#10;예) 전주 한옥마을 주차&#10;캠핑 화로대 추천" style="width: 100%; box-sizing: border-box; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; padding: 12px; color: #e2e8f0; font: inherit; font-size: 13.5px; resize: vertical;"></textarea>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -8199,6 +8217,76 @@
           document.body.appendChild(wrap);
           wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.style.display = 'none'; });
           refreshSeatWatch();
+          loadBlogClass();
+        };
+
+        /*
+         * 내 블로그 카드 — 사실을 초보자 말로.
+         * 문장·근거는 메인 프로세스(plain-words.ts)가 만든 것을 그대로 쓴다. 렌더러가 말을 지어내면
+         * 같은 값이 화면마다 다른 말로 나온다. 여기서는 붙여 넣기만 한다.
+         */
+        window.loadBlogClass = async function loadBlogClass() {
+          try {
+            const res = await window.electronAPI.invoke('blog-class-get');
+            if (res && res.success && res.record) {
+              const input = document.getElementById('blogClassInput');
+              if (input && !input.value) input.value = res.record.blogId || '';
+              renderBlogClass(res.record);
+            }
+          } catch { /* 저장된 게 없으면 그냥 둔다 */ }
+        };
+
+        function blogClassLine(line, muted) {
+          const tip = String(line.evidence || '').replace(/"/g, '&quot;');
+          return '<div title="' + tip + '" style="margin: 3px 0; color: ' + (muted ? '#94a3b8' : '#e2e8f0') + '; cursor: help;">'
+            + line.text + '</div>';
+        }
+
+        window.renderBlogClass = function renderBlogClass(record) {
+          const body = document.getElementById('blogClassBody');
+          if (!body) return;
+          const card = (record && record.card) || { headline: null, lines: [], notices: [] };
+          if (!card.headline && (!card.lines || card.lines.length === 0)) {
+            body.innerHTML = '<span style="color:#94a3b8;">블로그를 읽지 못했어요.</span>';
+            return;
+          }
+          const notices = (card.notices || []).length
+            ? '<div style="margin-top: 10px; padding: 9px 11px; border-radius: 8px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3);">'
+              + (card.notices || []).map((n) => blogClassLine(n, false)).join('') + '</div>'
+            : '';
+          const when = record.measuredAt ? new Date(record.measuredAt).toLocaleString('ko-KR') : '';
+          body.innerHTML =
+            (card.headline ? '<div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 6px;">' + card.headline + '</div>' : '')
+            + (card.lines || []).map((line) => blogClassLine(line, false)).join('')
+            + notices
+            + '<div style="margin-top: 10px; font-size: 11.5px; color: #64748b;">숫자에 마우스를 올리면 어디서 잰 값인지 나와요' + (when ? ' · ' + when + ' 에 잼' : '') + '</div>';
+        };
+
+        window.runBlogClassMeasure = async function runBlogClassMeasure() {
+          const input = document.getElementById('blogClassInput');
+          const button = document.getElementById('blogClassRunBtn');
+          const body = document.getElementById('blogClassBody');
+          const sample = Number(document.getElementById('blogClassSample')?.value) || 50;
+          const blogUrl = String(input?.value || '').trim();
+          if (!blogUrl) { body.innerHTML = '<span style="color:#fbbf24;">블로그 주소를 넣어 주세요 (예: blog.naver.com/내아이디)</span>'; return; }
+          button.disabled = true; button.style.opacity = '0.6';
+          body.innerHTML = '<span style="color:#94a3b8;">블로그를 여는 중…</span>';
+          if (window.__blogClassOff) { try { window.__blogClassOff(); } catch {} }
+          window.__blogClassOff = window.electronAPI.on('blog-class-progress', (p) => {
+            if (!p) return;
+            body.innerHTML = '<span style="color:#94a3b8;">' + (p.message || '재는 중…')
+              + (p.total ? ' (' + p.received + ' / ' + p.total + ')' : '') + '</span>';
+          });
+          try {
+            const res = await window.electronAPI.invoke('blog-class-measure', { blogUrl, sample });
+            if (res && res.success) renderBlogClass(res.record);
+            else body.innerHTML = '<span style="color:#fca5a5;">' + ((res && res.error) || '블로그를 읽지 못했어요') + '</span>';
+          } catch (error) {
+            body.innerHTML = '<span style="color:#fca5a5;">' + String((error && error.message) || error) + '</span>';
+          } finally {
+            button.disabled = false; button.style.opacity = '1';
+            if (window.__blogClassOff) { try { window.__blogClassOff(); } catch {} window.__blogClassOff = null; }
+          }
         };
 
         window.__seatMeasureRows = [];
@@ -8295,6 +8383,7 @@
             if (progress && r) progress.textContent = (r.added && r.added.length ? '감시에 넣었다: ' + r.added.join(', ') : '이미 감시 중') + ' (' + r.count + '/' + r.max + ')';
           } catch {}
           refreshSeatWatch();
+          loadBlogClass();
         };
         window.addSeatWatchFromInput = async function addSeatWatchFromInput() {
           const text = String(document.getElementById('seatMeasureInput')?.value || '');
@@ -8306,10 +8395,12 @@
             if (progress && r) progress.textContent = '감시에 ' + (r.added ? r.added.length : 0) + '개 넣었다 (' + r.count + '/' + r.max + ')';
           } catch {}
           refreshSeatWatch();
+          loadBlogClass();
         };
         window.removeSeatWatch = async function removeSeatWatch(keyword) {
           try { await window.electronAPI.invoke('seat-watch-remove', { keyword }); } catch {}
           refreshSeatWatch();
+          loadBlogClass();
         };
         window.runSeatWatchNow = async function runSeatWatchNow() {
           const btn = document.getElementById('seatWatchRunBtn');

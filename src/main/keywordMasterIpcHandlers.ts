@@ -16,6 +16,7 @@ import { setupLaneInsightsHandlers } from './handlers/lane-insights';
 import { setupAgentCliHandlers } from './handlers/agent-cli-handlers';
 import { setupSeatMeasureHandlers } from './handlers/seat-measure';
 import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler } from './handlers/seat-watch';
+import { setupBlogClassHandlers } from './handlers/blog-class';
 import { startWebBridgeHost } from './web-bridge-host';
 import { startRefreshScheduler, stopRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker, stopLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
@@ -147,6 +148,8 @@ export function setupKeywordMasterHandlers() {
   // 자리 감시(앱 전용, 플랜 A3) — 관심 키워드를 새벽에 다시 재고 열리면 알린다.
   setupSeatWatchHandlers();
   startSeatWatchScheduler();
+  // 내 블로그 체급(앱 전용, 2026-09-10) — 내 블로그 사실을 초보자 말로 읽어 준다.
+  setupBlogClassHandlers();
   // 웹 ↔ 클로드코드 브리지 — 사이트가 이 PC 의 구독 CLI 를 쓰는 통로(127.0.0.1 전용).
   startWebBridgeHost();
 
