@@ -137,6 +137,8 @@ export interface WebBridgeDeps {
    * 그 검사는 이 파일 위쪽 공통 경로에서 이미 끝난다.
    */
   claudeCredentials?: () => Promise<unknown>;
+  /** 앱 설정의 API 키 묶음(사이트 '내 API 키' 필드명으로) — 같은 기기 사이트만 받는다. */
+  apiKeys?: () => Promise<unknown>;
   /**
    * CLI 로그인 시작(사장님 지시 2026-08-20 "나머지도 버튼으로 바로 연동") —
    * 코덱스·제미나이·그록은 OAuth 리다이렉트가 이 PC 로 오므로 사이트가 직접
@@ -315,6 +317,17 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
 
       if (deps.claudeCredentials && req.method === 'POST' && req.url === '/v1/bridge/claude-credentials') {
         json(res, 200, { ok: true, result: await deps.claudeCredentials() });
+        return;
+      }
+
+      /*
+       * 앱에 저장된 API 키(네이버 오픈·API HUB·검색광고·유튜브)를 사이트로 — 사장님 2026-09-09
+       * "앱에서 에이전트 연동이 되면 나머지도 자연스럽게 연동되어야. 앱에서든 사이트에서든 하나처럼".
+       * 클로드 자격과 같은 방어선(같은 기기 127.0.0.1 + Origin 허용목록)이다. 사이트는 받은 키를 자기
+       * 브라우저 저장소에 넣고 계정 동기화(keySync)로 다른 기기까지 옮긴다.
+       */
+      if (deps.apiKeys && req.method === 'POST' && req.url === '/v1/bridge/api-keys') {
+        json(res, 200, { ok: true, result: await deps.apiKeys() });
         return;
       }
 

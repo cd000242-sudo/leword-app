@@ -301,6 +301,30 @@ export function startWebBridgeHost(): void {
        * 토큰은 앱 밖으로 안 나간다. 사이트는 계산된 숫자만 받는다 —
        * 수익 자료라 브라우저에 자격증명을 둘 이유가 없다.
        */
+      /*
+       * 앱 설정 키 → 사이트 필드명(userKeys.UserKeyField). 값이 없는 칸은 안 보낸다(빈 문자열로 덮지 않게).
+       * 비밀은 같은 기기 사이트로만 간다(web-bridge 의 Origin 허용목록). 로그에 남기지 않는다.
+       */
+      apiKeys: async () => {
+        const { EnvironmentManager } = await import('../utils/environment-manager');
+        const env = EnvironmentManager.getInstance().getConfig() as any;
+        const map: Record<string, string | undefined> = {
+          openApiId: env.naverClientId,
+          openApiSecret: env.naverClientSecret,
+          apihubKeyId: env.naverApiHubKeyId,
+          apihubKey: env.naverApiHubKey,
+          searchAdLicense: env.naverSearchAdAccessLicense,
+          searchAdSecret: env.naverSearchAdSecretKey,
+          searchAdCustomer: env.naverSearchAdCustomerId,
+          youtubeKey: env.youtubeApiKey,
+        };
+        const keys: Record<string, string> = {};
+        for (const [field, value] of Object.entries(map)) {
+          const trimmed = String(value || '').trim();
+          if (trimmed) keys[field] = trimmed;
+        }
+        return { ok: true, keys, count: Object.keys(keys).length };
+      },
       adsenseStatus: async () => {
         const { EnvironmentManager } = await import('../utils/environment-manager');
         const env = EnvironmentManager.getInstance().getConfig() as any;
