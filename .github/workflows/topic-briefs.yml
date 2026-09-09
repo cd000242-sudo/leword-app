@@ -4,9 +4,9 @@ name: 오늘의 글감 (하루 3회차)
 # 분야별로 네이버 뉴스 API 기사를 실측해 사실 카드를 만들고, 클로드 CLI(구독 OAuth)가 카드 안에서만 글감을 고르며,
 # 검증기가 카드에 없는 날짜·숫자를 떨어뜨린다. 검색량은 검색광고 실측.
 #
-# 자리(SERP) 실측은 Bright Data 로 회차당 12건(검색량 큰 순, 앞 회차가 잰 검색어는 재활용) — 사장님 승인 2026-09-09. 기능 'briefs' 장부는
-# 사이트 레포 data/brightdata-quota-briefs.json 에 두고 표와 함께 커밋한다(회차마다 새 러너라 파일이 기억이다).
-# 달 상한 1,200 = 12 × 3회 × 31 = 1,116 의 여유분. 선점(golden)·실검(issue) 장부와 별개이며 무료 5,000 안이다.
+# 자리(SERP) 실측은 Bright Data 로 회차 글감 전부(상한 80, 검색량 큰 순, 앞 회차가 잰 검색어는 재활용) — 사장님 승인 2026-09-09 오후.
+# 기능 'briefs' 장부는 사이트 레포 data/brightdata-quota-briefs.json 에 두고 표와 함께 커밋한다(회차마다 새 러너라 파일이 기억이다).
+# 달 상한 8,000 = 75 × 3회 × 31 = 6,975 의 여유분. 무료 5,000 을 넘는 몫은 유료(약 $1.5/1,000) — 황금(달 4,000)·실검(1,100)과 합쳐 약 $11.
 #
 # 시간대: cron 은 UTC. 한국 06:23·12:23·18:23 은 UTC 전날 21:23·03:23·09:23. 추천키워드(21:30)와 다른 워크플로라 겹쳐 돌아도 된다.
 on:
@@ -23,8 +23,8 @@ on:
         default: 'brightdata'
         required: false
       maxSerp:
-        description: '자리 실측 상한(건)'
-        default: '12'
+        description: '자리 실측 상한(건) — 기본 80 = 회차 글감 전부'
+        default: '80'
         required: false
 
 concurrency:
@@ -88,10 +88,11 @@ jobs:
           BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
           LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json
-          # 달 1,200 건에서 기능 자체를 잠근다(12 × 3회 × 31 = 1,116 이 이론 최대 — 앞 회차 재활용으로 실제는 더 적다).
-          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":1200}'
+          # 달 8,000 건에서 기능 자체를 잠근다(75 × 3회 × 31 = 6,975 가 이론 최대 — 앞 회차 재활용으로 실제는 더 적다).
+          # 사장님 2026-09-09 오후: "글감 자리 실측을 전부 해도 되지 않아? 20달러 내로 가능할 듯" — 황금 회차를 주 1회로 줄여 예산을 옮겼다.
+          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":8000}'
           SERP_MODE: ${{ github.event.inputs.serp || 'brightdata' }}
-          MAX_SERP: ${{ github.event.inputs.maxSerp || '12' }}
+          MAX_SERP: ${{ github.event.inputs.maxSerp || '80' }}
         run: |
           mkdir -p site/data
           npm install -g @anthropic-ai/claude-code

@@ -239,9 +239,14 @@ describe('선점 보드 워크플로 — 실행 시각', () => {
      * UTC 목요일 22:00 이라 요일 필드가 0,4 다. 1,5 를 적으면 한국 시간으로
      * 화요일·토요일에 돈다 — 지시받은 요일과 다르게 도는데 아무도 안 죽는다.
      */
-    it('한국 월·금 아침에 돈다', () => {
+    it('주 1회, 한국 월요일 아침(06:23 KST = UTC 일요일 21:23)에 돈다 — 사장님 2026-09-09 "황금 회차 주 1회"', () => {
         const cron = workflow.match(/cron:\s*'([^']+)'/);
-        expect(cron?.[1]).toBe('0 22 * * 0,4');
+        expect(cron?.[1]).toBe('23 21 * * 0');
+    });
+
+    it('황금 BD 는 달 4,000·회차 1,200 으로 묶인다 — 예산을 글감 자리 실측으로 옮겼다', () => {
+        expect(workflow).toContain('LEWORD_BRIGHTDATA_FEATURE_CAPS: \'{"golden":4000}\'');
+        expect(workflow).toContain('--maxPerRun=1200');
     });
 });
 
