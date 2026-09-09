@@ -31,6 +31,7 @@ const arg = (name, fallback = '') => {
   return found ? found.slice(name.length + 3) : fallback;
 };
 const has = (name) => process.argv.includes(`--${name}`);
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const AGENT_CHAIN = [
   { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'opus' }) },
   { provider: 'codex', run: runCodex },
@@ -87,14 +88,23 @@ async function main() {
     console.log(`검색어 붙이기 — 대상 ${missing.length}`);
     let derived = 0;
     for (const item of missing) {
-      const seed = seedOf(item.name);
-      if (seed.length < 2) continue;
-      let suggestions = [];
-      try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, seed, 60); } catch { suggestions = []; }
-      const seedTokens = new Set(tokensOf(seed));
-      const pool = suggestions
-        .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && s.keyword.trim().split(/\s+/).length <= 4 && tokensOf(s.keyword).some((t) => seedTokens.has(t)))
-        .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume);
+      const fullSeed = seedOf(item.name);
+      if (fullSeed.length < 2) continue;
+      // 3어절 → 2어절 → 1어절: 긴 씨앗은 연관어가 안 잡힌다('나주 원황배 가정용' 실측 0건). 잡히는 데서 멈춘다.
+      const seedWords = fullSeed.split(' ');
+      let seed = fullSeed;
+      let pool = [];
+      for (let n = seedWords.length; n >= 1; n -= 1) {
+        seed = seedWords.slice(0, n).join(' ');
+        let suggestions = [];
+        try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, seed, 60); } catch { suggestions = []; }
+        await sleep(300);
+        const seedTokens = new Set(tokensOf(seed));
+        pool = suggestions
+          .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && s.keyword.trim().split(/\s+/).length <= 4 && tokensOf(s.keyword).some((t) => seedTokens.has(t)))
+          .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume);
+        if (pool.length > 0) break;
+      }
       let seedVolume = null;
       try { const v = await getNaverSearchAdKeywordVolume(adConfig, [seed]); const row = (v || []).find((x) => String(x.keyword || '').replace(/\s+/g, '') === seed.replace(/\s+/g, '')); seedVolume = row && typeof row.totalSearchVolume === 'number' ? row.totalSearchVolume : null; } catch { seedVolume = null; }
       const need = pool[0] || null;
