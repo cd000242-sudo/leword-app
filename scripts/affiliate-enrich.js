@@ -90,24 +90,34 @@ async function main() {
     for (const item of missing) {
       const fullSeed = seedOf(item.name);
       if (fullSeed.length < 2) continue;
-      // 3어절 → 2어절 → 1어절: 긴 씨앗은 연관어가 안 잡힌다('나주 원황배 가정용' 실측 0건). 잡히는 데서 멈춘다.
-      const seedWords = fullSeed.split(' ');
-      let seed = fullSeed;
+      /*
+       * 씨앗 후보 순서 — **품목 명사구가 먼저, 브랜드는 나중**(첫 실주행: 앞 어절부터 줄이니 '더'·'미생물'·'하림펫푸드'
+       * 같은 브랜드·조사가 씨앗이 되고 니즈가 0건이었다). "굿프렌드 굿핏 공기압 프리미엄 다리 마사지기" 라면
+       * '다리 마사지기' → '마사지기' → '굿프렌드 굿핏' → '굿프렌드' 순. 연관어가 잡히는 첫 씨앗에서 멈춘다.
+       * 연관어는 띄어쓰기 없이 오기도 해서 토큰 일치가 아니라 **포함**으로 본다.
+       */
+      const words = fullSeed.split(' ').filter((w) => w.length >= 2);
+      const seedCandidates = [...new Set([
+        words.slice(-2).join(' '), words.slice(-1).join(' '), words.slice(0, 2).join(' '), words[0] || '',
+      ].filter((s) => s && s.replace(/\s+/g, '').length >= 2 && s.replace(/\s+/g, '').length <= 15))];
+      const norm = (k) => String(k || '').replace(/\s+/g, '').toLowerCase();
+      let seed = seedCandidates[0] || fullSeed;
       let pool = [];
-      for (let n = seedWords.length; n >= 1; n -= 1) {
-        seed = seedWords.slice(0, n).join(' ');
+      for (const cand of seedCandidates) {
         let suggestions = [];
-        try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, seed, 60); } catch { suggestions = []; }
+        try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, cand, 80); } catch { suggestions = []; }
         await sleep(300);
-        const seedTokens = new Set(tokensOf(seed));
+        const candTokens = tokensOf(cand);
         pool = suggestions
-          .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && s.keyword.trim().split(/\s+/).length <= 4 && tokensOf(s.keyword).some((t) => seedTokens.has(t)))
+          .filter((s) => typeof s.totalSearchVolume === 'number' && s.totalSearchVolume >= 100 && norm(s.keyword).length <= 20 && candTokens.some((t) => norm(s.keyword).includes(t)))
           .sort((a, b) => b.totalSearchVolume - a.totalSearchVolume);
+        seed = cand;
         if (pool.length > 0) break;
       }
       let seedVolume = null;
       try { const v = await getNaverSearchAdKeywordVolume(adConfig, [seed]); const row = (v || []).find((x) => String(x.keyword || '').replace(/\s+/g, '') === seed.replace(/\s+/g, '')); seedVolume = row && typeof row.totalSearchVolume === 'number' ? row.totalSearchVolume : null; } catch { seedVolume = null; }
-      const need = pool[0] || null;
+      // 연관어에 없으면 씨앗 자신이 니즈다('깻잎무침'·'배수구 냄새 제거제' — 연관어는 딴 말만 주는데 씨앗엔 검색량이 있다).
+      const need = pool[0] || (typeof seedVolume === 'number' && seedVolume >= 100 ? { keyword: seed, totalSearchVolume: seedVolume } : null);
       item.keyword = seed;
       item.searchVolume = seedVolume;
       if (need) {
