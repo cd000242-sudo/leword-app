@@ -34,8 +34,17 @@ function stepIndex(name: string): number {
 }
 
 describe('실검 틈새 보드 워크플로', () => {
-  it('하루 3회 — 한국 07·13·19시(UTC 22·4·10)', () => {
-    expect(workflow).toMatch(/cron:\s*'0 22,4,10 \* \* \*'/);
+  it('하루 3회 — 한국 07·13·19시(UTC 22·4·10). 분은 정각을 피한다', () => {
+    // 정각 예약이 2~4.5시간 늦게 돌았다(22:00→23:47, 04:00→08:31, 10:00→14:04 실측).
+    // 다른 회차 워크플로와 같은 :23 으로 옮겼다.
+    expect(workflow).toMatch(/cron:\s*'23 22,4,10 \* \* \*'/);
+  });
+
+  it('문서수 상한을 회차에 넘긴다 — 안 넘기면 3,000 으로 떨어져 자리 실측 대상이 회차당 2건이 된다', () => {
+    // 2026-09-09 원장 213행: 트래픽 통과 70 중 68 이 문서수 3,000 초과 하나로 탈락 → 보드가 이월만 반복.
+    expect(workflow).toMatch(/docCountMax:\n\s+description:[^\n]*\n\s+default: '20000'/);
+    const hunt = workflow.slice(stepIndex('실검 틈새 회차'), stepIndex('보드 원장 보관'));
+    expect(hunt).toContain("--docCountMax=${{ github.event.inputs.docCountMax || '20000' }}");
   });
 
   it('워크플로가 넘기는 네이버 키 이름을 EnvironmentManager 가 전부 읽는다', () => {
