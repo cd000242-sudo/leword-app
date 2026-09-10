@@ -110,6 +110,27 @@ export function bigNumbersOf(text: string): string[] {
   return [...out];
 }
 
+/**
+ * 이 카드가 정말 그 키워드 얘기인가 — 대상 일치(2026-09-10).
+ *
+ * 왜 필요한가: 뉴스 API 가 그 검색어로 돌려줬다는 사실만으로는 같은 대상이라는 근거가 안 된다.
+ * '아카메' 로 물으면 게임 캐릭터 기사도, 동명의 사람 기사도 온다. 대상이 어긋난 카드로 쓴 브리프는
+ * 날짜·숫자가 다 맞아도 딴 얘기가 된다 — 날짜·숫자 검증만으로는 안 걸린다.
+ *
+ * 판정은 느슨하게 한다. 키워드의 **어절 중 하나라도** 카드 제목·요약에 있으면 통과다:
+ *   · 띄어쓰기 변형('무릎 물찬' vs '무릎물찬')을 잡으려고 공백을 걷고 견준다
+ *   · 두 글자 미만 어절은 아무 데나 걸리므로 근거로 안 센다
+ * 좁게 잡으면 정상 별칭·표기 변형까지 떨어진다. 여기서 막으려는 것은 '한 어절도 안 겹치는' 카드다.
+ */
+export function factMatchesKeyword(fact: { title: string; snippet: string }, keyword: string): boolean {
+  // 대소문자를 맞춘다 — 'CrazyGames' 기사와 'crazygames' 검색어가 안 겹치면 정상 카드가 떨어진다.
+  const flat = (t: string) => String(t || '').replace(/\s+/g, '').toLowerCase();
+  const hay = flat(`${fact.title} ${fact.snippet}`);
+  const parts = String(keyword || '').split(/\s+/).map(flat).filter((w) => w.length >= 2);
+  if (parts.length === 0) return true; // 견줄 말이 없으면 막지 않는다
+  return parts.some((w) => hay.includes(w));
+}
+
 export interface KeywordBriefValidation { ok: KeywordBrief | null; reason?: string }
 
 export function validateKeywordBrief(raw: unknown, row: KeywordBriefRow, facts: FactCard[], today: Date): KeywordBriefValidation {
@@ -125,6 +146,13 @@ export function validateKeywordBrief(raw: unknown, row: KeywordBriefRow, facts: 
   const byId = new Map(facts.map((f) => [f.id, f]));
   const ids = [...new Set((Array.isArray(d.factIds) ? d.factIds : []).map((id) => String(id).toLowerCase().replace(/[^a-z0-9]/g, '')).filter((id) => byId.has(id)))];
   const cited = ids.map((id) => byId.get(id) as FactCard);
+  /*
+   * 대상 일치 — 인용한 카드가 그 키워드의 말을 한 어절도 안 담고 있으면 근거가 아니다.
+   * 카드 자체를 못 믿는 게 아니라 **이 키워드의 근거로는 못 쓴다**는 뜻이라, 인용에서만 뺀다.
+   * 다 빠지면 '실측 수치만' 으로 남는다 — 브리프를 버리지는 않는다(수치는 여전히 실측이다).
+   */
+  const onTarget = cited.filter((f) => factMatchesKeyword(f, row.keyword));
+  const offTarget = cited.filter((f) => !factMatchesKeyword(f, row.keyword));
   // 날짜 — 인용 카드의 날짜·발행일에 있어야 한다(달·날 같고 달이 한 달 안).
   const monthIndex = (x: string) => Number(x.slice(0, 4)) * 12 + Number(x.slice(5, 7));
   const sameDate = (a: string, b: string) => a.slice(8) === b.slice(8) && Math.abs(monthIndex(a) - monthIndex(b)) <= 1;
@@ -154,8 +182,11 @@ export function validateKeywordBrief(raw: unknown, row: KeywordBriefRow, facts: 
       experience: prose(d.experience),
       differentiation: prose(d.differentiation),
       angle,
-      facts: cited.map((f) => ({ id: f.id, title: f.title, press: f.press, link: f.link, publishedAt: f.publishedAt })),
-      basis: cited.length ? `실측 수치 + 뉴스 카드 ${cited.length}건` : '실측 수치만(관련 뉴스 없음)',
+      facts: onTarget.map((f) => ({ id: f.id, title: f.title, press: f.press, link: f.link, publishedAt: f.publishedAt })),
+      basis: onTarget.length
+        ? `실측 수치 + 뉴스 카드 ${onTarget.length}건`
+        + (offTarget.length ? ` (대상이 다른 ${offTarget.length}건은 근거에서 뺌)` : '')
+        : '실측 수치만(관련 뉴스 없음)',
       builtAt: new Date().toISOString(),
     },
   };
