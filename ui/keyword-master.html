@@ -717,11 +717,12 @@
         <button role="tab" data-screen="briefs" aria-selected="false" onclick="showScreen('briefs')"><span class="k">3</span>오늘의 글감<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">4</span>자리 실측기<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="rank" aria-selected="false" onclick="showScreen('rank')"><span class="k">5</span>노출 추적<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">6</span>PRO 트래픽 폭발 키워드 헌터</button>
-        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">7</span>AdSense 승인 키워드 헌터</button>
-        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">8</span>네이버 AI 메이트 키워드 찾기</button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">9</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">10</span>설정 · 키</button>
+        <button role="tab" data-screen="kin" aria-selected="false" onclick="showScreen('kin')"><span class="k">6</span>지식인 황금질문<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">7</span>PRO 트래픽 폭발 키워드 헌터</button>
+        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">8</span>AdSense 승인 키워드 헌터</button>
+        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">9</span>네이버 AI 메이트 키워드 찾기</button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">10</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">11</span>설정 · 키</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -1443,6 +1444,49 @@
     </section>
 
     <!--
+      지식인 황금질문(앱 전용, 2026-09-10) — 사장님 "앱은 사이트 상위호환이어야지".
+      엔진(naver-kin-golden-hunter-v3 + search-kin-questions IPC)은 이미 앱에 있었는데 화면이 없었다.
+      이 PC 크로미엄으로 지식인을 직접 열어 센다 — 사이트처럼 15분 크론·워커 타임아웃에 매이지 않는다.
+
+      화면에 올리는 것은 **잰 것만**이다: 조회수·답변 수·며칠 전·채택 여부·외부 링크 허용·전문가 전용.
+      엔진이 같이 주는 goldenScore/honeyPotScore/estimatedDailyTraffic/trafficPotential 은 안 쓴다 —
+      사장님 규칙(추정치 UI 노출 금지). 답변 각도와 블로그 다리 제목은 글감이라 남긴다.
+    -->
+    <section class="leword-screen" data-screen="kin">
+      <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
+            💬 지식인 황금질문 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
+          </h3>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #94a3b8; cursor: pointer;">
+              <input type="checkbox" id="kinOpenOnly" onchange="renderKinBoard()" style="accent-color: #fbbf24;">
+              답변 2개 이하만
+            </label>
+            <button id="kinRunBtn" onclick="runKinHunt()"
+              style="padding: 8px 14px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">지금 찾기</button>
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;" id="kinTabs">
+          <button onclick="setKinTab('popular')" data-kin-tab="popular"
+            style="padding: 6px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; font: inherit; border: 1px solid rgba(251,191,36,0.38); background: rgba(251,191,36,0.13); color: #fbbf24; font-weight: 700;">많이 본 Q&amp;A</button>
+          <button onclick="setKinTab('latest')" data-kin-tab="latest"
+            style="padding: 6px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; font: inherit; border: 1px solid #334155; background: #1e293b; color: #94a3b8;">급상승 질문</button>
+          <button onclick="setKinTab('trending')" data-kin-tab="trending"
+            style="padding: 6px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; font: inherit; border: 1px solid #334155; background: #1e293b; color: #94a3b8;">지금 뜨는 숨은 질문</button>
+          <button onclick="setKinTab('hidden')" data-kin-tab="hidden"
+            style="padding: 6px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; font: inherit; border: 1px solid #334155; background: #1e293b; color: #94a3b8;">숨은 꿀질문</button>
+        </div>
+        <p style="margin: 0 0 10px; font-size: 12px; color: #64748b; line-height: 1.6;">
+          지식인을 이 PC 브라우저로 직접 열어 <b style="color:#94a3b8;">답변이 아직 비었거나 약한 질문</b>을 찾습니다.
+          조회수·답변 수·올라온 때는 전부 화면에서 읽은 값입니다. 비용 0 · 횟수 제한 없음.
+        </p>
+        <div id="kinStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">아직 안 찾았습니다. [지금 찾기] 를 누르세요.</div>
+      </div>
+      <div id="kinBody"></div>
+    </section>
+
+    <!--
       화면 4~7 (2026-09-09 셸 통일): 모달로 만들던 기능 4종을 화면으로 싣는다.
       기능 코드는 그대로 두고, 열기 함수가 만든 뿌리 요소를 showScreen 이 이 섹션 안으로 옮긴다(mountModalAsScreen).
     -->
@@ -1759,6 +1803,8 @@
           briefs: { load: 'loadBriefs' },
           // 노출 추적도 섹션이다 — 열 때 이 PC 에 쌓인 기록을 읽는다.
           rank: { load: 'loadRankBoard' },
+          // 지식인은 열 때 저절로 긁지 않는다 — 그린 것만 다시 보인다.
+          kin: { load: 'loadKinBoard' },
           sites: {},
           seat: { open: 'openSeatMeasureModal', root: 'seatMeasureModal' },
           pro: { open: 'openProTrafficModal', root: 'proTrafficModal' },
@@ -9147,6 +9193,180 @@
          * 숫자는 메인 프로세스가 잰 것을 그대로 찍는다. 점수를 새로 만들지 않는다.
          * 적중률 분모는 '잰 쌍'이다 — 안 잰 쌍까지 분모에 넣으면 0% 로 보여 오해가 생긴다(v2.42.84).
          */
+        /*
+         * 지식인 황금질문 — 화면 쪽(앱 전용, 2026-09-10).
+         *
+         * 엔진이 주는 것 중 **잰 것만** 그린다. goldenScore·honeyPotScore·estimatedDailyTraffic·
+         * trafficPotential 은 안 쓴다(사장님 규칙: 추정치 UI 노출 금지). 대신 초보자가 실제로
+         * 판단할 수 있는 사실을 그대로 놓는다 — 답변이 몇 개인가, 채택됐나, 링크를 걸 수 있나.
+         *
+         * '답변 자리'의 뜻: 답변이 없거나(0) 채택이 아직 안 된 질문. 채택된 질문에 다는 답은 묻힌다.
+         */
+        let kinView = { tab: 'popular', rows: [], stats: null, at: 0 };
+
+        function kinEsc(text) {
+          return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        /*
+         * 답변 자리 판단은 **답변 수 하나로만** 한다.
+         *
+         * 실측(2026-09-10, 21건): isAdopted 는 21건 전부 false, isExpertOnly 와 hasExternalLinks 는
+         * 21건 전부 true 로 왔다. 엔진이 페이지 전체 글자에 정규식을 걸어서 그렇다 —
+         * 지식인 어느 페이지에나 '전문가 답변' 이 있고, 바닥글 링크까지 외부 링크로 센다.
+         * 21건이 모두 같은 값이면 그건 잰 게 아니다. 그래서 화면에 올리지 않는다.
+         * 답변 수와 조회수는 값이 흩어져 있다(1~23) — 그건 진짜다.
+         */
+        function kinHasSeat(q) {
+          return (Number(q.answerCount) || 0) <= 2;
+        }
+
+        /** 제목 대장간과 같은 금지 상투구. 규칙 문구가 이 목록에 걸리면 화면에 안 올린다. */
+        const KIN_TITLE_CLICHES = /핵심\s*정리|핵심만|총정리|확인할\s*점|알아보|한눈에|정리해\s*봤|무조건|100\s*%|평생|완벽\s*가이드|핵심\s*답변|자세한\s*정리/;
+
+        /*
+         * 제목에서 목록 화면의 부스러기를 걷는다.
+         *
+         * 엔진의 제목 선택자가 때때로 카드 전체 글자를 집어 온다(실측: 길이 14·28·82·100·100 이 섞여 옴).
+         * 그때 앞에는 목록 순위 숫자가, 뒤에는 '조회수 581답변수 2 새 창' 같은 화면 글자가 붙는다.
+         * 여기서 지우는 것은 그 두 가지뿐이다 — 질문의 말은 한 글자도 건드리지 않는다.
+         * 남은 것이 길면 앞 한 문장을 제목으로 세우고 나머지는 미리보기로 내린다(자르지 않고 그대로 둔다).
+         */
+        function kinCleanTitle(raw) {
+          let text = String(raw || '').replace(/\s+/g, ' ').trim();
+          text = text.replace(/^\d{1,3}\s+/, '');
+          text = text.replace(/\s*조회수\s*[\d,]+\s*답변수\s*[\d,]+.*$/, '').trim();
+          text = text.replace(/\s*새\s*창.*$/, '').trim();
+          const cut = text.search(/[?？.!]\s/);
+          if (cut > 0 && cut < text.length - 2) {
+            return { head: text.slice(0, cut + 1).trim(), rest: text.slice(cut + 1).trim() };
+          }
+          if (text.length > 44) {
+            const space = text.lastIndexOf(' ', 44);
+            if (space > 16) return { head: text.slice(0, space).trim(), rest: text.slice(space).trim() };
+          }
+          return { head: text, rest: '' };
+        }
+
+        function kinAgeText(q) {
+          const hours = q.questionAge && typeof q.questionAge.hoursAgo === 'number' ? q.questionAge.hoursAgo : null;
+          if (hours != null && hours < 24) return Math.max(1, Math.round(hours)) + '시간 전';
+          const days = Number(q.daysAgo);
+          if (!isFinite(days)) return '—';
+          return days === 0 ? '오늘' : days + '일 전';
+        }
+
+        function kinRow(q, idx) {
+          const answers = Number(q.answerCount) || 0;
+          // 답변 수만으로 말한다 — 채택 여부는 전량 오탐이라 쓰지 않는다.
+          const seatLabel = answers === 0 ? '아무도 안 답함' : (answers <= 2 ? '답변 ' + answers + '개뿐' : '붐빔');
+          const seatStyle = answers === 0
+            ? 'background:#dcfce7; color:#166534;'
+            : (answers <= 2 ? 'background:#fef3c7; color:#92400e;' : 'background:rgba(255,255,255,0.06); color:#64748b;');
+          const urlSafe = String(q.url || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          const angle = q.answerAngle || '';
+          // 규칙으로 만든 제목이 상투구에 걸리면 안 보여 준다 — 대장간과 같은 금지 목록이다.
+          const bridgeRaw = String(q.blogBridgeTitle || '');
+          const bridge = bridgeRaw && !KIN_TITLE_CLICHES.test(bridgeRaw) ? bridgeRaw : '';
+          // '메인'은 지식인 화면의 메뉴 글자가 새어 든 것이라 분야로 안 쓴다.
+          const category = q.category && q.category !== '메인' ? q.category : '';
+          const title = kinCleanTitle(q.title);
+          return '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
+            + '<td style="padding:9px 10px; max-width:420px;">'
+            + '<a href="#" onclick="event.preventDefault(); lewordOpenExternal(\'' + urlSafe + '\')" style="color:#e2e8f0; text-decoration:none; font-weight:600; word-break:keep-all;">' + kinEsc(title.head) + '</a>'
+            + (title.rest ? '<div style="font-size:11px; color:#94a3b8; margin-top:3px; line-height:1.5; word-break:keep-all;">' + kinEsc(title.rest) + '</div>' : '')
+            + (category ? '<div style="font-size:10.5px; color:#64748b; margin-top:3px;">' + kinEsc(category) + '</div>' : '')
+            + (angle || bridge ? '<div style="margin-top:6px; padding:6px 9px; background:#0f172a; border:1px solid rgba(255,255,255,0.07); border-radius:6px; font-size:11px; color:#94a3b8; line-height:1.6;">'
+              + (angle ? '<div>답할 각도: ' + kinEsc(angle) + '</div>' : '')
+              + (bridge ? '<div style="margin-top:3px; color:#cbd5e1;">블로그로 잇는 제목: ' + kinEsc(bridge)
+                + ' <button onclick="lewordCopyText(\'' + String(bridge).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', this)" style="font:inherit; font-size:10px; color:#64748b; background:none; border:0; cursor:pointer;">복사</button></div>' : '')
+              + '</div>' : '')
+            + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:#94a3b8;">' + (Number(q.viewCount) || 0).toLocaleString('ko-KR') + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:' + (answers === 0 ? '#22c55e' : '#94a3b8') + '; font-weight:' + (answers === 0 ? '700' : '400') + ';">' + answers + '</td>'
+            + '<td style="padding:9px 10px; text-align:center;"><span style="display:inline-block; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; ' + seatStyle + '">' + seatLabel + '</span></td>'
+            + '<td style="padding:9px 10px; text-align:right; color:#64748b; font-size:11.5px; white-space:nowrap;">' + kinEsc(kinAgeText(q)) + '</td>'
+            + '<td style="padding:9px 6px; text-align:right;">'
+            + '<button onclick="lewordOpenExternal(\'' + urlSafe + '\')" title="지식인에서 열기" style="padding:4px 9px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#e2e8f0; font-size:11.5px; cursor:pointer;">열기</button>'
+            + '</td></tr>';
+        }
+
+        window.renderKinBoard = function renderKinBoard() {
+          const body = document.getElementById('kinBody');
+          const status = document.getElementById('kinStatus');
+          if (!body || !status) return;
+          document.querySelectorAll('[data-kin-tab]').forEach((b) => {
+            const on = b.getAttribute('data-kin-tab') === kinView.tab;
+            b.style.border = '1px solid ' + (on ? 'rgba(251,191,36,0.38)' : '#334155');
+            b.style.background = on ? 'rgba(251,191,36,0.13)' : '#1e293b';
+            b.style.color = on ? '#fbbf24' : '#94a3b8';
+            b.style.fontWeight = on ? '700' : '400';
+          });
+          const all = kinView.rows || [];
+          if (all.length === 0) {
+            body.innerHTML = '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">아직 찾은 질문이 없습니다. [지금 찾기] 를 누르세요.</div>';
+            return;
+          }
+          const openOnly = !!document.getElementById('kinOpenOnly')?.checked;
+          const rows = openOnly ? all.filter(kinHasSeat) : all;
+          body.innerHTML = rows.length === 0
+            ? '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">답변 자리가 남은 질문이 없습니다. 다른 탭을 보거나 다시 찾아 보세요.</div>'
+            : '<div style="overflow-x:auto; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">'
+              + '<table style="width:100%; min-width:760px; border-collapse:collapse; font-size:12.5px;">'
+              + '<thead><tr style="background:rgba(255,255,255,0.04); color:#94a3b8; font-size:11px;">'
+              + '<th style="text-align:left; padding:9px 10px; font-weight:500;">질문</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;">조회수</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;">답변</th>'
+              + '<th style="text-align:center; padding:9px 10px; font-weight:500;" title="답변 수로만 판단합니다 — 채택 여부는 엔진이 잘못 세고 있어 쓰지 않습니다">답변 자리</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;">올라온 때</th>'
+              + '<th style="padding:9px 6px;"></th></tr></thead><tbody>'
+              + rows.map(kinRow).join('')
+              + '</tbody></table></div>';
+
+          const seatCount = all.filter(kinHasSeat).length;
+          const when = kinView.at ? new Date(kinView.at) : null;
+          const two = (n) => String(n).padStart(2, '0');
+          status.textContent = rows.length + ' / ' + all.length + '개 · 답변 자리 있는 것 ' + seatCount + '개'
+            + (when ? ' · ' + (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + two(when.getHours()) + ':' + two(when.getMinutes()) + ' 에 찾음' : '');
+        };
+
+        window.setKinTab = function setKinTab(tab) {
+          kinView.tab = tab;
+          kinView.rows = [];
+          window.renderKinBoard();
+          void window.runKinHunt();
+        };
+
+        window.runKinHunt = async function runKinHunt() {
+          const btn = document.getElementById('kinRunBtn');
+          const status = document.getElementById('kinStatus');
+          if (!btn || !status) return;
+          btn.disabled = true; btn.style.opacity = '0.6';
+          status.textContent = '지식인을 여는 중… (브라우저가 직접 읽습니다)';
+          try {
+            const premium = kinView.tab === 'trending' || kinView.tab === 'hidden';
+            const res = await window.electronAPI.invoke('search-kin-questions', { tabType: kinView.tab, isPremiumRequest: premium });
+            if (!res || !res.success) {
+              status.innerHTML = '<span style="color:#fca5a5;">' + kinEsc((res && res.error) || '찾지 못했습니다') + '</span>';
+              return;
+            }
+            kinView.rows = Array.isArray(res.goldenQuestions) ? res.goldenQuestions : [];
+            kinView.stats = res.stats || null;
+            kinView.at = Date.now();
+            window.renderKinBoard();
+          } catch (error) {
+            status.innerHTML = '<span style="color:#fca5a5;">' + kinEsc((error && error.message) || error) + '</span>';
+          } finally {
+            btn.disabled = false; btn.style.opacity = '1';
+          }
+        };
+
+        window.loadKinBoard = function loadKinBoard() {
+          // 화면을 열 때 저절로 긁지 않는다 — 브라우저를 몇 분 쓰는 일이라 사장님이 눌러서 시작한다.
+          window.renderKinBoard();
+        };
+
         let rankView = null;
 
         function rankEsc(text) {
