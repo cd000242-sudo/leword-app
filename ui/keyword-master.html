@@ -718,11 +718,12 @@
         <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">4</span>자리 실측기<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="rank" aria-selected="false" onclick="showScreen('rank')"><span class="k">5</span>노출 추적<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="kin" aria-selected="false" onclick="showScreen('kin')"><span class="k">6</span>지식인 황금질문<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">7</span>PRO 트래픽 폭발 키워드 헌터</button>
-        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">8</span>AdSense 승인 키워드 헌터</button>
-        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">9</span>네이버 AI 메이트 키워드 찾기</button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">10</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">11</span>설정 · 키</button>
+        <button role="tab" data-screen="youtube" aria-selected="false" onclick="showScreen('youtube')"><span class="k">7</span>유튜브 급상승 글감<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">8</span>PRO 트래픽 폭발 키워드 헌터</button>
+        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">9</span>AdSense 승인 키워드 헌터</button>
+        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">10</span>네이버 AI 메이트 키워드 찾기</button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">11</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">12</span>설정 · 키</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -1487,6 +1488,47 @@
     </section>
 
     <!--
+      유튜브 급상승 글감(앱 전용, 2026-09-10) — 사장님 "앱은 사이트 상위호환이어야지".
+      엔진(youtube-golden-keywords IPC + youtube-trend-analyzer)은 이미 앱에 있었는데 화면이 없었다.
+      사이트 판은 15분 크론이 만든 정적 파일이고 회차마다 같은 15건만 남았다(실측 15/15 동일).
+      여기는 사장님 유튜브 키로 지금 급상승을 받아 네이버 검색량·문서수를 그 자리에서 잰다.
+
+      화면에 올리는 것은 **잰 것만**이다:
+        유튜브 시간당 조회수(YouTube API) · 네이버 검색량(검색광고) · 문서수(오픈 API) · 비율(둘의 나눗셈).
+      엔진이 같이 주는 urgencyScore·trendScore·competitionScore·totalScore·grade 는 안 쓴다
+      (사장님 규칙: 추정치 UI 노출 금지). warnings 는 실측 숫자를 말로 바꾼 것이라 남긴다.
+    -->
+    <section class="leword-screen" data-screen="youtube">
+      <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
+            🎬 유튜브 급상승 글감 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
+          </h3>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #94a3b8; cursor: pointer;">
+              <input type="checkbox" id="ytGapOnly" onchange="renderYoutubeBoard()" checked style="accent-color: #fbbf24;">
+              네이버에 글이 적은 것만
+            </label>
+            <select id="ytCount" style="padding: 7px 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 12.5px;">
+              <option value="50" selected>급상승 50편</option>
+              <option value="100">100편</option>
+              <option value="200">200편</option>
+            </select>
+            <button id="ytRunBtn" onclick="runYoutubeHunt()"
+              style="padding: 8px 14px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">지금 찾기</button>
+          </div>
+        </div>
+        <p style="margin: 0 0 10px; font-size: 12px; color: #64748b; line-height: 1.6;">
+          지금 유튜브에서 뜨는 영상의 말을 뽑아 <b style="color:#94a3b8;">네이버에는 글이 얼마나 있는지</b>를 그 자리에서 잽니다.
+          유튜브에서 터지는데 네이버에 글이 없으면 그게 빈자리입니다. 사장님 유튜브 키를 씁니다 — 사이트처럼 15분 크론에 매이지 않습니다.
+        </p>
+        <div id="ytStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">아직 안 찾았습니다. [지금 찾기] 를 누르세요.</div>
+      </div>
+      <div id="ytTiles" style="display: none; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;"></div>
+      <div id="ytBody"></div>
+    </section>
+
+    <!--
       화면 4~7 (2026-09-09 셸 통일): 모달로 만들던 기능 4종을 화면으로 싣는다.
       기능 코드는 그대로 두고, 열기 함수가 만든 뿌리 요소를 showScreen 이 이 섹션 안으로 옮긴다(mountModalAsScreen).
     -->
@@ -1805,6 +1847,8 @@
           rank: { load: 'loadRankBoard' },
           // 지식인은 열 때 저절로 긁지 않는다 — 그린 것만 다시 보인다.
           kin: { load: 'loadKinBoard' },
+          // 유튜브도 열 때 저절로 안 부른다 — API 할당량을 쓰는 일이다.
+          youtube: { load: 'loadYoutubeBoard' },
           sites: {},
           seat: { open: 'openSeatMeasureModal', root: 'seatMeasureModal' },
           pro: { open: 'openProTrafficModal', root: 'proTrafficModal' },
@@ -9222,6 +9266,139 @@
          *
          * '답변 자리'의 뜻: 답변이 없거나(0) 채택이 아직 안 된 질문. 채택된 질문에 다는 답은 묻힌다.
          */
+        /*
+         * 유튜브 급상승 글감 — 화면 쪽(앱 전용, 2026-09-10).
+         *
+         * 엔진이 주는 것 중 **잰 것만** 그린다. urgencyScore·trendScore·competitionScore·
+         * totalScore·grade 는 안 쓴다(사장님 규칙: 추정치 UI 노출 금지).
+         *
+         * '빈자리'의 뜻은 사이트 판과 같다 — 검색량 ÷ 문서수 ≥ 1, 즉 찾는 사람이 쓰인 글보다 많다.
+         * 사이트는 그 게이트를 생성기가 미리 걸어 15건만 싣지만, 여기는 잰 것을 다 보여 주고
+         * 거르개로 사장님이 정한다. 상한이 없으니 굳이 미리 자를 이유가 없다.
+         */
+        let ytView = { rows: [], analyzed: 0, at: 0 };
+
+        function ytEsc(text) {
+          return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function ytNum(value) {
+          return typeof value === 'number' && isFinite(value) ? Math.round(value).toLocaleString('ko-KR') : '—';
+        }
+        /** 비율 1 이상 = 찾는 사람이 쓰인 글보다 많다. 그게 빈자리다. */
+        function ytIsGap(row) {
+          return typeof row.ratio === 'number' && row.ratio >= 1;
+        }
+
+        function ytTile(label, value, hint) {
+          return '<div style="flex:1 1 150px; padding:12px 14px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">'
+            + '<div style="font-size:11px; color:#64748b; margin-bottom:4px;">' + ytEsc(label) + '</div>'
+            + '<div style="font-size:20px; font-weight:700; color:#e2e8f0; font-variant-numeric:tabular-nums;">' + ytEsc(value) + '</div>'
+            + (hint ? '<div style="font-size:10.5px; color:#64748b; margin-top:3px;">' + ytEsc(hint) + '</div>' : '')
+            + '</div>';
+        }
+
+        function ytRow(row) {
+          const gap = ytIsGap(row);
+          const kwSafe = String(row.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          const related = (row.relatedKeywords || []).slice(0, 4).map((k) =>
+            '<span style="display:inline-block; padding:2px 7px; border-radius:999px; font-size:10.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); color:#94a3b8; margin:2px 3px 0 0;">' + ytEsc(k) + '</span>').join('');
+          const warn = (row.warnings || []).slice(0, 2).map((w) =>
+            '<div style="font-size:10.5px; color:#64748b; margin-top:3px;">' + ytEsc(w) + '</div>').join('');
+          return '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
+            + '<td style="padding:9px 10px; max-width:280px;">'
+            + '<div style="font-weight:600; word-break:keep-all;">' + ytEsc(row.keyword) + '</div>'
+            + (related ? '<div style="margin-top:3px;">' + related + '</div>' : '')
+            + warn
+            + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:#f87171; font-weight:600;">' + ytNum(row.youtubeViewsPerHour) + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + ytNum(row.totalSearchVolume) + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:#64748b;">' + ytNum(row.documentCount) + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-weight:800; font-variant-numeric:tabular-nums; color:' + (gap ? '#22c55e' : '#64748b') + ';">'
+            + (typeof row.ratio === 'number' ? row.ratio.toFixed(2) : '—') + '</td>'
+            + '<td style="padding:9px 6px; text-align:right; white-space:nowrap;">'
+            + '<button onclick="openNaverSearch(\'' + kwSafe + '\')" title="네이버에서 보기" style="padding:4px 8px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#e2e8f0; font-size:11px; cursor:pointer; margin-right:3px;">🔍</button>'
+            + '<button onclick="searchKeyword(\'' + kwSafe + '\', true)" title="이 말로 발굴" style="padding:4px 8px; border:1px solid rgba(251,191,36,0.4); border-radius:6px; background:rgba(251,191,36,0.14); color:#fbbf24; font-size:11px; cursor:pointer;">발굴</button>'
+            + '</td></tr>';
+        }
+
+        window.renderYoutubeBoard = function renderYoutubeBoard() {
+          const body = document.getElementById('ytBody');
+          const tiles = document.getElementById('ytTiles');
+          const status = document.getElementById('ytStatus');
+          if (!body || !tiles || !status) return;
+          const all = ytView.rows || [];
+          if (all.length === 0) {
+            tiles.style.display = 'none';
+            body.innerHTML = '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">아직 찾은 것이 없습니다. [지금 찾기] 를 누르세요.</div>';
+            return;
+          }
+          const gaps = all.filter(ytIsGap);
+          const gapOnly = !!document.getElementById('ytGapOnly')?.checked;
+          const rows = (gapOnly ? gaps : all).slice().sort((a, b) => (b.ratio || 0) - (a.ratio || 0));
+
+          tiles.style.display = 'flex';
+          tiles.innerHTML = ytTile('잰 검색어', all.length + '개', '급상승 영상에서 뽑음')
+            + ytTile('네이버에 글이 적은 것', gaps.length + '개', '검색량 ÷ 문서수 ≥ 1')
+            + ytTile('가장 넓은 자리', gaps.length ? Math.max(...gaps.map((r) => r.ratio || 0)).toFixed(1) + '배' : '—', '찾는 사람 ÷ 쓰인 글')
+            + ytTile('영상 분석', ytView.analyzed + '개', '유튜브 API 실측');
+
+          body.innerHTML = rows.length === 0
+            ? '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">네이버에 글이 적은 것이 없습니다. 거르개를 풀어 전부 보세요.</div>'
+            : '<div style="overflow-x:auto; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">'
+              + '<table style="width:100%; min-width:720px; border-collapse:collapse; font-size:12.5px;">'
+              + '<thead><tr style="background:rgba(255,255,255,0.04); color:#94a3b8; font-size:11px;">'
+              + '<th style="text-align:left; padding:9px 10px; font-weight:500;">검색어</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;" title="유튜브 API 실측">유튜브 시간당 조회</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;" title="네이버 검색광고 실측">네이버 검색량</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;" title="네이버 블로그 오픈 API 실측">문서수</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;" title="검색량 ÷ 문서수 — 1 이상이면 찾는 사람이 쓰인 글보다 많다">비율</th>'
+              + '<th style="padding:9px 6px;"></th></tr></thead><tbody>'
+              + rows.map(ytRow).join('')
+              + '</tbody></table></div>';
+
+          const when = ytView.at ? new Date(ytView.at) : null;
+          const two = (n) => String(n).padStart(2, '0');
+          status.textContent = rows.length + ' / ' + all.length + '개 · 네이버에 글이 적은 것 ' + gaps.length + '개'
+            + (when ? ' · ' + (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + two(when.getHours()) + ':' + two(when.getMinutes()) + ' 에 잼' : '');
+        };
+
+        window.runYoutubeHunt = async function runYoutubeHunt() {
+          const btn = document.getElementById('ytRunBtn');
+          const status = document.getElementById('ytStatus');
+          if (!btn || !status) return;
+          const maxResults = Number(document.getElementById('ytCount')?.value) || 50;
+          btn.disabled = true; btn.style.opacity = '0.6';
+          status.textContent = '유튜브 급상승을 받아 네이버를 재는 중… (1~2분)';
+          try {
+            const res = await window.electronAPI.invoke('youtube-golden-keywords', { maxResults });
+            if (!res || res.error) {
+              const msg = res && res.requiresUnlimited
+                ? (res.message || '프리미엄 사용자만 쓸 수 있습니다.')
+                : ((res && res.message) || '찾지 못했습니다');
+              status.innerHTML = '<span style="color:#fca5a5;">' + ytEsc(msg) + '</span>';
+              return;
+            }
+            const cross = (res.data && res.data.crossAnalysis) || null;
+            if (!cross || !Array.isArray(cross.opportunities) || cross.opportunities.length === 0) {
+              // 네이버 키가 없으면 교차 분석이 통째로 없다 — 무엇이 없어서 빈지 밝힌다.
+              status.innerHTML = '<span style="color:#fca5a5;">네이버 검색량·문서수를 재지 못했습니다 — [설정 · 키] 에서 네이버 오픈 API 키를 넣어 주세요.</span>';
+              return;
+            }
+            ytView = { rows: cross.opportunities, analyzed: maxResults, at: Date.now() };
+            window.renderYoutubeBoard();
+          } catch (error) {
+            status.innerHTML = '<span style="color:#fca5a5;">' + ytEsc((error && error.message) || error) + '</span>';
+          } finally {
+            btn.disabled = false; btn.style.opacity = '1';
+          }
+        };
+
+        window.loadYoutubeBoard = function loadYoutubeBoard() {
+          // 열 때 저절로 부르지 않는다 — 유튜브 API 할당량을 쓰는 일이라 사장님이 눌러서 시작한다.
+          window.renderYoutubeBoard();
+        };
+
         let kinView = { tab: 'popular', rows: [], stats: null, at: 0 };
 
         function kinEsc(text) {
@@ -9292,11 +9469,22 @@
           // '메인'은 지식인 화면의 메뉴 글자가 새어 든 것이라 분야로 안 쓴다.
           const category = q.category && q.category !== '메인' ? q.category : '';
           const title = kinCleanTitle(q.title);
+          /*
+           * 전문가 전용·링크 허용을 다시 쓴다(2026-09-10). 전에는 엔진이 21건 전부 같은 값을 줘서
+           * 안 올렸는데, 원인을 고쳤다 — '의사'·'expert' 를 아무 데서나 찾던 정규식은 '전문가 답변'
+           * 명시 문구만 보게 했고, 외부 링크는 답변 안에서만 세며 브라우저 안내 주소를 걷는다.
+           * 고친 뒤 실측: 전문가 전용 0/20 · 링크 허용 8/20 — 값이 갈린다.
+           */
+          const expertOnly = q.isExpertOnly === true;
+          const linkOk = q.hasExternalLinks === true;
           return '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
             + '<td style="padding:9px 10px; max-width:420px;">'
             + '<a href="#" onclick="event.preventDefault(); lewordOpenExternal(\'' + urlSafe + '\')" style="color:#e2e8f0; text-decoration:none; font-weight:600; word-break:keep-all;">' + kinEsc(title.head) + '</a>'
             + (title.rest ? '<div style="font-size:11px; color:#94a3b8; margin-top:3px; line-height:1.5; word-break:keep-all;">' + kinEsc(title.rest) + '</div>' : '')
-            + (category ? '<div style="font-size:10.5px; color:#64748b; margin-top:3px;">' + kinEsc(category) + '</div>' : '')
+            + ((category || expertOnly || linkOk) ? '<div style="font-size:10.5px; color:#64748b; margin-top:3px;">' + kinEsc(category)
+              + (expertOnly ? (category ? ' · ' : '') + '<span style="color:#f87171;" title="이 질문에 전문가 답변이 붙어 있습니다 — 일반 답변은 묻히기 쉽습니다">전문가 답변 있음</span>' : '')
+              + (linkOk ? ((category || expertOnly) ? ' · ' : '') + '<span style="color:#22c55e;" title="답변 안에 네이버 밖 링크가 실제로 걸려 있습니다 — 내 글로 잇는 것이 막히지 않는 자리입니다">링크 걸림</span>' : '')
+              + '</div>' : '')
             + (angle || bridge ? '<div style="margin-top:6px; padding:6px 9px; background:#0f172a; border:1px solid rgba(255,255,255,0.07); border-radius:6px; font-size:11px; color:#94a3b8; line-height:1.6;">'
               + (angle ? '<div>답할 각도: ' + kinEsc(angle) + '</div>' : '')
               + (bridge ? '<div style="margin-top:3px; color:#cbd5e1;">블로그로 잇는 제목: ' + kinEsc(bridge)

@@ -9,9 +9,10 @@ import { describe, expect, it } from 'vitest';
  * 앱에 이미 있었고 화면만 없었다.
  *
  * 이 파일이 잠그는 핵심은 **잰 것과 안 잰 것을 가르는 일**이다.
- * 실측(2026-09-10, 21건): isAdopted 전량 false · isExpertOnly 전량 true · hasExternalLinks 전량 true.
- * 엔진이 페이지 전체 글자에 정규식을 걸어서 그렇다. 21건이 모두 같은 값이면 그건 잰 게 아니다.
- * 답변 수(1~23)와 조회수는 흩어져 있으니 그건 진짜다 — 화면은 그것만 쓴다.
+ * 실측(2026-09-10, 21건): isExpertOnly·hasExternalLinks 가 전량 true 였다 — 엔진이 페이지 전체
+ * 글자에 정규식을 걸어서다. 21건이 모두 같은 값이면 그건 잰 게 아니라 상수다.
+ * 원인을 고친 뒤 전문가 전용 0/20 · 링크 허용 8/20 으로 갈렸다. 이 파일이 그 회귀를 잠근다.
+ * isAdopted 는 실측상 오탐 근거가 없었지만(두 페이지 모두 정말 미채택) 표본이 얇아 아직 안 쓴다.
  */
 const root = path.join(__dirname, '..', '..', '..');
 const read = (...p: string[]) => fs.readFileSync(path.join(root, ...p), 'utf8');
@@ -48,16 +49,27 @@ describe('지식인 화면 배선', () => {
     expect(handler).toContain("tabType === 'latest' || tabType === 'rising'");
   });
 
-  it('전량 오탐 필드를 화면에 올리지 않는다', () => {
-    // 엔진이 페이지 전체 글자에 정규식을 건다 — 그 코드가 그대로인 한 이 세 필드는 못 쓴다.
-    expect(engine).toContain("/전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test");
-    // 주석은 걷는다 — 왜 안 쓰는지 적어 둔 설명까지 위반으로 잡으면 설명을 못 남긴다.
+  it('오탐을 부르던 헐거운 정규식이 돌아오지 않았다', () => {
+    /*
+     * 2026-09-10 실측: '의사'·'expert' 를 아무 데서나 찾아 21건 전부 전문가 전용이 됐다.
+     * '의사' 는 '의사소통'·분야 메뉴에도 있고 'expert' 는 클래스 이름에도 있다.
+     * 고친 뒤 0/20. 이 정규식이 되살아나면 그 순간 다시 전량 true 가 된다.
+     */
+    expect(engine).not.toContain('전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사');
+    expect(engine).toContain(String.raw`/전문가\s*답변/.test`);
+  });
+
+  it('외부 링크는 답변 안에서만 세고 브라우저 안내 주소를 걷는다', () => {
+    // 실측: 페이지 전체를 훑으면 support.microsoft.com·google.com/chrome·navercorp.com 까지 세어 전부 true 가 됐다.
+    expect(engine).toContain('linkChrome');
+    expect(engine).toContain(String.raw`support\.microsoft\.com`);
+    expect(engine).not.toMatch(/const externalLinks = Array\.from\(document\.querySelectorAll\('a\[href\]'\)\)/);
+  });
+
+  it('채택 여부는 여전히 안 쓴다 — 답변 수만으로 자리를 판단한다', () => {
     const code = renderer.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-    for (const field of ['isExpertOnly', 'hasExternalLinks', 'isAdopted']) {
-      expect(code, `화면이 오탐 필드를 씀: ${field}`).not.toContain(field);
-    }
+    expect(code).not.toContain('isAdopted');
     expect(code).not.toContain('채택됨');
-    expect(code).not.toContain('전문가 전용');
   });
 
   it('추정 점수·예상 트래픽을 화면에 올리지 않는다', () => {

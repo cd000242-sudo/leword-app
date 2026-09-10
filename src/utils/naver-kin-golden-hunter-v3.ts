@@ -1051,9 +1051,19 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
             pageText.includes('채택 답변') ||
             document.querySelector('.badge_adopted, .adopted, [class*="adopt"]') !== null;
 
-          const externalLinks = Array.from(document.querySelectorAll('a[href]'))
+          /*
+           * 외부 링크는 **답변 안**에서만 센다(2026-09-10 실측).
+           * 페이지 전체를 훑으면 브라우저 업그레이드 안내(support.microsoft.com·google.com/chrome)와
+           * 회사 소개(navercorp.com)까지 외부 링크로 세어 21건 전부 true 가 됐다.
+           * 답변 영역을 못 찾으면 전체에서 세되 그 안내 주소들은 걷는다.
+           */
+          const linkChrome = /support\.microsoft\.com|google\.com\/(intl\/[^/]+\/)?chrome|navercorp\.com|w3\.org|whale\.naver|adobe\.com\/.*flash/i;
+          const answerScope = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, ._answer'));
+          const linkRoots = answerScope.length > 0 ? answerScope : [document.body];
+          const externalLinks = linkRoots
+            .flatMap(root => Array.from(root.querySelectorAll('a[href]')))
             .map(a => (a as HTMLAnchorElement).href || '')
-            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
+            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href) && !linkChrome.test(href));
           const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
             .map(el => (el as HTMLElement).innerText || '')
             .filter(t => t.trim().length > 30);
@@ -1061,7 +1071,12 @@ export async function getPopularQnA(): Promise<GoldenHuntResult> {
             ? Math.round(answerTexts.reduce((sum, t) => sum + t.trim().length, 0) / answerTexts.length)
             : 0;
           const answerQualityScore = answerCount === 0 ? 0 : Math.min(100, Math.max(25, Math.round(avgAnswerLength / 8)));
-          const isExpertOnly = /전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test(pageText);
+          /*
+           * '전문가 답변' 이라고 화면에 박힌 것만 센다(2026-09-10 실측).
+           * 전에는 의사|변호사|세무사|노무사|expert 까지 아무 데서나 찾아 21건 전부 true 였다 —
+           * '의사' 는 '의사소통'·분야 메뉴에도 있고 'expert' 는 클래스 이름에도 있다.
+           */
+          const isExpertOnly = /전문가\s*답변/.test(pageText);
 
           if (headerText.includes('방금') || pageText.includes('방금')) {
             dateText = '방금'; hoursAgo = 0;
@@ -1462,9 +1477,19 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
             answerCount > 0 &&
             (text.includes('채택됨') || document.querySelector('.badge_adopted') !== null);
 
-          const externalLinks = Array.from(document.querySelectorAll('a[href]'))
+          /*
+           * 외부 링크는 **답변 안**에서만 센다(2026-09-10 실측).
+           * 페이지 전체를 훑으면 브라우저 업그레이드 안내(support.microsoft.com·google.com/chrome)와
+           * 회사 소개(navercorp.com)까지 외부 링크로 세어 21건 전부 true 가 됐다.
+           * 답변 영역을 못 찾으면 전체에서 세되 그 안내 주소들은 걷는다.
+           */
+          const linkChrome = /support\.microsoft\.com|google\.com\/(intl\/[^/]+\/)?chrome|navercorp\.com|w3\.org|whale\.naver|adobe\.com\/.*flash/i;
+          const answerScope = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, ._answer'));
+          const linkRoots = answerScope.length > 0 ? answerScope : [document.body];
+          const externalLinks = linkRoots
+            .flatMap(root => Array.from(root.querySelectorAll('a[href]')))
             .map(a => (a as HTMLAnchorElement).href || '')
-            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
+            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href) && !linkChrome.test(href));
           const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
             .map(el => (el as HTMLElement).innerText || '')
             .filter(t => t.trim().length > 30);
@@ -1472,7 +1497,12 @@ export async function getRisingQuestions(): Promise<GoldenHuntResult> {
             ? Math.round(answerTexts.reduce((sum, t) => sum + t.trim().length, 0) / answerTexts.length)
             : 0;
           const answerQualityScore = answerCount === 0 ? 0 : Math.min(100, Math.max(25, Math.round(avgAnswerLength / 8)));
-          const isExpertOnly = /전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test(text);
+          /*
+           * '전문가 답변' 이라고 화면에 박힌 것만 센다(2026-09-10 실측).
+           * 전에는 의사|변호사|세무사|노무사|expert 까지 아무 데서나 찾아 21건 전부 true 였다 —
+           * '의사' 는 '의사소통'·분야 메뉴에도 있고 'expert' 는 클래스 이름에도 있다.
+           */
+          const isExpertOnly = /전문가\s*답변/.test(text);
 
           // 정확한 hoursAgo 재측정
           let hoursAgo = 999;
@@ -1857,9 +1887,19 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
             answerCount > 0 &&
             (text.includes('채택됨') || document.querySelector('.badge_adopted') !== null);
 
-          const externalLinks = Array.from(document.querySelectorAll('a[href]'))
+          /*
+           * 외부 링크는 **답변 안**에서만 센다(2026-09-10 실측).
+           * 페이지 전체를 훑으면 브라우저 업그레이드 안내(support.microsoft.com·google.com/chrome)와
+           * 회사 소개(navercorp.com)까지 외부 링크로 세어 21건 전부 true 가 됐다.
+           * 답변 영역을 못 찾으면 전체에서 세되 그 안내 주소들은 걷는다.
+           */
+          const linkChrome = /support\.microsoft\.com|google\.com\/(intl\/[^/]+\/)?chrome|navercorp\.com|w3\.org|whale\.naver|adobe\.com\/.*flash/i;
+          const answerScope = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, ._answer'));
+          const linkRoots = answerScope.length > 0 ? answerScope : [document.body];
+          const externalLinks = linkRoots
+            .flatMap(root => Array.from(root.querySelectorAll('a[href]')))
             .map(a => (a as HTMLAnchorElement).href || '')
-            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
+            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href) && !linkChrome.test(href));
           const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
             .map(el => (el as HTMLElement).innerText || '')
             .filter(t => t.trim().length > 30);
@@ -1867,7 +1907,12 @@ export async function fullHunt(): Promise<GoldenHuntResult> {
             ? Math.round(answerTexts.reduce((sum, t) => sum + t.trim().length, 0) / answerTexts.length)
             : 0;
           const answerQualityScore = answerCount === 0 ? 0 : Math.min(100, Math.max(25, Math.round(avgAnswerLength / 8)));
-          const isExpertOnly = /전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test(text);
+          /*
+           * '전문가 답변' 이라고 화면에 박힌 것만 센다(2026-09-10 실측).
+           * 전에는 의사|변호사|세무사|노무사|expert 까지 아무 데서나 찾아 21건 전부 true 였다 —
+           * '의사' 는 '의사소통'·분야 메뉴에도 있고 'expert' 는 클래스 이름에도 있다.
+           */
+          const isExpertOnly = /전문가\s*답변/.test(text);
 
           let hoursAgoFromDetail = 999;
           if (text.includes('방금')) hoursAgoFromDetail = 0;
@@ -2344,10 +2389,12 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
           // 외부링크: 답변 영역 내부만 카운트 (페이지 전체 a[href] 는 제휴/푸터/광고 외부링크가 상존 →
           //   평범한 질문도 4~7개로 오탐하여 미노출꿀통/지금뜨는 전량 탈락의 원인이었음).
           const answerContainers = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answerArea"], [class*="answer_area"]'));
+          // 브라우저 업그레이드 안내·회사 소개는 답변이 건 링크가 아니다(2026-09-10 실측).
+          const linkChrome = /support\.microsoft\.com|google\.com\/(intl\/[^/]+\/)?chrome|navercorp\.com|w3\.org|whale\.naver|adobe\.com\/.*flash/i;
           const externalLinks = answerContainers
             .flatMap(c => Array.from(c.querySelectorAll('a[href]')))
             .map(a => (a as HTMLAnchorElement).href || '')
-            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href));
+            .filter(href => /^https?:\/\//i.test(href) && !/naver\.com|naver\.me|nid\.naver/i.test(href) && !linkChrome.test(href));
           const answerTexts = Array.from(document.querySelectorAll('.answer-content__item, .se-main-container, .endContentsText, [class*="answer"]'))
             .map(el => (el as HTMLElement).innerText || '')
             .filter(t => t.trim().length > 30);
@@ -2355,7 +2402,12 @@ export async function getTrendingHiddenQuestions(): Promise<GoldenHuntResult> {
             ? Math.round(answerTexts.reduce((sum, t) => sum + t.trim().length, 0) / answerTexts.length)
             : 0;
           const answerQualityScore = answerCount === 0 ? 0 : Math.min(100, Math.max(25, Math.round(avgAnswerLength / 8)));
-          const isExpertOnly = /전문가 답변|엑스퍼트|expert|의사|변호사|세무사|노무사/i.test(text);
+          /*
+           * '전문가 답변' 이라고 화면에 박힌 것만 센다(2026-09-10 실측).
+           * 전에는 의사|변호사|세무사|노무사|expert 까지 아무 데서나 찾아 21건 전부 true 였다 —
+           * '의사' 는 '의사소통'·분야 메뉴에도 있고 'expert' 는 클래스 이름에도 있다.
+           */
+          const isExpertOnly = /전문가\s*답변/.test(text);
           let hoursAgoFromDetail = 999;
           if (text.includes('방금')) hoursAgoFromDetail = 0;
           else if (text.includes('분 전')) {
