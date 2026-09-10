@@ -3962,22 +3962,22 @@
           let html = `
         <div style="margin-bottom: 16px; font-size: 18px; font-weight: 700; color: #92400e;">🎯 MDP v2.0 발굴 결과 (${results.length}개)</div>
         <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+          <table style="width: 100%; border-collapse: collapse; background: #0f172a; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; overflow: hidden; color: #e2e8f0; font-variant-numeric: tabular-nums;">
             <thead>
-              <tr style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white;">
-                <th style="padding: 14px 10px; text-align: left; font-size: 13px; font-weight: 700;">순위</th>
-                <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;">등급</th>
-                <th style="padding: 14px 10px; text-align: left; font-size: 13px; font-weight: 700;">키워드</th>
-                <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;">SERP 신호</th>
-                <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">수익가치(CVI)</th>
-                <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">예상 CPC</th>
-                <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">합산 검색량</th>
-                <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">문서량</th>
-                <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">황금비율</th>
-                <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;" title="내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 센 값">자리 실측</th>
-                <th style="padding: 14px 10px; text-align: left; font-size: 13px; font-weight: 700;">판정</th>
-                <th style="padding: 14px 10px; text-align: right; font-size: 13px; font-weight: 700;">월수익</th>
-                <th style="padding: 14px 10px; text-align: center; font-size: 13px; font-weight: 700;">검색</th>
+              <tr style="background: rgba(255,255,255,0.04); color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.12);">
+                <th style="padding: 14px 10px; text-align: left; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">순위</th>
+                <th style="padding: 14px 10px; text-align: center; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">등급</th>
+                <th style="padding: 14px 10px; text-align: left; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">키워드</th>
+                <th style="padding: 14px 10px; text-align: center; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">SERP 신호</th>
+                <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">수익가치(CVI)</th>
+                <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">예상 CPC</th>
+                <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">합산 검색량</th>
+                <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">문서량</th>
+                <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">황금비율</th>
+                <th style="padding: 14px 10px; text-align: center; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;" title="내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 센 값">자리 실측</th>
+                <th style="padding: 14px 10px; text-align: left; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">판정</th>
+                <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">월수익</th>
+                <th style="padding: 14px 10px; text-align: center; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">검색</th>
               </tr>
             </thead>
             <tbody>
@@ -4042,22 +4042,22 @@
             // 플랫폼 레인 배지 — 애드센스(티스토리/구글) 적합은 의도 실측 판정.
             // null(재료 부족)이면 배지를 그리지 않는다 — 미판정을 부적합처럼 보이게 하지 않는다.
             if (item.adsenseFit === true) serpBadges += `<span title="${(item.adsenseReason || '').replace(/"/g, '&quot;')}" style="background:#1a73e8; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin:0 2px;">AdSense</span>`;
-            else if (item.adsenseFit === false) serpBadges += `<span title="${(item.adsenseReason || '').replace(/"/g, '&quot;')}" style="background:#f1f5f9; color:#94a3b8; padding:2px 6px; border-radius:4px; font-size:10px; margin:0 2px; text-decoration:line-through;">AdSense</span>`;
+            else if (item.adsenseFit === false) serpBadges += `<span title="${(item.adsenseReason || '').replace(/"/g, '&quot;')}" style="background:rgba(255,255,255,0.06); color:#94a3b8; padding:2px 6px; border-radius:4px; font-size:10px; margin:0 2px; text-decoration:line-through;">AdSense</span>`;
 
             if (!serpBadges) serpBadges = '<span style="color:#cbd5e1; font-size:10px;">클린</span>';
 
             html += `
-          <tr style="border-bottom: 1px solid #f1f5f9; transition: all 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+          <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
-            <td style="padding: 12px 10px; text-align: center;">${gradeValue ? '<span style="background: ' + gradeColor + '; color: white; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">' + gradeValue + '</span>' : ''}</td>
+            <td style="padding: 12px 10px; text-align: center;">${gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
               <div style="font-weight: 700; color: #1e293b; font-size:14px;">${item.keyword}${supplementBadge}</div>
               <div style="font-size: 10px; color: #64748b;">${item.intentBadge || ''} ${item.intent || 'Info'}</div>
             </td>
             <td style="padding: 12px 10px; text-align: center;">${serpBadges}</td>
-            <td style="padding: 12px 10px; text-align: right; font-weight: 800; color: #7c3aed; font-size:13px;">${(item.cvi || 0).toLocaleString()}</td>
-            <td style="padding: 12px 10px; text-align: right; font-weight: 700; color: #059669; font-size:13px;">₩${(item.cpc || 0).toLocaleString()}</td>
-            <td style="padding: 12px 10px; text-align: right; font-weight: 700; color: #334155;">${totalVolDisplay}</td>
+            <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #a78bfa; font-size:13px;">${(item.cvi || 0).toLocaleString()}</td>
+            <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #34d399; font-size:13px;">₩${(item.cpc || 0).toLocaleString()}</td>
+            <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #e2e8f0;">${totalVolDisplay}</td>
             <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #64748b;">${docCount.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: right; color: ${goldenRatioColor}; font-weight: 800;">${goldenRatioDisplay}</td>
             <td class="seat-cell" data-seat-kw="${String(item.keyword || '').replace(/"/g, '&quot;')}" style="padding: 12px 10px; text-align: center; font-size: 12px; color: #94a3b8;">—</td>
@@ -4067,7 +4067,7 @@
             <td style="padding: 12px 10px; text-align: center; white-space:nowrap;">
               <!-- v2.42.29: 액션 버튼 (HTML escape + 안전 호출 적용) -->
               <button onclick="lewordNaverSearch('${kwJsSafe}')"
-                title="네이버 검색" style="padding: 5px 8px; background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">🔍</button>
+                title="네이버 검색" style="padding: 5px 8px; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px;">🔍</button>
               <button onclick="searchKeyword('${kwJsSafe}', true)"
                 title="LEWORD에서 재검색 (자동 시작)" style="padding: 5px 8px; background: linear-gradient(135deg,#fef3c7,#fde68a); color: #92400e; border: 1px solid #fbbf24; border-radius: 6px; cursor: pointer; font-size: 11px; margin-right:2px; font-weight:700;">🔄</button>
               <button onclick="lewordShowTrendGraph('${kwJsSafe}', ${Number(totalVol) || 0})"
@@ -4100,7 +4100,7 @@
           });
 
           html += `
-        <div style="background: #f8fafc; padding: 12px 20px; border-radius: 0 0 12px 12px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+        <div style="background: rgba(255,255,255,0.04); color: #cbd5e1; padding: 12px 20px; border-radius: 0 0 12px 12px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
           <span><span style="background: #dc2626; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">SSS</span> ${gradeCounts.SSS}개</span>
           <span><span style="background: #ea580c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">SS</span> ${gradeCounts.SS}개</span>
           <span><span style="background: #22c55e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">S</span> ${gradeCounts.S}개</span>
