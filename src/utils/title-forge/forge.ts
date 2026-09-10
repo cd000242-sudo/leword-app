@@ -29,6 +29,12 @@ export interface TitleForgeInput {
   productName?: string;
   /** 도메인 판별용 신호(카테고리·상품명 등 자유 문자열). */
   productSignal?: string;
+  /**
+   * 프레임을 밖에서 고정한다. 안 주면 여느 때처럼 대장간이 고른다.
+   * 쓰는 곳: 한 키워드에서 유형이 다른 제목을 여러 개 뽑을 때(앱 발굴 화면의 글감 펼침).
+   * 근거 없는 프레임을 넣으면 낚시 가드가 뚫리므로, 부르는 쪽이 supportedFrames 안에서만 골라야 한다.
+   */
+  frame?: TitleFrame;
 }
 
 export interface ForgedTitle {
@@ -122,7 +128,7 @@ function fitWithin(text: string, max: number): string {
  * 근거 있는 프레임 목록 — 파생 키워드(검색량 많은 순)의 프레임 + 시기 실측.
  * 여기 없는 프레임은 어떤 경우에도 제목이 되지 않는다(낚시 가드).
  */
-function supportedFrames(input: TitleForgeInput): TitleFrame[] {
+export function supportedFrames(input: TitleForgeInput): TitleFrame[] {
   const ordered = [...input.derivedKeywords]
     .sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0));
   const frames: TitleFrame[] = [];
@@ -144,6 +150,8 @@ function derivedForFrame(input: TitleForgeInput, frame: TitleFrame): DerivedKeyw
 
 function pickFrame(input: TitleForgeInput): TitleFrame {
   const supported = supportedFrames(input);
+  // 밖에서 고정한 프레임은 근거 목록 안에 있을 때만 받는다 — 낚시 가드는 우회할 수 없다.
+  if (input.frame && supported.includes(input.frame)) return input.frame;
   if (supported.length === 0) return 'generic';
   const empty = findEmptyFrames(input.serpTitles, supported);
   if (empty.length > 0) return empty[0];

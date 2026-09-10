@@ -714,12 +714,13 @@
       <nav class="leword-nav" role="tablist" aria-label="화면">
         <button role="tab" data-screen="realtime" aria-selected="true" onclick="showScreen('realtime')"><span class="k">1</span>실시간 검색어</button>
         <button role="tab" data-screen="golden" aria-selected="false" onclick="showScreen('golden')"><span class="k">2</span>황금키워드 발굴</button>
-        <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">3</span>자리 실측기<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">4</span>PRO 트래픽 폭발 키워드 헌터</button>
-        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">5</span>AdSense 승인 키워드 헌터</button>
-        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">6</span>네이버 AI 메이트 키워드 찾기</button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">7</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">8</span>설정 · 키</button>
+        <button role="tab" data-screen="briefs" aria-selected="false" onclick="showScreen('briefs')"><span class="k">3</span>오늘의 글감<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">4</span>자리 실측기<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">5</span>PRO 트래픽 폭발 키워드 헌터</button>
+        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">6</span>AdSense 승인 키워드 헌터</button>
+        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">7</span>네이버 AI 메이트 키워드 찾기</button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">8</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">9</span>설정 · 키</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -1085,7 +1086,18 @@
             onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'"
             onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">❓</span>
         </div>
-        <div class="keyword-input-section" style="display: flex; flex-direction: column; gap: 16px;">
+        <!--
+          조건 줄(2026-09-10 목업 승인) — 발굴이 끝나면 칩 한 줄로 접힌다.
+          접는 이유: 카테고리·보강 키워드·개수 여섯 칸·버튼 넷이 세로로 쌓여 결과 표를 화면 밖으로 밀어냈다.
+          접힌 줄을 누르면 다시 펴진다. 폼 자체는 그대로 두고 보이기만 바꾼다 — 값이 사라지면 안 된다.
+        -->
+        <button type="button" id="goldenCondFolded" onclick="goldenUnfoldConditions()" aria-expanded="false"
+          style="display:none; align-items:center; gap:7px; flex-wrap:wrap; width:100%; text-align:left; padding:10px 14px; margin-bottom:14px; border-radius:12px; background:rgba(251,191,36,0.06); border:1px solid rgba(251,191,36,0.2); color:#94a3b8; font:inherit; font-size:12.5px; cursor:pointer;">
+          <span>발굴함</span>
+          <span id="goldenCondChips" style="display:inline-flex; gap:6px; flex-wrap:wrap;"></span>
+          <span style="margin-left:auto; color:#fbbf24; font-size:11.5px;">조건 펴기 ▾</span>
+        </button>
+        <div class="keyword-input-section" id="goldenCondBody" style="display: flex; flex-direction: column; gap: 16px;">
           <div id="goldenProfileCategoryPanel"
             style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 16px; background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.26); border-radius:14px;">
             <div style="font-size:13px; font-weight:800; color:#67e8f9;">🎯 카테고리 선택 시 집중 발굴 · 미선택 시 전체 카테고리 탐색</div>
@@ -1357,7 +1369,42 @@
     </section>
 
     <!--
-      화면 3~6 (2026-09-09 셸 통일): 모달로 만들던 기능 4종을 화면으로 싣는다.
+      오늘의 글감(앱 전용, 2026-09-10) — 사장님 "앱에서는 오늘의 글감이든 뭐든 실시간으로 볼 수 있지 않니?".
+      맞는 말이었다. 뉴스(오픈 API)·글감 고르기(구독 CLI)·자리(이 PC 크로미엄) 전부 이 PC 에 있는데
+      깃허브 예약(하루 3회, 자주 늦거나 빠짐)을 기다리고 있었다. 여기서는 누르면 바로 만든다.
+      사이트 판은 PC 가 꺼져 있어도 도는 보장선이라 그대로 둔다 — 앱은 상한 없는 판이다.
+    -->
+    <section class="leword-screen" data-screen="briefs">
+      <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
+            📝 오늘의 글감 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
+          </h3>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #94a3b8; cursor: pointer;">
+              <input type="checkbox" id="briefsAuto" onchange="setBriefsAuto()" style="accent-color: #fbbf24;">
+              <span id="briefsAutoLabel">3시간마다 저절로</span>
+            </label>
+            <button id="briefsRunBtn" onclick="runLocalBriefs()"
+              style="padding: 8px 14px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">지금 만들기</button>
+            <button id="briefsAbortBtn" onclick="abortLocalBriefs()" disabled
+              style="padding: 8px 12px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer; opacity: 0.6;">중지</button>
+          </div>
+        </div>
+        <p style="margin: 0 0 10px; font-size: 12px; color: #64748b; line-height: 1.6;">
+          분야 13개의 뉴스를 실측해 사실 카드를 만들고, 사장님 구독 클로드/코덱스가 <b style="color:#94a3b8;">그 카드 안에서만</b> 글감을 고릅니다.
+          핵심 검색어는 검색광고로 검색량을 재고, 자리는 이 PC 브라우저로 <b style="color:#94a3b8;">상한 없이</b> 잽니다. 비용 0.
+          한 회차에 <b style="color:#94a3b8;">10~25분</b> 걸립니다 — 도는 동안 다른 화면을 써도 됩니다.
+        </p>
+        <div id="briefsStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums; margin-bottom: 4px;">불러오는 중…</div>
+        <div id="briefsProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums;"></div>
+      </div>
+      <div id="briefsFilters" style="display: none; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 12px; background: #0f172a; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; margin-bottom: 12px;"></div>
+      <div id="briefsBody"></div>
+    </section>
+
+    <!--
+      화면 4~7 (2026-09-09 셸 통일): 모달로 만들던 기능 4종을 화면으로 싣는다.
       기능 코드는 그대로 두고, 열기 함수가 만든 뿌리 요소를 showScreen 이 이 섹션 안으로 옮긴다(mountModalAsScreen).
     -->
     <section class="leword-screen" data-screen="seat"><div class="leword-screen-empty">불러오는 중…</div></section>
@@ -1669,6 +1716,8 @@
         const SCREENS = {
           realtime: {},
           golden: {},
+          // 오늘의 글감은 모달이 아니라 섹션이다 — 열 때 저장된 판을 불러온다(없으면 사이트 판).
+          briefs: { load: 'loadBriefs' },
           sites: {},
           seat: { open: 'openSeatMeasureModal', root: 'seatMeasureModal' },
           pro: { open: 'openProTrafficModal', root: 'proTrafficModal' },
@@ -1727,6 +1776,9 @@
           const spec = SCREENS[id];
           if (!spec) { console.warn('[SHELL] 모르는 화면:', id); return false; }
           window.activateScreen(id);
+          if (spec.load && typeof window[spec.load] === 'function') {
+            try { void window[spec.load](); } catch (e) { console.warn('[SHELL] 화면 불러오기 실패:', id, e); }
+          }
           if (!spec.open) return true;
           const section = document.querySelector('section.leword-screen[data-screen="' + id + '"]');
           const mounted = section && section.querySelector('#' + spec.root);
@@ -3916,6 +3968,42 @@
           console.log('[KEYWORD-MASTER] ✅ 키워드 발굴 중지 완료');
         };
 
+        /*
+         * 조건 접기 — 발굴이 끝나면 무엇으로 돌렸는지만 남기고 폼을 감춘다.
+         * 값은 폼에 그대로 있다(display 만 바꾼다) — 다시 펴면 고른 것이 그대로 있어야 한다.
+         */
+        function goldenConditionChips() {
+          const chip = (text) => '<span style="padding:3px 9px; border-radius:999px; font-size:11.5px; background:#1e293b; color:#e2e8f0; border:1px solid rgba(255,255,255,0.09);">' + text + '</span>';
+          const cat = document.getElementById('keywordCategory');
+          const catLabel = cat && cat.value ? (cat.options[cat.selectedIndex] || {}).text || cat.value : '전체 카테고리';
+          const limitEl = document.querySelector('input[name="keywordLimit"]:checked');
+          const limit = limitEl ? (limitEl.value === 'unlimited' ? '무제한' : limitEl.value + '개') : '10개';
+          const extra = String((document.getElementById('keywordInput') || {}).value || '').trim();
+          const now = new Date();
+          const stamp = (now.getMonth() + 1) + '월 ' + now.getDate() + '일 '
+            + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+          return [chip(catLabel), chip(limit), chip(extra ? '보강 ' + extra : '보강 없음'), chip(stamp)].join('');
+        }
+
+        window.goldenFoldConditions = function goldenFoldConditions() {
+          const body = document.getElementById('goldenCondBody');
+          const folded = document.getElementById('goldenCondFolded');
+          const chips = document.getElementById('goldenCondChips');
+          if (!body || !folded || !chips) return;
+          chips.innerHTML = goldenConditionChips();
+          body.style.display = 'none';
+          folded.style.display = 'flex';
+          folded.setAttribute('aria-expanded', 'false');
+        };
+
+        window.goldenUnfoldConditions = function goldenUnfoldConditions() {
+          const body = document.getElementById('goldenCondBody');
+          const folded = document.getElementById('goldenCondFolded');
+          if (!body || !folded) return;
+          body.style.display = 'flex';
+          folded.style.display = 'none';
+          folded.setAttribute('aria-expanded', 'true');
+        };
 
         function displayGoldenResults(results) {
           const resultsDiv = document.getElementById('goldenResults');
@@ -3972,7 +4060,7 @@
                 <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">합산 검색량</th>
                 <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">문서량</th>
                 <th style="padding: 14px 10px; text-align: right; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">황금비율</th>
-                <th style="padding: 14px 10px; text-align: center; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;" title="내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 센 값">자리 실측</th>
+                <th style="padding: 14px 10px; text-align: center; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;" title="내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 센 값">자리 실측<span data-seat-progress style="display:block; font-family: ui-monospace, Consolas, monospace; font-size: 9.5px; color: #fbbf24; margin-top:2px;"></span></th>
                 <th style="padding: 14px 10px; text-align: left; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">판정</th>
                 <th style="padding: 14px 10px; text-align: center; font-size: 11.5px; font-weight: 500; letter-spacing: .04em;">검색</th>
               </tr>
@@ -4043,8 +4131,11 @@
 
             if (!serpBadges) serpBadges = '<span style="color:#cbd5e1; font-size:10px;">클린</span>';
 
+            // 거르개가 볼 표식. 자리(data-seat)는 아직 안 잰 상태로 두고, 실측이 끝날 때 그 칸이 채운다.
+            const rangeVerdict = typeof window.blogRangeOf === 'function' ? window.blogRangeOf(docCount, null) : null;
+
             html += `
-          <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+          <tr class="golden-row" data-golden-idx="${idx}" data-grade="${gradeValue}" data-blue="${item.isBlueOcean ? '1' : '0'}" data-range="${rangeVerdict || ''}" style="border-bottom: 1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
             <td style="padding: 12px 10px; text-align: center;">${gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
@@ -4073,7 +4164,7 @@
                 title="이 황금키워드를 시드로 LEWORD 마인드맵 확장" style="padding: 5px 8px; background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(99,102,241,0.18)); color: #6b21a8; border: 1px solid rgba(168,85,247,0.45); border-radius: 6px; cursor: pointer; font-size: 11px; font-weight:700;">Seed</button>
             </td>
           </tr>
-          <tr id="golden-drill-${idx}" style="display:none;"><td colspan="10" style="padding:0; background:#fafafa;"><div id="golden-drill-content-${idx}" style="padding:14px 24px; font-size:12px; color:#475569;"></div></td></tr>
+          <tr class="golden-drill" data-golden-idx="${idx}" id="golden-drill-${idx}" style="display:none;"><td colspan="10" style="padding:0; background:#0b1120; border-bottom:1px solid rgba(255,255,255,0.09);"><div id="golden-drill-content-${idx}" style="padding:14px 16px 16px; font-size:12px; color:#cbd5e1;"></div></td></tr>
         `;
           });
 
@@ -4107,6 +4198,7 @@
 
           resultsDiv.innerHTML = html;
           if (typeof window.injectSeatBar === 'function') window.injectSeatBar(resultsDiv);
+          if (typeof window.goldenFoldConditions === 'function') window.goldenFoldConditions();
         }
 
         // HTML 이스케이프 — 아래 AI 엔진 연동 화면이 쓴다(황금키워드 레인은 2026-09-09 사이트로 이관, 여기서 삭제).
@@ -4458,6 +4550,114 @@
         };
 
         // v2.42.28~29: LEWORD 키워드 분석 결과 — 확장 키워드 드릴다운 (rfDrilldown 패턴 재사용)
+        /*
+         * 글감 펼침(2026-09-10 목업 승인) — 줄을 펴면 "이 키워드로 지금 쓴다면" 한 벌이 나온다.
+         * 왼쪽에 제목 후보, 오른쪽에 같이 넣을 말. 표 폭을 그대로 쓴다.
+         *
+         * 두 단계로 그린다. 먼저 연관 키워드를 받아 바로 뿌리고(빠름), 그 다음 자리·제목을
+         * 채워 넣는다(건당 약 4초). 기다리는 동안 빈 화면을 보이지 않기 위해서다.
+         * 자리를 못 잰 말에는 점을 안 찍는다 — 모르는 것을 '닫혔다'로 보이게 하지 않는다.
+         */
+        const KIT_SEAT_DOT = { '열림': '#22c55e', '반열림': '#f59e0b', '잠김': '#ef4444', '카드답': '#ef4444', '자료없음': '#475569' };
+
+        function kitEsc(text) {
+          return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function kitPill(item) {
+          const dot = item.seat ? (KIT_SEAT_DOT[item.seat] || '#475569') : '#334155';
+          const open = item.seat === '열림';
+          const sv = typeof item.searchVolume === 'number' ? item.searchVolume.toLocaleString() : '—';
+          const why = item.seat ? item.seat + (item.seatReason ? ' · ' + item.seatReason : '') : '자리를 아직 안 쟀습니다';
+          const safe = String(item.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          return '<span style="display:inline-flex; align-items:center; gap:6px; padding:5px 6px 5px 10px; border-radius:999px; font-size:11.5px; background:#0f172a; '
+            + 'border:1px solid ' + (open ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.09)') + '; color:' + (open ? '#e2e8f0' : '#94a3b8') + ';">'
+            + '<span onclick="searchKeyword(\'' + safe + '\', true)" title="' + kitEsc(why) + ' · 누르면 이 말로 다시 발굴합니다" style="display:inline-flex; align-items:center; gap:6px; cursor:pointer;">'
+            + '<span style="width:6px; height:6px; border-radius:50%; flex:none; background:' + dot + ';"></span>'
+            + kitEsc(item.keyword) + ' <span style="font-family: ui-monospace, Consolas, monospace; font-size:10px; color:#64748b;">' + sv + '</span></span>'
+            // 옛 목록에 있던 트렌드 버튼을 알약에도 남긴다 — 화면 모양이 바뀐다고 되던 것이 없어지면 안 된다.
+            + '<button onclick="event.stopPropagation(); rfShowTrendGraph(\'' + safe + '\', ' + (Number(item.searchVolume) || 0) + ')" title="30일 트렌드" '
+            + 'style="flex:none; font:inherit; font-size:10px; line-height:1; padding:3px 5px; border-radius:999px; border:0; background:rgba(255,255,255,0.06); color:#67e8f9; cursor:pointer;">📈</button>'
+            + '</span>';
+        }
+
+        function kitTitleRow(title) {
+          const safe = String(title.text || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          return '<div style="display:flex; align-items:center; gap:10px; padding:8px 11px; border-radius:7px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); font-size:12.5px; color:#e2e8f0;" title="' + kitEsc(title.basis) + '">'
+            + '<span style="flex:none; font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.06em; color:#fbbf24; background:rgba(251,191,36,0.1); padding:2px 6px; border-radius:4px;">'
+            + kitEsc(title.frameLabel) + '·' + kitEsc(title.kind) + '</span>'
+            + '<span style="flex:1 1 auto; min-width:0; word-break:keep-all;">' + kitEsc(title.text) + '</span>'
+            + '<button onclick="event.stopPropagation(); lewordCopyText(\'' + safe + '\', this)" style="flex:none; font:inherit; font-size:10.5px; color:#64748b; background:none; border:0; cursor:pointer;">복사</button>'
+            + '</div>';
+        }
+
+        window.lewordCopyText = function lewordCopyText(text, btn) {
+          try {
+            navigator.clipboard.writeText(text);
+            if (btn) { const old = btn.textContent; btn.textContent = '복사됨'; setTimeout(() => { btn.textContent = old; }, 1200); }
+          } catch { if (btn) btn.textContent = '복사 실패'; }
+        };
+
+        /** 판의 네 조각. 처음 그릴 때와 갈아 끼울 때가 같은 것을 쓰게 한 곳에서 만든다. */
+        function kitPanelParts(kit, relatedFallback, note) {
+          const related = (kit && kit.related && kit.related.length) ? kit.related : (relatedFallback || []);
+          const titles = (kit && kit.titles) || [];
+          const measured = kit && kit.related ? kit.related.filter((r) => r.seat).length : 0;
+          return {
+            titlesHtml: titles.length
+              ? titles.map(kitTitleRow).join('')
+              : '<div data-kit-status style="color:#64748b; font-size:12px;">' + kitEsc(note || '제목 후보를 만드는 중…') + '</div>',
+            pillsHtml: related.length
+              ? related.map(kitPill).join('')
+              : '<div style="color:#64748b; font-size:12px;">같이 넣을 말을 찾지 못했습니다.</div>',
+            legend: measured > 0
+              ? '초록 점은 그 말도 지금 자리가 열려 있다는 뜻입니다. 숫자는 월 검색량입니다. ' + measured + '개를 실제로 쟀습니다.'
+              : '숫자는 월 검색량입니다. 자리는 아직 안 쟀습니다 — 회색 점은 모른다는 뜻입니다.',
+            basisLine: !kit ? ''
+              : (kit.serpRead
+                ? '제목은 1페이지 제목 ' + ((kit.seed && kit.seed.topTitles) ? kit.seed.topTitles.length : 0) + '개를 읽고 그중 없는 유형으로 골랐습니다.'
+                : '1페이지 제목을 읽지 못해 유형 근거가 약합니다 — 자리 실측을 먼저 돌리면 정확해집니다.'),
+          };
+        }
+
+        function kitPanelHtml(kw, idx, kit, relatedFallback, note) {
+          const { titlesHtml, pillsHtml, legend, basisLine } = kitPanelParts(kit, relatedFallback, note);
+          return ''
+            + '<div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:12px; font-size:12px; color:#94a3b8;">'
+            + '<b style="color:#fbbf24; font-weight:600; font-size:13px;">' + kitEsc(kw) + '</b> 으로 지금 쓴다면'
+            + '<button onclick="goldenDrilldown(\'' + String(kw).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', ' + idx + ')" style="margin-left:auto; font:inherit; font-size:11.5px; color:#64748b; background:none; border:0; cursor:pointer;">닫기 ▴</button>'
+            + '</div>'
+            + '<div style="display:grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap:14px;">'
+            + '<div><h4 style="margin:0 0 8px; font-family: ui-monospace, Consolas, monospace; font-size:10px; letter-spacing:.1em; color:#64748b; font-weight:500;">제목 후보</h4>'
+            + '<div data-kit-titles style="display:grid; gap:6px;">' + titlesHtml + '</div>'
+            + '<div data-kit-basis style="font-size:10.5px; color:#64748b; margin-top:8px;">' + kitEsc(basisLine) + '</div>'
+            + '</div>'
+            + '<div><h4 style="margin:0 0 8px; font-family: ui-monospace, Consolas, monospace; font-size:10px; letter-spacing:.1em; color:#64748b; font-weight:500;">같이 넣을 말</h4>'
+            + '<div data-kit-pills style="display:flex; flex-wrap:wrap; gap:6px; align-content:flex-start;">' + pillsHtml + '</div>'
+            + '<div data-kit-legend style="font-size:10.5px; color:#64748b; margin-top:8px;">' + kitEsc(legend) + '</div>'
+            + '</div></div>'
+            + '<div id="demand-' + idx + '" style="margin-top:12px;"></div>';
+        }
+
+        /*
+         * 판을 통째로 다시 그리지 않고 두 칸만 갈아 끼운다.
+         * innerHTML 을 다시 쓰면 그 안의 수요 분석 상자가 통째로 날아가고, 다시 부르면
+         * 에이전트 호출이 한 번 더 돈다(최대 1분). 기다리는 사람에게 같은 일을 두 번 시키지 않는다.
+         */
+        function kitPatchPanel(content, kit, relatedFallback, note) {
+          if (!content) return;
+          const titlesBox = content.querySelector('[data-kit-titles]');
+          const pillsBox = content.querySelector('[data-kit-pills]');
+          const basisBox = content.querySelector('[data-kit-basis]');
+          const legendBox = content.querySelector('[data-kit-legend]');
+          const parts = kitPanelParts(kit, relatedFallback, note);
+          if (titlesBox) titlesBox.innerHTML = parts.titlesHtml;
+          if (pillsBox) pillsBox.innerHTML = parts.pillsHtml;
+          if (basisBox) basisBox.textContent = parts.basisLine;
+          if (legendBox) legendBox.textContent = parts.legend;
+        }
+
         window.goldenDrilldown = async function(kw, idx) {
           const row = document.getElementById('golden-drill-' + idx);
           const content = document.getElementById('golden-drill-content-' + idx);
@@ -4467,31 +4667,82 @@
             return;
           }
           row.style.display = '';
-          content.innerHTML = '<div style="text-align:center; color:#94a3b8;">⏳ 확장 키워드 조회 중...</div>';
+          /*
+           * 한 번 만든 글감은 기억한다. 접었다 다시 펴는 것만으로 자리를 또 재면
+           * 같은 페이지를 네 번 더 받는다(약 24초). 발굴 결과가 새로 그려지면 어차피 비워진다.
+           */
+          const cacheKey = String(kw).replace(/\s+/g, '');
+          window.__kitCache = window.__kitCache || {};
+          const remembered = window.__kitCache[cacheKey];
+          if (remembered) {
+            content.innerHTML = kitPanelHtml(kw, idx, remembered.kit, remembered.fallback, null);
+            window.analyzeDemand(kw, idx);
+            return;
+          }
+          content.innerHTML = '<div style="color:#94a3b8; font-size:12px;">⏳ 같이 넣을 말을 찾는 중…</div>';
           try {
             const res = await window.electronAPI.invoke('rich-feed-drilldown', kw);
-            if (!res || !res.success || !Array.isArray(res.keywords) || res.keywords.length === 0) {
-              content.innerHTML = '<div style="color:#94a3b8;">확장 키워드를 찾지 못했습니다.</div>';
+            const found = (res && res.success && Array.isArray(res.keywords)) ? res.keywords.slice(0, 10) : [];
+            const fallback = found.map((k) => ({
+              keyword: k.keyword,
+              searchVolume: typeof k.searchVolume === 'number' ? k.searchVolume : null,
+              documentCount: typeof k.documentCount === 'number' ? k.documentCount : null,
+            }));
+            // 먼저 아는 것만 그린다 — 자리를 재는 동안 빈 화면을 보이지 않는다.
+            content.innerHTML = kitPanelHtml(kw, idx, null, fallback, '자리를 재는 중… (한 건에 6초쯤, 최대 4건)');
+            window.analyzeDemand(kw, idx);
+
+            const cached = (window.__seatTopTitles || {})[String(kw).replace(/\s+/g, '')];
+            // 진행을 그 자리에 적는다 — 20초 넘게 아무 말이 없으면 멈춘 줄 안다.
+            let offProgress = null;
+            try {
+              offProgress = window.electronAPI.on('golden-writing-kit-progress', (pr) => {
+                if (!pr || String(pr.keyword || '') !== String(kw)) return;
+                const line = content.querySelector('[data-kit-status]');
+                if (line) line.textContent = pr.message || '';
+              });
+            } catch { /* 구독이 막혀도 본 작업은 돈다 */ }
+            let kit;
+            try {
+              kit = await window.electronAPI.invoke('golden-writing-kit', {
+                keyword: kw,
+                related: fallback,
+                serpTitles: Array.isArray(cached) ? cached : undefined,
+              });
+            } finally {
+              if (typeof offProgress === 'function') { try { offProgress(); } catch {} }
+            }
+            if (!kit || kit.success === false) {
+              kitPatchPanel(content, null, fallback, '제목 후보를 만들지 못했습니다: ' + ((kit && kit.error) || '알 수 없음'));
               return;
             }
-            const items = res.keywords.slice(0, 10).map(k => {
-              const sv = (k.searchVolume || 0).toLocaleString();
-              const dc = (k.documentCount || 0).toLocaleString();
-              const ratio = (k.goldenRatio || 0).toFixed(2);
-              const safe = String(k.keyword || '').replace(/'/g, "\\'");
-              return `<div style="padding:6px 10px; margin-bottom:4px; background:white; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="searchKeyword('${safe}', true)" title="클릭하면 LEWORD에서 재검색">
-                <span style="font-weight:700; flex:1; color:#1e293b;">${k.keyword}</span>
-                <span style="font-size:10px; color:#64748b;">sv ${sv} · dc ${dc} · ratio ${ratio}</span>
-                <button onclick="event.stopPropagation(); rfShowTrendGraph('${safe}', ${Number(k.searchVolume) || 0})" title="트렌드" style="padding:3px 6px; background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; border-radius:4px; cursor:pointer; font-size:10px;">📈</button>
-              </div>`;
-            }).join('');
-            content.innerHTML = `<div style="font-weight:700; color:#475569; margin-bottom:8px;">🔗 "${kw}" 확장 키워드 (클릭 → LEWORD 재검색)</div>${items}
-              <div id="demand-${idx}" style="margin-top:10px;"></div>`;
-            // 누르라고 하지 않는다 — 펼치면 바로 보인다(사장님 지시 2026-08-18).
-            window.analyzeDemand(kw, idx);
+            if (Array.isArray(kit.seed && kit.seed.topTitles) && kit.seed.topTitles.length > 0) {
+              window.__seatTopTitles = window.__seatTopTitles || {};
+              window.__seatTopTitles[String(kw).replace(/\s+/g, '')] = kit.seed.topTitles;
+            }
+            kitPatchPanel(content, kit, fallback, null);
+            window.__kitCache[cacheKey] = { kit, fallback };
+            // 펼치면서 잰 본 키워드 자리는 표의 자리 칸에도 그대로 옮긴다 — 두 번 재지 않는다.
+            if (kit.seed && kit.seed.seat) window.goldenFillSeatFromKit(kw, kit.seed);
           } catch (err) {
-            content.innerHTML = `<div style="color:#ef4444;">조회 실패: ${err?.message || err}</div>`;
+            content.innerHTML = '<div style="color:#ef4444; font-size:12px;">조회 실패: ' + kitEsc((err && err.message) || err) + '</div>';
           }
+        };
+
+        /** 글감을 펴면서 잰 자리를 표의 자리 칸·거르개 표식에 반영한다. */
+        window.goldenFillSeatFromKit = function goldenFillSeatFromKit(kw, seed) {
+          const key = String(kw).replace(/\s+/g, '');
+          const cell = Array.from(document.querySelectorAll('td.seat-cell'))
+            .find((c) => String(c.getAttribute('data-seat-kw') || '').replace(/\s+/g, '') === key);
+          if (!cell) return;
+          cell.innerHTML = seatCellHtml({ keyword: kw, status: 'ok', verdict: seed.seat, facing: seed.facing, vacancy: seed.vacancy, cards: null, aiBriefing: null });
+          cell.setAttribute('data-seat-done', '1');
+          const tr = cell.closest('tr.golden-row');
+          if (tr) tr.setAttribute('data-seat', seed.seat);
+          const container = document.getElementById('goldenResults');
+          if (!container) return;
+          window.updateSeatProgressLabel(container);
+          window.goldenApplyFilters(container);
         };
 
         /*
@@ -8097,23 +8348,115 @@
          * 결과 표 위 [자리 실측] 버튼 → 표 순서대로 상위 N개를 자리 실측기(seat-measure-run)로 보내 '자리 실측' 칸을 채우고,
          * [자리순 정렬] 로 열림 → 반열림 → 잠김 → 카드답 순으로 세운다. 안 잰 행은 '—' 그대로(0 이 아니라 모름).
          */
+        /*
+         * 거르개(2026-09-10 목업 승인) — 128개를 다 읽을 사람은 없다.
+         * 규칙은 화면에 이미 적힌 것과 같은 것만 쓴다: 자리 판정 · 봉투 판정 · 등급 · 블루오션.
+         * 새 점수를 만들지 않는다. 버튼에 붙는 수는 "그 버튼을 마저 눌렀을 때 남는 수"다 —
+         * 눌러 보기 전에 몇 개가 남는지 알아야 초보자가 겁내지 않고 누른다.
+         */
+        const GOLDEN_FILTERS = {
+          seat: { label: '자리 열림만', test: (tr) => tr.getAttribute('data-seat') === '열림' },
+          mine: { label: '내 크기만', test: (tr) => tr.getAttribute('data-range') === 'mine' },
+          sss: { label: 'SSS만', test: (tr) => tr.getAttribute('data-grade') === 'SSS' },
+          blue: { label: '블루오션', test: (tr) => tr.getAttribute('data-blue') === '1' },
+        };
+        const goldenActiveFilters = new Set();
+
+        function goldenRows(container) {
+          return Array.from(container.querySelectorAll('tr.golden-row'));
+        }
+
+        /** 켜진 거르개를 모두 통과하는가. 하나도 안 켜졌으면 전부 통과다. */
+        function goldenPasses(tr, keys) {
+          return keys.every((k) => GOLDEN_FILTERS[k].test(tr));
+        }
+
+        window.goldenApplyFilters = function goldenApplyFilters(container) {
+          const bar = container.querySelector('[data-seat-bar]');
+          const rows = goldenRows(container);
+          const keys = Array.from(goldenActiveFilters);
+          let shown = 0;
+          for (const tr of rows) {
+            const ok = goldenPasses(tr, keys);
+            tr.style.display = ok ? '' : 'none';
+            const idx = tr.getAttribute('data-golden-idx');
+            const drill = container.querySelector('tr.golden-drill[data-golden-idx="' + idx + '"]');
+            // 걸러진 줄의 펼침판은 무조건 접는다 — 안 보이는 줄의 글감만 떠 있으면 어느 줄 것인지 모른다.
+            if (drill && !ok) drill.style.display = 'none';
+            if (ok) shown += 1;
+          }
+          if (!bar) return;
+          const countEl = bar.querySelector('[data-golden-count]');
+          if (countEl) countEl.textContent = shown + ' / ' + rows.length + '개';
+          // 각 버튼의 수 — 그 버튼까지 켰을 때 남는 수를 미리 보여 준다
+          for (const key of Object.keys(GOLDEN_FILTERS)) {
+            const nEl = bar.querySelector('[data-golden-n="' + key + '"]');
+            if (!nEl) continue;
+            const withKey = keys.indexOf(key) < 0 ? keys.concat([key]) : keys;
+            nEl.textContent = rows.filter((tr) => goldenPasses(tr, withKey)).length;
+          }
+          const empty = container.querySelector('[data-golden-empty]');
+          if (empty) empty.style.display = shown === 0 && rows.length > 0 ? '' : 'none';
+        };
+
+        function goldenFilterButton(key) {
+          return '<button type="button" data-golden-filter="' + key + '" aria-pressed="false" '
+            + 'style="font:inherit; font-size:11.5px; padding:5px 10px; border-radius:999px; border:1px solid #334155; background:#1e293b; color:#94a3b8; cursor:pointer;">'
+            + GOLDEN_FILTERS[key].label + ' <span data-golden-n="' + key + '" style="font-family: ui-monospace, Consolas, monospace; font-size:10.5px; opacity:.85;">0</span></button>';
+        }
+
         window.injectSeatBar = function injectSeatBar(container) {
           if (!container || !container.querySelector('td.seat-cell')) return;
           if (container.querySelector('[data-seat-bar]')) return;
+          goldenActiveFilters.clear();
+          // 새 발굴 결과다 — 지난 회차의 글감을 다음 회차 줄에 붙이지 않는다.
+          window.__kitCache = {};
           const total = container.querySelectorAll('td.seat-cell').length;
           const bar = document.createElement('div');
           bar.setAttribute('data-seat-bar', '1');
-          bar.style.cssText = 'display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; padding:10px 12px; border-radius:10px; background:#0f172a; color:#e2e8f0; font-size:12.5px;';
-          bar.innerHTML = '<strong style="color:#fbbf24;">🪑 자리 실측</strong>'
-            + '<span style="opacity:.8;">내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 셉니다 (무료 · 건당 약 2초)</span>'
+          bar.style.cssText = 'display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; padding:10px 12px; border-radius:10px; background:#0f172a; color:#e2e8f0; font-size:12.5px;';
+          bar.innerHTML = '<strong data-golden-count style="color:#e2e8f0; font-size:13px;">' + total + ' / ' + total + '개</strong>'
+            + Object.keys(GOLDEN_FILTERS).map(goldenFilterButton).join('')
+            + '<span style="flex:1 1 12px;"></span>'
             + '<select data-seat-limit style="font:inherit; padding:4px 8px; border-radius:6px; border:1px solid #334155; background:#1e293b; color:#e2e8f0;">'
             + '<option value="20">상위 20개</option><option value="30" selected>상위 30개</option><option value="50">상위 50개</option><option value="100">상위 100개</option></select>'
-            + '<button type="button" data-seat-run style="font:inherit; font-weight:800; padding:6px 12px; border-radius:8px; border:1px solid #fbbf24; background:#fbbf24; color:#1e293b; cursor:pointer;">자리 실측 시작</button>'
+            + '<button type="button" data-seat-run style="font:inherit; font-weight:800; padding:6px 12px; border-radius:8px; border:1px solid #fbbf24; background:#fbbf24; color:#1e293b; cursor:pointer;" title="내 PC 브라우저로 블로그탭을 실제로 받아 빈자리·정면 글을 셉니다 (무료 · 건당 약 2초)">자리 실측 시작</button>'
             + '<button type="button" data-seat-sort style="font:inherit; font-weight:700; padding:6px 12px; border-radius:8px; border:1px solid #475569; background:transparent; color:#e2e8f0; cursor:pointer;" disabled>자리순 정렬</button>'
-            + '<span data-seat-status style="opacity:.85;">' + total + '개 중 아직 안 잼</span>';
+            + '<span data-seat-status style="opacity:.85; flex-basis:100%;">' + total + '개 중 아직 안 잼 — 자리를 재야 [자리 열림만] 이 열립니다</span>';
           container.insertBefore(bar, container.firstChild);
+
+          const empty = document.createElement('div');
+          empty.setAttribute('data-golden-empty', '1');
+          empty.style.cssText = 'display:none; margin:0 0 10px; padding:22px 14px; border-radius:10px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); color:#64748b; font-size:12.5px; text-align:center;';
+          empty.textContent = '거르개를 모두 통과한 키워드가 없습니다. 버튼을 하나 풀어 보세요.';
+          bar.insertAdjacentElement('afterend', empty);
+
           bar.querySelector('[data-seat-run]').addEventListener('click', () => { void window.seatEnrichResults(container, Number(bar.querySelector('[data-seat-limit]').value) || 30); });
           bar.querySelector('[data-seat-sort]').addEventListener('click', () => window.seatSortResults(container));
+          bar.querySelectorAll('[data-golden-filter]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+              const key = btn.getAttribute('data-golden-filter');
+              const on = !goldenActiveFilters.has(key);
+              if (on) goldenActiveFilters.add(key); else goldenActiveFilters.delete(key);
+              btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+              btn.style.background = on ? 'rgba(34,197,94,0.13)' : '#1e293b';
+              btn.style.borderColor = on ? 'rgba(34,197,94,0.38)' : '#334155';
+              btn.style.color = on ? '#22c55e' : '#94a3b8';
+              btn.style.fontWeight = on ? '700' : '400';
+              window.goldenApplyFilters(container);
+            });
+          });
+          window.updateSeatProgressLabel(container);
+          window.goldenApplyFilters(container);
+        };
+
+        /** 열 머리의 'N / M 잼' — '—' 가 0 이 아니라 '아직 안 쟀다'로 읽히게 하는 유일한 장치다. */
+        window.updateSeatProgressLabel = function updateSeatProgressLabel(container) {
+          const label = container.querySelector('[data-seat-progress]');
+          if (!label) return;
+          const cells = container.querySelectorAll('td.seat-cell');
+          const done = container.querySelectorAll('td.seat-cell[data-seat-done]').length;
+          label.textContent = done + ' / ' + cells.length + ' 잼';
         };
 
         const SEAT_VERDICT_RANK = { '열림': 0, '반열림': 1, '자료없음': 2, '잠김': 3, '카드답': 4 };
@@ -8143,11 +8486,41 @@
           try {
             const result = await window.electronAPI.invoke('seat-measure-run', { keywords: keywords.join('\n'), withStructure: true });
             const byKw = new Map(((result && result.rows) || []).map((r) => [String(r.keyword || '').replace(/\s+/g, ''), r]));
+            /*
+             * 1페이지 제목을 여기서 챙겨 둔다. 글감 펼침(제목 후보)이 "1페이지에 없는 유형"을
+             * 고르는 데 쓰는 재료가 바로 이것이다 — 안 챙기면 같은 페이지를 한 번 더 받아야 한다.
+             */
+            window.__seatTopTitles = window.__seatTopTitles || {};
+            for (const row of ((result && result.rows) || [])) {
+              if (row && Array.isArray(row.topTitles) && row.topTitles.length > 0) {
+                window.__seatTopTitles[String(row.keyword || '').replace(/\s+/g, '')] = row.topTitles;
+              }
+            }
             for (const cell of cells) {
               const row = byKw.get(String(cell.getAttribute('data-seat-kw') || '').replace(/\s+/g, ''));
               cell.innerHTML = seatCellHtml(row);
               if (row && row.verdict) cell.setAttribute('data-seat-done', '1');
+              const tr = cell.closest('tr.golden-row');
+              if (!tr || !row || !row.verdict) continue;
+              tr.setAttribute('data-seat', row.verdict);
+              /*
+               * 자리를 재고 나서야 정면 글 수를 안다. 봉투 판정은 문서수만으로 한 번,
+               * 정면 수까지 넣어 한 번 — 두 번째가 더 정확하다. 배지를 그때 갈아 끼운다.
+               * 안 그러면 "내 크기"라고 적힌 줄이 사실은 내가 이겨본 정면 수를 넘는 자리일 수 있다.
+               */
+              if (typeof row.facing !== 'number' || typeof window.blogRangeOf !== 'function') continue;
+              const docCell = tr.children[5];
+              const docCount = docCell ? Number(String(docCell.textContent || '').replace(/[^0-9]/g, '')) : NaN;
+              if (!isFinite(docCount)) continue;
+              const verdict = window.blogRangeOf(docCount, row.facing);
+              if (!verdict) continue;
+              tr.setAttribute('data-range', verdict);
+              const kwCell = tr.querySelector('td:nth-child(3) > div');
+              const oldBadge = kwCell ? kwCell.querySelector('span[title*="이겨본"], span[title*="이겼어요"], span[title*="이긴 가장"]') : null;
+              if (oldBadge) oldBadge.outerHTML = window.blogRangeBadge(docCount, row.facing);
             }
+            window.updateSeatProgressLabel(container);
+            window.goldenApplyFilters(container);
             const sm = (result && result.summary) || {};
             status.textContent = '끝 — 잰 것 ' + (sm.measured || 0) + ' · 열림 ' + (sm.open || 0) + ' · 경합 ' + (sm.contested || 0) + ' · 잠김 ' + (sm.locked || 0) + ' · 카드답 ' + (sm.card || 0) + (sm.blocked ? ' · 막힘 ' + sm.blocked + '(잠시 뒤 다시)' : '') + ' · ' + (sm.seconds || 0) + '초';
             bar.querySelector('[data-seat-sort]').disabled = false;
@@ -8160,9 +8533,15 @@
         };
         window.seatSortResults = function seatSortResults(container) {
           const tbody = container.querySelector('tbody'); if (!tbody) return;
-          const rows = Array.from(tbody.querySelectorAll('tr'));
+          const rows = Array.from(tbody.querySelectorAll('tr.golden-row'));
+          if (rows.length === 0) return;
           const rank = (tr) => { const v = tr.querySelector('[data-seat-verdict]'); return v ? (SEAT_VERDICT_RANK[v.getAttribute('data-seat-verdict')] ?? 5) : 9; };
-          rows.map((tr, i) => ({ tr, i, r: rank(tr) })).sort((a, b) => a.r - b.r || a.i - b.i).forEach(({ tr }) => tbody.appendChild(tr));
+          // 펼침 줄은 제 부모 뒤에 붙여 옮긴다 — 따로 옮기면 글감이 남의 줄 밑에 가서 붙는다.
+          rows.map((tr, i) => ({ tr, i, r: rank(tr) })).sort((a, b) => a.r - b.r || a.i - b.i).forEach(({ tr }) => {
+            tbody.appendChild(tr);
+            const drill = tbody.querySelector('tr.golden-drill[data-golden-idx="' + tr.getAttribute('data-golden-idx') + '"]');
+            if (drill) tbody.appendChild(drill);
+          });
         };
 
         window.openSeatMeasureModal = function openSeatMeasureModal() {
@@ -8341,18 +8720,30 @@
             + '</div></div>';
         }
 
-        /** 발굴 결과 한 줄을 내 봉투와 견준다. envelope.ts 의 judgeRange 와 같은 규칙이다. */
+        /*
+         * 발굴 결과 한 줄을 내 봉투와 견준다. envelope.ts 의 judgeRange 와 같은 규칙이다.
+         * 판정(blogRangeOf)과 배지(blogRangeBadge)를 나눈 이유: 거르개도 같은 답을 써야 한다.
+         * 화면에 '내 크기'라 적힌 줄과 [내 크기만] 이 남기는 줄이 다르면 그 순간 둘 다 못 믿는다.
+         */
+        window.blogRangeOf = function blogRangeOf(documentCount, facing) {
+          const env = window.__blogEnvelope;
+          if (!env) return null;
+          if (documentCount === null || documentCount === undefined || !isFinite(documentCount)) return null;
+          if (documentCount > env.docMax) return 'out';
+          if (typeof facing === 'number' && facing > env.facingMax) return 'out';
+          return 'mine';
+        };
+
         window.blogRangeBadge = function blogRangeBadge(documentCount, facing) {
           const env = window.__blogEnvelope;
-          if (!env) return '';
-          if (documentCount === null || documentCount === undefined || !isFinite(documentCount)) return '';
+          const verdict = window.blogRangeOf(documentCount, facing);
+          if (!verdict) return '';
           const ko = (n) => Number(n).toLocaleString('ko-KR');
-          if (documentCount > env.docMax) {
-            return '<span title="경쟁 글 ' + ko(documentCount) + '개 — 지금까지 이긴 가장 큰 것은 ' + ko(env.docMax) + '개예요" '
-              + 'style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(148,163,184,0.15); color:#94a3b8;">범위 밖</span>';
-          }
-          if (typeof facing === 'number' && facing > env.facingMax) {
-            return '<span title="같은 걸 다룬 글 ' + facing + '개 — 지금까지는 ' + env.facingMax + '개까지 이겼어요" '
+          if (verdict === 'out') {
+            const why = (typeof facing === 'number' && facing > env.facingMax && documentCount <= env.docMax)
+              ? '같은 걸 다룬 글 ' + facing + '개 — 지금까지는 ' + env.facingMax + '개까지 이겼어요'
+              : '경쟁 글 ' + ko(documentCount) + '개 — 지금까지 이긴 가장 큰 것은 ' + ko(env.docMax) + '개예요';
+            return '<span title="' + why + '" '
               + 'style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(148,163,184,0.15); color:#94a3b8;">범위 밖</span>';
           }
           return '<span title="경쟁 글 ' + ko(documentCount) + '개 — ' + ko(env.docMax) + '개까지 이겨본 적 있어요" '
@@ -8524,6 +8915,198 @@
             if (status && res && res.success) {
               status.textContent = res.autoMinutes ? res.autoMinutes + '분마다 자동으로 다시 잽니다.' : '자동 회차를 껐습니다.';
             }
+          } catch { /* 무시 */ }
+        };
+
+        /*
+         * 오늘의 글감 — 화면 쪽(앱 전용, 2026-09-10).
+         * 숫자·판정은 메인 프로세스가 잰 것을 그대로 찍는다. 여기서 새로 만들지 않는다.
+         * 앱이 아직 한 번도 안 돌았으면 사이트에 실린 판을 먼저 보여 준다 — 빈 화면을 보이지 않기 위해서다.
+         * 어느 쪽을 보고 있는지는 늘 적는다. 앱 판과 사이트 판은 자리 상한이 다르다.
+         */
+        const BRIEF_TIMING_STYLE = {
+          NOW: 'background:rgba(239,68,68,0.16); color:#fca5a5;',
+          NEXT: 'background:rgba(251,191,36,0.16); color:#fbbf24;',
+          ALWAYS: 'background:rgba(148,163,184,0.14); color:#94a3b8;',
+        };
+        const BRIEF_TIMING_LABEL = { NOW: '지금', NEXT: '곧', ALWAYS: '늘' };
+        const BRIEF_FIT_STYLE = {
+          '높음': 'background:#dcfce7; color:#166534;',
+          '보통': 'background:#fef3c7; color:#92400e;',
+          '낮음': 'background:#fee2e2; color:#991b1b;',
+          '미측정': 'background:rgba(255,255,255,0.06); color:#64748b;',
+        };
+        let briefsView = { data: null, source: '', filter: '' };
+
+        function briefEsc(text) {
+          return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function briefNum(value) {
+          if (value === null || value === undefined) return '< 10';
+          return Number(value).toLocaleString('ko-KR');
+        }
+        function briefStamp(iso) {
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return '';
+          const two = (n) => String(n).padStart(2, '0');
+          return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + two(d.getHours()) + ':' + two(d.getMinutes());
+        }
+
+        function briefCard(b) {
+          const fit = b.serpFit || '미측정';
+          const facts = (b.facts || []).slice(0, 2).map((f) =>
+            '<a href="#" onclick="event.preventDefault(); lewordOpenExternal(\'' + String(f.link || '').replace(/'/g, "\\'") + '\')" '
+            + 'style="color:#67e8f9; text-decoration:none;">' + briefEsc(f.title) + '</a>'
+            + '<span style="color:#475569;"> · ' + briefEsc(f.press || '') + '</span>').join('<br>');
+          const related = (b.related || []).map((r) => {
+            const open = r.serpFit === '높음';
+            return '<span title="' + (r.serpFit ? briefEsc('자리 ' + r.serpFit + (r.serpFacing != null ? ' · 정면 ' + r.serpFacing : '')) : '자리를 안 쟀습니다') + '" '
+              + 'style="display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px; font-size:11.5px; background:#0f172a; '
+              + 'border:1px solid ' + (open ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.09)') + '; color:' + (open ? '#e2e8f0' : '#94a3b8') + ';">'
+              + '<span style="width:6px; height:6px; border-radius:50%; background:' + (open ? '#22c55e' : r.serpFit ? '#ef4444' : '#334155') + ';"></span>'
+              + briefEsc(r.keyword) + ' <span style="font-family: ui-monospace, Consolas, monospace; font-size:10px; color:#64748b;">' + briefNum(r.searchVolume) + '</span></span>';
+          }).join('');
+          const titles = (b.titles || []).map((t) =>
+            '<div style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); font-size:12.5px;">'
+            + (t.type ? '<span style="flex:none; font-family: ui-monospace, Consolas, monospace; font-size:9.5px; color:#fbbf24; background:rgba(251,191,36,0.1); padding:2px 6px; border-radius:4px;">' + briefEsc(t.type) + '</span>' : '')
+            + '<span style="flex:1 1 auto; min-width:0; word-break:keep-all;">' + briefEsc(t.text) + '</span>'
+            + '<button onclick="lewordCopyText(\'' + String(t.text || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', this)" style="flex:none; font:inherit; font-size:10.5px; color:#64748b; background:none; border:0; cursor:pointer;">복사</button>'
+            + '</div>').join('');
+          return ''
+            + '<div style="padding:14px 16px; background:#111c31; border:1px solid rgba(255,255,255,0.09); border-radius:12px; margin-bottom:10px;">'
+            + '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;">'
+            + '<span style="padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:800; ' + (BRIEF_TIMING_STYLE[b.timing] || '') + '">' + (BRIEF_TIMING_LABEL[b.timing] || b.timing) + '</span>'
+            + (b.star ? '<span style="color:#fbbf24; font-size:12px;">★</span>' : '')
+            + '<span style="font-size:11px; color:#64748b;">' + briefEsc(b.field) + '</span>'
+            + '</div>'
+            + '<div style="font-size:15px; font-weight:600; color:#e2e8f0; word-break:keep-all; margin-bottom:6px;">' + briefEsc(b.title) + '</div>'
+            + '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px; color:#94a3b8; margin-bottom:8px;">'
+            + '<span style="color:#e2e8f0; font-weight:600;">' + briefEsc(b.coreKeyword) + '</span>'
+            + '<span style="font-family: ui-monospace, Consolas, monospace;">검색량 ' + briefNum(b.searchVolume) + '</span>'
+            + '<span style="padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; ' + (BRIEF_FIT_STYLE[fit] || '') + '">자리 ' + briefEsc(fit) + (b.serpFacing != null ? ' · 정면 ' + b.serpFacing : '') + '</span>'
+            + (b.alternative ? '<span style="font-size:11.5px; color:#22c55e;">대안 ' + briefEsc(b.alternative.keyword) + '</span>' : '')
+            + '</div>'
+            + (b.value ? '<div style="font-size:12.5px; color:#cbd5e1; line-height:1.6; word-break:keep-all; margin-bottom:8px;">' + briefEsc(b.value) + '</div>' : '')
+            + (titles ? '<div style="margin-bottom:8px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">제목 후보</div><div style="display:grid; gap:5px;">' + titles + '</div></div>' : '')
+            + (related ? '<div style="margin-bottom:8px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">같이 넣을 말</div><div style="display:flex; flex-wrap:wrap; gap:5px;">' + related + '</div></div>' : '')
+            + (b.experience ? '<div style="font-size:11.5px; color:#64748b; line-height:1.6; word-break:keep-all;">' + briefEsc(b.experience) + '</div>' : '')
+            + (facts ? '<div style="margin-top:8px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06); font-size:11px; color:#64748b; line-height:1.7;">' + facts + '</div>' : '')
+            + '</div>';
+        }
+
+        window.lewordOpenExternal = function lewordOpenExternal(url) {
+          if (!url) return;
+          if (window.electronAPI && window.electronAPI.openExternal) window.electronAPI.openExternal(url);
+          else window.open(url, '_blank');
+        };
+
+        window.renderBriefs = function renderBriefs() {
+          const body = document.getElementById('briefsBody');
+          const filters = document.getElementById('briefsFilters');
+          const status = document.getElementById('briefsStatus');
+          if (!body || !filters || !status) return;
+          const data = briefsView.data;
+          if (!data || !Array.isArray(data.briefs) || data.briefs.length === 0) {
+            filters.style.display = 'none';
+            body.innerHTML = '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">아직 글감이 없습니다. [지금 만들기] 를 누르세요.</div>';
+            return;
+          }
+          const all = data.briefs;
+          const rows = briefsView.filter ? all.filter((b) => b.field === briefsView.filter) : all;
+          const fields = [...new Set(all.map((b) => b.field))];
+          filters.style.display = 'flex';
+          filters.innerHTML = '<strong style="font-size:13px; color:#e2e8f0;">' + rows.length + ' / ' + all.length + '개</strong>'
+            + ['', ...fields].map((f) => {
+              const on = briefsView.filter === f;
+              const n = f ? all.filter((b) => b.field === f).length : all.length;
+              return '<button onclick="setBriefsFilter(\'' + String(f).replace(/'/g, "\\'") + '\')" '
+                + 'style="padding:5px 10px; border-radius:999px; font-size:11.5px; cursor:pointer; font:inherit; '
+                + 'border:1px solid ' + (on ? 'rgba(251,191,36,0.38)' : '#334155') + '; background:' + (on ? 'rgba(251,191,36,0.13)' : '#1e293b') + '; color:' + (on ? '#fbbf24' : '#94a3b8') + ';">'
+                + (f ? briefEsc(f.split('·')[0]) : '전체') + ' <span style="font-family: ui-monospace, Consolas, monospace; font-size:10.5px; opacity:.85;">' + n + '</span></button>';
+            }).join('');
+          body.innerHTML = rows.map(briefCard).join('');
+
+          const where = briefsView.source === 'app'
+            ? '이 PC 에서 만든 판'
+            : '사이트에 실린 판 — 이 PC 는 아직 안 만들었습니다';
+          const seats = typeof data.seatsMeasured === 'number' ? ' · 자리 ' + data.seatsMeasured + '건 실측' : '';
+          status.innerHTML = briefEsc(where) + ' · ' + briefEsc(briefStamp(data.builtAt)) + ' ' + briefEsc(data.slot || '') + ' 회차'
+            + ' · 글감 ' + all.length + '개(지금 ' + all.filter((b) => b.timing === 'NOW').length
+            + ' · 곧 ' + all.filter((b) => b.timing === 'NEXT').length
+            + ' · 늘 ' + all.filter((b) => b.timing === 'ALWAYS').length + ')' + briefEsc(seats);
+        };
+
+        window.setBriefsFilter = function setBriefsFilter(field) {
+          briefsView.filter = briefsView.filter === field ? '' : field;
+          window.renderBriefs();
+        };
+
+        window.loadBriefs = async function loadBriefs() {
+          const status = document.getElementById('briefsStatus');
+          try {
+            const res = await window.electronAPI.invoke('topic-briefs-local-get', {});
+            if (!res || !res.success) return;
+            const auto = document.getElementById('briefsAuto');
+            if (auto) auto.checked = res.auto !== false;
+            const label = document.getElementById('briefsAutoLabel');
+            if (label && res.autoHours) label.textContent = res.autoHours + '시간마다 저절로';
+            if (res.local) { briefsView = { data: res.local, source: 'app', filter: briefsView.filter }; }
+            else if (res.published) {
+              // 사이트 판은 rounds 안에 회차별로 들어 있다 — 화면은 briefs 하나로 본다.
+              const p = res.published;
+              briefsView = { data: { ...p, briefs: p.briefs || [] }, source: 'site', filter: briefsView.filter };
+            } else { briefsView = { data: null, source: '', filter: '' }; }
+            window.renderBriefs();
+            if (res.running && status) status.textContent = '지금 만드는 중입니다…';
+          } catch (error) {
+            if (status) status.innerHTML = '<span style="color:#fca5a5;">' + briefEsc((error && error.message) || error) + '</span>';
+          }
+        };
+
+        window.runLocalBriefs = async function runLocalBriefs() {
+          const run = document.getElementById('briefsRunBtn');
+          const abort = document.getElementById('briefsAbortBtn');
+          const status = document.getElementById('briefsStatus');
+          const prog = document.getElementById('briefsProgress');
+          run.disabled = true; run.style.opacity = '0.6';
+          abort.disabled = false; abort.style.opacity = '1';
+          status.textContent = '뉴스를 받는 중… (10~25분 걸립니다. 다른 화면을 써도 됩니다)';
+          if (window.__briefsOff) { try { window.__briefsOff(); } catch {} }
+          window.__briefsOff = window.electronAPI.on('topic-briefs-local-progress', (p) => {
+            if (!p || !prog) return;
+            prog.textContent = p.step + ' ' + p.done + '/' + p.total + ' · ' + (p.message || '');
+          });
+          try {
+            const res = await window.electronAPI.invoke('topic-briefs-local-run', {});
+            if (res && res.success) {
+              briefsView = { data: res.result, source: 'app', filter: briefsView.filter };
+              window.renderBriefs();
+              if (prog) prog.textContent = '';
+            } else {
+              status.innerHTML = '<span style="color:#fca5a5;">' + briefEsc((res && res.error) || '글감을 만들지 못했습니다') + '</span>';
+            }
+          } catch (error) {
+            status.innerHTML = '<span style="color:#fca5a5;">' + briefEsc((error && error.message) || error) + '</span>';
+          } finally {
+            run.disabled = false; run.style.opacity = '1';
+            abort.disabled = true; abort.style.opacity = '0.6';
+            if (window.__briefsOff) { try { window.__briefsOff(); } catch {} window.__briefsOff = null; }
+          }
+        };
+
+        window.abortLocalBriefs = async function abortLocalBriefs() {
+          try { await window.electronAPI.invoke('topic-briefs-local-abort'); } catch {}
+          const prog = document.getElementById('briefsProgress');
+          if (prog) prog.textContent = '중지 요청 — 지금 단계까지만 하고 멈춥니다…';
+        };
+
+        window.setBriefsAuto = async function setBriefsAuto() {
+          const on = !!document.getElementById('briefsAuto')?.checked;
+          try {
+            const res = await window.electronAPI.invoke('topic-briefs-local-auto', { on });
+            const prog = document.getElementById('briefsProgress');
+            if (prog && res && res.success) prog.textContent = res.auto ? '켜 두면 저절로 새로 만듭니다.' : '자동 회차를 껐습니다 — [지금 만들기] 로만 돕니다.';
           } catch { /* 무시 */ }
         };
 

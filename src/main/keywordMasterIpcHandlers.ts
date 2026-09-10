@@ -17,6 +17,8 @@ import { setupAgentCliHandlers } from './handlers/agent-cli-handlers';
 import { setupSeatMeasureHandlers } from './handlers/seat-measure';
 import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler } from './handlers/seat-watch';
 import { setupBlogClassHandlers } from './handlers/blog-class';
+import { setupGoldenWritingKitHandlers } from './handlers/golden-writing-kit';
+import { setupTopicBriefsLocalHandlers, startTopicBriefsScheduler, stopTopicBriefsScheduler } from './handlers/topic-briefs-local';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
 import { setupTrendImportHandlers } from './handlers/trend-import';
 import { startCiWatchdog, stopCiWatchdog } from './handlers/ci-watchdog';
@@ -72,6 +74,8 @@ function stopBackgroundWorkers(): void {
   stopRankTracker();
   stopSeatWatchScheduler();
   stopRealtimeNicheScheduler();
+  // 글감 자동 회차는 한 번에 몇 분씩 브라우저를 쓴다 — 성능 우선 모드면 같이 멈춘다.
+  stopTopicBriefsScheduler();
   stopCiWatchdog();
   stopLifecycleTracker();
   stopRefreshScheduler();
@@ -155,6 +159,11 @@ export function setupKeywordMasterHandlers() {
   startSeatWatchScheduler();
   // 내 블로그 체급(앱 전용, 2026-09-10) — 내 블로그 사실을 초보자 말로 읽어 준다.
   setupBlogClassHandlers();
+  // 글감 한 벌(앱 전용, 2026-09-10) — 발굴 줄을 펴면 제목 후보와 같이 넣을 말이 나온다.
+  setupGoldenWritingKitHandlers();
+  // 오늘의 글감(앱 전용, 2026-09-10) — 깃허브 예약을 기다리지 않는다. 누르면 이 PC 에서 만든다.
+  setupTopicBriefsLocalHandlers();
+  startTopicBriefsScheduler();
   // 실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 같은 판정을 이 PC 브라우저로 상한 없이.
   setupRealtimeNicheHandlers();
   // 트렌드 CSV 들이기(앱 전용, 2026-09-10) — 크리에이터 어드바이저 유입 검색어를 재서 빈자리를 고른다.
