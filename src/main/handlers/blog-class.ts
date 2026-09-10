@@ -22,6 +22,9 @@ import {
   type FetchLike,
 } from '../../utils/blog-class/naver-blog-facts';
 import { describeBlogFacts, type BlogFactsCard } from '../../utils/blog-class/plain-words';
+import { EnvironmentManager } from '../../utils/environment-manager';
+import { measureMyRanks } from './blog-class-rank';
+import type { BlogEnvelope, WonRow } from '../../utils/blog-class/envelope';
 
 export const BLOG_CLASS_PROGRESS_CHANNEL = 'blog-class-progress';
 
@@ -39,6 +42,11 @@ export interface BlogClassRecord {
   sampledPosts: number;
   /** 2단계(제목 → 검색어 → 순위)가 쓰는 원료. 화면은 안 쓴다. */
   posts: BlogPostRow[];
+  /** 내가 이긴 자리 — 순위를 실제로 잰 행. 안 쟀으면 빈 배열. */
+  wonRows?: WonRow[];
+  /** 내가 이겨본 크기. 이긴 기록이 없으면 null — 기본값을 지어내지 않는다. */
+  envelope?: BlogEnvelope | null;
+  rankSummary?: { candidates: number; withVolume: number; ranked: number; won: number; blocked: number; seconds: number };
   card: BlogFactsCard;
 }
 
@@ -78,10 +86,19 @@ function koreanStamp(iso: string): string {
 const nodeFetch: FetchLike = (url, init) => (globalThis as any).fetch(url, init);
 
 export interface BlogClassProgress {
-  step: '블로그' | '글 목록' | '인플루언서' | '정리';
+  step: '블로그' | '글 목록' | '인플루언서' | '검색어' | '순위' | '자리' | '정리';
   received: number;
   total: number | null;
   message: string;
+}
+
+/** 검색광고 자격 — 순위 실측 전에 "실제로 쓰이는 말"만 남기는 데 쓴다. */
+function searchAdConfig(cfg: any) {
+  return {
+    accessLicense: cfg.naverSearchAdAccessLicense || process.env.NAVER_SEARCH_AD_ACCESS_LICENSE || '',
+    secretKey: cfg.naverSearchAdSecretKey || process.env.NAVER_SEARCH_AD_SECRET_KEY || '',
+    customerId: cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '',
+  };
 }
 
 /**
@@ -90,7 +107,7 @@ export interface BlogClassProgress {
  */
 export async function measureBlogClass(
   input: string,
-  options: { sample?: number; onProgress?: (progress: BlogClassProgress) => void; fetchImpl?: FetchLike } = {},
+  options: { sample?: number; withRanks?: boolean; maxRank?: number; onProgress?: (progress: BlogClassProgress) => void; fetchImpl?: FetchLike } = {},
 ): Promise<BlogClassRecord> {
   const blogId = extractBlogId(input);
   if (!blogId) throw new Error('네이버 블로그 주소나 아이디를 넣어 주세요 (예: blog.naver.com/내아이디)');
@@ -140,6 +157,34 @@ export async function measureBlogClass(
       measuredAt: koreanStamp(measuredAt),
     }),
   };
+  /*
+   * 2단계 — 내 순위 실측 → 봉투("내가 이겨본 크기").
+   * 초보자에게 제일 필요한 답이 여기서 나온다: "이건 네가 이겨본 크기다".
+   * 건당 약 2초라 시간이 걸린다. 그래서 1단계 카드를 먼저 저장해 두고 이어서 잰다 —
+   * 도중에 앱을 닫아도 블로그 사실은 남는다.
+   */
+  writeRecord(record);
+  if (options.withRanks !== false) {
+    const manager: any = typeof (EnvironmentManager as any).getInstance === 'function'
+      ? (EnvironmentManager as any).getInstance() : new (EnvironmentManager as any)();
+    const ranked = await measureMyRanks(
+      swept.posts.map((post) => ({
+        title: post.title,
+        url: `https://blog.naver.com/${blogId}/${post.logNo}`,
+        publishedOn: post.publishedOn,
+        searchable: post.searchable,
+      })),
+      searchAdConfig(manager.getConfig()),
+      {
+        maxRank: options.maxRank,
+        onProgress: (p) => report({ step: p.phase, received: p.done, total: p.total, message: p.message }),
+      },
+    );
+    record.wonRows = ranked.rows;
+    record.envelope = ranked.envelope;
+    record.rankSummary = ranked.summary;
+  }
+
   report({ step: '정리', received: swept.posts.length, total: swept.totalCount, message: '정리하는 중…' });
   writeRecord(record);
   return record;
@@ -161,7 +206,7 @@ export function setupBlogClassHandlers(): void {
   }
 
   if (!ipcMain.listenerCount('blog-class-measure')) {
-    ipcMain.handle('blog-class-measure', async (event, payload?: { blogUrl?: string; sample?: number }) => {
+    ipcMain.handle('blog-class-measure', async (event, payload?: { blogUrl?: string; sample?: number; withRanks?: boolean; maxRank?: number }) => {
       const input = String(payload?.blogUrl || '').trim() || readLatest()?.blogId || '';
       if (!input) {
         return { success: false, error: '내 블로그 주소를 한 번만 넣어 주세요 (예: blog.naver.com/내아이디)' };
@@ -169,6 +214,8 @@ export function setupBlogClassHandlers(): void {
       try {
         const record = await measureBlogClass(input, {
           sample: payload?.sample,
+          withRanks: payload?.withRanks !== false,
+          maxRank: payload?.maxRank,
           onProgress: (progress) => {
             try { event.sender.send(BLOG_CLASS_PROGRESS_CHANNEL, progress); } catch { /* 창이 닫혔을 수 있다 */ }
           },

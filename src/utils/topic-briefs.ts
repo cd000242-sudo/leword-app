@@ -28,6 +28,8 @@ export interface FactCard {
 
 export interface BriefDraft {
   title: string;
+  /** 제목 후보 — 모델이 같은 답에 함께 낸다. 다듬기 전 날것이라 검증기가 sanitizeTitles 로 거른다. */
+  titles?: BriefTitle[];
   timing: BriefTiming;
   types: string[];
   primaryIntent: string;

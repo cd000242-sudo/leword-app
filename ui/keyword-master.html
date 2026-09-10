@@ -4051,7 +4051,7 @@
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
             <td style="padding: 12px 10px; text-align: center;">${gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
-              <div style="font-weight: 700; color: #1e293b; font-size:14px;">${item.keyword}${supplementBadge}</div>
+              <div style="font-weight: 600; color: #e2e8f0; font-size:14px;">${item.keyword}${typeof window.blogRangeBadge === 'function' ? window.blogRangeBadge(docCount, null) : ''}${supplementBadge}</div>
               <div style="font-size: 10px; color: #64748b;">${item.intentBadge || ''} ${item.intent || 'Info'}</div>
             </td>
             <td style="padding: 12px 10px; text-align: center;">${serpBadges}</td>
@@ -8316,6 +8316,54 @@
             + line.text + '</div>';
         }
 
+        /*
+         * 봉투 — "내가 이겨본 크기". 초보자가 수백 개 중에서 자기가 해볼 만한 것만 고르게 하는 자물쇠다.
+         * 판정 규칙은 메인 프로세스(envelope.ts)와 같은 값을 쓴다. 여기서 새로 만들지 않는다.
+         */
+        window.__blogEnvelope = null;
+
+        function envelopeHtml(record) {
+          const env = record && record.envelope;
+          const sum = (record && record.rankSummary) || null;
+          window.__blogEnvelope = env || null;
+          if (!env) {
+            if (!sum) return '';
+            return '<div style="margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); font-size: 13px; color: #cbd5e1;">'
+              + '아직 첫 페이지에 든 글이 없어요. 검색어 ' + (sum.ranked || 0) + '개를 찾아봤어요.'
+              + '<div style="margin-top: 6px; font-size: 12px; color: #64748b;">글을 더 재보거나, 자리가 빈 검색어로 한 편 써 보세요.</div>'
+              + '</div>';
+          }
+          const ko = (n) => Number(n).toLocaleString('ko-KR');
+          const topics = (env.topics || []).map((t) => t.topic + ' ' + t.count).join(' · ');
+          return '<div style="margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.28);">'
+            + '<div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 8px;">'
+            + '최근 글 ' + ko(env.measuredCount) + '개를 네이버에서 찾아봤어요. 그중 <span style="color:#22c55e;">' + ko(env.wonCount) + '개</span>가 첫 페이지에 있었어요.</div>'
+            + '<div style="display:flex; gap:22px; flex-wrap:wrap; font-size:12.5px; color:#cbd5e1;">'
+            + '<div><span style="display:block; color:#64748b; font-size:11px;">이겨본 가장 큰 자리</span><b style="font-size:15px; color:#e2e8f0;">경쟁 글 ' + ko(env.docMax) + '개</b>'
+            + '<span style="color:#64748b;"> · 보통 ' + ko(env.docP50) + '</span></div>'
+            + '<div><span style="display:block; color:#64748b; font-size:11px;">같은 걸 다룬 글이 있어도</span><b style="font-size:15px; color:#e2e8f0;">' + env.facingMax + '개까지 이겼어요</b></div>'
+            + (topics ? '<div><span style="display:block; color:#64748b; font-size:11px;">잘 이기는 이야기</span><b style="font-size:14px; color:#e2e8f0;">' + topics + '</b></div>' : '')
+            + '</div></div>';
+        }
+
+        /** 발굴 결과 한 줄을 내 봉투와 견준다. envelope.ts 의 judgeRange 와 같은 규칙이다. */
+        window.blogRangeBadge = function blogRangeBadge(documentCount, facing) {
+          const env = window.__blogEnvelope;
+          if (!env) return '';
+          if (documentCount === null || documentCount === undefined || !isFinite(documentCount)) return '';
+          const ko = (n) => Number(n).toLocaleString('ko-KR');
+          if (documentCount > env.docMax) {
+            return '<span title="경쟁 글 ' + ko(documentCount) + '개 — 지금까지 이긴 가장 큰 것은 ' + ko(env.docMax) + '개예요" '
+              + 'style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(148,163,184,0.15); color:#94a3b8;">범위 밖</span>';
+          }
+          if (typeof facing === 'number' && facing > env.facingMax) {
+            return '<span title="같은 걸 다룬 글 ' + facing + '개 — 지금까지는 ' + env.facingMax + '개까지 이겼어요" '
+              + 'style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(148,163,184,0.15); color:#94a3b8;">범위 밖</span>';
+          }
+          return '<span title="경쟁 글 ' + ko(documentCount) + '개 — ' + ko(env.docMax) + '개까지 이겨본 적 있어요" '
+            + 'style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:800; background:rgba(34,197,94,0.16); color:#22c55e;">내 크기</span>';
+        };
+
         window.renderBlogClass = function renderBlogClass(record) {
           const body = document.getElementById('blogClassBody');
           if (!body) return;
@@ -8333,6 +8381,7 @@
             (card.headline ? '<div style="font-size: 16px; font-weight: 700; color: #ffffff; margin-bottom: 6px;">' + card.headline + '</div>' : '')
             + (card.lines || []).map((line) => blogClassLine(line, false)).join('')
             + notices
+            + envelopeHtml(record)
             + '<div style="margin-top: 10px; font-size: 11.5px; color: #64748b;">숫자에 마우스를 올리면 어디서 잰 값인지 나와요' + (when ? ' · ' + when + ' 에 잼' : '') + '</div>';
         };
 
