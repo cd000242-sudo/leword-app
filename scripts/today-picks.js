@@ -63,6 +63,27 @@ async function main() {
   const resumed = resumePath && fs.existsSync(resumePath) ? JSON.parse(fs.readFileSync(resumePath, 'utf8')) : null;
   const resumedTopics = new Map((resumed && Array.isArray(resumed.topics) ? resumed.topics : []).map((t) => [t.topic, t]));
 
+  /*
+   * --carry: 사이트에 실려 있는 직전 판. 거기 있던 키워드는 오늘 다시 내지 않는다.
+   *
+   * 왜(사장님 2026-09-10 "오늘의 네이버 추천키워드 갱신 제대로 안 됩니다"):
+   * 뽑는 방식이 완전히 결정적이다 — 주제별 검색량 상위 perTopic 개를 훑다가 황금 keep 개가 차면 멈춘다.
+   * 창고가 같으면 같은 후보를 같은 순서로 훑으니 답도 같다. 실측: 9/10 판이 9/9 판과 320개 중 319개 일치.
+   * 창고는 워크플로가 매일 새로 긁게 했고, 그래도 겹치는 것은 여기서 뺀다.
+   *
+   * 비우지는 않는다 — 뺐더니 그 주제가 텅 비면 뺀 것을 도로 쓴다(아래 backfill).
+   * 빈 표보다는 어제와 겹치더라도 쓸 만한 표가 낫다.
+   */
+  const carryPath = arg('carry') ? path.resolve(arg('carry')) : '';
+  let carried = null;
+  try { carried = carryPath && fs.existsSync(carryPath) ? JSON.parse(fs.readFileSync(carryPath, 'utf8')) : null; } catch { carried = null; }
+  const flat = (k) => String(k || '').replace(/\s+/g, '');
+  const alreadyShown = new Set(
+    (carried && Array.isArray(carried.topics) ? carried.topics : [])
+      .flatMap((t) => (Array.isArray(t.rows) ? t.rows : []).map((r) => flat(r.keyword)))
+      .filter(Boolean),
+  );
+
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const cfg = manager.getConfig();
   const openApi = { clientId: cfg.naverClientId, clientSecret: cfg.naverClientSecret };
@@ -115,7 +136,11 @@ async function main() {
       console.log(`  ${t.padEnd(8)} 이전 결과 재사용 — 황금 ${prev.golden} 이미 찼다`);
       continue;
     }
-    const cand = byTopic.get(t).sort((a, b) => b.searchVolume - a.searchVolume).slice(0, perTopic);
+    // 어제 실린 것은 뒤로 미룬다 — 앞에서 잘리지 않게 후보 목록에서 빼고, 모자라면 뒤에 도로 붙인다.
+    const ordered = byTopic.get(t).sort((a, b) => b.searchVolume - a.searchVolume);
+    const fresh = ordered.filter((c) => !alreadyShown.has(flat(c.keyword)));
+    const repeats = ordered.filter((c) => alreadyShown.has(flat(c.keyword)));
+    const cand = fresh.concat(repeats).slice(0, perTopic);
     const golden = [];
     const others = []; // 비황금 — 황금이 모자라면 황금비 순으로 뒤를 채운다
     for (const c of cand) {
@@ -148,7 +173,8 @@ async function main() {
     const g = golden.slice(0, keep);
     const rows = g.concat(others.slice(0, keep - g.length));
     result.topics.push({ topic: t, candidates: cand.length, measured: golden.length + others.length, golden: g.length, rows });
-    console.log(`  ${t.padEnd(8)} 후보 ${String(cand.length).padStart(3)} → 황금 ${String(g.length).padStart(2)} + 채움 ${String(rows.length - g.length).padStart(2)}  (누적 호출 ${calls})`);
+    const repeated = rows.filter((r) => alreadyShown.has(flat(r.keyword))).length;
+    console.log(`  ${t.padEnd(8)} 후보 ${String(cand.length).padStart(3)} → 황금 ${String(g.length).padStart(2)} + 채움 ${String(rows.length - g.length).padStart(2)}  (새것 ${rows.length - repeated}/${rows.length} · 누적 호출 ${calls})`);
     // 중간 저장 — 도중에 죽어도 잰 만큼은 남는다.
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, JSON.stringify(result, null, 1), 'utf8');
