@@ -62,6 +62,18 @@ export interface TopicBrief extends BriefDraft {
    * 미정의 = 안 골랐음(검색광고 키가 없거나 회차가 잘림), 빈 배열 = 골랐는데 쓸 게 없었음.
    */
   related?: BriefRelated[];
+  /**
+   * 제목 후보 — 유형이 서로 다른 3~4개(사장님 2026-09-10 "제목도 같이 보여주면 더 좋잖아, 여러 가지 유형으로").
+   * 글감을 쓰는 에이전트가 같은 호출에서 함께 낸다 — 호출이 안 는다.
+   * 교리(feedback_home_title_doctrine): AI 티가 나면 네이버에서 노출이 죽는다. 금지어·쉼표 이분법은 검증기가 떨어뜨린다.
+   */
+  titles?: BriefTitle[];
+}
+
+export interface BriefTitle {
+  /** 질문형 · 정리형 · 경험형 · 비교형 · 시기형 */
+  type: string;
+  text: string;
 }
 
 export interface BriefRelated {
@@ -267,6 +279,7 @@ export function buildBriefPrompt(field: string, facts: FactCard[], today: Date, 
     `이 분야에서 블로그 글로 쓸 만한 글감을 ${Math.max(1, maxBriefs - 1)}~${maxBriefs}개 골라라(카드가 정말 모자라면 되는 만큼). 뉴스 요약이 아니라 "검색하는 사람이 원하는 답"이 글감이다.`,
     '각 글감은 JSON 객체다:',
     '{"title": "글 제목(구체적·날짜/조건 포함, 30자 안팎, 낚시 금지)",',
+    ' "titles": [{"type": "질문형|정리형|경험형|비교형|시기형 중 하나", "text": "그 결의 제목 30자 안팎"}],  // 서로 다른 유형 3~4개. title 과 겹치지 마라',
     ' "timing": "NOW|NEXT|ALWAYS",  // NOW=이번 주 안에 찾는 것, NEXT=날짜가 정해진 예정, ALWAYS=철 안 타는 기준·제도',
     ' "types": ["해설형","가이드형","비교형","문제해결형","정보형","팩트체크형","큐레이션형" 중 1~2개],',
     ' "primaryIntent": "검색자가 손에 넣고 싶은 것 한 문장",',
@@ -276,11 +289,46 @@ export function buildBriefPrompt(field: string, facts: FactCard[], today: Date, 
     ' "keywords": ["사람들이 네이버에 실제로 치는 검색어 2~3개, 넓은 것부터. 1~3어절, 조사·설명 없이. 예: \'독감 무료접종\', \'독감 무료접종 대상\'. \'가을 진드기 물림 예방 수칙\' 같은 문장형 금지"],',
     ' "factIds": ["근거 카드 id 1개 이상 — 위 목록의 대괄호 안 id 그대로(예: \\"f3\\"). 제목이나 번호로 대신 쓰지 마라"]}',
     '',
+    '제목 규칙(네이버 블로그): AI 가 쓴 티가 나면 노출이 죽는다. 다음을 지켜라 —',
+    '  · 금지어: 총정리 · 완벽정리 · 한눈에 · 알아보자 · 정리해봤습니다 · 충격 · 실화 · TOP N · N가지',
+    '  · 쉼표로 두 동강 내지 마라("A, B는?" 꼴 금지). 한 호흡으로 읽히게.',
+    '  · 답을 제목에 다 적지 마라. 궁금해서 눌러야 한다.',
+    '  · 말하듯이 써라. 보고서 말투 금지.',
+    '  · 유형은 서로 결이 달라야 한다 — 같은 문장을 어미만 바꾼 것은 한 개로 친다.',
+    '',
     '규칙: value 에 쓰는 날짜는 인용한 카드(factIds)에 있는 날짜여야 한다. "8일 발표했다"처럼 발행일을 쓰려면 그 날 발행된 카드를 인용하라.',
     'timing 을 NEXT 로 두려면 인용 카드에 앞으로의 날짜(또는 "내년 1월"·"다음 달" 같은 예정 달)가 있어야 한다. 없으면 NOW 나 ALWAYS 로 두라.',
     '',
     '최종 출력은 JSON 배열 하나만. 설명·머리말 없이.',
   ].join('\n');
+}
+
+/**
+ * 제목 교리(feedback_home_title_doctrine) — 여기 걸리는 제목은 버린다.
+ * AI 가 쓴 티가 나면 네이버가 제목에서 잡아내 노출이 죽는다. 모델은 시켜도 자꾸 이 말을 쓴다.
+ */
+const TITLE_BANNED = ['총정리', '완벽정리', '완벽 정리', '한눈에', '알아보자', '알아봅시다', '정리해봤', '정리해 봤', '충격', '실화', '레전드', '~하는 방법'];
+
+/** 제목 후보 다듬기 — 교리에 걸리는 것, 너무 길거나 짧은 것, 겹치는 것을 뺀다. */
+export function sanitizeTitles(raw: unknown, mainTitle: string, limit = 4): BriefTitle[] {
+  if (!Array.isArray(raw)) return [];
+  const norm = (t: string) => t.replace(/\s+/g, '').toLowerCase();
+  const seen = new Set<string>([norm(mainTitle)]);
+  const out: BriefTitle[] = [];
+  for (const item of raw) {
+    const text = cleanText(String((item as any)?.text ?? ''));
+    const type = cleanText(String((item as any)?.type ?? ''));
+    if (!text || text.length < 8 || text.length > 45) continue;
+    if (TITLE_BANNED.some((word) => text.includes(word))) continue;
+    // 쉼표로 두 동강 낸 제목 — "A, B는?" 꼴. 사장님이 금지한 이분법이다.
+    if ((text.match(/,/g) || []).length >= 1 && /[,][^,]{0,14}[?]\s*$/.test(text)) continue;
+    if (/\bTOP\s*\d|\d+\s*가지/i.test(text)) continue;
+    if (seen.has(norm(text))) continue;
+    seen.add(norm(text));
+    out.push({ type: type || '기타', text });
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 export interface ValidationResult { ok: TopicBrief[]; dropped: Array<{ title: string; reason: string }> }
@@ -343,6 +391,8 @@ export function validateBriefs(raw: unknown, facts: FactCard[], field: string, t
       serpVacancy: null,
       serpFit: '미측정',
       star: false,
+      // 제목 후보 — 교리에 걸리는 것은 여기서 버린다. 빈 배열이면 화면이 그 줄을 안 그린다.
+      titles: sanitizeTitles(d.titles, title, 4),
     });
   }
   return { ok, dropped };
