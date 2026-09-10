@@ -19,6 +19,7 @@ import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler
 import { setupBlogClassHandlers } from './handlers/blog-class';
 import { setupGoldenWritingKitHandlers } from './handlers/golden-writing-kit';
 import { setupTopicBriefsLocalHandlers, startTopicBriefsScheduler, stopTopicBriefsScheduler } from './handlers/topic-briefs-local';
+import { setupPreemptionBoardHandlers } from './handlers/preemption-board';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
 import { setupTrendImportHandlers } from './handlers/trend-import';
 import { startCiWatchdog, stopCiWatchdog } from './handlers/ci-watchdog';
@@ -164,6 +165,8 @@ export function setupKeywordMasterHandlers() {
   // 오늘의 글감(앱 전용, 2026-09-10) — 깃허브 예약을 기다리지 않는다. 누르면 이 PC 에서 만든다.
   setupTopicBriefsLocalHandlers();
   startTopicBriefsScheduler();
+  // 선점 보드(앱 전용, 2026-09-10) — 발행본을 읽고 자리는 이 PC 로 지금 다시 잰다.
+  setupPreemptionBoardHandlers();
   // 실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 같은 판정을 이 PC 브라우저로 상한 없이.
   setupRealtimeNicheHandlers();
   // 트렌드 CSV 들이기(앱 전용, 2026-09-10) — 크리에이터 어드바이저 유입 검색어를 재서 빈자리를 고른다.

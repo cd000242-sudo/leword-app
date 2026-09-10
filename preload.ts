@@ -575,6 +575,7 @@ const electronApi = {
       'trend-import-progress',       // 트렌드 CSV 들이기 진행(2026-09-10, 앱 전용)
       'golden-writing-kit-progress', // 글감 한 벌(제목 후보·같이 넣을 말) 진행(2026-09-10, 앱 전용)
       'topic-briefs-local-progress', // 오늘의 글감을 이 PC 에서 만드는 진행(2026-09-10, 앱 전용)
+      'preemption-board-progress',   // 선점 보드 자리 다시 재기 진행(2026-09-10, 앱 전용)
     ]);
     if (!allowed.has(channel)) {
       throw new Error(`IPC channel not allowed: ${channel}`);

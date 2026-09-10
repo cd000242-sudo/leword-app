@@ -714,16 +714,17 @@
       <nav class="leword-nav" role="tablist" aria-label="화면">
         <button role="tab" data-screen="realtime" aria-selected="true" onclick="showScreen('realtime')"><span class="k">1</span>실시간 검색어</button>
         <button role="tab" data-screen="golden" aria-selected="false" onclick="showScreen('golden')"><span class="k">2</span>황금키워드 발굴</button>
-        <button role="tab" data-screen="briefs" aria-selected="false" onclick="showScreen('briefs')"><span class="k">3</span>오늘의 글감<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">4</span>자리 실측기<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="rank" aria-selected="false" onclick="showScreen('rank')"><span class="k">5</span>노출 추적<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="kin" aria-selected="false" onclick="showScreen('kin')"><span class="k">6</span>지식인 황금질문<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="youtube" aria-selected="false" onclick="showScreen('youtube')"><span class="k">7</span>유튜브 급상승 글감<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">8</span>PRO 트래픽 폭발 키워드 헌터</button>
-        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">9</span>AdSense 승인 키워드 헌터</button>
-        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">10</span>네이버 AI 메이트 키워드 찾기</button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">11</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">12</span>설정 · 키</button>
+        <button role="tab" data-screen="board" aria-selected="false" onclick="showScreen('board')"><span class="k">3</span>선점 보드<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="briefs" aria-selected="false" onclick="showScreen('briefs')"><span class="k">4</span>오늘의 글감<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">5</span>자리 실측기<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="rank" aria-selected="false" onclick="showScreen('rank')"><span class="k">6</span>노출 추적<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="kin" aria-selected="false" onclick="showScreen('kin')"><span class="k">7</span>지식인 황금질문<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="youtube" aria-selected="false" onclick="showScreen('youtube')"><span class="k">8</span>유튜브 급상승 글감<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">9</span>PRO 트래픽 폭발 키워드 헌터</button>
+        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">10</span>AdSense 승인 키워드 헌터</button>
+        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">11</span>네이버 AI 메이트 키워드 찾기</button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">12</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">13</span>설정 · 키</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -1529,6 +1530,44 @@
     </section>
 
     <!--
+      선점 보드(앱 전용, 2026-09-10) — 사장님 "앱은 사이트 상위호환이어야지".
+      판정은 사이트 회차가 정한 것을 그대로 읽는다(여기서 새로 만들지 않는다).
+      앱이 더하는 것은 하나다: **자리를 지금 다시 잰다.**
+      실측 2026-09-10 — 발행본의 measuredAt 이 09-06 이었다(나흘 전). 사이트는 회차 밖에서 못 다시 잰다(BD 쿼터).
+      이 PC 크로미엄은 비용 0, 횟수 제한 없음. 다시 잰 자리는 언제 쟀는지 같이 남는다.
+    -->
+    <section class="leword-screen" data-screen="board">
+      <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
+            🏁 선점 보드 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
+          </h3>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <select id="pbCount" style="padding: 7px 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 12.5px;">
+              <option value="10">상위 10개</option>
+              <option value="20" selected>상위 20개</option>
+              <option value="40">상위 40개</option>
+            </select>
+            <button id="pbRunBtn" onclick="remeasureBoard()"
+              style="padding: 8px 14px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">자리 다시 재기</button>
+            <button onclick="loadPreemptionBoard()"
+              style="padding: 8px 12px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">새로고침</button>
+          </div>
+        </div>
+        <p style="margin: 0 0 10px; font-size: 12px; color: #64748b; line-height: 1.6;">
+          사이트 회차가 판정한 보드를 그대로 읽습니다. 다른 점은 하나입니다 —
+          <b style="color:#94a3b8;">자리는 이 PC 브라우저로 지금 다시 잽니다.</b> 회차가 잰 자리는 며칠 지나면 달라져 있습니다.
+          비용 0 · 건당 약 6초 · 다시 잰 것은 언제 쟀는지 같이 남습니다.
+        </p>
+        <div id="pbStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">불러오는 중…</div>
+        <div id="pbProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums;"></div>
+      </div>
+      <div id="pbTiles" style="display: none; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;"></div>
+      <div id="pbFilters" style="display: none; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 12px; background: #0f172a; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; margin-bottom: 12px;"></div>
+      <div id="pbBody"></div>
+    </section>
+
+    <!--
       화면 4~7 (2026-09-09 셸 통일): 모달로 만들던 기능 4종을 화면으로 싣는다.
       기능 코드는 그대로 두고, 열기 함수가 만든 뿌리 요소를 showScreen 이 이 섹션 안으로 옮긴다(mountModalAsScreen).
     -->
@@ -1842,6 +1881,8 @@
           realtime: {},
           golden: {},
           // 오늘의 글감은 모달이 아니라 섹션이다 — 열 때 저장된 판을 불러온다(없으면 사이트 판).
+          // 선점 보드는 발행본을 읽는다 — 열 때 받아 온다.
+          board: { load: 'loadPreemptionBoard' },
           briefs: { load: 'loadBriefs' },
           // 노출 추적도 섹션이다 — 열 때 이 PC 에 쌓인 기록을 읽는다.
           rank: { load: 'loadRankBoard' },
@@ -9055,6 +9096,251 @@
          * 앱이 아직 한 번도 안 돌았으면 사이트에 실린 판을 먼저 보여 준다 — 빈 화면을 보이지 않기 위해서다.
          * 어느 쪽을 보고 있는지는 늘 적는다. 앱 판과 사이트 판은 자리 상한이 다르다.
          */
+        /*
+         * 선점 보드 — 화면 쪽(앱 전용, 2026-09-10).
+         *
+         * 판정은 사이트 회차가 정한 것을 그대로 찍는다. 여기서 새로 만들지 않는다.
+         * 앱이 더하는 것은 '자리 다시 재기' 하나다 — 다시 잰 행은 초록 테두리와 '방금 잼'으로 구분한다.
+         *
+         * 화면에 안 올리는 것: effectiveVolume·peakMultiplier(계절 환산 추정).
+         * 올리는 것은 전부 실측이다 — 검색량·문서수(API) · 자리·정면(SERP) · 지식인 수 · 광고 깊이·클릭률(검색광고).
+         */
+        let pbView = { rows: [], reseats: {}, publishedAt: '', enrichedAt: '', filter: '', fromCache: false };
+
+        const PB_SEAT_STYLE = {
+          '열림': 'background:#dcfce7; color:#166534;', '반열림': 'background:#fef3c7; color:#92400e;',
+          '잠김': 'background:#fee2e2; color:#991b1b;', '카드답': 'background:#fee2e2; color:#991b1b;',
+          '자료없음': 'background:rgba(255,255,255,0.06); color:#64748b;',
+        };
+
+        function pbEsc(text) {
+          return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        const pbFlat = (k) => String(k || '').replace(/\s+/g, '');
+        function pbNum(value) {
+          return typeof value === 'number' && isFinite(value) ? value.toLocaleString('ko-KR') : '—';
+        }
+        function pbDays(iso) {
+          const t = Date.parse(iso || '');
+          if (!isFinite(t)) return null;
+          return Math.floor((Date.now() - t) / 86400000);
+        }
+        function pbStamp(iso) {
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return '';
+          const two = (n) => String(n).padStart(2, '0');
+          return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + two(d.getHours()) + ':' + two(d.getMinutes());
+        }
+
+        function pbTile(label, value, hint) {
+          return '<div style="flex:1 1 150px; padding:12px 14px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">'
+            + '<div style="font-size:11px; color:#64748b; margin-bottom:4px;">' + pbEsc(label) + '</div>'
+            + '<div style="font-size:20px; font-weight:700; color:#e2e8f0; font-variant-numeric:tabular-nums;">' + pbEsc(value) + '</div>'
+            + (hint ? '<div style="font-size:10.5px; color:#64748b; margin-top:3px;">' + pbEsc(hint) + '</div>' : '')
+            + '</div>';
+        }
+
+        /** 이 행의 자리 — 내가 다시 잰 것이 있으면 그것을, 없으면 회차가 잰 것을. */
+        function pbSeatOf(row) {
+          const mine = pbView.reseats[pbFlat(row.keyword)];
+          if (mine) return { verdict: mine.verdict, facing: mine.facing, vacancy: mine.vacancy, mine: true, at: mine.measuredAt };
+          const facing = row.serp && typeof row.serp.exactTitleHits === 'number' ? row.serp.exactTitleHits : null;
+          const verdict = row.openSlot != null ? '열림' : (facing != null && facing >= 6 ? '잠김' : '반열림');
+          return { verdict, facing, vacancy: row.openSlot ?? null, mine: false, at: row.measuredAt };
+        }
+
+        function pbRow(row, idx) {
+          const seat = pbSeatOf(row);
+          const kwSafe = String(row.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          const detail = [
+            seat.vacancy != null ? seat.vacancy + '위 빔' : null,
+            typeof seat.facing === 'number' ? '정면 ' + seat.facing : null,
+          ].filter(Boolean).join(' · ');
+          const age = pbDays(seat.at);
+          return '<tr class="pb-row" data-pb-idx="' + idx + '" data-pb-kw="' + pbEsc(row.keyword) + '" data-pb-topic="' + pbEsc(row.topic || '') + '"'
+            + ' style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0; cursor:pointer;" onclick="togglePbRow(' + idx + ')">'
+            + '<td style="padding:9px 10px;">'
+            + '<div style="font-weight:600; word-break:keep-all;">' + pbEsc(row.keyword)
+            + (seat.mine ? '<span style="margin-left:6px; padding:1px 6px; border-radius:999px; font-size:9.5px; font-weight:800; background:rgba(34,197,94,0.16); color:#22c55e;">방금 잼</span>' : '')
+            + '</div>'
+            + '<div style="font-size:10.5px; color:#64748b; margin-top:2px;">' + pbEsc(row.topic || '') + (row.intentLabel ? ' · ' + pbEsc(row.intentLabel) : '') + '</div>'
+            + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + pbNum(row.searchVolume) + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:#64748b;">' + pbNum(row.documentCount) + '</td>'
+            + '<td style="padding:9px 10px;">'
+            + '<span style="display:inline-block; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; ' + (PB_SEAT_STYLE[seat.verdict] || '') + '">' + pbEsc(seat.verdict) + '</span>'
+            + (detail ? '<div style="font-size:10px; color:#64748b; margin-top:3px;">' + pbEsc(detail) + '</div>' : '')
+            + (age !== null ? '<div style="font-size:9.5px; color:' + (seat.mine ? '#22c55e' : (age >= 3 ? '#f59e0b' : '#64748b')) + '; margin-top:2px;">' + (age === 0 ? '오늘 잼' : age + '일 전에 잼') + '</div>' : '')
+            + '</td>'
+            + '<td style="padding:9px 10px; font-size:11px; color:#94a3b8; max-width:220px; word-break:keep-all;">' + pbEsc(row.tierLabel || row.tier || '') + '</td>'
+            + '<td style="padding:9px 6px; text-align:right; white-space:nowrap;">'
+            + '<button onclick="event.stopPropagation(); openNaverSearch(\'' + kwSafe + '\')" title="네이버에서 보기" style="padding:4px 8px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#e2e8f0; font-size:11px; cursor:pointer; margin-right:3px;">🔍</button>'
+            + '<button onclick="event.stopPropagation(); remeasureBoard([\'' + kwSafe + '\'])" title="이 줄만 다시 재기" style="padding:4px 8px; border:1px solid rgba(251,191,36,0.4); border-radius:6px; background:rgba(251,191,36,0.14); color:#fbbf24; font-size:11px; cursor:pointer;">재기</button>'
+            + '</td></tr>'
+            + '<tr class="pb-drill" data-pb-drill="' + idx + '" style="display:none;"><td colspan="6" style="padding:0; background:#0b1120; border-top:1px solid rgba(255,255,255,0.09);">'
+            + '<div style="padding:14px 16px;">' + pbDetail(row) + '</div></td></tr>';
+        }
+
+        /** 펼친 판 — 회차가 남긴 근거·제목·같이 넣을 말. 전부 회차가 만든 것을 그대로 옮긴다. */
+        function pbDetail(row) {
+          const ev = (row.evidence || []).map((e) =>
+            '<li style="margin-bottom:3px;">' + pbEsc(e.text || e) + '</li>').join('');
+          const titles = row.titles && typeof row.titles === 'object'
+            ? ['seo', 'home'].filter((k) => row.titles[k] && row.titles[k].text).map((k) => {
+              const t = row.titles[k];
+              const safe = String(t.text).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+              return '<div style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); font-size:12.5px; margin-bottom:4px;">'
+                + '<span style="flex:none; font-family: ui-monospace, Consolas, monospace; font-size:9.5px; color:#fbbf24; background:rgba(251,191,36,0.1); padding:2px 6px; border-radius:4px;">' + (k === 'seo' ? '검색용' : '끌리는') + '</span>'
+                + '<span style="flex:1 1 auto; min-width:0; word-break:keep-all;">' + pbEsc(t.text) + '</span>'
+                + '<button onclick="event.stopPropagation(); lewordCopyText(\'' + safe + '\', this)" style="flex:none; font:inherit; font-size:10.5px; color:#64748b; background:none; border:0; cursor:pointer;">복사</button>'
+                + '</div>';
+            }).join('')
+            : '';
+          const subs = (row.subKeywords || []).slice(0, 8).map((s) =>
+            '<span onclick="event.stopPropagation(); searchKeyword(\'' + String(s.keyword).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', true)" '
+            + 'style="display:inline-block; padding:4px 9px; border-radius:999px; font-size:11.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); color:#94a3b8; cursor:pointer; margin:0 4px 4px 0;">'
+            + pbEsc(s.keyword) + ' <span style="font-family: ui-monospace, Consolas, monospace; font-size:10px; color:#64748b;">' + pbNum(s.searchVolume) + '</span></span>').join('');
+          const facts = [
+            typeof row.kinCount === 'number' ? '지식인 답변 ' + pbNum(row.kinCount) + '개' : null,
+            typeof row.adDepth === 'number' ? '광고 ' + row.adDepth + '개' : null,
+            typeof row.adCtrPc === 'number' ? 'PC 광고 클릭률 ' + row.adCtrPc + '%' : null,
+            row.timingGroup || null,
+          ].filter(Boolean).join(' · ');
+          return ''
+            + (row.layoutHeadline ? '<div style="font-size:12.5px; color:#e2e8f0; margin-bottom:10px; word-break:keep-all;">' + pbEsc(row.layoutHeadline) + '</div>' : '')
+            + (ev ? '<div style="margin-bottom:10px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">근거</div>'
+              + '<ul style="margin:0; padding-left:16px; font-size:11.5px; color:#94a3b8; line-height:1.6;">' + ev + '</ul></div>' : '')
+            + (titles ? '<div style="margin-bottom:10px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">제목 후보</div>' + titles + '</div>' : '')
+            + (subs ? '<div style="margin-bottom:8px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">같이 넣을 말</div>' + subs + '</div>' : '')
+            + (facts ? '<div style="font-size:11px; color:#64748b;">' + pbEsc(facts) + '</div>' : '');
+        }
+
+        window.togglePbRow = function togglePbRow(idx) {
+          const drill = document.querySelector('tr.pb-drill[data-pb-drill="' + idx + '"]');
+          if (drill) drill.style.display = drill.style.display === 'none' ? '' : 'none';
+        };
+
+        window.setPbFilter = function setPbFilter(topic) {
+          pbView.filter = pbView.filter === topic ? '' : topic;
+          window.renderPreemptionBoard();
+        };
+
+        window.renderPreemptionBoard = function renderPreemptionBoard() {
+          const body = document.getElementById('pbBody');
+          const tiles = document.getElementById('pbTiles');
+          const filters = document.getElementById('pbFilters');
+          const status = document.getElementById('pbStatus');
+          if (!body || !tiles || !filters || !status) return;
+          const all = pbView.rows || [];
+          if (all.length === 0) {
+            tiles.style.display = 'none'; filters.style.display = 'none';
+            body.innerHTML = '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">보드를 아직 못 받았습니다. [새로고침] 을 눌러 보세요.</div>';
+            return;
+          }
+          const rows = pbView.filter ? all.filter((r) => r.topic === pbView.filter) : all;
+          const openCount = all.filter((r) => pbSeatOf(r).verdict === '열림').length;
+          const mineCount = all.filter((r) => pbSeatOf(r).mine).length;
+          const oldest = Math.max(...all.map((r) => pbDays(pbSeatOf(r).at) ?? 0));
+
+          tiles.style.display = 'flex';
+          tiles.innerHTML = pbTile('보드 행', all.length + '개', pbView.publishedAt ? pbStamp(pbView.publishedAt) + ' 발행' : '')
+            + pbTile('자리 열림', openCount + '개', '다시 잰 것 반영')
+            + pbTile('내가 다시 잰 것', mineCount + '개', mineCount ? '초록 배지로 표시' : '아직 없음')
+            + pbTile('가장 오래된 자리', oldest + '일 전', oldest >= 3 ? '다시 재는 게 좋습니다' : '');
+
+          const topics = [...new Set(all.map((r) => r.topic).filter(Boolean))];
+          filters.style.display = 'flex';
+          filters.innerHTML = '<strong style="font-size:13px; color:#e2e8f0;">' + rows.length + ' / ' + all.length + '개</strong>'
+            + ['', ...topics].map((t) => {
+              const on = pbView.filter === t;
+              const n = t ? all.filter((r) => r.topic === t).length : all.length;
+              return '<button onclick="setPbFilter(\'' + String(t).replace(/'/g, "\\'") + '\')" '
+                + 'style="padding:5px 10px; border-radius:999px; font-size:11.5px; cursor:pointer; font:inherit; '
+                + 'border:1px solid ' + (on ? 'rgba(251,191,36,0.38)' : '#334155') + '; background:' + (on ? 'rgba(251,191,36,0.13)' : '#1e293b') + '; color:' + (on ? '#fbbf24' : '#94a3b8') + ';">'
+                + (t ? pbEsc(t) : '전체') + ' <span style="font-family: ui-monospace, Consolas, monospace; font-size:10.5px; opacity:.85;">' + n + '</span></button>';
+            }).join('');
+
+          body.innerHTML = '<div style="overflow-x:auto; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">'
+            + '<table style="width:100%; min-width:820px; border-collapse:collapse; font-size:12.5px;">'
+            + '<thead><tr style="background:rgba(255,255,255,0.04); color:#94a3b8; font-size:11px;">'
+            + '<th style="text-align:left; padding:9px 10px; font-weight:500;">키워드</th>'
+            + '<th style="text-align:right; padding:9px 10px; font-weight:500;">검색량</th>'
+            + '<th style="text-align:right; padding:9px 10px; font-weight:500;">문서수</th>'
+            + '<th style="text-align:left; padding:9px 10px; font-weight:500;">자리</th>'
+            + '<th style="text-align:left; padding:9px 10px; font-weight:500;">판정</th>'
+            + '<th style="padding:9px 6px;"></th></tr></thead><tbody>'
+            + rows.map((r) => pbRow(r, all.indexOf(r))).join('')
+            + '</tbody></table></div>';
+
+          const pubDays = pbDays(pbView.publishedAt);
+          status.textContent = (pbView.fromCache ? '지난번에 받아 둔 판 · ' : '')
+            + (pbView.publishedAt ? pbStamp(pbView.publishedAt) + ' 발행' + (pubDays ? ' (' + pubDays + '일 전)' : '') : '')
+            + ' · 줄을 누르면 근거와 제목이 펴집니다.';
+        };
+
+        window.loadPreemptionBoard = async function loadPreemptionBoard() {
+          const status = document.getElementById('pbStatus');
+          try {
+            const res = await window.electronAPI.invoke('preemption-board-get');
+            if (!res || !res.success) {
+              if (status) status.innerHTML = '<span style="color:#fca5a5;">' + pbEsc((res && res.error) || '보드를 못 받았습니다') + '</span>';
+              return;
+            }
+            const b = res.board || {};
+            pbView = {
+              rows: Array.isArray(b.rows) ? b.rows : [],
+              reseats: res.reseats || {},
+              publishedAt: b.publishedAt || b.enrichedAt || '',
+              enrichedAt: b.enrichedAt || '',
+              filter: pbView.filter,
+              fromCache: !!res.fromCache,
+            };
+            window.renderPreemptionBoard();
+          } catch (error) {
+            if (status) status.innerHTML = '<span style="color:#fca5a5;">' + pbEsc((error && error.message) || error) + '</span>';
+          }
+        };
+
+        /** 자리 다시 재기. 검색어를 주면 그것만, 안 주면 지금 보이는 것 중 앞에서 N개. */
+        window.remeasureBoard = async function remeasureBoard(only) {
+          const btn = document.getElementById('pbRunBtn');
+          const prog = document.getElementById('pbProgress');
+          const rows = pbView.filter ? pbView.rows.filter((r) => r.topic === pbView.filter) : pbView.rows;
+          const cap = Number(document.getElementById('pbCount')?.value) || 20;
+          const keywords = Array.isArray(only) && only.length > 0
+            ? only
+            // 오래 안 잰 것부터 — 같은 것을 또 재지 않는다.
+            : rows.slice().sort((a, b) => (pbDays(pbSeatOf(b).at) ?? 0) - (pbDays(pbSeatOf(a).at) ?? 0)).slice(0, cap).map((r) => r.keyword);
+          if (keywords.length === 0) { if (prog) prog.textContent = '다시 잴 줄이 없습니다.'; return; }
+          if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+          if (prog) prog.textContent = keywords.length + '개를 다시 재는 중… (건당 약 6초)';
+          if (window.__pbOff) { try { window.__pbOff(); } catch {} }
+          try {
+            window.__pbOff = window.electronAPI.on('preemption-board-progress', (p) => {
+              if (p && prog) prog.textContent = '다시 재는 중 ' + p.done + '/' + p.total + ' · ' + (p.keyword || '') + (p.verdict ? ' → ' + p.verdict : '');
+            });
+          } catch { /* 구독이 막혀도 본 작업은 돈다 */ }
+          try {
+            const res = await window.electronAPI.invoke('preemption-board-remeasure', { keywords });
+            if (!res || !res.success) {
+              if (prog) prog.textContent = (res && res.error) || '다시 재지 못했습니다';
+              return;
+            }
+            pbView.reseats = res.reseats || pbView.reseats;
+            window.renderPreemptionBoard();
+            const sm = res.summary || {};
+            if (prog) prog.textContent = '끝 — 잰 것 ' + (sm.measured || 0) + ' · 열림 ' + (sm.open || 0) + ' · 경합 ' + (sm.contested || 0)
+              + ' · 잠김 ' + (sm.locked || 0) + (sm.blocked ? ' · 막힘 ' + sm.blocked : '') + ' · ' + (sm.seconds || 0) + '초'
+              + (res.message ? ' · ' + res.message : '');
+          } catch (error) {
+            if (prog) prog.textContent = String((error && error.message) || error);
+          } finally {
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+            if (window.__pbOff) { try { window.__pbOff(); } catch {} window.__pbOff = null; }
+          }
+        };
+
         const BRIEF_TIMING_STYLE = {
           NOW: 'background:rgba(239,68,68,0.16); color:#fca5a5;',
           NEXT: 'background:rgba(251,191,36,0.16); color:#fbbf24;',
