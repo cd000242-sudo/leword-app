@@ -22,8 +22,7 @@ describe('같이 넣을 말 고르기', () => {
         expect(got[0].searchVolume).toBe(33000);
     });
 
-    it('핵심 검색어를 그대로 담은 더 긴 말도 살린다 — 대안과 다른 점이다', () => {
-        // 대안 고르기라면 같은 자리 경쟁이라 뺄 말이지만, 본문에 같이 담는 말로는 이게 제일 쓸모 있다.
+    it('핵심 검색어를 그대로 담은 더 긴 말을 살린다 — 본문에 담기 제일 좋은 말이다', () => {
         const got = pickRelatedKeywords(brief, suggest([['주택담보대출 금리 비교', 8800]]), new Map(), 6);
         expect(got.map((r) => r.keyword)).toContain('주택담보대출 금리 비교');
     });

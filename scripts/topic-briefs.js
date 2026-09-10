@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   BRIEF_FIELDS, toFactCards, pickFactsForPrompt, buildBriefPrompt, validateBriefs, serpFitOf, markStars, kstToday, applyMeasuredVolumes,
-  roundSlotOf, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats, pickAltCandidates, pickRelatedKeywords, chooseAlternative,
+  roundSlotOf, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats, pickRelatedKeywords, chooseAlternative,
 } = require('../src/utils/topic-briefs');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
@@ -197,7 +197,7 @@ async function main() {
        */
       const ordered = [...all].sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0));
       const needAltSet = new Set(all.filter((b) => (b.serpFit === '낮음' || b.serpFit === '보통') && b.alternative === undefined));
-      let altFetched = 0; let altFound = 0; let altTried = 0; let relFound = 0;
+      let altFetched = 0; let altFound = 0; let altTried = 0; let relFound = 0; let relOpen = 0;
       for (const b of ordered) {
         let suggestions = [];
         try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, b.coreKeyword, 60); } catch { suggestions = []; }
@@ -205,26 +205,51 @@ async function main() {
         b.related = pickRelatedKeywords(b, suggestions, volumes, 6);
         if (b.related.length > 0) relFound += 1;
 
-        if (!needAltSet.has(b) || altFetched >= maxAltSerp) continue;
-        const candidates = pickAltCandidates(b, suggestions, volumes, 3);
-        if (candidates.length === 0) { b.alternative = null; continue; }
-        altTried += 1;
-        const measuredAlts = [];
-        for (const c of candidates) {
+        /*
+         * 같이 넣을 말에도 **자리를 잰다**(사장님 2026-09-10 "특히 지금 쓰면 노출될 확률이 높은
+         * 키워드를 보여줘야 돼"). 검색량만 보여 주면 "많이 찾는 말"까지만 말한 것이고,
+         * 정작 지금 들어갈 수 있는 말인지는 못 말한다.
+         *
+         * 한 번 잰 자리를 두 곳이 나눠 쓴다 — 같이 넣을 말의 배지와 대안 검색어 고르기.
+         * 예전에는 대안 후보만 재고 고른 하나 말고는 **버렸다**. 같은 값을 두 번 쓰면 호출이 안 는다.
+         * 검색량 큰 순 3개까지만 잰다. 나머지는 검색량만 붙은 채로 남는다(안 잰 것은 배지도 없다).
+         */
+        const wantAlt = needAltSet.has(b);
+        const toMeasure = b.related.slice(0, 3);
+        const measured = [];
+        for (const c of toMeasure) {
           if (altFetched >= maxAltSerp) break;
           altFetched += 1;
           const res = await fetchPage(seatBlogTabUrl(c.keyword));
           if (!res.ok) continue;
           const seat = measureSeat({ keyword: c.keyword, blogTabHtml: res.body, allTabHtml: null });
           if (seat.sampled < 3) continue;
-          measuredAlts.push({ keyword: c.keyword, searchVolume: c.searchVolume, serpFacing: seat.facing, serpVacancy: seat.vacancy, serpFit: serpFitOf(seat.facing, seat.vacancy) });
-          if (measuredAlts[measuredAlts.length - 1].serpFit === '높음') break; // 열린 것을 찾았으면 더 안 잰다
+          c.serpFacing = seat.facing;
+          c.serpVacancy = seat.vacancy;
+          c.serpFit = serpFitOf(seat.facing, seat.vacancy);
+          relOpen += c.serpFit === '높음' ? 1 : 0;
+          measured.push({ keyword: c.keyword, searchVolume: c.searchVolume, serpFacing: seat.facing, serpVacancy: seat.vacancy, serpFit: c.serpFit });
+          // 열린 것을 찾았고 대안까지 필요했다면 더 안 잰다 — 대안은 하나면 된다.
+          if (wantAlt && c.serpFit === '높음') break;
         }
-        b.alternative = chooseAlternative(measuredAlts);
+        // 열린 것이 앞에 오게 세운다. 안 잰 것은 뒤에 그대로 둔다(0 이 아니라 모름).
+        const rank = (f) => (f === '높음' ? 0 : f === '보통' ? 1 : f === '낮음' ? 2 : 3);
+        b.related.sort((x, y) => rank(x.serpFit) - rank(y.serpFit) || (y.searchVolume - x.searchVolume));
+
+        if (!wantAlt) continue;
+        /*
+         * 대안 검색어는 **트래픽이 있는 말**이라야 한다 — 핵심 검색어를 대신하는 자리이기 때문이다.
+         * 같이 넣을 말은 검색량 10부터 담지만(본문에 뿌리는 말이라 작아도 쓸모 있다),
+         * 대안은 예전 pickAltCandidates 와 같은 하한 100을 지킨다. 안 그러면 월 20짜리가 대안이 된다.
+         */
+        const altPool = measured.filter((m) => (m.searchVolume ?? 0) >= 100);
+        if (altPool.length === 0) { b.alternative = null; continue; }
+        altTried += 1;
+        b.alternative = chooseAlternative(altPool);
         if (b.alternative && b.alternative.serpFit === '높음') altFound += 1;
       }
-      console.log(`  같이 넣을 말  ${relFound}/${ordered.length} 글감에 연관어를 붙였다`);
-      console.log(`  대안 검색어  대상 ${needAltSet.size} · 후보 있음 ${altTried} · 자리 실측 ${altFetched}회 · 열린 대안 ${altFound}`);
+      console.log(`  같이 넣을 말  ${relFound}/${ordered.length} 글감 · 자리 잰 것 ${altFetched}회 · 지금 들어갈 만한 말 ${relOpen}`);
+      console.log(`  대안 검색어  대상 ${needAltSet.size} · 후보 있음 ${altTried} · 열린 대안 ${altFound}`);
     }
     await close();
   }

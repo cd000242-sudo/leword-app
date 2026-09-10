@@ -68,6 +68,14 @@ export interface BriefRelated {
   keyword: string;
   /** 월간 검색량 실측. */
   searchVolume: number;
+  /**
+   * 자리 실측 — 이 말로 지금 쓰면 들어갈 수 있나(사장님 2026-09-10
+   * "특히 지금 쓰면 노출될 확률이 높은 키워드를 보여줘야 돼").
+   * 안 잰 것은 미정의다. '정면 0'과 '안 쟀다'는 다르다.
+   */
+  serpFacing?: number | null;
+  serpVacancy?: number | null;
+  serpFit?: TopicBrief['serpFit'];
 }
 
 export interface BriefAlternative {
@@ -381,12 +389,13 @@ const tokensOf = (s: string) => s.toLowerCase().split(/[\s·,/()\-]+/).map((t) =
 /**
  * 같이 넣을 말 고르기 — 본문에 함께 담을 좁은 검색어.
  *
- * 대안 검색어(pickAltCandidates)와 무엇이 다른가: 대안은 핵심 검색어를 **대신할** 하나를 고르는 것이고,
- * 이것은 그 글 안에 **같이 담을** 여럿을 고르는 것이다. 그래서 핵심 검색어를 그대로 담은 더 긴 말도
- * 살린다('주택담보대출' → '주택담보대출 금리'). 대안에서는 그런 것이 오히려 같은 자리 경쟁이라 뺐다.
+ * 대안 검색어(pickAltCandidates)와 무엇이 다른가: 고르는 규칙은 거의 같고 **검색량 하한**이 다르다.
+ * 대안은 핵심 검색어를 **대신할** 하나라 트래픽이 있어야 한다(하한 100).
+ * 이것은 그 글 안에 **같이 담을** 여럿이라 작아도 쓸모 있다(하한 10).
+ * 그리고 같은 말이 두 곳(글감 자신의 후보 · 검색광고 연관어)에서 와도 한 번만 담는다.
  *
  * 규칙: 검색량 실측이 있는 것만 · 핵심 검색어 자신은 빼고 · 어절 5개 이하 ·
- * 핵심 검색어의 낱말을 하나라도 물고 있는 것 · 검색량 큰 순.
+ * 핵심 검색어의 낱말을 하나라도 물고 있는 것 · 중복 제거 · 검색량 큰 순.
  */
 export function pickRelatedKeywords(
   brief: Pick<TopicBrief, 'coreKeyword' | 'keywords'>,
