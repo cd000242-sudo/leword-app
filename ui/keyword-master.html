@@ -712,19 +712,20 @@
       </div>
 
       <nav class="leword-nav" role="tablist" aria-label="화면">
-        <button role="tab" data-screen="realtime" aria-selected="true" onclick="showScreen('realtime')"><span class="k">1</span>실시간 검색어</button>
-        <button role="tab" data-screen="golden" aria-selected="false" onclick="showScreen('golden')"><span class="k">2</span>황금키워드 발굴</button>
-        <button role="tab" data-screen="board" aria-selected="false" onclick="showScreen('board')"><span class="k">3</span>선점 보드<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="briefs" aria-selected="false" onclick="showScreen('briefs')"><span class="k">4</span>오늘의 글감<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">5</span>자리 실측기<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="rank" aria-selected="false" onclick="showScreen('rank')"><span class="k">6</span>노출 추적<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="kin" aria-selected="false" onclick="showScreen('kin')"><span class="k">7</span>지식인 황금질문<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="youtube" aria-selected="false" onclick="showScreen('youtube')"><span class="k">8</span>유튜브 급상승 글감<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">9</span>PRO 트래픽 폭발 키워드 헌터</button>
-        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">10</span>AdSense 승인 키워드 헌터</button>
-        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">11</span>네이버 AI 메이트 키워드 찾기</button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">12</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">13</span>설정 · 키</button>
+        <button role="tab" data-screen="today" aria-selected="true" onclick="showScreen('today')"><span class="k">1</span>오늘 쓸 한 편<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="realtime" aria-selected="false" onclick="showScreen('realtime')"><span class="k">2</span>실시간 검색어</button>
+        <button role="tab" data-screen="golden" aria-selected="false" onclick="showScreen('golden')"><span class="k">3</span>황금키워드 발굴</button>
+        <button role="tab" data-screen="board" aria-selected="false" onclick="showScreen('board')"><span class="k">4</span>선점 보드<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="briefs" aria-selected="false" onclick="showScreen('briefs')"><span class="k">5</span>오늘의 글감<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">6</span>자리 실측기<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="rank" aria-selected="false" onclick="showScreen('rank')"><span class="k">7</span>노출 추적<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="kin" aria-selected="false" onclick="showScreen('kin')"><span class="k">8</span>지식인 황금질문<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="youtube" aria-selected="false" onclick="showScreen('youtube')"><span class="k">9</span>유튜브 급상승 글감<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">10</span>PRO 트래픽 폭발 키워드 헌터</button>
+        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">11</span>AdSense 승인 키워드 헌터</button>
+        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">12</span>네이버 AI 메이트 키워드 찾기</button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">13</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">14</span>설정 · 키</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -765,7 +766,49 @@
     </script>
 
     <!-- 화면 1: 실시간 검색어 (기본 화면) -->
-    <section class="leword-screen" data-screen="realtime" data-active>
+    <!--
+      오늘 쓸 한 편(앱 전용, 2026-09-11) — 사장님 "지금 있는 기능들로 대박 기능 하나".
+      여섯 판이 하루에 600개 넘게 내놓는다(실측: 글감 212·추천 320·선점 43·유튜브 18·틈새 21).
+      초보자에게 600개는 0개와 같다. 여기서 셋으로 줄인다.
+      새 판정은 없다 — 봉투(내가 이겨본 크기) · 자리 실측 · 이미 쓴 것 제외를 관문으로 세울 뿐이다.
+    -->
+    <section class="leword-screen" data-screen="today" data-active>
+      <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
+            ✍️ 오늘 쓸 한 편 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
+          </h3>
+          <button id="dpRunBtn" onclick="runDailyPick()"
+            style="padding: 8px 16px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">오늘 것 고르기</button>
+        </div>
+        <p style="margin: 0 0 10px; font-size: 12px; color: #64748b; line-height: 1.6;">
+          여섯 판이 내놓은 후보를 <b style="color:#94a3b8;">내가 이겨본 크기</b>로 거르고, 남은 것의 자리를 지금 재서
+          <b style="color:#94a3b8;">셋만</b> 세웁니다. 이미 쓴 검색어는 뺍니다. 비용 0 · 1~2분.
+        </p>
+        <div id="dpEnvelope" style="font-size: 12.5px; color: #94a3b8; margin-bottom: 4px;"></div>
+        <div id="dpStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">불러오는 중…</div>
+        <div id="dpProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums;"></div>
+      </div>
+      <div id="dpFunnel" style="display: none; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;"></div>
+      <div id="dpBody"></div>
+      <div id="dpRejected"></div>
+    </section>
+
+    <section class="leword-screen" data-screen="realtime">
+    <!--
+      서브탭(2026-09-11, 사장님 "실시간 검색어는 실시간 검색어가 먼저 보이게 하고 서브탭으로
+      실검 틈새키워드가 보이도록"). 사이트에는 09-10 에 했는데 앱에는 빠져 있었다.
+      화면 이름이 '실시간 검색어' 인데 첫 화면이 틈새 판정판이면 이름과 내용이 어긋난다.
+    -->
+    <div class="leword-realtime-subtabs" role="tablist" aria-label="실시간 보기"
+      style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px;">
+      <button type="button" role="tab" data-rt-sub="live" aria-selected="true" onclick="setRealtimeSub('live')"
+        style="padding:7px 14px; border-radius:999px; font:inherit; font-size:12.5px; cursor:pointer; border:1px solid rgba(251,191,36,0.38); background:rgba(251,191,36,0.13); color:#fbbf24; font-weight:700;">실시간 검색어</button>
+      <button type="button" role="tab" data-rt-sub="niche" aria-selected="false" onclick="setRealtimeSub('niche')"
+        style="padding:7px 14px; border-radius:999px; font:inherit; font-size:12.5px; cursor:pointer; border:1px solid #334155; background:#1e293b; color:#94a3b8;">실검 틈새키워드<span style="margin-left:5px; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:999px; background:rgba(251,191,36,0.16); color:#fbbf24;">앱 전용</span></button>
+    </div>
+
+    <div data-rt-panel="niche" hidden>
     <!--
       실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 **같은 판정**을 이 PC 브라우저로 상한 없이 돌린다.
       사이트: 브라이트데이터(유료 쿼터) · 하루 3회 · 자리 20건 상한 — PC 가 꺼져 있어도 도는 보장선.
@@ -799,6 +842,9 @@
       <div id="realtimeNicheBody"></div>
     </div>
 
+    </div>
+
+    <div data-rt-panel="live">
     <!-- 실시간 검색어 모니터링 섹션 (2x2 그리드) -->
     <div id="realtimeKeywordsSection"
       style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.09);">
@@ -917,6 +963,8 @@
         </div>
       </div>
     </div>
+    </div>
+
     </section>
 
 
@@ -1878,6 +1926,8 @@
         //   - 등록표의 open 은 window 전역 함수 이름, root 는 그 함수가 만드는 뿌리 요소 id.
         // =====================================================
         const SCREENS = {
+          // 오늘 쓸 한 편 — 열 때 저장된 회차를 읽는다(고르기는 눌러서).
+          today: { load: 'loadDailyPick' },
           realtime: {},
           golden: {},
           // 오늘의 글감은 모달이 아니라 섹션이다 — 열 때 저장된 판을 불러온다(없으면 사이트 판).
@@ -9079,6 +9129,25 @@
           if (status) status.textContent = '중지 요청 — 재던 것까지만 남깁니다…';
         };
 
+        /*
+         * 실시간 화면 서브탭(2026-09-11) — 실시간 검색어가 먼저, 실검 틈새가 그다음.
+         * 사이트에는 09-10 에 넣었는데 앱에는 빠져 있었다(사장님 지적).
+         * 틈새 판은 자리를 재느라 몇 분씩 브라우저를 쓰므로, 탭을 옮기는 것만으로 긁지 않는다.
+         */
+        window.setRealtimeSub = function setRealtimeSub(which) {
+          document.querySelectorAll('[data-rt-panel]').forEach((el) => {
+            el.hidden = el.getAttribute('data-rt-panel') !== which;
+          });
+          document.querySelectorAll('[data-rt-sub]').forEach((btn) => {
+            const on = btn.getAttribute('data-rt-sub') === which;
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+            btn.style.border = '1px solid ' + (on ? 'rgba(251,191,36,0.38)' : '#334155');
+            btn.style.background = on ? 'rgba(251,191,36,0.13)' : '#1e293b';
+            btn.style.color = on ? '#fbbf24' : '#94a3b8';
+            btn.style.fontWeight = on ? '700' : '400';
+          });
+        };
+
         window.setRealtimeNicheAuto = async function setRealtimeNicheAuto() {
           const minutes = Number(document.getElementById('realtimeNicheAuto')?.value) || 0;
           try {
@@ -9105,6 +9174,208 @@
          * 화면에 안 올리는 것: effectiveVolume·peakMultiplier(계절 환산 추정).
          * 올리는 것은 전부 실측이다 — 검색량·문서수(API) · 자리·정면(SERP) · 지식인 수 · 광고 깊이·클릭률(검색광고).
          */
+        /*
+         * 오늘 쓸 한 편 — 화면 쪽(앱 전용, 2026-09-11).
+         *
+         * 카드가 하는 말은 딱 하나다: "이건 **네** 크기다."
+         * 그 근거는 전부 실측이다 — 내가 이겨본 문서수·정면(봉투), 방금 잰 자리, 검색광고 검색량.
+         * 새 점수를 만들지 않는다. 남의 도구가 못 하는 말은 '너에게' 뿐이다.
+         */
+        let dpView = { result: null, envelope: null };
+
+        function dpEsc(text) {
+          return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        function dpNum(v) {
+          return typeof v === 'number' && isFinite(v) ? v.toLocaleString('ko-KR') : '—';
+        }
+        const dpSafe = (t) => String(t || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+        function dpStep(label, value, note) {
+          return '<div style="flex:1 1 120px; padding:9px 12px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:10px;">'
+            + '<div style="font-size:10.5px; color:#64748b; margin-bottom:2px;">' + dpEsc(label) + '</div>'
+            + '<div style="font-size:17px; font-weight:700; color:#e2e8f0; font-variant-numeric:tabular-nums;">' + dpEsc(value) + '</div>'
+            + (note ? '<div style="font-size:10px; color:#64748b; margin-top:2px;">' + dpEsc(note) + '</div>' : '')
+            + '</div>';
+        }
+
+        function dpCard(p, idx) {
+          const titles = (p.titles || []).slice(0, 4).map((t) =>
+            '<div style="display:flex; align-items:center; gap:8px; padding:7px 11px; border-radius:7px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); font-size:13px; margin-bottom:5px;">'
+            + (t.label ? '<span style="flex:none; font-family: ui-monospace, Consolas, monospace; font-size:9.5px; color:#fbbf24; background:rgba(251,191,36,0.1); padding:2px 6px; border-radius:4px;">' + dpEsc(t.label) + '</span>' : '')
+            + '<span style="flex:1 1 auto; min-width:0; word-break:keep-all; color:#e2e8f0;">' + dpEsc(t.text) + '</span>'
+            + '<button onclick="lewordCopyText(\'' + dpSafe(t.text) + '\', this)" style="flex:none; font:inherit; font-size:10.5px; color:#64748b; background:none; border:0; cursor:pointer;">복사</button>'
+            + '</div>').join('');
+          const related = (p.related || []).slice(0, 6).map((r) =>
+            '<span title="' + (r.open ? '이 말도 지금 자리가 열려 있습니다' : '자리는 안 쟀습니다') + '" '
+            + 'style="display:inline-flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px; font-size:11.5px; background:#0f172a; '
+            + 'border:1px solid ' + (r.open ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.09)') + '; color:' + (r.open ? '#e2e8f0' : '#94a3b8') + ';">'
+            + '<span style="width:6px; height:6px; border-radius:50%; background:' + (r.open ? '#22c55e' : '#334155') + ';"></span>'
+            + dpEsc(r.keyword) + (r.searchVolume != null ? ' <span style="font-family: ui-monospace, Consolas, monospace; font-size:10px; color:#64748b;">' + dpNum(r.searchVolume) + '</span>' : '')
+            + '</span>').join(' ');
+          const facts = (p.facts || []).slice(0, 2).map((f) =>
+            '<a href="#" onclick="event.preventDefault(); lewordOpenExternal(\'' + dpSafe(f.link) + '\')" style="color:#67e8f9; text-decoration:none;">' + dpEsc(f.title) + '</a>'
+            + '<span style="color:#475569;"> · ' + dpEsc(f.press) + '</span>').join('<br>');
+          const seatLine = [
+            p.seatVacancy != null ? p.seatVacancy + '위가 비었고' : null,
+            typeof p.seatFacing === 'number' ? '정면으로 다룬 글은 ' + p.seatFacing + '개' : null,
+          ].filter(Boolean).join(', ');
+
+          return '<div style="padding:16px 18px; background:#111c31; border:1px solid rgba(251,191,36,0.22); border-radius:14px; margin-bottom:12px;">'
+            + '<div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:8px;">'
+            + '<span style="font-family: ui-monospace, Consolas, monospace; font-size:12px; color:#fbbf24;">' + (idx + 1) + '</span>'
+            + '<span style="font-size:18px; font-weight:700; color:#fff; word-break:keep-all;">' + dpEsc(p.keyword) + '</span>'
+            + '<span style="padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; background:#dcfce7; color:#166534;">자리 열림</span>'
+            + (p.myTopic ? '<span style="padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(34,197,94,0.16); color:#22c55e;">내가 이겨본 주제</span>' : '')
+            + '<span style="margin-left:auto; font-size:11px; color:#64748b;">' + dpEsc(p.source) + '</span>'
+            + '</div>'
+
+            // ── 이 카드의 심장: "이건 네 크기다"
+            + '<div style="padding:10px 13px; border-radius:10px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.26); margin-bottom:10px;">'
+            + '<div style="font-size:13.5px; color:#e2e8f0; font-weight:600; word-break:keep-all;">' + dpEsc(p.fitReason) + '</div>'
+            + (seatLine ? '<div style="font-size:12px; color:#94a3b8; margin-top:4px;">지금 ' + dpEsc(seatLine) + '입니다.</div>' : '')
+            + '</div>'
+
+            + '<div style="display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:#94a3b8; margin-bottom:10px; font-variant-numeric:tabular-nums;">'
+            + '<span>검색량 <b style="color:#e2e8f0;">' + dpNum(p.searchVolume) + '</b></span>'
+            + (p.documentCount != null ? '<span>경쟁 글 <b style="color:#e2e8f0;">' + dpNum(p.documentCount) + '</b></span>' : '<span style="color:#64748b;">경쟁 글 미측정</span>')
+            + (p.topic ? '<span>' + dpEsc(p.topic) + '</span>' : '')
+            + '</div>'
+
+            + (p.why ? '<div style="font-size:12.5px; color:#cbd5e1; line-height:1.6; word-break:keep-all; margin-bottom:10px;">' + dpEsc(p.why) + '</div>' : '')
+            + (titles ? '<div style="margin-bottom:10px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">제목 후보</div>' + titles + '</div>' : '')
+            + (related ? '<div style="margin-bottom:10px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">같이 넣을 말</div><div style="display:flex; flex-wrap:wrap; gap:5px;">' + related + '</div></div>' : '')
+            + (facts ? '<div style="font-size:11px; color:#64748b; line-height:1.7; margin-bottom:10px;">' + facts + '</div>' : '')
+
+            // ── 닫힌 고리: 쓰고 나면 여기에 주소를 넣는다
+            + '<div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap; padding-top:10px; border-top:1px solid rgba(255,255,255,0.07);">'
+            + '<button onclick="openNaverSearch(\'' + dpSafe(p.keyword) + '\')" style="padding:6px 11px; border:1px solid rgba(255,255,255,0.16); border-radius:7px; background:transparent; color:#e2e8f0; font:inherit; font-size:12px; cursor:pointer;">🔍 자리 보기</button>'
+            + '<button onclick="searchKeyword(\'' + dpSafe(p.keyword) + '\', true)" style="padding:6px 11px; border:1px solid rgba(255,255,255,0.16); border-radius:7px; background:transparent; color:#e2e8f0; font:inherit; font-size:12px; cursor:pointer;">더 파보기</button>'
+            + '<span style="flex:1 1 8px;"></span>'
+            + '<input type="text" data-dp-url="' + idx + '" placeholder="다 썼으면 글 주소를 붙여 넣으세요"'
+            + ' style="flex:1 1 240px; min-width:180px; padding:6px 10px; border:1px solid rgba(255,255,255,0.16); border-radius:7px; background:#1e293b; color:#e2e8f0; font:inherit; font-size:12px;">'
+            + '<button onclick="dpTrack(' + idx + ')" style="padding:6px 12px; border:0; border-radius:7px; background:rgba(251,191,36,0.16); color:#fbbf24; font:inherit; font-size:12px; font-weight:700; cursor:pointer;">추적 시작</button>'
+            + '</div>'
+            + '<div data-dp-msg="' + idx + '" style="font-size:11.5px; color:#64748b; margin-top:6px;"></div>'
+            + '</div>';
+        }
+
+        window.renderDailyPick = function renderDailyPick() {
+          const body = document.getElementById('dpBody');
+          const funnel = document.getElementById('dpFunnel');
+          const status = document.getElementById('dpStatus');
+          const envLine = document.getElementById('dpEnvelope');
+          const rejBox = document.getElementById('dpRejected');
+          if (!body || !funnel || !status || !envLine || !rejBox) return;
+
+          const env = dpView.envelope;
+          envLine.innerHTML = env
+            ? '내 크기 — 경쟁 글 <b style="color:#e2e8f0;">' + dpNum(env.docMax) + '개</b>까지, 정면으로 다룬 글 <b style="color:#e2e8f0;">' + env.facingMax + '개</b>까지 이겨봤습니다.'
+            : '<span style="color:#f59e0b;">아직 내 크기를 모릅니다 — [자리 실측기] 화면의 내 블로그에서 한 번 재면 이 판이 훨씬 정확해집니다.</span>';
+
+          const r = dpView.result;
+          if (!r) {
+            funnel.style.display = 'none'; rejBox.innerHTML = '';
+            body.innerHTML = '<div style="padding:30px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">아직 안 골랐습니다. [오늘 것 고르기] 를 누르세요.</div>';
+            status.textContent = '';
+            return;
+          }
+
+          funnel.style.display = 'flex';
+          funnel.innerHTML = dpStep('여섯 판이 내놓은 것', dpNum(r.gathered) + '개')
+            + dpStep('내 크기로 거른 뒤', dpNum(r.afterGate) + '개', '이미 쓴 것 뺌')
+            + dpStep('자리를 잰 것', dpNum(r.measured) + '개')
+            + dpStep('오늘 쓸 것', r.picks.length + '개', '자리가 열린 것만');
+
+          body.innerHTML = r.picks.length === 0
+            ? '<div style="padding:26px 16px; color:#94a3b8; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px; line-height:1.7;">'
+              + '<b style="color:#e2e8f0;">오늘은 세울 것이 없습니다.</b><br>'
+              + '내 크기 안에 든 후보는 있었지만 잰 자리가 다 닫혀 있었습니다. 지어내서 채우지 않습니다 — 아래에 무엇이 닫혀 있었는지 남깁니다.'
+              + '</div>'
+            : r.picks.map(dpCard).join('');
+
+          rejBox.innerHTML = (r.rejected || []).length === 0 ? '' : ''
+            + '<div style="padding:12px 14px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px; margin-top:4px;">'
+            + '<div style="font-size:11.5px; color:#64748b; margin-bottom:7px;">자리가 닫혀 있어 안 세운 것 — 왜 빠졌는지 남깁니다</div>'
+            + '<div style="display:flex; flex-wrap:wrap; gap:6px;">'
+            + r.rejected.slice(0, 14).map((x) =>
+              '<span style="padding:3px 9px; border-radius:999px; font-size:11px; background:#111c31; border:1px solid rgba(255,255,255,0.07); color:#94a3b8;">'
+              + dpEsc(x.keyword) + ' <span style="color:#64748b;">' + dpEsc(x.seat) + '</span></span>').join('')
+            + '</div></div>';
+
+          const when = new Date(r.builtAt);
+          const two = (n) => String(n).padStart(2, '0');
+          status.textContent = (when.getMonth() + 1) + '월 ' + when.getDate() + '일 '
+            + two(when.getHours()) + ':' + two(when.getMinutes()) + ' 에 고름 · ' + r.seconds + '초 걸림'
+            + (r.message ? ' · ' + r.message : '');
+        };
+
+        window.loadDailyPick = async function loadDailyPick() {
+          try {
+            const res = await window.electronAPI.invoke('daily-pick-get');
+            if (!res || !res.success) return;
+            dpView = { result: res.result, envelope: res.envelope };
+            window.renderDailyPick();
+          } catch { /* 무시 — 화면은 빈 상태로 둔다 */ }
+        };
+
+        window.runDailyPick = async function runDailyPick() {
+          const btn = document.getElementById('dpRunBtn');
+          const prog = document.getElementById('dpProgress');
+          if (!btn) return;
+          btn.disabled = true; btn.style.opacity = '0.6';
+          if (prog) prog.textContent = '후보를 모으는 중…';
+          if (window.__dpOff) { try { window.__dpOff(); } catch {} }
+          try {
+            window.__dpOff = window.electronAPI.on('daily-pick-progress', (p) => {
+              if (p && prog) prog.textContent = p.message || '';
+            });
+          } catch { /* 구독이 막혀도 본 작업은 돈다 */ }
+          try {
+            const res = await window.electronAPI.invoke('daily-pick-run');
+            if (!res || !res.success) {
+              if (prog) prog.textContent = (res && res.error) || '고르지 못했습니다';
+              return;
+            }
+            dpView = { result: res.result, envelope: res.result.envelope };
+            window.renderDailyPick();
+            if (prog) prog.textContent = '';
+          } catch (error) {
+            if (prog) prog.textContent = String((error && error.message) || error);
+          } finally {
+            btn.disabled = false; btn.style.opacity = '1';
+            if (window.__dpOff) { try { window.__dpOff(); } catch {} window.__dpOff = null; }
+          }
+        };
+
+        /*
+         * 닫힌 고리 — 발행 주소를 노출 추적에 넘긴다.
+         * 이러면 7·14·28일 뒤 순위가 실측되고, 이기면 봉투가 커진다 → 내일 추천이 달라진다.
+         * 지금까지 LEWORD 에 없던 화살표가 이것이다.
+         */
+        window.dpTrack = async function dpTrack(idx) {
+          const input = document.querySelector('[data-dp-url="' + idx + '"]');
+          const msg = document.querySelector('[data-dp-msg="' + idx + '"]');
+          const pick = dpView.result && dpView.result.picks[idx];
+          if (!input || !pick) return;
+          const url = String(input.value || '').trim();
+          if (!/^https?:\/\//i.test(url)) { if (msg) msg.textContent = '글 주소를 http 로 시작하게 넣어 주세요.'; return; }
+          if (msg) msg.textContent = '추적에 넣는 중…';
+          try {
+            const res = await window.electronAPI.invoke('exposure-add-manual', {
+              keyword: pick.keyword, postUrl: url, postTitle: (pick.titles[0] && pick.titles[0].text) || pick.keyword, category: pick.topic || 'daily-pick',
+            });
+            if (msg) {
+              msg.innerHTML = (res && res.success)
+                ? '<span style="color:#22c55e;">추적을 시작했습니다 — [노출 추적] 화면에서 순위를 재면 결과가 쌓이고, 이기면 내 크기가 커집니다.</span>'
+                : '<span style="color:#fca5a5;">' + dpEsc((res && res.error) || '넣지 못했습니다') + '</span>';
+            }
+          } catch (error) {
+            if (msg) msg.textContent = String((error && error.message) || error);
+          }
+        };
+
         let pbView = { rows: [], reseats: {}, publishedAt: '', enrichedAt: '', filter: '', fromCache: false };
 
         const PB_SEAT_STYLE = {

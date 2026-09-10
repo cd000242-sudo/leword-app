@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 /**
  * 도달 가능 기능 안전망 (2026-09-09 앱 리뉴얼 · 셸 통일).
  *
- * 사이드바 항목 13개가 기대 순서 그대로 있고, 항목마다 같은 이름의 화면 섹션(data-screen)이 있고,
+ * 사이드바 항목 14개가 기대 순서 그대로 있고, 항목마다 같은 이름의 화면 섹션(data-screen)이 있고,
  * 화면 라우터 등록표(SCREENS)가 부르는 열기 함수가 실제로 정의돼 있는지 잠근다.
  * 인벤토리(2026-09-08)에서 "정의만 있고 어디서도 안 열리는 모달" 9종과 "카드는 있는데 함수가 없는" 사고가
  * 같이 나왔다 — 항목을 더하거나 뺄 때 EXPECTED_NAV 를 같이 고쳐야 통과한다.
@@ -15,6 +15,7 @@ const html = fs.readFileSync(path.join(root, 'ui', 'keyword-master.html'), 'utf8
 
 /** 셸 통일 후 사이드바 항목 — 순서 그대로 (id, 라벨). */
 const EXPECTED_NAV: Array<[string, string]> = [
+    ['today', '오늘 쓸 한 편'],
     ['realtime', '실시간 검색어'],
     ['golden', '황금키워드 발굴'],
     ['board', '선점 보드'],
@@ -130,10 +131,10 @@ describe('셸 사이드바 기능 도달 가능성', () => {
         expect(missing, `정의 없는 열기 함수: ${missing.join(', ')}`).toEqual([]);
     });
 
-    it('모달→화면 어댑터가 있고 기본 화면은 실시간 검색어다', () => {
+    it('모달→화면 어댑터가 있고 기본 화면은 오늘 쓸 한 편이다', () => {
         expect(html).toContain('window.mountModalAsScreen = function');
         expect(html).toContain('window.showScreen = async function');
-        expect(html).toContain('<section class="leword-screen" data-screen="realtime" data-active>');
+        expect(html).toContain('<section class="leword-screen" data-screen="today" data-active>');
     });
 
     it("셸 안의 openModal('key') 의 key 가 모달 등록표에 있다", () => {
