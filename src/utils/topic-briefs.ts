@@ -73,6 +73,15 @@ export interface TopicBrief extends BriefDraft {
 }
 
 export interface BriefTitle {
+  /**
+   * 이 제목이 노리는 곳 — 글자로 확인한 값이다(모델이 적은 라벨을 그대로 믿지 않는다).
+   * 셋 다 **검색어로 문장이 시작**한다는 점은 같고, 끝이 다르다:
+   *   검색   = 네이버 검색 결과. 서술로 끝난다.
+   *   AI답변 = 네이버 AI 브리핑·스마트블록. 답을 요구하는 물음으로 끝난다.
+   *   인용   = 생성형 AI 인용. 카드의 숫자·날짜가 제목에 박혀 있다.
+   * null 이면 옛 방식으로 만든 제목(부르는 쪽이 keywords 를 안 준 경우)이다.
+   */
+  target: '검색' | 'AI답변' | '인용' | null;
   /** 질문형 · 정리형 · 경험형 · 비교형 · 시기형 */
   type: string;
   text: string;
@@ -281,7 +290,7 @@ export function buildBriefPrompt(field: string, facts: FactCard[], today: Date, 
     `이 분야에서 블로그 글로 쓸 만한 글감을 ${Math.max(1, maxBriefs - 1)}~${maxBriefs}개 골라라(카드가 정말 모자라면 되는 만큼). 뉴스 요약이 아니라 "검색하는 사람이 원하는 답"이 글감이다.`,
     '각 글감은 JSON 객체다:',
     '{"title": "글 제목(구체적·날짜/조건 포함, 30자 안팎, 낚시 금지)",',
-    ' "titles": [{"type": "질문형|정리형|경험형|비교형|시기형 중 하나", "text": "그 결의 제목 30자 안팎"}],  // 서로 다른 유형 3~4개. title 과 겹치지 마라',
+    ' "titles": [{"target": "검색|AI답변|인용", "type": "질문형|정리형|경험형|비교형|시기형 중 하나", "text": "제목 30자 안팎"}],  // 아래 제목 규칙대로 세 갈래를 각각 1~2개. title 과 겹치지 마라',
     ' "timing": "NOW|NEXT|ALWAYS",  // NOW=이번 주 안에 찾는 것, NEXT=날짜가 정해진 예정, ALWAYS=철 안 타는 기준·제도',
     ' "types": ["해설형","가이드형","비교형","문제해결형","정보형","팩트체크형","큐레이션형" 중 1~2개],',
     ' "primaryIntent": "검색자가 손에 넣고 싶은 것 한 문장",',
@@ -291,12 +300,31 @@ export function buildBriefPrompt(field: string, facts: FactCard[], today: Date, 
     ' "keywords": ["사람들이 네이버에 실제로 치는 검색어 2~3개, 넓은 것부터. 1~3어절, 조사·설명 없이. 예: \'독감 무료접종\', \'독감 무료접종 대상\'. \'가을 진드기 물림 예방 수칙\' 같은 문장형 금지"],',
     ' "factIds": ["근거 카드 id 1개 이상 — 위 목록의 대괄호 안 id 그대로(예: \\"f3\\"). 제목이나 번호로 대신 쓰지 마라"]}',
     '',
-    '제목 규칙(네이버 블로그): AI 가 쓴 티가 나면 노출이 죽는다. 다음을 지켜라 —',
-    '  · 금지어: 총정리 · 완벽정리 · 한눈에 · 알아보자 · 정리해봤습니다 · 충격 · 실화 · TOP N · N가지',
-    '  · 쉼표로 두 동강 내지 마라("A, B는?" 꼴 금지). 한 호흡으로 읽히게.',
-    '  · 답을 제목에 다 적지 마라. 궁금해서 눌러야 한다.',
-    '  · 말하듯이 써라. 보고서 말투 금지.',
-    '  · 유형은 서로 결이 달라야 한다 — 같은 문장을 어미만 바꾼 것은 한 개로 친다.',
+    '제목 규칙(네이버 블로그) — 제목은 세 군데를 노린다. target 마다 노리는 곳이 다르니 규칙도 다르다.',
+    '',
+    '  [target: "검색"] 네이버 검색 결과에 걸리는 제목',
+    '    · keywords 중 하나로 **문장을 시작**하라. 그 말을 토씨 하나 바꾸지 말고 그대로 앞에 놓아라.',
+    '      (틀림: "왜 반도체 계약학과로 지원이 쏠렸을까" / 맞음: "반도체 계약학과 지원이 몰린 이유")',
+    '    · 그 뒤에 무엇을 좁히는 글인지 붙여라. 30자 안팎.',
+    '',
+    '  [target: "AI답변"] 네이버 AI 브리핑·스마트블록이 답으로 물어 가는 제목',
+    '    · 여기도 keywords 중 하나로 **문장을 시작**한다. 그 뒤에 물음을 붙인다.',
+    '    · 물음표로 끝내거나 "언제·얼마·어디·되는지·인가요"처럼 답을 요구하는 꼴로 끝내라.',
+    '      (틀림: "왜 계약학과로 지원이 쏠렸을까" / 맞음: "계약학과 지원 자격은 어떻게 되는지")',
+    '    · 사람이 검색창에 실제로 치는 말이어야 한다. 혼잣말 같은 수사의문문 금지.',
+    '',
+    '  [target: "인용"] 생성형 AI 가 근거로 인용하기 좋은 제목',
+    '    · 여기도 keywords 중 하나로 **문장을 시작**한다.',
+    '    · 카드에 있는 **숫자나 날짜**를 제목 안에 넣어라(없으면 이 갈래는 만들지 마라).',
+    '    · 무엇에 대한 몇 년/몇 건/몇 원인지가 제목에서 보여야 한다.',
+    '',
+    '  세 갈래 공통 — 셋 다 keywords 중 하나로 문장이 시작해야 한다. 검색어가 가운데 묻히면 어디에도 안 걸린다.',
+    '  그리고 AI 가 쓴 티가 나면 노출이 죽는다.',
+    '    · 금지어: 총정리 · 완벽정리 · 한눈에 · 알아보자 · 정리해봤습니다 · 충격 · 실화 · TOP N · N가지',
+    '    · 쉼표로 두 동강 내지 마라("A, B는?" 꼴 금지). 한 호흡으로 읽히게.',
+    '    · 답을 제목에 다 적지 마라. 궁금해서 눌러야 한다.',
+    '    · 말하듯이 써라. 보고서 말투 금지.',
+    '    · 같은 문장을 어미만 바꾼 것은 한 개로 친다.',
     '',
     '규칙: value 에 쓰는 날짜는 인용한 카드(factIds)에 있는 날짜여야 한다. "8일 발표했다"처럼 발행일을 쓰려면 그 날 발행된 카드를 인용하라.',
     'timing 을 NEXT 로 두려면 인용 카드에 앞으로의 날짜(또는 "내년 1월"·"다음 달" 같은 예정 달)가 있어야 한다. 없으면 NOW 나 ALWAYS 로 두라.',
@@ -311,12 +339,44 @@ export function buildBriefPrompt(field: string, facts: FactCard[], today: Date, 
  */
 const TITLE_BANNED = ['총정리', '완벽정리', '완벽 정리', '한눈에', '알아보자', '알아봅시다', '정리해봤', '정리해 봤', '충격', '실화', '레전드', '~하는 방법'];
 
-/** 제목 후보 다듬기 — 교리에 걸리는 것, 너무 길거나 짧은 것, 겹치는 것을 뺀다. */
-export function sanitizeTitles(raw: unknown, mainTitle: string, limit = 4): BriefTitle[] {
+/**
+ * 답을 요구하는 끝맺음 — 진짜 물음만 받는다.
+ * '기준·조건·자격·방법' 같은 맨 명사는 뺐다. 그건 물음이 아니라 서술의 끝이라
+ * "반도체 계약학과 뽑는 기업과 조건" 같은 검색용 제목까지 물음으로 잘못 잡는다(실측).
+ */
+const ASK_TAIL = /(\?|나요|인가요|인가|일까요|일까|될까요|될까|할까요|할까|었을까|되는지|하는지|받는지|있는지|언제|얼마|어디|누가|몇)\s*$/;
+
+/**
+ * 제목이 어느 갈래의 요건을 실제로 갖췄는가. 모델이 target 을 뭐라고 적었든 **글자로 확인**한다.
+ * 라벨만 믿으면 "검색용"이라 적힌 제목이 검색어를 앞에 안 둔 채 화면까지 간다.
+ *
+ * 세 갈래 모두 **검색어로 문장이 시작**해야 한다. 그게 사장님이 말한 "네이버에 최적화"의 뿌리다 —
+ * 검색어가 문장 한가운데 묻히면 세 군데(검색·AI 브리핑·생성형 인용) 어디에도 제대로 안 걸린다.
+ * 실사고: 핵심 검색어가 '계약학과'인데 제목이 "왜 반도체 계약학과로 지원이 쏠렸을까"였다.
+ */
+export function titleTargetOf(text: string, keywords: readonly string[]): BriefTitle['target'] {
+  const flat = (s: string) => s.replace(/\s+/g, '');
+  const body = flat(text);
+  const leads = keywords.map(flat).some((k) => k.length >= 2 && body.startsWith(k));
+  if (!leads) return null;
+  if (ASK_TAIL.test(text.trim())) return 'AI답변';
+  if (/\d/.test(text)) return '인용';
+  return '검색';
+}
+
+/**
+ * 제목 후보 다듬기 — 교리에 걸리는 것, 너무 길거나 짧은 것, 겹치는 것을 뺀다.
+ *
+ * 사장님 2026-09-10 "제목후보는 네이버에 최적화해서 SEO·AEO·GEO 에 최적화된 제목을 나열해줘야 됩니다".
+ * 그래서 세 갈래(검색·AI답변·인용)를 **글자로 확인해서** 붙인다. 어느 갈래도 못 갖춘 제목은 버린다 —
+ * 검색어가 어디에도 없는 제목은 세 군데 중 어디에도 안 걸리므로 후보가 아니다.
+ * keywords 를 안 주면 옛 방식대로 다 받는다(부르는 쪽이 아직 안 고쳐졌을 때).
+ */
+export function sanitizeTitles(raw: unknown, mainTitle: string, limit = 4, keywords: readonly string[] = []): BriefTitle[] {
   if (!Array.isArray(raw)) return [];
   const norm = (t: string) => t.replace(/\s+/g, '').toLowerCase();
   const seen = new Set<string>([norm(mainTitle)]);
-  const out: BriefTitle[] = [];
+  const kept: BriefTitle[] = [];
   for (const item of raw) {
     const text = cleanText(String((item as any)?.text ?? ''));
     const type = cleanText(String((item as any)?.type ?? ''));
@@ -326,9 +386,22 @@ export function sanitizeTitles(raw: unknown, mainTitle: string, limit = 4): Brie
     if ((text.match(/,/g) || []).length >= 1 && /[,][^,]{0,14}[?]\s*$/.test(text)) continue;
     if (/\bTOP\s*\d|\d+\s*가지/i.test(text)) continue;
     if (seen.has(norm(text))) continue;
+    const target = keywords.length > 0 ? titleTargetOf(text, keywords) : null;
+    if (keywords.length > 0 && !target) continue;
     seen.add(norm(text));
-    out.push({ type: type || '기타', text });
-    if (out.length >= limit) break;
+    kept.push({ target, type: type || '기타', text });
+  }
+  // 갈래가 고루 섞이게 — 검색 → AI답변 → 인용 순으로 한 바퀴씩 돌며 담는다.
+  if (keywords.length === 0) return kept.slice(0, limit);
+  const order: Array<BriefTitle['target']> = ['검색', 'AI답변', '인용'];
+  const out: BriefTitle[] = [];
+  const pools = order.map((t) => kept.filter((k) => k.target === t));
+  for (let round = 0; out.length < limit; round += 1) {
+    let addedThisRound = false;
+    for (const pool of pools) {
+      if (pool[round] && out.length < limit) { out.push(pool[round]); addedThisRound = true; }
+    }
+    if (!addedThisRound) break;
   }
   return out;
 }
@@ -394,7 +467,7 @@ export function validateBriefs(raw: unknown, facts: FactCard[], field: string, t
       serpFit: '미측정',
       star: false,
       // 제목 후보 — 교리에 걸리는 것은 여기서 버린다. 빈 배열이면 화면이 그 줄을 안 그린다.
-      titles: sanitizeTitles(d.titles, title, 4),
+      titles: sanitizeTitles(d.titles, title, 4, keywords),
     });
   }
   return { ok, dropped };

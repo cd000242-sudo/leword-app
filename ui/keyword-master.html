@@ -9017,6 +9017,20 @@
           ALWAYS: 'background:rgba(148,163,184,0.14); color:#94a3b8;',
         };
         const BRIEF_TIMING_LABEL = { NOW: '지금', NEXT: '곧', ALWAYS: '늘' };
+        /*
+         * 제목 갈래(2026-09-10) — 사장님 "제목후보는 네이버에 최적화해서 SEO·AEO·GEO 에 최적화된 제목을".
+         * 셋 다 검색어로 문장이 시작한다. 다른 건 끝이다.
+         */
+        const BRIEF_TARGET_STYLE = {
+          '검색': 'background:rgba(34,197,94,0.16); color:#22c55e;',
+          'AI답변': 'background:rgba(96,165,250,0.16); color:#60a5fa;',
+          '인용': 'background:rgba(168,85,247,0.16); color:#c4b5fd;',
+        };
+        const BRIEF_TARGET_HINT = {
+          '검색': '네이버 검색 결과에 걸리는 꼴 — 검색어로 시작하고 서술로 끝납니다',
+          'AI답변': '네이버 AI 브리핑·스마트블록이 답으로 물어 가는 꼴 — 검색어로 시작하고 물음으로 끝납니다',
+          '인용': '생성형 AI 가 근거로 인용하기 좋은 꼴 — 기사에 있던 숫자·날짜가 제목에 박혀 있습니다',
+        };
         const BRIEF_FIT_STYLE = {
           '높음': 'background:#dcfce7; color:#166534;',
           '보통': 'background:#fef3c7; color:#92400e;',
@@ -9054,12 +9068,18 @@
               + '<span style="width:6px; height:6px; border-radius:50%; background:' + (open ? '#22c55e' : r.serpFit ? '#ef4444' : '#334155') + ';"></span>'
               + briefEsc(r.keyword) + ' <span style="font-family: ui-monospace, Consolas, monospace; font-size:10px; color:#64748b;">' + briefNum(r.searchVolume) + '</span></span>';
           }).join('');
-          const titles = (b.titles || []).map((t) =>
-            '<div style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); font-size:12.5px;">'
+          const titles = (b.titles || []).map((t) => {
+            // 갈래 배지 — 이 제목이 어디에 걸리라고 만든 것인지. 글자로 확인된 값만 온다.
+            const badge = t.target
+              ? '<span title="' + briefEsc(BRIEF_TARGET_HINT[t.target] || '') + '" style="flex:none; font-size:9.5px; font-weight:800; padding:2px 6px; border-radius:4px; ' + (BRIEF_TARGET_STYLE[t.target] || '') + '">' + briefEsc(t.target) + '</span>'
+              : '';
+            return '<div style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:6px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); font-size:12.5px;">'
+            + badge
             + (t.type ? '<span style="flex:none; font-family: ui-monospace, Consolas, monospace; font-size:9.5px; color:#fbbf24; background:rgba(251,191,36,0.1); padding:2px 6px; border-radius:4px;">' + briefEsc(t.type) + '</span>' : '')
             + '<span style="flex:1 1 auto; min-width:0; word-break:keep-all;">' + briefEsc(t.text) + '</span>'
             + '<button onclick="lewordCopyText(\'' + String(t.text || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', this)" style="flex:none; font:inherit; font-size:10.5px; color:#64748b; background:none; border:0; cursor:pointer;">복사</button>'
-            + '</div>').join('');
+            + '</div>';
+          }).join('');
           return ''
             + '<div style="padding:14px 16px; background:#111c31; border:1px solid rgba(255,255,255,0.09); border-radius:12px; margin-bottom:10px;">'
             + '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;">'
