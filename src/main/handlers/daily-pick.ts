@@ -219,11 +219,128 @@ export function gate(candidates: readonly Candidate[], envelope: BlogEnvelope | 
       myTopic: verdict.myTopic,
     });
   }
-  // 내가 이겨본 주제 먼저, 그다음 검색량 큰 순. 글감이 붙은 것을 앞세운다.
-  return out.sort((a, b) =>
+  // 판 안에서는 좋은 것 먼저 — 내가 이겨본 주제, 글감이 붙은 것, 검색량 큰 순.
+  out.sort((a, b) =>
     (Number(b.myTopic) - Number(a.myTopic))
     || ((b.candidate.titles.length > 0 ? 1 : 0) - (a.candidate.titles.length > 0 ? 1 : 0))
     || ((b.candidate.searchVolume || 0) - (a.candidate.searchVolume || 0)));
+  return spread(out);
+}
+
+/**
+ * 판마다 돌아가며 한 줄씩 뽑는다.
+ *
+ * 왜(실측 2026-09-10 회차): 잰 14개가 **전부 선점 보드**였다. 글감 212·추천키워드 320·
+ * 유튜브 18·틈새 21 에서 잰 것이 0개다. 위 줄세우기의 '글감이 붙었나'가 원인인데,
+ * 제목 후보를 들고 오는 판이 보드뿐이라 보드 행 전부가 다른 판 전부를 앞선다.
+ * "여섯 판이 내놓은 것"이라 적어 놓고 한 판만 재고 있었다.
+ *
+ * 판 안 순서는 그대로 둔다 — 나눠 쓰느라 품질을 버리지 않는다.
+ * 어느 판이 먼저 바닥나면 남은 판이 그 자리를 이어받는다(판 하나뿐이면 그대로 다 쓴다).
+ */
+function spread(rows: readonly Gated[]): Gated[] {
+  const lanes = new Map<PickSource, Gated[]>();
+  for (const g of rows) {
+    const lane = lanes.get(g.candidate.source);
+    if (lane) lane.push(g);
+    else lanes.set(g.candidate.source, [g]);
+  }
+  const queues = [...lanes.values()];
+  const out: Gated[] = [];
+  for (let i = 0; out.length < rows.length; i += 1) {
+    let moved = false;
+    for (const q of queues) {
+      if (i >= q.length) continue;
+      out.push(q[i]);
+      moved = true;
+    }
+    if (!moved) break;
+  }
+  return out;
+}
+
+/* ────────────────────────── 잰 것 중에서 고르기 ────────────────────────── */
+
+/** 자리 실측기가 돌려준 한 줄. 모양만 받는다 — 판정은 거기서 이미 난 것을 쓴다. */
+export interface MeasuredRow {
+  keyword: string;
+  status: string;
+  verdict?: string | null;
+  facing?: number | null;
+  vacancy?: number | null;
+  reason?: string;
+  measuredAt?: string;
+}
+
+/**
+ * 자리 판정을 순위로. 0 은 안 쓴다.
+ *
+ * 왜 반열림을 쓰는가(실측 2026-09-10 회차): 잰 14개의 판정이 잠김 7 · **반열림 7** · 열림 0 이었는데
+ * 화면은 0개를 내놓았다. 반열림은 serp-winnability 가 "경쟁 있으나 여지 있음"이라 부르는 값이다
+ * (제목 정확 일치 2건 이하). 잰 사실을 버리고 빈 판을 내는 것보다,
+ * **열림을 먼저 쓰고 모자랄 때만 반열림으로 채우되** 카드에는 잰 판정을 그대로 적는다.
+ * 잠김·카드답·자료없음은 그대로 탈락이다.
+ */
+export function seatRank(verdict: string): number {
+  if (verdict === '열림') return 2;
+  if (verdict === '반열림') return 1;
+  return 0;
+}
+
+/**
+ * 잰 줄들을 카드 셋과 탈락 목록으로 줄인다.
+ * 봉투는 여기서 한 번 더 본다 — 자리를 재고 나서야 진짜 정면 수를 알기 때문이다.
+ */
+export function selectPicks(
+  targets: readonly Gated[],
+  rows: readonly MeasuredRow[],
+  envelope: BlogEnvelope | null,
+  show: number = SHOW,
+): { picks: Picked[]; rejected: Array<{ keyword: string; source: string; seat: string }>; measured: number } {
+  const byKw = new Map(rows.map((r) => [flat(r.keyword), r]));
+  const kept: Array<{ rank: number; i: number; pick: Picked }> = [];
+  const closed: Array<{ keyword: string; source: string; seat: string }> = [];
+  let measured = 0;
+
+  for (const g of targets) {
+    const row = byKw.get(flat(g.candidate.keyword));
+    // 못 잰 것(막힘·오류)은 잰 수에도, 탈락 목록에도 안 넣는다.
+    if (!row || row.status !== 'ok' || !row.verdict) continue;
+    measured += 1;
+    const rank = seatRank(String(row.verdict));
+    if (rank === 0) {
+      closed.push({ keyword: g.candidate.keyword, source: g.candidate.source, seat: String(row.verdict) });
+      continue;
+    }
+    const facing = typeof row.facing === 'number' ? row.facing : null;
+    const again = judgeRange({ documentCount: g.candidate.documentCount, facing, topic: g.candidate.topic }, envelope);
+    if (again.verdict === 'out') {
+      closed.push({ keyword: g.candidate.keyword, source: g.candidate.source, seat: '내 범위 밖' });
+      continue;
+    }
+    kept.push({
+      rank,
+      i: kept.length,
+      pick: {
+        ...g.candidate,
+        seat: String(row.verdict),
+        seatFacing: facing,
+        seatVacancy: typeof row.vacancy === 'number' ? row.vacancy : null,
+        seatReason: row.reason || '',
+        measuredAt: row.measuredAt || new Date().toISOString(),
+        fitReason: envelope ? again.reason : g.fitReason,
+        myTopic: again.myTopic,
+      },
+    });
+  }
+
+  // 열림이 먼저. 같은 등급 안에서는 관문이 줄세운 순서를 그대로 둔다.
+  const ordered = kept.slice().sort((a, b) => (b.rank - a.rank) || (a.i - b.i));
+  const cut = Math.max(0, show);
+  const picks = ordered.slice(0, cut).map((k) => k.pick);
+  // 자리는 있었지만 셋이 차서 안 세운 것도 왜 안 세웠는지 남긴다.
+  const spare = ordered.slice(cut).map((k) => ({ keyword: k.pick.keyword, source: k.pick.source, seat: k.pick.seat }));
+  return { picks, rejected: closed.concat(spare), measured };
 }
 
 /* ────────────────────────────── 한 회차 ────────────────────────────── */
@@ -273,36 +390,10 @@ export async function runDailyPick(
       },
     });
     message = batch.message;
-    const byKw = new Map(batch.rows.map((r) => [flat(r.keyword), r]));
-    for (const g of targets) {
-      const row = byKw.get(flat(g.candidate.keyword));
-      if (!row || row.status !== 'ok' || !row.verdict) continue;
-      measured += 1;
-      if (row.verdict !== '열림') {
-        rejected.push({ keyword: g.candidate.keyword, source: g.candidate.source, seat: String(row.verdict) });
-        continue;
-      }
-      // 자리를 재고 나서야 정면 수를 안다 — 봉투를 그 값으로 다시 본다.
-      const again = judgeRange(
-        { documentCount: g.candidate.documentCount, facing: typeof row.facing === 'number' ? row.facing : null, topic: g.candidate.topic },
-        envelope,
-      );
-      if (again.verdict === 'out') {
-        rejected.push({ keyword: g.candidate.keyword, source: g.candidate.source, seat: '내 범위 밖' });
-        continue;
-      }
-      picks.push({
-        ...g.candidate,
-        seat: String(row.verdict),
-        seatFacing: typeof row.facing === 'number' ? row.facing : null,
-        seatVacancy: typeof row.vacancy === 'number' ? row.vacancy : null,
-        seatReason: row.reason || '',
-        measuredAt: row.measuredAt || new Date().toISOString(),
-        fitReason: envelope ? again.reason : g.fitReason,
-        myTopic: again.myTopic,
-      });
-      if (picks.length >= SHOW) break;
-    }
+    const chosen = selectPicks(targets, batch.rows as MeasuredRow[], envelope, SHOW);
+    picks.push(...chosen.picks);
+    rejected.push(...chosen.rejected);
+    measured = chosen.measured;
   }
 
   const result: DailyPickResult = {

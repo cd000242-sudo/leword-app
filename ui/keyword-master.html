@@ -9217,6 +9217,11 @@
           const facts = (p.facts || []).slice(0, 2).map((f) =>
             '<a href="#" onclick="event.preventDefault(); lewordOpenExternal(\'' + dpSafe(f.link) + '\')" style="color:#67e8f9; text-decoration:none;">' + dpEsc(f.title) + '</a>'
             + '<span style="color:#475569;"> · ' + dpEsc(f.press) + '</span>').join('<br>');
+          // 잰 판정을 그대로 적는다. 반열림은 자리 실측기가 "경쟁 있으나 여지 있음"이라 부르는 값이다.
+          const wideOpen = p.seat === '열림';
+          const seatTone = wideOpen
+            ? { chip: '#dcfce7', chipInk: '#166534', box: 'rgba(34,197,94,0.08)', line: 'rgba(34,197,94,0.26)' }
+            : { chip: '#fef3c7', chipInk: '#78350f', box: 'rgba(251,191,36,0.08)', line: 'rgba(251,191,36,0.26)' };
           const seatLine = [
             p.seatVacancy != null ? p.seatVacancy + '위가 비었고' : null,
             typeof p.seatFacing === 'number' ? '정면으로 다룬 글은 ' + p.seatFacing + '개' : null,
@@ -9226,15 +9231,16 @@
             + '<div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:8px;">'
             + '<span style="font-family: ui-monospace, Consolas, monospace; font-size:12px; color:#fbbf24;">' + (idx + 1) + '</span>'
             + '<span style="font-size:18px; font-weight:700; color:#fff; word-break:keep-all;">' + dpEsc(p.keyword) + '</span>'
-            + '<span style="padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; background:#dcfce7; color:#166534;">자리 열림</span>'
+            + '<span style="padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; background:' + seatTone.chip + '; color:' + seatTone.chipInk + ';">자리 ' + dpEsc(p.seat || '') + '</span>'
             + (p.myTopic ? '<span style="padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(34,197,94,0.16); color:#22c55e;">내가 이겨본 주제</span>' : '')
             + '<span style="margin-left:auto; font-size:11px; color:#64748b;">' + dpEsc(p.source) + '</span>'
             + '</div>'
 
             // ── 이 카드의 심장: "이건 네 크기다"
-            + '<div style="padding:10px 13px; border-radius:10px; background:rgba(34,197,94,0.08); border:1px solid rgba(34,197,94,0.26); margin-bottom:10px;">'
+            + '<div style="padding:10px 13px; border-radius:10px; background:' + seatTone.box + '; border:1px solid ' + seatTone.line + '; margin-bottom:10px;">'
             + '<div style="font-size:13.5px; color:#e2e8f0; font-weight:600; word-break:keep-all;">' + dpEsc(p.fitReason) + '</div>'
             + (seatLine ? '<div style="font-size:12px; color:#94a3b8; margin-top:4px;">지금 ' + dpEsc(seatLine) + '입니다.</div>' : '')
+            + (!wideOpen && p.seatReason ? '<div style="font-size:11.5px; color:#fbbf24; margin-top:4px;">' + dpEsc(p.seatReason) + '</div>' : '')
             + '</div>'
 
             + '<div style="display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:#94a3b8; margin-bottom:10px; font-variant-numeric:tabular-nums;">'
@@ -9286,7 +9292,7 @@
           funnel.innerHTML = dpStep('여섯 판이 내놓은 것', dpNum(r.gathered) + '개')
             + dpStep('내 크기로 거른 뒤', dpNum(r.afterGate) + '개', '이미 쓴 것 뺌')
             + dpStep('자리를 잰 것', dpNum(r.measured) + '개')
-            + dpStep('오늘 쓸 것', r.picks.length + '개', '자리가 열린 것만');
+            + dpStep('오늘 쓸 것', r.picks.length + '개', '열림 먼저, 모자라면 반열림');
 
           body.innerHTML = r.picks.length === 0
             ? '<div style="padding:26px 16px; color:#94a3b8; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px; line-height:1.7;">'
@@ -9297,7 +9303,7 @@
 
           rejBox.innerHTML = (r.rejected || []).length === 0 ? '' : ''
             + '<div style="padding:12px 14px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px; margin-top:4px;">'
-            + '<div style="font-size:11.5px; color:#64748b; margin-bottom:7px;">자리가 닫혀 있어 안 세운 것 — 왜 빠졌는지 남깁니다</div>'
+            + '<div style="font-size:11.5px; color:#64748b; margin-bottom:7px;">잰 것 중 안 세운 것 — 잰 판정을 그대로 남깁니다</div>'
             + '<div style="display:flex; flex-wrap:wrap; gap:6px;">'
             + r.rejected.slice(0, 14).map((x) =>
               '<span style="padding:3px 9px; border-radius:999px; font-size:11px; background:#111c31; border:1px solid rgba(255,255,255,0.07); color:#94a3b8;">'
