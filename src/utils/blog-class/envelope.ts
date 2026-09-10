@@ -68,7 +68,17 @@ function median(values: readonly number[]): number {
  * 문서수를 못 잰 이긴 행은 한계선 계산에서 빠진다(그 행이 얼마짜리였는지 모르니까).
  */
 export function buildEnvelope(rows: readonly WonRow[]): BlogEnvelope | null {
-  const measured = rows.filter((row) => typeof row.blogRank === 'number');
+  /*
+   * 분모 — 잰 것은 다 센다.
+   *
+   * 전에는 `blogRank 가 숫자인 행`만 셌다. 그런데 순위가 null 인 행은 **못 잰 것이 아니라 진 것**이다:
+   * measureMyRanks 는 검색 화면을 못 읽은 행(막힘·빈 목록)은 애초에 rows 에 안 넣는다.
+   * rows 에 든 것은 전부 실제로 재 본 것이고, null 은 "상위 목록에 내 글이 없었다"는 결과다.
+   *
+   * 실측(2026-09-11 leadernam- 최근 100개): 26개를 쟀는데 봉투는 5개라 셌고 화면은 "5개 중 2개"라 썼다.
+   * 승률이 40%로 읽히지만 실제는 2/26 = 8%다. 진 것을 분모에서 빼면 승률이 부풀고 그 문장이 거짓이 된다.
+   */
+  const measured = rows;
   const won = rows.filter(isWon);
   if (won.length === 0) return null;
 

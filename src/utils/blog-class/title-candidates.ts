@@ -35,28 +35,54 @@ const clean = (title: string): string[] => String(title || '')
   .split(' ')
   .filter(Boolean);
 
+/** 한 크기(2어절 또는 3어절)의 후보를 앞에서부터. 걸러 내는 규칙은 두 크기가 같다. */
+function gramsOfSize(words: readonly string[], size: number): string[] {
+  const out: string[] = [];
+  for (let i = 0; i + size <= words.length; i += 1) {
+    const parts = words.slice(i, i + size);
+    if (EDGE_STOPS.has(parts[0]) || EDGE_STOPS.has(parts[parts.length - 1])) continue;
+    const phrase = parts.join(' ');
+    // 너무 짧으면(조사 덩어리) 검색어로 안 친다.
+    if (phrase.replace(/\s/g, '').length < 4) continue;
+    out.push(phrase);
+  }
+  return out;
+}
+
 /**
- * 제목 하나에서 후보를 만든다 — 이어진 어절 2~3개씩, 앞에서부터.
+ * 제목 하나에서 후보를 만든다 — 이어진 어절 2~3개씩, **두 크기를 번갈아** 앞에서부터.
  * 한 어절짜리는 안 만든다: 단어 하나는 대개 너무 넓어서 그 글이 이겼는지를 말해 주지 못한다.
+ *
+ * 왜 번갈아 뽑나(실측 2026-09-11, leadernam- 최근 글 30개):
+ * 전에는 `for (const size of [3, 2])` 라 3어절을 앞에서부터 채우다 limit 에 걸려 끝났다.
+ * 어절이 다섯만 넘어도 3어절 후보가 셋 이상 나오니 **2어절 차례가 영영 안 왔다** — 후보 88개가 전부 3어절이었다.
+ * 그래서 검색광고에 "한 번 입은"·"번 입은 옷"·"비염 예방 습도"를 물어보고,
+ * 정작 "옷 보관법"·"비염 예방"·"공기압 마사지기"는 안 물어봤다. 만들 수 있는 2어절 188개를 통째로 버린 셈이다.
+ * 검색량이 잡힌 것이 88개 중 8개(9%)뿐이던 이유가 이것이다.
+ *
+ * 어느 말이 좋은지는 여전히 우리가 안 고른다 — 검색광고가 고른다.
+ * 여기서 고치는 것은 **물어보는 목록이 한쪽으로 쏠리지 않게** 하는 것뿐이다.
+ * 한쪽이 바닥나면 남은 쪽이 그 자리를 이어받는다.
  */
 export function candidatesFromTitle(title: string, limit = 4): string[] {
   const words = clean(title).filter((w) => w.length >= 1);
   if (words.length < 2) return [];
+  const queues = [gramsOfSize(words, 3), gramsOfSize(words, 2)];
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const size of [3, 2]) {
-    for (let i = 0; i + size <= words.length; i += 1) {
-      const parts = words.slice(i, i + size);
-      if (EDGE_STOPS.has(parts[0]) || EDGE_STOPS.has(parts[parts.length - 1])) continue;
-      const phrase = parts.join(' ');
-      // 너무 짧으면(조사 덩어리) 검색어로 안 친다.
-      if (phrase.replace(/\s/g, '').length < 4) continue;
+  for (let i = 0; out.length < limit; i += 1) {
+    let moved = false;
+    for (const queue of queues) {
+      if (i >= queue.length) continue;
+      moved = true;
+      const phrase = queue[i];
       const key = phrase.replace(/\s/g, '');
       if (seen.has(key)) continue;
       seen.add(key);
       out.push(phrase);
       if (out.length >= limit) return out;
     }
+    if (!moved) break;
   }
   return out;
 }

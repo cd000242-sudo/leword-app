@@ -183,6 +183,8 @@ export async function measureBlogClass(
       searchAdConfig(manager.getConfig()),
       {
         maxRank: options.maxRank,
+        // 블로그 설정에서 고른 대표 주제 — 이긴 행에 달려 봉투의 '잘 이기는 이야기'가 된다.
+        blogTopic: snapshot?.declaredTopic || null,
         onProgress: (p) => report({ step: p.phase, received: p.done, total: p.total, message: p.message }),
         // 잰 줄이 생기는 대로 담아 둔다. 끊겨도 그때까지 잰 것은 남는다.
         onRows: (rows) => {

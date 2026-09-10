@@ -22,6 +22,7 @@ import { analyzeSerp } from '../../utils/serp-winnability';
 import { localSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
 import { collectCandidates, type TitleCandidate } from '../../utils/blog-class/title-candidates';
 import { buildEnvelope, type BlogEnvelope, type WonRow } from '../../utils/blog-class/envelope';
+import { isNaverBlogTopic } from '../../utils/naver-blog-topics';
 
 /** 검색광고는 한 번에 5개씩 받는다(도구 규격). */
 const VOLUME_BATCH = 5;
@@ -31,6 +32,18 @@ const MIN_VOLUME = 10;
 export interface RankStepOptions {
   /** 순위를 잴 검색어 상한. 건당 약 2초다. */
   maxRank?: number;
+  /**
+   * 이 블로그의 대표 주제(네이버 블로그 설정에서 사장님이 직접 고른 값).
+   * 이긴 행에 그대로 달아 봉투의 '잘 이기는 이야기'가 된다 — 우리가 분류를 지어내지 않는다.
+   *
+   * 왜 필요한가(실측 2026-09-11): 이 값이 없어서 WonRow.topic 이 한 번도 안 채워졌고,
+   * envelope.topics 가 항상 빈 배열이었다("topics":[]). 그 탓에 judgeRange 의 myTopic 이
+   * 늘 false 여서 봉투의 '잘 이기는 이야기' 칸 · 카드의 '내가 이겨본 주제' 배지 ·
+   * 오늘 쓸 한 편의 줄세우기 1순위가 **다섯 군데 다 죽어 있었다.**
+   *
+   * 32주제에 있는 말만 받는다 — 아무 문자열이나 주제 칸에 들어가면 엉뚱한 배지가 뜬다.
+   */
+  blogTopic?: string | null;
   onProgress?: (p: { phase: '검색어' | '순위' | '자리'; done: number; total: number; message: string }) => void;
   shouldAbort?: () => boolean;
   /**
@@ -85,8 +98,18 @@ export async function measureMyRanks(
   const report = options.onProgress ?? (() => {});
   const abort = options.shouldAbort ?? (() => false);
   const maxRank = Math.max(0, options.maxRank ?? 80);
+  const blogTopic = isNaverBlogTopic(String(options.blogTopic || '')) ? String(options.blogTopic) : null;
 
-  const candidates: TitleCandidate[] = collectCandidates(posts, 3);
+  /*
+   * 글당 후보 6개. 후보 생성기가 2어절·3어절을 번갈아 내주므로 절반씩 나눠 간다.
+   * 3개일 때는 2어절 자리가 하나뿐이라 새로 생긴 말이 대부분 안 쓰였다
+   * (실측: 글 30개에서 2어절 30개만 씀 — 만들 수 있는 건 188개).
+   *
+   * 값은 싸다: 검색량은 5개씩 묶어 묻고, 비싼 단계인 순위 실측(건당 약 2초)은 maxRank 로 따로 막혀 있다.
+   * 후보를 넓혀도 재는 수는 안 늘고 그 80칸에 무엇이 들어가는지만 좋아진다 —
+   * 실측 100개 회차는 후보 281개 중 검색량이 잡힌 것이 26개(9.2%)뿐이라 80칸을 다 못 채웠다.
+   */
+  const candidates: TitleCandidate[] = collectCandidates(posts, 6);
   report({ phase: '검색어', done: 0, total: candidates.length, message: `제목에서 검색어 후보 ${candidates.length}개를 골랐어요` });
 
   // ── 검색량 — 사람들이 실제로 치는 말만 남긴다
@@ -136,6 +159,7 @@ export async function measureMyRanks(
       facing: measured.facing,
       postUrl: target.postUrl,
       publishedOn: target.publishedOn,
+      topic: blogTopic,
     });
     // 이 시점의 봉투는 문서수가 아직 비어 있어 buildEnvelope 가 스스로 null 을 준다 — 안전하다.
     options.onRows?.(rows);

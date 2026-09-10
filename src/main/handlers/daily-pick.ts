@@ -155,14 +155,19 @@ function fromNiche(): Candidate[] {
   return rows.map((r) => ({
     keyword: String(r.keyword || ''),
     source: '실시간 틈새' as PickSource,
-    topic: String(r.baseKeyword || ''),
+    /*
+     * 이 레인에는 블로그 주제가 없다. 전에는 기준 검색어(baseKeyword)를 여기 넣어서
+     * 카드에 '게임'·'교육·학문'이 뜨는 자리에 'KAIST'가 떴고, judgeRange 가 그걸 블로그 주제와 견줬다.
+     * 주제 칸은 비우고, 기준 검색어는 '왜 나온 말인지'에 남긴다(버리지는 않는다).
+     */
+    topic: '',
     searchVolume: num(r.searchVolume),
     documentCount: num(r.documentCount),
     facing: num(r.seatFacing),
     vacancy: null,
     titles: [],
     related: [],
-    why: '실시간 이슈에서 나온 좁은 검색어',
+    why: r.baseKeyword ? `실시간에 뜬 '${String(r.baseKeyword)}'에서 갈라져 나온 좁은 검색어` : '실시간 이슈에서 나온 좁은 검색어',
     facts: [],
   }));
 }

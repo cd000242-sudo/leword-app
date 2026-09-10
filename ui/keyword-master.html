@@ -9010,7 +9010,7 @@
           const topics = (env.topics || []).map((t) => t.topic + ' ' + t.count).join(' · ');
           return '<div style="margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.28);">'
             + '<div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 8px;">'
-            + '최근 글 ' + ko(env.measuredCount) + '개를 네이버에서 찾아봤어요. 그중 <span style="color:#22c55e;">' + ko(env.wonCount) + '개</span>가 첫 페이지에 있었어요.</div>'
+            + '검색어 ' + ko(env.measuredCount) + '개에서 내 순위를 재 봤어요. 그중 <span style="color:#22c55e;">' + ko(env.wonCount) + '개</span>가 첫 페이지(10위 안)에 있었어요.</div>'
             + '<div style="display:flex; gap:22px; flex-wrap:wrap; font-size:12.5px; color:#cbd5e1;">'
             + '<div><span style="display:block; color:#64748b; font-size:11px;">이겨본 가장 큰 자리</span><b style="font-size:15px; color:#e2e8f0;">경쟁 글 ' + ko(env.docMax) + '개</b>'
             + '<span style="color:#64748b;"> · 보통 ' + ko(env.docP50) + '</span></div>'
