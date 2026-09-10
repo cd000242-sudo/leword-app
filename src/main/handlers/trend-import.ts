@@ -28,7 +28,12 @@ import { EnvironmentManager } from '../../utils/environment-manager';
 
 export const TREND_IMPORT_PROGRESS_CHANNEL = 'trend-import-progress';
 
-/** 자리를 잴 상한. 0 이면 안 잰다. 기본 120 — 약 4분. */
+/**
+ * 자리를 잴 상한. 0 이면 안 잰다. 기본 120 — 약 4분.
+ * 화면에서 '전부'(9999)를 고르면 CSV 에 있는 만큼 다 잰다 — 553개면 약 14분이다.
+ * 사이트는 60개에서 끊는다(워커 주소를 모두가 같이 쓴다). 여기는 내 PC 주소라 끊을 이유가 없다 —
+ * 그게 앱을 쓰는 이유다(사장님 2026-09-10 "앱에도 구현해줘").
+ */
 const DEFAULT_SEAT_MAX = 120;
 /** 검색광고는 한 번에 5개씩만 받는다(도구 규격). */
 const VOLUME_BATCH = 5;

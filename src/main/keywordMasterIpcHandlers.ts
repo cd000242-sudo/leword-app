@@ -19,6 +19,7 @@ import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler
 import { setupBlogClassHandlers } from './handlers/blog-class';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
 import { setupTrendImportHandlers } from './handlers/trend-import';
+import { startCiWatchdog, stopCiWatchdog } from './handlers/ci-watchdog';
 import { startWebBridgeHost } from './web-bridge-host';
 import { startRefreshScheduler, stopRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker, stopLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
@@ -71,6 +72,7 @@ function stopBackgroundWorkers(): void {
   stopRankTracker();
   stopSeatWatchScheduler();
   stopRealtimeNicheScheduler();
+  stopCiWatchdog();
   stopLifecycleTracker();
   stopRefreshScheduler();
 }
@@ -157,6 +159,9 @@ export function setupKeywordMasterHandlers() {
   setupRealtimeNicheHandlers();
   // 트렌드 CSV 들이기(앱 전용, 2026-09-10) — 크리에이터 어드바이저 유입 검색어를 재서 빈자리를 고른다.
   setupTrendImportHandlers();
+  // 회차 감시견(2026-09-10) — 깃허브 예약이 빠지면 이 PC 가 대신 워크플로를 깨운다.
+  //   실측: 오후 슬롯 3틱이 전부 안 떴다. 틱을 더 늘려도 같은 스케줄러라 나아지지 않는다.
+  startCiWatchdog();
   // 웹 ↔ 클로드코드 브리지 — 사이트가 이 PC 의 구독 CLI 를 쓰는 통로(127.0.0.1 전용).
   startWebBridgeHost();
 
