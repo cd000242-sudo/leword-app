@@ -786,6 +786,26 @@
           <b style="color:#94a3b8;">셋만</b> 세웁니다. 이미 쓴 검색어는 뺍니다. 비용 0 · 1~2분.
         </p>
         <div id="dpEnvelope" style="font-size: 12.5px; color: #94a3b8; margin-bottom: 4px;"></div>
+        <!--
+          내 블로그를 여기서 바로 넣는다(사장님 2026-09-11 "여기에 내블로그를 넣을수있게해줘야되지않나요").
+          '내 크기'가 이 판의 첫 관문인데 그걸 재는 칸이 다른 화면에만 있으면, 정작 필요한 자리에서 못 채운다.
+          창구는 자리 실측기와 같은 blog-class-measure 하나다 — 판정이 두 갈래로 갈리면 안 된다.
+        -->
+        <div id="dpBlogRow" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; padding: 10px 12px; border-radius: 10px; background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.22);">
+          <span style="font-size: 12.5px; color: #e2e8f0; font-weight: 600;">내 블로그</span>
+          <input id="dpBlogInput" placeholder="blog.naver.com/내아이디" autocomplete="off"
+            style="flex: 1; min-width: 200px; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 7px 10px; color: #e2e8f0; font: inherit; font-size: 12.5px;">
+          <select id="dpBlogSample" title="최근 글 몇 개를 볼지. 많이 볼수록 오래 걸립니다."
+            style="background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 7px 9px; color: #e2e8f0; font: inherit; font-size: 12px;">
+            <option value="30">최근 30개 (약 2분)</option>
+            <option value="50" selected>최근 50개 (약 4분)</option>
+            <option value="100">최근 100개 (약 7분)</option>
+          </select>
+          <button id="dpBlogBtn" onclick="dpMeasureMyBlog()"
+            style="padding: 7px 14px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 12.5px; cursor: pointer;">내 크기 재기</button>
+        </div>
+        <div id="dpBlogProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums; margin-bottom: 4px;"></div>
+        <div id="dpBlogResult"></div>
         <div id="dpStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">불러오는 중…</div>
         <div id="dpProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums;"></div>
       </div>
@@ -2013,6 +2033,23 @@
           window.mountModalAsScreen(document.getElementById(spec.root), id);
           return true;
         };
+
+        /*
+         * 기본 화면도 한 번은 실제로 연다.
+         *
+         * 왜(실측 2026-09-11): 기본 화면은 HTML 에 data-active 로 박혀 있어서 showScreen 이 한 번도 안 불렸다.
+         * SCREENS 의 load 훅은 showScreen 안에서만 도니까 **기본 화면만 영원히 안 불러왔다** —
+         * 앱을 켜면 '오늘 쓸 한 편'의 내 크기 줄과 블로그 주소 칸이 빈 채로 있었다.
+         * 다른 화면에 갔다 오면 그제야 채워져서 눈에 잘 안 띄었다.
+         */
+        const DEFAULT_SCREEN = 'today';
+        window.bootDefaultScreen = function bootDefaultScreen() {
+          if (window.__lewordBooted) return;
+          window.__lewordBooted = true;
+          try { void window.showScreen(DEFAULT_SCREEN); } catch (e) { console.warn('[SHELL] 기본 화면 열기 실패:', e); }
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => window.bootDefaultScreen());
+        else window.bootDefaultScreen();
 
         // 자리 실측기는 사이드바가 열기 함수를 직접 부른다(배선 테스트가 그 문자열을 잠근다) — 열린 뒤 화면으로 싣는다
         document.addEventListener('DOMContentLoaded', () => {
@@ -8918,16 +8955,56 @@
          */
         window.__blogEnvelope = null;
 
-        function envelopeHtml(record) {
+        /*
+         * 봉투 상자 — 두 화면(자리 실측기 · 오늘 쓸 한 편)이 같은 함수로 그린다.
+         * 화면마다 다른 말을 하면 둘 다 못 믿게 된다.
+         *
+         * 못 만들었을 때가 중요하다(사장님 2026-09-11 "구체적이면서 제대로 분석해야되지않나").
+         * 전에는 "아직 첫 페이지에 든 글이 없어요" 한 줄이 전부였다. 실측(2026-09-10 leadernam-)은
+         * 글 30개 → 검색어 88개 → 사람들이 치는 말 8개 → 첫 페이지 0개였고 최고가 17위였는데,
+         * 그 한 줄은 **8개를 재고 내린 말이 452개짜리 블로그 전체의 판결처럼** 읽혔다.
+         * 잰 범위와 가장 가까웠던 자리를 같이 보여야 다음에 뭘 할지 안다. 전부 잰 값이다.
+         */
+        window.blogEnvelopeHtml = function blogEnvelopeHtml(record) {
           const env = record && record.envelope;
           const sum = (record && record.rankSummary) || null;
           window.__blogEnvelope = env || null;
           if (!env) {
             if (!sum) return '';
-            return '<div style="margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.04); font-size: 13px; color: #cbd5e1;">'
-              + '아직 첫 페이지에 든 글이 없어요. 검색어 ' + (sum.ranked || 0) + '개를 찾아봤어요.'
-              + '<div style="margin-top: 6px; font-size: 12px; color: #64748b;">글을 더 재보거나, 자리가 빈 검색어로 한 편 써 보세요.</div>'
+            const ko0 = (n) => Number(n || 0).toLocaleString('ko-KR');
+            const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const rows = (record.wonRows || []);
+            const found = rows.filter((r) => typeof r.blogRank === 'number').sort((a, b) => a.blogRank - b.blogRank);
+            const lost = rows.length - found.length;
+            const sampled = record.sampledPosts || 0;
+            // 잰 범위를 먼저 밝힌다 — 이 판이 몇 개를 보고 한 말인지.
+            const scope = (sampled ? '글 ' + ko0(sampled) + '개에서 ' : '')
+              + '검색어 ' + ko0(sum.candidates) + '개를 뽑았고, 그중 사람들이 실제로 치는 말은 <b style="color:#e2e8f0;">'
+              + ko0(sum.withVolume) + '개</b>였어요.';
+            // 이긴 자리는 있는데 그 크기를 못 잰 경우와, 이긴 자리가 아예 없는 경우는 다른 사실이다.
+            const verdict = (sum.won || 0) > 0
+              ? '첫 페이지에 든 글 ' + ko0(sum.won) + '개는 찾았는데, 그 자리의 경쟁 글 수를 못 셌어요 — 그래서 크기를 아직 못 정했어요.'
+              : '그 ' + ko0(sum.ranked) + '개에서 첫 페이지(10위 안)에 든 글은 없었어요.';
+            const near = found.length === 0 ? '' : ''
+              + '<div style="margin-top:9px; font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b;">가장 가까웠던 자리</div>'
+              + '<div style="margin-top:4px; display:flex; flex-direction:column; gap:3px; font-size:12.5px; font-variant-numeric:tabular-nums;">'
+              + found.slice(0, 3).map((r) =>
+                '<div><b style="color:#fbbf24; display:inline-block; min-width:38px;">' + r.blogRank + '위</b>'
+                + '<span style="color:#e2e8f0;">' + esc(r.keyword) + '</span>'
+                + (r.searchVolume != null ? '<span style="color:#64748b;"> · 검색량 ' + ko0(r.searchVolume) + '</span>' : '')
+                + '</div>').join('')
               + '</div>';
+            const notFound = lost > 0
+              ? '<div style="margin-top:6px; font-size:12px; color:#64748b;">' + ko0(lost) + '개는 상위 목록에서 못 찾았어요.</div>'
+              : '';
+            const blocked = (sum.blocked || 0) > 0
+              ? '<div style="margin-top:4px; font-size:12px; color:#f59e0b;">' + ko0(sum.blocked) + '개는 네이버가 막아서 못 쟀어요 — 잠시 뒤 다시 재면 채워져요.</div>'
+              : '';
+            const next = '<div style="margin-top:9px; font-size:12px; color:#94a3b8;">'
+              + '더 보려면 표본을 <b style="color:#e2e8f0;">최근 100개</b>로 올려 재 보세요. 잰 글이 많을수록 이겨본 자리를 찾을 가능성이 커요.'
+              + '</div>';
+            return '<div style="margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); font-size: 13px; color: #cbd5e1; line-height:1.65;">'
+              + scope + '<br>' + verdict + near + notFound + blocked + next + '</div>';
           }
           const ko = (n) => Number(n).toLocaleString('ko-KR');
           const topics = (env.topics || []).map((t) => t.topic + ' ' + t.count).join(' · ');
@@ -8940,7 +9017,9 @@
             + '<div><span style="display:block; color:#64748b; font-size:11px;">같은 걸 다룬 글이 있어도</span><b style="font-size:15px; color:#e2e8f0;">' + env.facingMax + '개까지 이겼어요</b></div>'
             + (topics ? '<div><span style="display:block; color:#64748b; font-size:11px;">잘 이기는 이야기</span><b style="font-size:14px; color:#e2e8f0;">' + topics + '</b></div>' : '')
             + '</div></div>';
-        }
+        };
+        /** 자리 실측기가 부르던 이름 — 같은 함수다. */
+        const envelopeHtml = (record) => window.blogEnvelopeHtml(record);
 
         /*
          * 발굴 결과 한 줄을 내 봉투와 견준다. envelope.ts 의 judgeRange 와 같은 규칙이다.
@@ -9278,7 +9357,9 @@
           const env = dpView.envelope;
           envLine.innerHTML = env
             ? '내 크기 — 경쟁 글 <b style="color:#e2e8f0;">' + dpNum(env.docMax) + '개</b>까지, 정면으로 다룬 글 <b style="color:#e2e8f0;">' + env.facingMax + '개</b>까지 이겨봤습니다.'
-            : '<span style="color:#f59e0b;">아직 내 크기를 모릅니다 — [자리 실측기] 화면의 내 블로그에서 한 번 재면 이 판이 훨씬 정확해집니다.</span>';
+            : '<span style="color:#f59e0b;">아직 내 크기를 모릅니다 — 아래에 블로그 주소를 넣고 한 번 재면, 내가 이겨본 크기를 넘는 검색어를 재기 전에 걸러 냅니다.</span>';
+          // 봉투가 있으면 칸을 접고 [다시 재기] 만 남긴다 — 이미 아는 것을 다시 묻지 않는다.
+          dpSyncBlogRow(Boolean(env));
 
           const r = dpView.result;
           if (!r) {
@@ -9317,6 +9398,69 @@
             + (r.message ? ' · ' + r.message : '');
         };
 
+        /*
+         * 내 블로그 칸 — 봉투가 있으면 접고, 없으면 펼친다.
+         * 접었을 때도 [다시 재기] 로 열 수 있게 남긴다(글을 더 쓰면 봉투가 커진다).
+         */
+        window.dpSyncBlogRow = function dpSyncBlogRow(hasEnvelope) {
+          const row = document.getElementById('dpBlogRow');
+          const env = document.getElementById('dpEnvelope');
+          if (!row || !env) return;
+          if (!hasEnvelope) { row.style.display = 'flex'; return; }
+          row.style.display = 'none';
+          if (!document.getElementById('dpBlogAgain')) {
+            env.insertAdjacentHTML('beforeend',
+              ' <button id="dpBlogAgain" onclick="document.getElementById(\'dpBlogRow\').style.display=\'flex\'; this.remove();"'
+              + ' style="margin-left:6px; padding:1px 8px; border:1px solid rgba(255,255,255,0.16); border-radius:999px; background:transparent; color:#94a3b8; font:inherit; font-size:11px; cursor:pointer;">다시 재기</button>');
+          }
+        };
+
+        /*
+         * 여기서 바로 내 블로그를 잰다. 자리 실측기와 같은 창구(blog-class-measure)를 쓴다.
+         * 다 되면 '내 크기' 줄을 그 자리에서 바꿔 주고, 이 판을 다시 고르라고 알린다 —
+         * 이미 골라 둔 결과는 옛 봉투로 고른 것이라 그대로 두면 거짓이 된다.
+         */
+        window.dpMeasureMyBlog = async function dpMeasureMyBlog() {
+          const input = document.getElementById('dpBlogInput');
+          const btn = document.getElementById('dpBlogBtn');
+          const prog = document.getElementById('dpBlogProgress');
+          const sample = Number(document.getElementById('dpBlogSample')?.value) || 50;
+          const blogUrl = String(input?.value || '').trim();
+          if (!blogUrl) { if (prog) prog.innerHTML = '<span style="color:#fbbf24;">블로그 주소를 넣어 주세요 (예: blog.naver.com/내아이디)</span>'; return; }
+          btn.disabled = true; btn.style.opacity = '0.6';
+          if (prog) prog.textContent = '블로그를 여는 중…';
+          if (window.__dpBlogOff) { try { window.__dpBlogOff(); } catch {} }
+          try {
+            window.__dpBlogOff = window.electronAPI.on('blog-class-progress', (p) => {
+              if (!p || !prog) return;
+              prog.textContent = (p.message || '재는 중…') + (p.total ? ' (' + p.received + ' / ' + p.total + ')' : '');
+            });
+          } catch { /* 구독이 막혀도 본 작업은 돈다 */ }
+          try {
+            const res = await window.electronAPI.invoke('blog-class-measure', { blogUrl, sample });
+            if (!res || !res.success) {
+              if (prog) prog.innerHTML = '<span style="color:#fca5a5;">' + ((res && res.error) || '블로그를 읽지 못했어요') + '</span>';
+              return;
+            }
+            const env = res.record && res.record.envelope;
+            dpView = { result: dpView.result, envelope: env || null };
+            window.renderDailyPick();
+            // 무엇을 쟀는지는 자리 실측기와 같은 상자로 그린다 — 두 화면이 다른 말을 하지 않게.
+            const box = document.getElementById('dpBlogResult');
+            if (box) box.innerHTML = window.blogEnvelopeHtml(res.record);
+            if (prog) {
+              prog.innerHTML = env
+                ? '<span style="color:#22c55e;">내 크기를 알았습니다 — [오늘 것 고르기] 를 다시 누르면 이 크기로 거릅니다.</span>'
+                : '';
+            }
+          } catch (error) {
+            if (prog) prog.innerHTML = '<span style="color:#fca5a5;">' + String((error && error.message) || error) + '</span>';
+          } finally {
+            btn.disabled = false; btn.style.opacity = '1';
+            if (window.__dpBlogOff) { try { window.__dpBlogOff(); } catch {} window.__dpBlogOff = null; }
+          }
+        };
+
         window.loadDailyPick = async function loadDailyPick() {
           try {
             const res = await window.electronAPI.invoke('daily-pick-get');
@@ -9324,6 +9468,13 @@
             dpView = { result: res.result, envelope: res.envelope };
             window.renderDailyPick();
           } catch { /* 무시 — 화면은 빈 상태로 둔다 */ }
+          // 전에 넣은 주소를 채워 둔다 — 같은 사람이 매번 다시 치게 하지 않는다.
+          try {
+            const saved = await window.electronAPI.invoke('blog-class-get');
+            const id = saved && saved.record && saved.record.blogId;
+            const input = document.getElementById('dpBlogInput');
+            if (id && input && !input.value) input.value = 'blog.naver.com/' + id;
+          } catch { /* 없으면 빈 칸으로 둔다 */ }
         };
 
         window.runDailyPick = async function runDailyPick() {

@@ -24,12 +24,17 @@ import {
 import { describeBlogFacts, type BlogFactsCard } from '../../utils/blog-class/plain-words';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { measureMyRanks } from './blog-class-rank';
-import type { BlogEnvelope, WonRow } from '../../utils/blog-class/envelope';
+import { buildEnvelope, type BlogEnvelope, type WonRow } from '../../utils/blog-class/envelope';
 
 export const BLOG_CLASS_PROGRESS_CHANNEL = 'blog-class-progress';
 
 /** 기본 표본. 순위 실측(2단계)이 이 수만큼 돌기 때문에 늘릴 때는 시간을 각오해야 한다. */
 const DEFAULT_SAMPLE = 50;
+/**
+ * 중간 저장 간격. 기록이 60KB 대라 매 줄마다 쓰면 80번을 쓴다 — 그만큼 자주 쓸 이유가 없다.
+ * 순위 한 건이 약 2초이므로 6초면 두세 줄마다 한 번이다. 끊겨도 잃는 건 그 몇 줄이다.
+ */
+const PARTIAL_SAVE_MS = 6000;
 const MAX_SAMPLE = 200;
 
 export interface BlogClassRecord {
@@ -167,6 +172,7 @@ export async function measureBlogClass(
   if (options.withRanks !== false) {
     const manager: any = typeof (EnvironmentManager as any).getInstance === 'function'
       ? (EnvironmentManager as any).getInstance() : new (EnvironmentManager as any)();
+    let lastPartialAt = 0;
     const ranked = await measureMyRanks(
       swept.posts.map((post) => ({
         title: post.title,
@@ -178,6 +184,15 @@ export async function measureBlogClass(
       {
         maxRank: options.maxRank,
         onProgress: (p) => report({ step: p.phase, received: p.done, total: p.total, message: p.message }),
+        // 잰 줄이 생기는 대로 담아 둔다. 끊겨도 그때까지 잰 것은 남는다.
+        onRows: (rows) => {
+          record.wonRows = [...rows];
+          record.envelope = buildEnvelope(rows);
+          const now = Date.now();
+          if (now - lastPartialAt < PARTIAL_SAVE_MS) return;
+          lastPartialAt = now;
+          try { writeRecord(record); } catch { /* 저장 못 해도 재는 것은 계속한다 */ }
+        },
       },
     );
     record.wonRows = ranked.rows;

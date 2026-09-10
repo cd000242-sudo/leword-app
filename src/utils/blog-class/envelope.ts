@@ -73,6 +73,16 @@ export function buildEnvelope(rows: readonly WonRow[]): BlogEnvelope | null {
   if (won.length === 0) return null;
 
   const docs = won.map((row) => row.documentCount).filter((v): v is number => typeof v === 'number');
+  /*
+   * 크기를 말할 근거가 없으면 봉투를 만들지 않는다.
+   *
+   * 전에는 docs 가 비면 docMax 를 0 으로 뒀다. 그러면 judgeRange 의 `documentCount > docMax` 가
+   * **문서수 1개짜리 후보까지 전부 '범위 밖'** 으로 떨군다. 화면에는 초록 봉투 상자가 멀쩡히 떠 있고
+   * 결과만 통째로 비어서 원인이 안 보인다. 0 은 기본값이지 실측이 아니다 —
+   * 이 파일이 이긴 기록 없을 때 null 을 주는 것과 같은 이유로 여기서도 null 을 준다.
+   * (이긴 행의 문서수는 순위 실측의 마지막 단계에서 채워진다. 그 단계 전에 저장된 중간 결과도 여기로 온다.)
+   */
+  if (docs.length === 0) return null;
   const facings = won.map((row) => row.facing).filter((v): v is number => typeof v === 'number');
   const volumes = won.map((row) => row.searchVolume).filter((v): v is number => typeof v === 'number');
 

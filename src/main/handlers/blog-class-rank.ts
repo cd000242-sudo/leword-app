@@ -33,6 +33,14 @@ export interface RankStepOptions {
   maxRank?: number;
   onProgress?: (p: { phase: '검색어' | '순위' | '자리'; done: number; total: number; message: string }) => void;
   shouldAbort?: () => boolean;
+  /**
+   * 잰 줄이 생길 때마다 부른다 — 부르는 쪽이 그 자리에서 저장하라고.
+   *
+   * 왜(실측 사고 2026-09-10): 이 단계는 다 끝난 뒤에만 결과를 돌려줬다. 표본 200개면
+   * 검색량 조회 120회 + 순위 80건(직렬·건당 약 2초)이라 한 회차가 몇 분이다.
+   * 그 사이 앱을 닫으면 잰 것이 통째로 사라지고, 그래서 '내 크기'가 계속 빈칸이었다.
+   */
+  onRows?: (rows: readonly WonRow[]) => void;
 }
 
 export interface RankStepResult {
@@ -129,6 +137,8 @@ export async function measureMyRanks(
       postUrl: target.postUrl,
       publishedOn: target.publishedOn,
     });
+    // 이 시점의 봉투는 문서수가 아직 비어 있어 buildEnvelope 가 스스로 null 을 준다 — 안전하다.
+    options.onRows?.(rows);
   }
 
   // ── 이긴 것만 문서수 — 봉투의 한계선이 문서수라서 이긴 행에만 필요하다(오픈 API 도 아낀다)
@@ -139,6 +149,8 @@ export async function measureMyRanks(
       const count = await getNaverBlogDocumentCount(won[i].keyword);
       if (typeof count === 'number') won[i].documentCount = count;
     } catch { /* 한 건 실패는 넘어간다 */ }
+    // 문서수가 하나라도 채워지면 그때부터 봉투가 실제로 만들어진다. 바로 저장하게 알린다.
+    options.onRows?.(rows);
   }
 
   return {

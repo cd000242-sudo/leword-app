@@ -53,6 +53,14 @@ export function monthLabel(isoDay: string | null | undefined): string | null {
   return `${match[1]}년 ${Number(match[2])}월`;
 }
 
+/** '2026-02-27' → '2월 27일'. 날짜가 없으면 null. */
+export function dayLabel(isoDay: string | null | undefined): string | null {
+  if (!isoDay) return null;
+  const match = String(isoDay).match(/^\d{4}-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  return `${Number(match[1])}월 ${Number(match[2])}일`;
+}
+
 /** 발행 간격을 사람 말로. 0~1일은 '거의 매일', 그 위는 'N일에 한 편'. */
 export function rhythmLabel(medianGapDays: number | null): string | null {
   if (medianGapDays == null) return null;
@@ -111,12 +119,35 @@ export function describeBlogFacts(input: BlogFactsInput): BlogFactsCard {
       : `지금까지 글 ${KO(total!)}개를 썼어요.`)
     : null;
 
+  /*
+   * 리듬 — 숫자마다 자기 창을 달고 나온다.
+   *
+   * 고치기 전 실측(2026-09-10 leadernam-): "최근 30일에 8개를 올렸어요. 거의 매일 한 편씩 올려요."
+   * 30일에 8개는 거의 매일이 아니다. 앞 숫자는 최근 30일 창에서, 뒤 문장은 표본 전체 190일 창에서
+   * 왔는데 한 문장으로 이어 붙어 서로를 반박했다. 반대 방향도 깨져 있었다
+   * (30일에 30개인데 "보통 5일에 한 편"). 잰 값은 둘 다 진짜다 — 섞은 것이 거짓이었다.
+   *
+   * 그래서 최근 30일 리듬은 최근 30일 수에서만 뽑고, 표본 전체 리듬은 잰 기간을 밝혀 따로 적는다.
+   * 둘이 같은 말이 되면 두 번째 줄은 만들지 않는다. 눈금은 rhythmLabel 하나만 쓴다.
+   */
   if (activity && !input.postListUnavailable) {
-    const rhythm = rhythmLabel(activity.medianGapDays);
+    const recentRhythm = activity.recent30 > 0
+      ? rhythmLabel(Math.max(1, Math.round(30 / activity.recent30)))
+      : null;
     const recent = activity.recent30 > 0
       ? `최근 30일에 ${KO(activity.recent30)}개를 올렸어요.`
       : '최근 30일에 올린 글이 없어요.';
-    lines.push({ text: rhythm ? `${recent} ${rhythm}.` : recent, evidence: at(measuredAt, WHERE_LIST) });
+    lines.push({ text: recentRhythm ? `${recent} ${recentRhythm}.` : recent, evidence: at(measuredAt, WHERE_LIST) });
+
+    const allRhythm = rhythmLabel(activity.medianGapDays);
+    const from = dayLabel(activity.oldestPostOn);
+    const to = dayLabel(activity.newestPostOn);
+    if (allRhythm && allRhythm !== recentRhythm && from && to) {
+      lines.push({
+        text: `잰 글 ${KO(activity.totalPosts)}개 전체(${from}~${to})로는 ${allRhythm}.`,
+        evidence: at(measuredAt, `${WHERE_LIST} · 글 사이 간격의 중간값`),
+      });
+    }
   }
 
   if (snapshot?.todayVisitors != null) {
