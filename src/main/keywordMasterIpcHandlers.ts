@@ -18,6 +18,7 @@ import { setupSeatMeasureHandlers } from './handlers/seat-measure';
 import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler } from './handlers/seat-watch';
 import { setupBlogClassHandlers } from './handlers/blog-class';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
+import { setupTrendImportHandlers } from './handlers/trend-import';
 import { startWebBridgeHost } from './web-bridge-host';
 import { startRefreshScheduler, stopRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker, stopLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
@@ -154,6 +155,8 @@ export function setupKeywordMasterHandlers() {
   setupBlogClassHandlers();
   // 실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 같은 판정을 이 PC 브라우저로 상한 없이.
   setupRealtimeNicheHandlers();
+  // 트렌드 CSV 들이기(앱 전용, 2026-09-10) — 크리에이터 어드바이저 유입 검색어를 재서 빈자리를 고른다.
+  setupTrendImportHandlers();
   // 웹 ↔ 클로드코드 브리지 — 사이트가 이 PC 의 구독 CLI 를 쓰는 통로(127.0.0.1 전용).
   startWebBridgeHost();
 

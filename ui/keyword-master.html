@@ -8206,6 +8206,44 @@
                 </div>
                 <div id="blogClassBody" style="margin-top: 12px; font-size: 13.5px; color: #cbd5e1;">아직 안 봤어요. 블로그 주소를 넣고 [내 블로그 보기]를 눌러 주세요.</div>
               </div>
+              <!--
+                트렌드 CSV 들이기(2026-09-10) — 네이버 크리에이터 어드바이저가 주는 '주제별 유입 검색어'를
+                그대로 받아 검색량·문서수를 재고, 문서가 적은 것부터 이 PC 브라우저로 자리를 잰다.
+                CSV 는 공급이고 판정은 여기서 한다 — CSV 자체에는 검색량도 문서수도 자리도 없다.
+                실측(첨부 파일): 640행 · 32주제 × 20 · 고유 키워드 553.
+              -->
+              <div id="trendImportPanel"
+                style="margin-top: 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 16px; background: rgba(255,255,255,0.03);">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <h3 style="margin: 0; font-size: 16px; color: #ffffff;">📥 트렌드 CSV 들이기</h3>
+                  <span style="font-size: 11px; color: #64748b;">크리에이터 어드바이저 → 트렌드 → CSV 저장</span>
+                  <span style="flex: 1;"></span>
+                  <select id="trendSeatMax" style="padding: 7px 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 12.5px;">
+                    <option value="60">자리 60개까지</option>
+                    <option value="120" selected>자리 120개까지</option>
+                    <option value="250">자리 250개까지</option>
+                    <option value="0">자리 안 잼</option>
+                  </select>
+                  <button id="trendImportBtn" onclick="pickTrendCsv()"
+                    style="padding: 8px 14px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">CSV 고르기</button>
+                  <button id="trendAbortBtn" onclick="abortTrendImport()" disabled
+                    style="padding: 8px 12px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer; opacity: 0.6;">중지</button>
+                </div>
+                <p style="margin: 6px 0 10px; font-size: 12px; color: #64748b;">
+                  네이버가 주제별로 알려주는 <b style="color:#94a3b8;">실제 유입 검색어</b>입니다. 검색량·문서수를 재고, 문서가 적은 것부터 블로그탭 자리를 잽니다. 비용 0.
+                </p>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
+                  <div style="display:inline-flex; border:1px solid rgba(255,255,255,0.16); border-radius:8px; overflow:hidden;">
+                    <button type="button" data-tf="open" onclick="setTrendFilter('open')" style="padding:6px 11px; border:0; border-right:1px solid rgba(255,255,255,0.16); background:#fbbf24; color:#1a1200; font-weight:800; font-size:12.5px; cursor:pointer;">빈자리만</button>
+                    <button type="button" data-tf="all" onclick="setTrendFilter('all')" style="padding:6px 11px; border:0; background:transparent; color:#e2e8f0; font-size:12.5px; cursor:pointer;">전체</button>
+                  </div>
+                  <select id="trendCategory" onchange="renderTrendImport()" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 12.5px;">
+                    <option value="">주제 전체</option>
+                  </select>
+                  <span id="trendStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">아직 안 들였습니다.</span>
+                </div>
+                <div id="trendBody"></div>
+              </div>
               <div style="display: grid; grid-template-columns: 1fr 260px; gap: 14px; margin-top: 18px;">
                 <textarea id="seatMeasureInput" rows="6" placeholder="키워드를 줄마다 하나씩(쉼표도 됨) · 최대 100개&#10;예) 전주 한옥마을 주차&#10;캠핑 화로대 추천" style="width: 100%; box-sizing: border-box; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; padding: 12px; color: #e2e8f0; font: inherit; font-size: 13.5px; resize: vertical;"></textarea>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -8252,6 +8290,7 @@
           wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.style.display = 'none'; });
           refreshSeatWatch();
           loadBlogClass();
+          loadTrendImport();
         };
 
         /*
@@ -8443,6 +8482,142 @@
           } catch { /* 무시 */ }
         };
 
+        /*
+         * 트렌드 CSV 들이기 — 화면 쪽. 판정·숫자는 메인 프로세스가 잰 것을 그대로 찍는다.
+         * '빈자리만'이 기본이다. 사장님이 원한 답은 "지금 1페이지 자리가 있는 것"이라서다.
+         */
+        window.__trendRows = [];
+        window.__trendFilter = 'open';
+
+        window.setTrendFilter = function setTrendFilter(mode) {
+          window.__trendFilter = mode;
+          document.querySelectorAll('[data-tf]').forEach((b) => {
+            const on = b.getAttribute('data-tf') === mode;
+            b.style.background = on ? '#fbbf24' : 'transparent';
+            b.style.color = on ? '#1a1200' : '#e2e8f0';
+            b.style.fontWeight = on ? '800' : '400';
+          });
+          renderTrendImport();
+        };
+
+        function trendNum(value) { return value === null || value === undefined ? '—' : Number(value).toLocaleString('ko-KR'); }
+
+        window.renderTrendImport = function renderTrendImport() {
+          const body = document.getElementById('trendBody');
+          if (!body) return;
+          const picked = document.getElementById('trendCategory')?.value || '';
+          let rows = window.__trendRows || [];
+          if (picked) rows = rows.filter((r) => r.category === picked);
+          if (window.__trendFilter === 'open') rows = rows.filter((r) => r.seat === '열림' || r.seat === '반열림');
+          rows = rows.slice().sort((a, b) => {
+            const rank = (x) => (x.seat === '열림' ? 0 : x.seat === '반열림' ? 1 : 2);
+            return rank(a) - rank(b) || (b.searchVolume || 0) - (a.searchVolume || 0);
+          });
+          if (rows.length === 0) {
+            body.innerHTML = '<div style="padding:14px; color:#64748b; font-size:13px;">'
+              + (window.__trendRows.length === 0 ? 'CSV 를 고르면 여기에 채워집니다.' : '이 조건에 맞는 키워드가 없습니다.')
+              + '</div>';
+            return;
+          }
+          const seatStyle = { '열림': 'color:#22c55e;', '반열림': 'color:#f59e0b;', '잠김': 'color:#f87171;', '자료없음': 'color:#64748b;', '안 잼': 'color:#475569;' };
+          body.innerHTML = '<div style="overflow-x:auto; max-height:520px; overflow-y:auto; border:1px solid rgba(255,255,255,0.1); border-radius:10px;">'
+            + '<table style="width:100%; border-collapse:collapse; font-size:13px;">'
+            + '<thead><tr style="background:rgba(255,255,255,0.05); color:#94a3b8; font-size:11.5px; position:sticky; top:0;">'
+            + '<th style="text-align:left; padding:9px 10px;">키워드</th>'
+            + '<th style="text-align:left; padding:9px 10px;">주제</th>'
+            + '<th style="text-align:right; padding:9px 10px;">주제 순위</th>'
+            + '<th style="text-align:right; padding:9px 10px;">검색량</th>'
+            + '<th style="text-align:right; padding:9px 10px;">문서수</th>'
+            + '<th style="text-align:left; padding:9px 10px;">자리</th>'
+            + '<th style="padding:9px 6px;"></th></tr></thead><tbody>'
+            + rows.map((r) => '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
+              + '<td style="padding:9px 10px; font-weight:600;">' + r.keyword + '</td>'
+              + '<td style="padding:9px 10px; color:#94a3b8;">' + (r.category || '') + '</td>'
+              + '<td style="padding:9px 10px; text-align:right; color:#94a3b8; font-variant-numeric:tabular-nums;">' + (r.rank || '—')
+                + (r.change !== null && r.change !== undefined && r.change > 0 ? ' <span style="color:#22c55e;">▲' + r.change + '</span>' : '') + '</td>'
+              + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + trendNum(r.searchVolume) + '</td>'
+              + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + trendNum(r.documentCount) + '</td>'
+              + '<td style="padding:9px 10px;"><span style="font-weight:700; ' + (seatStyle[r.seat] || '') + '">' + r.seat + '</span>'
+                + (r.facing !== null && r.facing !== undefined ? '<span style="color:#64748b; font-size:11.5px;"> · 정면 ' + r.facing + '</span>' : '') + '</td>'
+              + '<td style="padding:9px 6px; text-align:right;"><button onclick="openNaverSearch(\'' + String(r.keyword).replace(/'/g, "\\'") + '\')" style="padding:4px 9px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#e2e8f0; font-size:11.5px; cursor:pointer;">네이버</button></td>'
+              + '</tr>').join('')
+            + '</tbody></table></div>';
+        };
+
+        function fillTrendCategories(rows) {
+          const select = document.getElementById('trendCategory');
+          if (!select) return;
+          const keep = select.value;
+          const names = Array.from(new Set(rows.map((r) => r.category).filter(Boolean))).sort();
+          select.innerHTML = '<option value="">주제 전체</option>' + names.map((n) => '<option value="' + n + '">' + n + '</option>').join('');
+          if (names.includes(keep)) select.value = keep;
+        }
+
+        window.loadTrendImport = async function loadTrendImport() {
+          try {
+            const res = await window.electronAPI.invoke('trend-import-get');
+            if (res && res.success && res.result) {
+              window.__trendRows = res.result.rows || [];
+              fillTrendCategories(window.__trendRows);
+              renderTrendImport();
+              const s = res.result.summary || {};
+              document.getElementById('trendStatus').textContent =
+                res.result.file + ' · 고유 ' + (s.unique || 0) + ' · 빈자리 ' + (s.open || 0);
+            }
+          } catch { /* 저장된 게 없으면 그냥 둔다 */ }
+        };
+
+        window.pickTrendCsv = async function pickTrendCsv() {
+          const button = document.getElementById('trendImportBtn');
+          const abort = document.getElementById('trendAbortBtn');
+          const status = document.getElementById('trendStatus');
+          const seatMax = Number(document.getElementById('trendSeatMax')?.value ?? 120);
+          let filePath = '';
+          try {
+            const picked = await window.electronAPI.invoke('trend-import-pick');
+            filePath = (picked && picked.filePath) || '';
+          } catch { filePath = ''; }
+          if (!filePath) { status.textContent = 'CSV 를 고르지 않았습니다.'; return; }
+
+          button.disabled = true; button.style.opacity = '0.6';
+          abort.disabled = false; abort.style.opacity = '1';
+          if (window.__trendOff) { try { window.__trendOff(); } catch {} }
+          window.__trendOff = window.electronAPI.on('trend-import-progress', (p) => {
+            if (!p) return;
+            status.textContent = p.message || '재는 중…';
+            if (Array.isArray(p.rows)) {
+              window.__trendRows = p.rows;
+              fillTrendCategories(p.rows);
+              renderTrendImport();
+            }
+          });
+          try {
+            const res = await window.electronAPI.invoke('trend-import-run', { filePath, seatMax });
+            if (res && res.success) {
+              window.__trendRows = res.result.rows || [];
+              fillTrendCategories(window.__trendRows);
+              renderTrendImport();
+              const s = res.result.summary || {};
+              status.textContent = '끝 — 고유 ' + s.unique + ' · 검색량 ' + s.measuredVolume + ' · 문서수 ' + s.measuredDocs
+                + ' · 자리 잰 것 ' + s.measuredSeat + ' · 빈자리 ' + s.open + (s.blocked ? ' · 막힘 ' + s.blocked : '');
+            } else {
+              status.innerHTML = '<span style="color:#fca5a5;">' + ((res && res.error) || '들이기 실패') + '</span>';
+            }
+          } catch (error) {
+            status.innerHTML = '<span style="color:#fca5a5;">' + String((error && error.message) || error) + '</span>';
+          } finally {
+            button.disabled = false; button.style.opacity = '1';
+            abort.disabled = true; abort.style.opacity = '0.6';
+            if (window.__trendOff) { try { window.__trendOff(); } catch {} window.__trendOff = null; }
+          }
+        };
+
+        window.abortTrendImport = async function abortTrendImport() {
+          try { await window.electronAPI.invoke('trend-import-abort'); } catch {}
+          const status = document.getElementById('trendStatus');
+          if (status) status.textContent = '중지 요청 — 재던 것까지만 남깁니다…';
+        };
+
         window.__seatMeasureRows = [];
         window.__seatMeasureOff = null;
         window.runSeatMeasure = async function runSeatMeasure() {
@@ -8538,6 +8713,7 @@
           } catch {}
           refreshSeatWatch();
           loadBlogClass();
+          loadTrendImport();
         };
         window.addSeatWatchFromInput = async function addSeatWatchFromInput() {
           const text = String(document.getElementById('seatMeasureInput')?.value || '');
@@ -8550,11 +8726,13 @@
           } catch {}
           refreshSeatWatch();
           loadBlogClass();
+          loadTrendImport();
         };
         window.removeSeatWatch = async function removeSeatWatch(keyword) {
           try { await window.electronAPI.invoke('seat-watch-remove', { keyword }); } catch {}
           refreshSeatWatch();
           loadBlogClass();
+          loadTrendImport();
         };
         window.runSeatWatchNow = async function runSeatWatchNow() {
           const btn = document.getElementById('seatWatchRunBtn');

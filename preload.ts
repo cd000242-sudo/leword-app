@@ -572,6 +572,7 @@ const electronApi = {
       'seat-measure-progress',       // 자리 실측기 진행(2026-09-08, 앱 전용)
       'blog-class-progress',         // 내 블로그 체급 측정 진행(2026-09-10, 앱 전용)
       'realtime-niche-progress',     // 실시간 틈새 회차 진행(2026-09-10, 앱 전용)
+      'trend-import-progress',       // 트렌드 CSV 들이기 진행(2026-09-10, 앱 전용)
     ]);
     if (!allowed.has(channel)) {
       throw new Error(`IPC channel not allowed: ${channel}`);
