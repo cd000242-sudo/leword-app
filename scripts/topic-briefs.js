@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   BRIEF_FIELDS, toFactCards, pickFactsForPrompt, buildBriefPrompt, validateBriefs, serpFitOf, markStars, kstToday, applyMeasuredVolumes,
-  roundSlotOf, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats, pickAltCandidates, chooseAlternative,
+  roundSlotOf, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats, pickAltCandidates, pickRelatedKeywords, chooseAlternative,
 } = require('../src/utils/topic-briefs');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
@@ -189,14 +189,23 @@ async function main() {
     const maxAltSerp = Number(arg('maxAltSerp')) || 70;
     if (adConfig.accessLicense && adConfig.secretKey && maxAltSerp > 0) {
       const { getNaverSearchAdKeywordSuggestions } = require('../src/utils/naver-searchad-api');
-      const needAlt = all.filter((b) => (b.serpFit === '낮음' || b.serpFit === '보통') && b.alternative === undefined)
-        .sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0));
-      let altFetched = 0; let altFound = 0; let altTried = 0;
-      for (const b of needAlt) {
-        if (altFetched >= maxAltSerp) break;
+      /*
+       * 연관어는 **모든 글감**에 대해 한 번씩 부른다(사장님 2026-09-10 "확장키워드나 연관키워드도
+       * 같이 보여주면 그걸로 글 쓸 수 있게"). 예전에는 적합성이 낮은 것만 불렀는데, 같이 넣을 말은
+       * 자리가 열린 글감에도 필요하다 — 그 글을 실제로 쓸 때 본문에 담을 말이기 때문이다.
+       * 호출은 글감당 1회 그대로이고, 그 한 번의 응답을 '같이 넣을 말'과 '대안 검색어'가 나눠 쓴다.
+       */
+      const ordered = [...all].sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0));
+      const needAltSet = new Set(all.filter((b) => (b.serpFit === '낮음' || b.serpFit === '보통') && b.alternative === undefined));
+      let altFetched = 0; let altFound = 0; let altTried = 0; let relFound = 0;
+      for (const b of ordered) {
         let suggestions = [];
         try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, b.coreKeyword, 60); } catch { suggestions = []; }
         await sleep(300);
+        b.related = pickRelatedKeywords(b, suggestions, volumes, 6);
+        if (b.related.length > 0) relFound += 1;
+
+        if (!needAltSet.has(b) || altFetched >= maxAltSerp) continue;
         const candidates = pickAltCandidates(b, suggestions, volumes, 3);
         if (candidates.length === 0) { b.alternative = null; continue; }
         altTried += 1;
@@ -214,7 +223,8 @@ async function main() {
         b.alternative = chooseAlternative(measuredAlts);
         if (b.alternative && b.alternative.serpFit === '높음') altFound += 1;
       }
-      console.log(`  대안 검색어  대상 ${needAlt.length} · 후보 있음 ${altTried} · 자리 실측 ${altFetched}회 · 열린 대안 ${altFound}`);
+      console.log(`  같이 넣을 말  ${relFound}/${ordered.length} 글감에 연관어를 붙였다`);
+      console.log(`  대안 검색어  대상 ${needAltSet.size} · 후보 있음 ${altTried} · 자리 실측 ${altFetched}회 · 열린 대안 ${altFound}`);
     }
     await close();
   }

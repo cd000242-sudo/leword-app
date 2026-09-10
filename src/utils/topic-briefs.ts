@@ -55,6 +55,19 @@ export interface TopicBrief extends BriefDraft {
    * (사장님 2026-09-09 "SERP 적합성이 낮으면 그 글을 쓰면 별로 안 좋은 거 아니야"). 없으면 null = 재 봤는데 없음, 미정의 = 안 잼.
    */
   alternative?: BriefAlternative | null;
+  /**
+   * 같이 넣을 말 — 이 글감으로 글을 쓸 때 본문에 함께 담을 좁은 검색어들
+   * (사장님 2026-09-10 "확장키워드나 연관키워드도 같이 보여주면 그걸로 글 쓸 수 있게").
+   * 전부 검색광고 실측 연관어이고 검색량은 실측이다. 지어낸 말은 넣지 않는다.
+   * 미정의 = 안 골랐음(검색광고 키가 없거나 회차가 잘림), 빈 배열 = 골랐는데 쓸 게 없었음.
+   */
+  related?: BriefRelated[];
+}
+
+export interface BriefRelated {
+  keyword: string;
+  /** 월간 검색량 실측. */
+  searchVolume: number;
 }
 
 export interface BriefAlternative {
@@ -365,6 +378,46 @@ const tokensOf = (s: string) => s.toLowerCase().split(/[\s·,/()\-]+/).map((t) =
  * 대안 검색어 후보 — 브리프의 다른 후보 검색어 + 검색광고 연관어 중 같은 주제(핵심 검색어와 토큰 하나 이상 공유),
  * 검색량 100+, 5어절 이하, 핵심과 다른 것. 검색량 큰 순 limit 개. 자리는 호출 쪽이 잰다.
  */
+/**
+ * 같이 넣을 말 고르기 — 본문에 함께 담을 좁은 검색어.
+ *
+ * 대안 검색어(pickAltCandidates)와 무엇이 다른가: 대안은 핵심 검색어를 **대신할** 하나를 고르는 것이고,
+ * 이것은 그 글 안에 **같이 담을** 여럿을 고르는 것이다. 그래서 핵심 검색어를 그대로 담은 더 긴 말도
+ * 살린다('주택담보대출' → '주택담보대출 금리'). 대안에서는 그런 것이 오히려 같은 자리 경쟁이라 뺐다.
+ *
+ * 규칙: 검색량 실측이 있는 것만 · 핵심 검색어 자신은 빼고 · 어절 5개 이하 ·
+ * 핵심 검색어의 낱말을 하나라도 물고 있는 것 · 검색량 큰 순.
+ */
+export function pickRelatedKeywords(
+  brief: Pick<TopicBrief, 'coreKeyword' | 'keywords'>,
+  suggestions: ReadonlyArray<{ keyword: string; totalSearchVolume: number | null }>,
+  volumesOfOwn: ReadonlyMap<string, number | null>,
+  limit = 6,
+): BriefRelated[] {
+  const norm = (k: string) => k.replace(/\s+/g, '').toLowerCase();
+  const core = norm(brief.coreKeyword);
+  const coreTokens = new Set(brief.keywords.flatMap(tokensOf));
+  const pool = new Map<string, number>();
+  for (const k of brief.keywords) {
+    const v = volumesOfOwn.get(k.replace(/\s+/g, ''));
+    if (typeof v === 'number') pool.set(k, v);
+  }
+  for (const s of suggestions) if (typeof s.totalSearchVolume === 'number') pool.set(s.keyword, s.totalSearchVolume);
+  const seen = new Set<string>();
+  return [...pool.entries()]
+    .filter(([k, v]) => {
+      if (v < 10 || norm(k) === core) return false;
+      if (k.trim().split(/\s+/).length > 5) return false;
+      if (!tokensOf(k).some((t) => coreTokens.has(t))) return false;
+      if (seen.has(norm(k))) return false;
+      seen.add(norm(k));
+      return true;
+    })
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([keyword, searchVolume]) => ({ keyword, searchVolume }));
+}
+
 export function pickAltCandidates(
   brief: Pick<TopicBrief, 'coreKeyword' | 'keywords'>,
   suggestions: ReadonlyArray<{ keyword: string; totalSearchVolume: number | null }>,
