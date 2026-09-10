@@ -716,11 +716,12 @@
         <button role="tab" data-screen="golden" aria-selected="false" onclick="showScreen('golden')"><span class="k">2</span>황금키워드 발굴</button>
         <button role="tab" data-screen="briefs" aria-selected="false" onclick="showScreen('briefs')"><span class="k">3</span>오늘의 글감<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="seat" aria-selected="false" onclick="openSeatMeasureModal()"><span class="k">4</span>자리 실측기<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">5</span>PRO 트래픽 폭발 키워드 헌터</button>
-        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">6</span>AdSense 승인 키워드 헌터</button>
-        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">7</span>네이버 AI 메이트 키워드 찾기</button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">8</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">9</span>설정 · 키</button>
+        <button role="tab" data-screen="rank" aria-selected="false" onclick="showScreen('rank')"><span class="k">5</span>노출 추적<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">6</span>PRO 트래픽 폭발 키워드 헌터</button>
+        <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">7</span>AdSense 승인 키워드 헌터</button>
+        <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">8</span>네이버 AI 메이트 키워드 찾기</button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">9</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">10</span>설정 · 키</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -1404,6 +1405,44 @@
     </section>
 
     <!--
+      노출 추적(앱 전용, 2026-09-10) — 사장님 "앱은 사이트 상위호환이어야지".
+      엔진은 이미 앱 안에 다 있었다(exposure-* IPC 11개: RSS 등록·글 수집·자동 매칭·순위 확인·통계).
+      그런데 화면이 없어서 '사이트에서 보기' 로 브라우저를 열고 있었다 — 그 창구를 여기로 들인다.
+      전부 이 PC 에서 돈다: RSS XML + 모바일 검색 HTTP. AI API 도 브라이트데이터도 안 쓴다.
+      추정하지 않는다 — 안 잰 쌍은 '아직 안 잼'이고, 적중률 분모는 잰 쌍만이다.
+    -->
+    <section class="leword-screen" data-screen="rank">
+      <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
+            📈 노출 추적 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
+          </h3>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button id="rankMatchBtn" onclick="rankAutoMatch()"
+              style="padding: 8px 12px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">글에서 키워드 뽑기</button>
+            <button id="rankCheckBtn" onclick="rankRunCheck()"
+              style="padding: 8px 14px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">순위 확인</button>
+          </div>
+        </div>
+        <p style="margin: 0 0 10px; font-size: 12px; color: #64748b; line-height: 1.6;">
+          내 블로그 RSS 에서 글을 받아 글마다 노릴 검색어를 뽑고, 그 검색어로 네이버를 실제로 열어 <b style="color:#94a3b8;">내 글이 몇 위인지</b> 셉니다.
+          비용 0 · 횟수 제한 없음 · 잴 때마다 기록이 쌓여 적중률이 됩니다.
+        </p>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+          <input type="text" id="rankRssInput" placeholder="블로그 아이디 또는 주소 (예: blog.naver.com/내아이디)"
+            style="flex: 1 1 260px; min-width: 200px; padding: 8px 11px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 12.5px;">
+          <button onclick="rankSaveRss()"
+            style="padding: 8px 14px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">등록</button>
+        </div>
+        <div id="rankStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">불러오는 중…</div>
+        <div id="rankProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums;"></div>
+      </div>
+      <div id="rankTiles" style="display: none; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;"></div>
+      <div id="rankSeeds"></div>
+      <div id="rankBody"></div>
+    </section>
+
+    <!--
       화면 4~7 (2026-09-09 셸 통일): 모달로 만들던 기능 4종을 화면으로 싣는다.
       기능 코드는 그대로 두고, 열기 함수가 만든 뿌리 요소를 showScreen 이 이 섹션 안으로 옮긴다(mountModalAsScreen).
     -->
@@ -1718,6 +1757,8 @@
           golden: {},
           // 오늘의 글감은 모달이 아니라 섹션이다 — 열 때 저장된 판을 불러온다(없으면 사이트 판).
           briefs: { load: 'loadBriefs' },
+          // 노출 추적도 섹션이다 — 열 때 이 PC 에 쌓인 기록을 읽는다.
+          rank: { load: 'loadRankBoard' },
           sites: {},
           seat: { open: 'openSeatMeasureModal', root: 'seatMeasureModal' },
           pro: { open: 'openProTrafficModal', root: 'proTrafficModal' },
@@ -9099,6 +9140,198 @@
           try { await window.electronAPI.invoke('topic-briefs-local-abort'); } catch {}
           const prog = document.getElementById('briefsProgress');
           if (prog) prog.textContent = '중지 요청 — 지금 단계까지만 하고 멈춥니다…';
+        };
+
+        /*
+         * 노출 추적 — 화면 쪽(앱 전용, 2026-09-10).
+         * 숫자는 메인 프로세스가 잰 것을 그대로 찍는다. 점수를 새로 만들지 않는다.
+         * 적중률 분모는 '잰 쌍'이다 — 안 잰 쌍까지 분모에 넣으면 0% 로 보여 오해가 생긴다(v2.42.84).
+         */
+        let rankView = null;
+
+        function rankEsc(text) {
+          return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function rankTile(label, value, hint) {
+          return '<div style="flex:1 1 150px; padding:12px 14px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">'
+            + '<div style="font-size:11px; color:#64748b; margin-bottom:4px;">' + rankEsc(label) + '</div>'
+            + '<div style="font-size:20px; font-weight:700; color:#e2e8f0; font-variant-numeric:tabular-nums;">' + rankEsc(value) + '</div>'
+            + (hint ? '<div style="font-size:10.5px; color:#64748b; margin-top:3px;">' + rankEsc(hint) + '</div>' : '')
+            + '</div>';
+        }
+
+        function rankRow(item) {
+          const rank = item.currentRank;
+          const rankText = item.totalChecks === 0 ? '아직 안 잼' : (rank == null ? '없음' : rank + '위');
+          const rankColor = item.totalChecks === 0 ? '#64748b' : (item.currentInTop10 ? '#22c55e' : item.currentInTop30 ? '#f59e0b' : '#ef4444');
+          const hit = item.totalChecks > 0 ? Math.round((item.top10Count / item.totalChecks) * 100) + '%' : '—';
+          const kwSafe = String(item.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          const urlSafe = String(item.postUrl || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          return '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
+            + '<td style="padding:9px 10px; font-weight:600;">' + rankEsc(item.keyword) + '</td>'
+            + '<td style="padding:9px 10px; color:#94a3b8; max-width:280px;">'
+            + '<a href="#" onclick="event.preventDefault(); lewordOpenExternal(\'' + urlSafe + '\')" style="color:#67e8f9; text-decoration:none; word-break:keep-all;">' + rankEsc(item.postTitle || item.postUrl) + '</a></td>'
+            + '<td style="padding:9px 10px; text-align:right; font-weight:700; color:' + rankColor + '; font-variant-numeric:tabular-nums;">' + rankEsc(rankText) + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:#94a3b8;">' + rankEsc(hit) + '</td>'
+            + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:#64748b;">' + item.totalChecks + '</td>'
+            + '<td style="padding:9px 6px; text-align:right;">'
+            + '<button onclick="openNaverSearch(\'' + kwSafe + '\')" title="네이버에서 보기" style="padding:4px 8px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#e2e8f0; font-size:11px; cursor:pointer; margin-right:3px;">🔍</button>'
+            + '<button onclick="rankRemovePair(\'' + kwSafe + '\', \'' + urlSafe + '\')" title="추적에서 빼기" style="padding:4px 8px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#94a3b8; font-size:11px; cursor:pointer;">✕</button>'
+            + '</td></tr>';
+        }
+
+        function rankSeedCard(seed) {
+          const expansions = (seed.suggestedExpansions || []).slice(0, 6).map((k) =>
+            '<span onclick="searchKeyword(\'' + String(k).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', true)" '
+            + 'style="display:inline-block; padding:4px 9px; border-radius:999px; font-size:11.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); color:#94a3b8; cursor:pointer;">'
+            + rankEsc(k) + '</span>').join(' ');
+          const best = seed.bestRank == null ? '—' : seed.bestRank + '위';
+          return '<div style="padding:12px 14px; background:#111c31; border:1px solid rgba(255,255,255,0.09); border-radius:12px; margin-bottom:8px;">'
+            + '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px;">'
+            + '<span style="font-size:14px; font-weight:600; color:#e2e8f0;">' + rankEsc(seed.keyword) + '</span>'
+            // top10Rate 는 엔진에서 이미 퍼센트(0~100)로 온다 — 여기서 다시 100을 곱하면 10000% 가 된다.
+            + '<span style="font-size:11.5px; color:#94a3b8; font-variant-numeric:tabular-nums;">가장 좋았던 자리 ' + rankEsc(best)
+            + ' · 1페이지 ' + Math.round(seed.top10Rate || 0) + '% (' + seed.exposedChecks + '/' + seed.totalChecks + ')</span>'
+            + '</div>'
+            + (expansions ? '<div style="display:flex; flex-wrap:wrap; gap:5px;">' + expansions + '</div>' : '')
+            + (seed.latestPostTitle ? '<div style="font-size:10.5px; color:#64748b; margin-top:6px;">최근 글: ' + rankEsc(seed.latestPostTitle) + '</div>' : '')
+            + '</div>';
+        }
+
+        window.renderRankBoard = function renderRankBoard() {
+          const status = document.getElementById('rankStatus');
+          const tiles = document.getElementById('rankTiles');
+          const seeds = document.getElementById('rankSeeds');
+          const body = document.getElementById('rankBody');
+          if (!status || !tiles || !seeds || !body) return;
+          const data = rankView;
+          if (!data) { status.textContent = '아직 못 불러왔습니다.'; return; }
+          if (!data.configured) {
+            tiles.style.display = 'none';
+            seeds.innerHTML = '';
+            body.innerHTML = '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">내 블로그를 먼저 등록하세요. 아이디만 넣어도 됩니다.</div>';
+            status.textContent = '블로그가 등록되지 않았습니다.';
+            return;
+          }
+          const t = data.totals || {};
+          tiles.style.display = 'flex';
+          tiles.innerHTML = rankTile('추적 중', (t.trackedPairs || 0) + '쌍', '검색어 × 글')
+            + rankTile('잰 것', (t.checkedPairs || 0) + '쌍', (t.uncheckedPairs || 0) + '쌍은 아직 안 잼')
+            + rankTile('1페이지 적중률', (t.hitRate10 || 0) + '%', '잰 쌍 기준 · ' + (t.currentlyInTop10 || 0) + '쌍이 지금 1페이지')
+            + rankTile('3페이지 안', (t.hitRate30 || 0) + '%', (t.currentlyInTop30 || 0) + '쌍이 지금 30위 안')
+            + rankTile('누적 확인', (t.totalChecks || 0) + '회', '');
+
+          const seedRows = (data.expansionSeeds || []);
+          seeds.innerHTML = seedRows.length === 0 ? '' : ''
+            + '<div style="padding:12px 14px 4px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px 12px 0 0; border-bottom:0;">'
+            + '<div style="font-size:14px; font-weight:700; color:#e2e8f0; margin-bottom:4px;">🌱 다음에 쓸 것</div>'
+            + '<div style="font-size:11.5px; color:#64748b; margin-bottom:10px;">이미 자리를 잡아 본 검색어입니다. 옆의 말들은 같은 줄기로 뻗을 수 있는 것 — 누르면 그 말로 발굴합니다.</div>'
+            + '</div>'
+            + '<div style="padding:0 14px 12px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-top:0; border-radius:0 0 12px 12px; margin-bottom:12px;">'
+            + seedRows.map(rankSeedCard).join('') + '</div>';
+
+          const items = data.items || [];
+          body.innerHTML = items.length === 0
+            ? '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">추적 중인 것이 없습니다. [글에서 키워드 뽑기] 를 눌러 시작하세요.</div>'
+            : '<div style="overflow-x:auto; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">'
+              + '<table style="width:100%; min-width:720px; border-collapse:collapse; font-size:12.5px;">'
+              + '<thead><tr style="background:rgba(255,255,255,0.04); color:#94a3b8; font-size:11px;">'
+              + '<th style="text-align:left; padding:9px 10px; font-weight:500;">검색어</th>'
+              + '<th style="text-align:left; padding:9px 10px; font-weight:500;">내 글</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;">지금 자리</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;">1페이지 적중</th>'
+              + '<th style="text-align:right; padding:9px 10px; font-weight:500;">잰 횟수</th>'
+              + '<th style="padding:9px 6px;"></th></tr></thead><tbody>'
+              + items.map(rankRow).join('')
+              + '</tbody></table></div>';
+
+          status.innerHTML = rankEsc(data.rssUrl || '') + ' · 추적 ' + (t.trackedPairs || 0) + '쌍 · 잰 것 ' + (t.checkedPairs || 0) + '쌍';
+        };
+
+        window.loadRankBoard = async function loadRankBoard() {
+          try {
+            const res = await window.electronAPI.invoke('exposure-get-stats');
+            if (!res || !res.success) return;
+            rankView = res;
+            const input = document.getElementById('rankRssInput');
+            if (input && res.rssUrl && !input.value) input.value = res.rssUrl;
+            window.renderRankBoard();
+          } catch (error) {
+            const status = document.getElementById('rankStatus');
+            if (status) status.innerHTML = '<span style="color:#fca5a5;">' + rankEsc((error && error.message) || error) + '</span>';
+          }
+        };
+
+        window.rankSaveRss = async function rankSaveRss() {
+          const input = document.getElementById('rankRssInput');
+          const status = document.getElementById('rankStatus');
+          const value = String((input && input.value) || '').trim();
+          if (!value) { status.textContent = '블로그 아이디나 주소를 넣어 주세요.'; return; }
+          status.textContent = '등록하는 중…';
+          try {
+            const res = await window.electronAPI.invoke('exposure-set-blog-rss', { rssUrl: value });
+            if (!res || !res.success) { status.innerHTML = '<span style="color:#fca5a5;">' + rankEsc((res && res.error) || '등록 실패') + '</span>'; return; }
+            await window.loadRankBoard();
+          } catch (error) {
+            status.innerHTML = '<span style="color:#fca5a5;">' + rankEsc((error && error.message) || error) + '</span>';
+          }
+        };
+
+        window.rankAutoMatch = async function rankAutoMatch() {
+          const btn = document.getElementById('rankMatchBtn');
+          const prog = document.getElementById('rankProgress');
+          btn.disabled = true; btn.style.opacity = '0.6';
+          if (prog) prog.textContent = 'RSS 에서 글을 받아 검색어를 뽑는 중…';
+          try {
+            const res = await window.electronAPI.invoke('exposure-auto-match', { autoExtract: true, perPost: 3 });
+            if (prog) {
+              prog.textContent = (res && res.success)
+                ? '새로 ' + (res.newMatches || 0) + '쌍 (지난 검색어에서 ' + (res.historyMatches || 0)
+                  + ' · 제목에서 뽑은 것 ' + (res.autoExtractMatches || 0) + ') · 추적 합계 ' + (res.totalTracked || 0) + '쌍'
+                : ((res && res.error) || '뽑지 못했습니다');
+            }
+            await window.loadRankBoard();
+          } catch (error) {
+            if (prog) prog.textContent = String((error && error.message) || error);
+          } finally {
+            btn.disabled = false; btn.style.opacity = '1';
+          }
+        };
+
+        window.rankRunCheck = async function rankRunCheck() {
+          const btn = document.getElementById('rankCheckBtn');
+          const prog = document.getElementById('rankProgress');
+          btn.disabled = true; btn.style.opacity = '0.6';
+          if (prog) prog.textContent = '네이버에서 내 글 자리를 세는 중… (건당 약 2초)';
+          if (window.__rankOff) { try { window.__rankOff(); } catch {} }
+          try {
+            window.__rankOff = window.electronAPI.on('exposure-progress', (p) => {
+              if (p && prog) prog.textContent = (p.message || '') + (p.done != null ? ' ' + p.done + '/' + (p.total || '?') : '');
+            });
+          } catch { /* 구독이 막혀도 본 작업은 돈다 */ }
+          try {
+            const res = await window.electronAPI.invoke('exposure-run-serp-check', { maxItems: 60 });
+            if (prog) {
+              prog.textContent = (res && res.success)
+                ? '끝 — 잰 것 ' + (res.checked || 0) + ' · 1페이지 ' + (res.exposed || 0) + (res.blocked ? ' · 막힘 ' + res.blocked : '')
+                : ((res && res.error) || '재지 못했습니다');
+            }
+            await window.loadRankBoard();
+          } catch (error) {
+            if (prog) prog.textContent = String((error && error.message) || error);
+          } finally {
+            btn.disabled = false; btn.style.opacity = '1';
+            if (window.__rankOff) { try { window.__rankOff(); } catch {} window.__rankOff = null; }
+          }
+        };
+
+        window.rankRemovePair = async function rankRemovePair(keyword, postUrl) {
+          try {
+            await window.electronAPI.invoke('exposure-remove-pair', { keyword, postUrl });
+            await window.loadRankBoard();
+          } catch { /* 무시 */ }
         };
 
         window.setBriefsAuto = async function setBriefsAuto() {
