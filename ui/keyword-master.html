@@ -289,6 +289,7 @@
       border: 1px solid rgba(255, 255, 255, 0.09);
     }
 
+    /* 제목은 다른 화면(오늘 쓸 한 편·선점 보드)과 같은 결로 간다 — 인라인 스타일이 이긴다. */
     .golden-keyword-finder h2 {
       font-size: 32px;
       font-weight: 800;
@@ -309,6 +310,70 @@
       margin-bottom: 28px;
       flex-direction: column;
     }
+
+    /*
+     * 황금키워드 조건 줄 — 목업(golden-workbench.html, 2026-09-10 "작업대") 그대로 한 줄.
+     *
+     * 전에는 .keyword-input-section 을 그대로 썼는데 그 클래스가 flex-direction: column 과
+     * input 18px 24px 패딩을 강제해서, 인라인으로 flex-wrap 을 줘도 세로로 쌓였다(실측 517px).
+     * 사장님이 세 번 "목업 안 바뀌었다"고 하신 화면이 이것이다. 전용 클래스로 떼어 낸다.
+     */
+    .golden-cond-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 11px 12px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .golden-cond-row input[type="text"] {
+      /* 남는 폭을 다 먹으면 마지막 버튼이 줄을 넘는다(실측: 마인드맵이 두 번째 줄로 내려갔다). */
+      /* padding·테두리를 폭 안에 넣어야 한 줄 계산이 맞는다(border-box 없으면 22px 이 더 붙어 줄이 넘어갔다). */
+      box-sizing: border-box;
+      flex: 1 1 160px;
+      min-width: 130px;
+      padding: 7px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 7px;
+      font-size: 12.5px;
+      background: #1e293b;
+      color: #e2e8f0;
+      outline: none;
+    }
+
+    .golden-cond-row select {
+      padding: 7px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 7px;
+      font-size: 12.5px;
+      background: #1e293b;
+      color: #e2e8f0;
+      outline: none;
+      max-width: 180px;
+    }
+
+    /* 개수 눈금 — 붙은 한 덩어리. 라디오는 숨기고 라벨에 칠을 준다. */
+    .golden-cond-row [data-golden-segs] {
+      display: flex;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 7px;
+      overflow: hidden;
+    }
+
+    .golden-cond-row [data-golden-segs] label {
+      padding: 6px 9px;
+      font-size: 11.5px;
+      background: #1e293b;
+      color: #64748b;
+      border-right: 1px solid rgba(255, 255, 255, 0.055);
+      cursor: pointer;
+    }
+
+    .golden-cond-row [data-golden-segs] label:last-child { border-right: 0; }
 
     .keyword-input-section input {
       flex: 1;
@@ -791,7 +856,7 @@
           '내 크기'가 이 판의 첫 관문인데 그걸 재는 칸이 다른 화면에만 있으면, 정작 필요한 자리에서 못 채운다.
           창구는 자리 실측기와 같은 blog-class-measure 하나다 — 판정이 두 갈래로 갈리면 안 된다.
         -->
-        <div id="dpBlogRow" style="display: none; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; padding: 10px 12px; border-radius: 10px; background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.22);">
+        <div id="dpBlogRow" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; padding: 10px 12px; border-radius: 10px; background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.22);">
           <span style="font-size: 12.5px; color: #e2e8f0; font-weight: 600;">내 블로그</span>
           <input id="dpBlogInput" placeholder="blog.naver.com/내아이디" autocomplete="off"
             style="flex: 1; min-width: 200px; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 7px 10px; color: #e2e8f0; font: inherit; font-size: 12.5px;">
@@ -1151,12 +1216,10 @@
     <section class="leword-screen" data-screen="golden">
     <div class="main-feature">
       <div class="golden-keyword-finder">
-        <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px;">
-          <h2 style="margin: 0;">황금키워드 발굴</h2>
-          <span onclick="showFeatureGuide('keyword-search');"
-            style="width: 32px; height: 32px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 16px;"
-            onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'"
-            onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">❓</span>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+          <h2 style="margin: 0; font-size: 19px; font-weight: 700; color: #e2e8f0;">황금키워드 발굴</h2>
+          <span onclick="showFeatureGuide('keyword-search');" title="어떻게 쓰는지"
+            style="width: 20px; height: 20px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; color: #94a3b8;">?</span>
         </div>
         <!--
           조건 줄(2026-09-10 목업 승인) — 발굴이 끝나면 칩 한 줄로 접힌다.
@@ -1169,27 +1232,14 @@
           <span id="goldenCondChips" style="display:inline-flex; gap:6px; flex-wrap:wrap;"></span>
           <span style="margin-left:auto; color:#fbbf24; font-size:11.5px;">조건 펴기 ▾</span>
         </button>
-        <div class="keyword-input-section" id="goldenCondBody" style="display: flex; flex-direction: column; gap: 16px;">
-          <div id="goldenProfileCategoryPanel"
-            style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:14px 16px; background:rgba(6,182,212,0.08); border:1px solid rgba(6,182,212,0.26); border-radius:14px;">
-            <div style="font-size:13px; font-weight:800; color:#67e8f9;">🎯 카테고리 선택 시 집중 발굴 · 미선택 시 전체 카테고리 탐색</div>
-          </div>
-          <!-- 카테고리 및 소스 선택 -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div style="order: 2;">
-              <label
-                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">검색
-                소스</label>
-              <select id="keywordSource"
-                style="width: 100%; padding: 14px 18px; border: 2px solid rgba(96, 165, 250, 0.3); border-radius: 12px; font-size: 15px; font-weight: 600; background: rgba(30, 41, 59, 0.8); color: #ffffff;">
-                <option value="naver" style="background: #ffffff; color: #1e293b;">네이버</option>
-              </select>
-            </div>
-            <div style="order: 1;">
-              <label
-                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">1. 카테고리 <span style="font-size: 11px; color: rgba(255,255,255,0.42); text-transform:none; letter-spacing:0;">선택</span></label>
-              <select id="keywordCategory"
-                style="width: 100%; padding: 14px 18px; border: 2px solid rgba(96, 165, 250, 0.3); border-radius: 12px; font-size: 15px; font-weight: 600; background: rgba(30, 41, 59, 0.8); color: #ffffff;">
+        <div class="golden-cond-row" id="goldenCondBody" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 11px 12px; border-radius: 10px; background: #0f172a; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 12px;">
+          <!--
+            목업(scratchpad/golden-workbench.html, 2026-09-10 "황금키워드 발굴 작업대")의 조건 줄 그대로.
+            사장님이 세 번 지적하셨다 — 결과 표만 옮기고 **입력 줄은 옛 그라데이션 그대로** 뒀었다.
+            칸·버튼·값은 하나도 안 바꾼다. 배치와 결만 목업에 맞춘다.
+          -->
+          <span style="font-size:11.5px; color:#64748b;">카테고리</span>
+          <select id="keywordCategory" title="카테고리 — 고르면 집중 발굴, 비우면 전체 탐색" style="padding:7px 10px; border:1px solid rgba(255,255,255,0.09); border-radius:7px; font-size:12.5px; background:#1e293b; color:#e2e8f0; outline:none; max-width:210px;">
                 <option value="" selected style="background: #ffffff; color: #1e293b; font-weight: 700;">전체 카테고리에서 찾기</option>
                 <optgroup id="keywordProfileCategoryGroup" label="🎯 내 블로그 집중 카테고리" style="background: #ecfeff; color: #0f172a; font-weight: 800;"></optgroup>
                 <optgroup label="📰 뉴스/시사" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
@@ -1298,86 +1348,37 @@
                   <option value="부업" style="background: #ffffff; color: #1e293b;">부업/사이드</option>
                 </optgroup>
               </select>
-            </div>
+          <span style="font-size:11.5px; color:#64748b;">보강 키워드</span>
+          <!-- 규격은 .golden-cond-row input[type="text"] 한 곳에만 둔다. 인라인으로 또 적으면 클래스를 이겨서, 폭을 줄여도 안 줄어든다(실측: 마인드맵이 계속 두 번째 줄로 내려갔다). -->
+          <input id="keywordInput" type="text" placeholder="비워두면 카테고리 전체">
+          <span data-golden-segs style="display:flex; border:1px solid rgba(255,255,255,0.09); border-radius:7px; overflow:hidden;">
+            <label data-on style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="10" checked style="display:none;"><span>10</span></label>
+            <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="50" style="display:none;"><span>50</span></label>
+            <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="100" style="display:none;"><span>100</span></label>
+            <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="500" style="display:none;"><span>500</span></label>
+            <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="1000" style="display:none;"><span>1000</span></label>
+            <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="unlimited" style="display:none;"><span>무제한</span></label>
+          </span>
+          <button id="categoryGoldenDiscoveryBtn" onclick="startKeywordDiscovery()"
+            style="padding:7px 13px; border:0; border-radius:7px; font-size:12.5px; font-weight:600; background:#fbbf24; color:#1a1200; cursor:pointer; white-space:nowrap;">발굴 시작</button>
+          <button id="keywordLookupBtn" onclick="startKeywordLookupFromInput()"
+            style="padding:7px 13px; border:1px solid rgba(255,255,255,0.09); border-radius:7px; font-size:12.5px; background:rgba(255,255,255,0.06); color:#94a3b8; cursor:pointer; white-space:nowrap;">키워드 조회</button>
+          <select id="mindmapLimitSelect" title="시드 → 꼬리에 꼬리 깊이 자동: 50개 1단계 / 500개 5단계"
+            style="padding:7px 9px; border:1px solid rgba(255,255,255,0.09); border-radius:7px; font-size:12px; background:#1e293b; color:#94a3b8; outline:none;">
+            <option value="50" selected>50개</option>
+            <option value="150">150개</option>
+            <option value="300">300개</option>
+            <option value="400">400개</option>
+            <option value="500">500개</option>
+          </select>
+          <button onclick="openRelatedKeywordModal()" title="입력 키워드의 연관·유사·롱테일을 한 번에 발굴"
+            style="padding:7px 13px; border:1px solid rgba(255,255,255,0.09); border-radius:7px; font-size:12.5px; background:rgba(255,255,255,0.06); color:#94a3b8; cursor:pointer; white-space:nowrap;">마인드맵</button>
+          <button id="stopBtn" onclick="stopKeywordDiscovery()"
+            style="display:none; padding:7px 13px; border:0; border-radius:7px; font-size:12.5px; font-weight:600; background:#ef4444; color:#fff; cursor:pointer;">중지</button>
+          <select id="keywordSource" style="display:none;"><option value="naver" selected>네이버</option></select>
+        </div>
 
-            <!-- 키워드 입력 및 발굴 컨트롤 -->
-            <div style="order: 3; grid-column: 1 / -1;">
-              <label
-                style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.7); text-transform: uppercase; letter-spacing: 0.5px;">2. 보강 키워드
-                <span style="font-size: 11px; color: rgba(255,255,255,0.42); text-transform:none; letter-spacing:0;">선택</span></label>
-              <input type="text" id="keywordInput" placeholder="키워드를 넣으면 전체/선택 카테고리에서 분석 · 비워두면 전체 발굴"
-                style="width: 100%; padding: 18px 24px; border: 2px solid rgba(96, 165, 250, 0.3); border-radius: 12px; font-size: 16px; background: rgba(30, 41, 59, 0.8); color: #ffffff; transition: all 0.3s ease;"
-                onkeypress="if(event.key === 'Enter') startKeywordDiscovery()"
-                onfocus="this.style.borderColor='#60a5fa'; this.style.boxShadow='0 0 0 4px rgba(96, 165, 250, 0.2)'; this.style.background='rgba(30, 41, 59, 1)';"
-                onblur="this.style.borderColor='rgba(96, 165, 250, 0.3)'; this.style.boxShadow='none'; this.style.background='rgba(30, 41, 59, 0.8)';">
-            </div>
-
-            <!-- 개수 제한 및 발굴 컨트롤 -->
-            <div style="order: 4; grid-column: 1 / -1; display: flex; flex-direction: column; gap: 14px; padding: 16px; background: rgba(15, 23, 42, 0.42); border: 1px solid rgba(96, 165, 250, 0.16); border-radius: 14px;">
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 10px;">
-              <label
-                style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: rgba(248,250,252,0.96); border: 1px solid rgba(255,255,255,0.45); border-radius: 10px; cursor: pointer; box-sizing: border-box;">
-                <input type="radio" name="keywordLimit" value="10" checked>
-                <span style="font-size: 14px; font-weight: 600;">10개</span>
-              </label>
-              <label
-                style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: rgba(248,250,252,0.96); border: 1px solid rgba(255,255,255,0.45); border-radius: 10px; cursor: pointer; box-sizing: border-box;">
-                <input type="radio" name="keywordLimit" value="50">
-                <span style="font-size: 14px; font-weight: 600;">50개</span>
-              </label>
-              <label
-                style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: rgba(248,250,252,0.96); border: 1px solid rgba(255,255,255,0.45); border-radius: 10px; cursor: pointer; box-sizing: border-box;">
-                <input type="radio" name="keywordLimit" value="100">
-                <span style="font-size: 14px; font-weight: 600;">100개</span>
-              </label>
-              <label
-                style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: rgba(248,250,252,0.96); border: 1px solid rgba(255,255,255,0.45); border-radius: 10px; cursor: pointer; box-sizing: border-box;">
-                <input type="radio" name="keywordLimit" value="500">
-                <span style="font-size: 14px; font-weight: 600;">500개</span>
-              </label>
-              <label
-                style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: rgba(248,250,252,0.96); border: 1px solid rgba(255,255,255,0.45); border-radius: 10px; cursor: pointer; box-sizing: border-box;">
-                <input type="radio" name="keywordLimit" value="1000">
-                <span style="font-size: 14px; font-weight: 600;">1000개</span>
-              </label>
-              <label
-                style="height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-radius: 10px; cursor: pointer; border: 1px solid rgba(251,191,36,0.85); box-sizing: border-box;">
-                <input type="radio" name="keywordLimit" value="unlimited">
-                <span style="font-size: 14px; font-weight: 700; color: #1e293b;">♾️ 무제한</span>
-              </label>
-              </div>
-              <div style="display: grid; grid-template-columns: minmax(180px, 0.9fr) minmax(240px, 1.15fr) minmax(260px, 1fr); gap: 12px; align-items: stretch;">
-                <button id="keywordLookupBtn" onclick="startKeywordLookupFromInput()"
-                  style="height: 56px; padding: 0 24px; background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 16px; box-shadow: 0 10px 26px rgba(14, 165, 233, 0.22);">
-                  🔍 키워드 조회
-                </button>
-                <button id="categoryGoldenDiscoveryBtn" onclick="startKeywordDiscovery()"
-                  style="height: 56px; padding: 0 28px; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 16px; box-shadow: 0 10px 26px rgba(37, 99, 235, 0.25);">
-                  💎 카테고리별 자동 황금키워드 발굴
-                </button>
-                <div style="display: grid; grid-template-columns: 118px 1fr; gap: 10px;">
-                  <select id="mindmapLimitSelect" style="height: 56px; padding: 0 12px; border: 1px solid rgba(168, 85, 247, 0.42); border-radius: 12px; font-size: 13px; background: rgba(30, 41, 59, 0.92); color: #c4b5fd; font-weight:700; outline:none;" title="시드 → 꼬리에 꼬리 깊이 자동: 50개 1단계 / 500개 5단계">
-                  <option value="50" selected>🌱 50개</option>
-                  <option value="150">🌿 150개</option>
-                  <option value="300">🌳 300개</option>
-                  <option value="400">🌲 400개</option>
-                  <option value="500">🎄 500개</option>
-                  </select>
-                  <button onclick="openRelatedKeywordModal()"
-                    style="height: 56px; padding: 0 22px; background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%); color: #fff; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 15px; white-space: nowrap; box-shadow: 0 10px 26px rgba(168,85,247,0.24);"
-                    title="입력 키워드의 연관/유사 메이커/롱테일을 한 번에 발굴">
-                    🔗 마인드맵
-                  </button>
-                </div>
-                <button id="stopBtn" onclick="stopKeywordDiscovery()"
-                  style="height: 56px; padding: 0 24px; background: #ef4444; color: white; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 15px; display: none;">
-                  ⏹️ 중지
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 진행 상태 -->
+        <!-- 진행 상태 -->
           <div id="discoveryStatus"
             style="display: none; margin: 16px 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; font-size: 14px; color: #ffffff;">
             <div style="margin-bottom: 12px;">
@@ -4249,6 +4250,22 @@
             + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
           return [chip(catLabel), chip(limit), chip(extra ? '보강 ' + extra : '보강 없음'), chip(stamp)].join('');
         }
+
+        /* 개수 눈금 — 라디오는 숨기고 라벨에 칠을 준다(목업의 .segs). 값·이름은 그대로다. */
+        window.goldenPaintSegs = function goldenPaintSegs() {
+          const box = document.querySelector('[data-golden-segs]');
+          if (!box) return;
+          box.querySelectorAll('label').forEach((el) => {
+            const on = !!el.querySelector('input:checked');
+            el.style.background = on ? 'rgba(251,191,36,0.16)' : '#1e293b';
+            el.style.color = on ? '#fbbf24' : '#64748b';
+            el.style.fontWeight = on ? '600' : '400';
+          });
+        };
+        document.addEventListener('change', (e) => {
+          if (e.target && e.target.name === 'keywordLimit') window.goldenPaintSegs();
+        });
+        document.addEventListener('DOMContentLoaded', () => window.goldenPaintSegs());
 
         window.goldenFoldConditions = function goldenFoldConditions() {
           const body = document.getElementById('goldenCondBody');
@@ -9469,8 +9486,13 @@
           envLine.innerHTML = env
             ? '내 크기 — 경쟁 글 <b style="color:#e2e8f0;">' + dpNum(env.docMax) + '개</b>까지, 정면으로 다룬 글 <b style="color:#e2e8f0;">' + env.facingMax + '개</b>까지 이겨봤습니다.'
             : '<span style="color:#f59e0b;">아직 내 크기를 모릅니다 — 아래에 블로그 주소를 넣고 한 번 재면, 내가 이겨본 크기를 넘는 검색어를 재기 전에 걸러 냅니다.</span>';
-          // 봉투가 있으면 칸을 접고 [다시 재기] 만 남긴다 — 이미 아는 것을 다시 묻지 않는다.
-          dpSyncBlogRow(Boolean(env));
+          /*
+           * 칸은 늘 자리에 둔다.
+           *
+           * 전에는 봉투가 있으면 접고 11px 짜리 [다시 재기] 버튼 하나만 남겼다. 그랬더니
+           * 사장님이 필드를 못 찾으셨다 — "오늘 쓸 한편 내블로그 크기 넣는 필드 아직안넣었다니까"(2026-09-11).
+           * 이미 안다고 감추면 **안 넣은 것과 같다.** 상태는 바로 위 '내 크기' 줄이 이미 말해 준다.
+           */
 
           const r = dpView.result;
           if (!r) {
@@ -9509,28 +9531,6 @@
             + (r.message ? ' · ' + r.message : '');
         };
 
-        /*
-         * 내 블로그 칸 — 봉투가 있으면 접고, 없으면 펼친다.
-         * 접었을 때도 [다시 재기] 로 열 수 있게 남긴다(글을 더 쓰면 봉투가 커진다).
-         */
-        window.dpSyncBlogRow = function dpSyncBlogRow(hasEnvelope) {
-          const row = document.getElementById('dpBlogRow');
-          const env = document.getElementById('dpEnvelope');
-          if (!row || !env) return;
-          if (!hasEnvelope) { row.style.display = 'flex'; return; }
-          row.style.display = 'none';
-          if (!document.getElementById('dpBlogAgain')) {
-            env.insertAdjacentHTML('beforeend',
-              ' <button id="dpBlogAgain" onclick="document.getElementById(\'dpBlogRow\').style.display=\'flex\'; this.remove();"'
-              + ' style="margin-left:6px; padding:1px 8px; border:1px solid rgba(255,255,255,0.16); border-radius:999px; background:transparent; color:#94a3b8; font:inherit; font-size:11px; cursor:pointer;">다시 재기</button>');
-          }
-        };
-
-        /*
-         * 여기서 바로 내 블로그를 잰다. 자리 실측기와 같은 창구(blog-class-measure)를 쓴다.
-         * 다 되면 '내 크기' 줄을 그 자리에서 바꿔 주고, 이 판을 다시 고르라고 알린다 —
-         * 이미 골라 둔 결과는 옛 봉투로 고른 것이라 그대로 두면 거짓이 된다.
-         */
         window.dpMeasureMyBlog = async function dpMeasureMyBlog() {
           const input = document.getElementById('dpBlogInput');
           const btn = document.getElementById('dpBlogBtn');

@@ -100,7 +100,7 @@ assert('app screen has no server golden board and shows realtime keywords first'
     && !/서버 황금키워드 보드/.test(html)
     && /id="realtimeKeywordsSection"/.test(html)
     // CSS 정의가 아니라 **요소** 기준으로 순서를 본다(스타일 블록이 위에 있다).
-    && html.indexOf('id="realtimeKeywordsSection"') < html.indexOf('<div class="keyword-input-section"'),
+    && html.indexOf('id="realtimeKeywordsSection"') < html.indexOf('id="goldenCondBody"'),
   'server board came back or realtime monitoring is no longer the first section');
 
 assert('server board IPC only reads the 24-hour snapshot',
@@ -118,7 +118,7 @@ assert('operator ingest credentials can read but never run the live golden board
 assert('keyword lookup and category auto golden discovery have separate buttons and actions',
   /id="keywordLookupBtn"[\s\S]{0,220}onclick="startKeywordLookupFromInput\(\)"/.test(html)
     && /id="categoryGoldenDiscoveryBtn"[\s\S]{0,260}onclick="startKeywordDiscovery\(\)"/.test(html)
-    && /카테고리별 자동/.test(html)
+    && /id="categoryGoldenDiscoveryBtn"[\s\S]{0,300}>발굴 시작</.test(html)
     && /window\.startKeywordLookupFromInput\s*=\s*function/.test(html)
     && /const\s+discoveryBtn\s*=\s*document\.getElementById\('keywordLookupBtn'\)/.test(keywordExpansionSearchBlock)
     && /const\s+categoryGoldenDiscoveryBtn\s*=\s*document\.getElementById\('categoryGoldenDiscoveryBtn'\)/.test(keywordExpansionSearchBlock)
@@ -185,8 +185,7 @@ assert('PRO traffic requires one category before category hunting',
 
 assert('golden discovery category picker is optional and defaults to all categories',
   /<option\s+value=""\s+selected[^>]*>전체 카테고리에서 찾기<\/option>/.test(html)
-    && /카테고리 선택 시 집중 발굴/.test(html)
-    && /키워드를 넣으면 전체\/선택 카테고리에서 분석/.test(html)
+    && /id="keywordCategory"[^>]*title="카테고리 — 고르면 집중 발굴, 비우면 전체 탐색"/.test(html)
     && !/먼저 황금키워드를 발굴할 카테고리를 선택해주세요/.test(html),
   'golden discovery still requires category selection');
 
