@@ -8868,7 +8868,7 @@
                 </p>
                 <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
                   <div style="display:inline-flex; border:1px solid rgba(255,255,255,0.16); border-radius:8px; overflow:hidden;">
-                    <button type="button" data-tf="open" onclick="setTrendFilter('open')" style="padding:6px 11px; border:0; border-right:1px solid rgba(255,255,255,0.16); background:#fbbf24; color:#1a1200; font-weight:800; font-size:12.5px; cursor:pointer;">빈자리만</button>
+                    <button type="button" data-tf="open" onclick="setTrendFilter('open')" title="자리가 열렸고 + 검색광고로 찾는 사람이 실측된 것만. 검색량을 못 잰 줄은 [전체] 에서 '수요 미측정' 표시와 함께 보입니다." style="padding:6px 11px; border:0; border-right:1px solid rgba(255,255,255,0.16); background:#fbbf24; color:#1a1200; font-weight:800; font-size:12.5px; cursor:pointer;">빈자리만</button>
                     <button type="button" data-tf="all" onclick="setTrendFilter('all')" style="padding:6px 11px; border:0; background:transparent; color:#e2e8f0; font-size:12.5px; cursor:pointer;">전체</button>
                   </div>
                   <select id="trendCategory" onchange="renderTrendImport()" style="padding: 6px 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1e293b; color: #e2e8f0; font-size: 12.5px;">
@@ -9109,7 +9109,7 @@
           pending: 'background:#e2e8f0; color:#475569;',
         };
         const NICHE_VERDICT_LABEL = { niche: '틈새', preemption: '선점 후보', pending: '자리 대기', out: '탈락' };
-        const NICHE_SEAT_STYLE = { '열림': 'color:#22c55e;', '반열림': 'color:#f59e0b;', '잠김': 'color:#f87171;', '못 잼': 'color:#64748b;' };
+        const NICHE_SEAT_STYLE = { '열림': 'color:#22c55e;', '반열림': 'color:#f59e0b;', '잠김': 'color:#f87171;', '못 잼': 'color:#fbbf24;', '안 잼': 'color:#64748b;' };
 
         window.loadRealtimeNiche = async function loadRealtimeNiche() {
           try {
@@ -10505,13 +10505,23 @@
 
         function trendNum(value) { return value === null || value === undefined ? '—' : Number(value).toLocaleString('ko-KR'); }
 
+        /*
+         * 빈자리의 뜻은 회차(trend-import.ts 의 isRealVacancy)와 같아야 한다 —
+         * 머리말이 세는 수와 표가 보여 주는 줄이 다르면 둘 다 못 믿는다.
+         * 자리가 열렸어도 찾는 사람이 실측 안 됐으면 빈자리가 아니다.
+         */
+        function trendIsRealVacancy(row) {
+          if (row.seat !== '열림' && row.seat !== '반열림') return false;
+          return typeof row.searchVolume === 'number' && row.searchVolume > 0;
+        }
+
         window.renderTrendImport = function renderTrendImport() {
           const body = document.getElementById('trendBody');
           if (!body) return;
           const picked = document.getElementById('trendCategory')?.value || '';
           let rows = window.__trendRows || [];
           if (picked) rows = rows.filter((r) => r.category === picked);
-          if (window.__trendFilter === 'open') rows = rows.filter((r) => r.seat === '열림' || r.seat === '반열림');
+          if (window.__trendFilter === 'open') rows = rows.filter(trendIsRealVacancy);
           rows = rows.slice().sort((a, b) => {
             const rank = (x) => (x.seat === '열림' ? 0 : x.seat === '반열림' ? 1 : 2);
             return rank(a) - rank(b) || (b.searchVolume || 0) - (a.searchVolume || 0);
@@ -10541,7 +10551,11 @@
               + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + trendNum(r.searchVolume) + '</td>'
               + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + trendNum(r.documentCount) + '</td>'
               + '<td style="padding:9px 10px;"><span style="font-weight:700; ' + (seatStyle[r.seat] || '') + '">' + r.seat + '</span>'
-                + (r.facing !== null && r.facing !== undefined ? '<span style="color:#64748b; font-size:11.5px;"> · 정면 ' + r.facing + '</span>' : '') + '</td>'
+                + (r.facing !== null && r.facing !== undefined ? '<span style="color:#64748b; font-size:11.5px;"> · 정면 ' + r.facing + '</span>' : '')
+                // 자리는 열렸는데 찾는 사람이 실측 안 된 줄 — 왜 [빈자리만] 에서 빠졌는지 그 자리에 적는다.
+                + ((r.seat === '열림' || r.seat === '반열림') && !trendIsRealVacancy(r)
+                  ? '<span title="검색광고가 이 말의 검색량을 모릅니다. 자리는 비어 있어도 찾는 사람이 실측되지 않아 빈자리로 세지 않습니다." style="margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; background:rgba(148,163,184,0.15); color:#94a3b8;">수요 미측정</span>'
+                  : '') + '</td>'
               + '<td style="padding:9px 6px; text-align:right;"><button onclick="openNaverSearch(\'' + String(r.keyword).replace(/'/g, "\\'") + '\')" style="padding:4px 9px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#e2e8f0; font-size:11.5px; cursor:pointer;">네이버</button></td>'
               + '</tr>').join('')
             + '</tbody></table></div>';

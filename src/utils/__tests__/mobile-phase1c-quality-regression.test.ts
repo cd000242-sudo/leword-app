@@ -134,7 +134,8 @@ const unifiedGradeCases = [
     volume: 200,
     docs: 44,
     ratio: 4.55,
-    expectedGrade: 'A',
+    // 2026-09-11 저볼륨 winnable SSS 복원(사장님 지시). 검색량 100~1500 · 문서수 500↓ · 비율 3+ · 점수 80+ 에 정확히 든다.
+    expectedGrade: 'SSS',
   },
   {
     label: '국세청 근로장려금 지급일',
@@ -143,7 +144,8 @@ const unifiedGradeCases = [
     volume: 380,
     docs: 46,
     ratio: 8.26,
-    expectedGrade: 'S',
+    // 2026-09-11 winnable 복원 — 380/46 은 초보자가 실제로 이길 수 있는 저경쟁이다.
+    expectedGrade: 'SSS',
   },
   {
     label: '대장내시경 비용',
@@ -172,10 +174,18 @@ expectEqual(
   normalizeLiveMetricGrade('대장내시경비용', 'S', 80, 10_600, 3_499, 3.03),
   'SS',
 );
+// winnable 복원 뒤에는 이 지표가 실제로 SSS 다 — 저장값이 지표와 맞으면 그대로 둔다.
+expectEqual(
+  'persisted grade matches the metric SSoT (winnable)',
+  normalizeLiveMetricGrade('노트북 SSD 교체 비용', 'SSS', 80, 200, 44, 4.55),
+  'SSS',
+);
+// 강등 가드는 유지한다 — classic 도 winnable 도 아닌데 SSS 로 저장된 값은 지표가 이긴다.
+// 검색량 10,600 은 winnable 상한(1,500)을 넘고, 비율 3.03 은 classic 하한(5)에 못 미친다.
 expectEqual(
   'persisted grade downgrades to the metric SSoT',
-  normalizeLiveMetricGrade('노트북 SSD 교체 비용', 'SSS', 80, 200, 44, 4.55),
-  'A',
+  normalizeLiveMetricGrade('대장내시경비용', 'SSS', 80, 10_600, 3_499, 3.03),
+  'SS',
 );
 
 const publicIntentCases = [

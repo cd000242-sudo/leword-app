@@ -65,6 +65,33 @@ function normalizeForMatch(value: string): string {
 const MIN_CHUNK = 2;
 
 /**
+ * 어절 끝에 붙는 조사 한 글자.
+ *
+ * 줄기가 제목에 이미 있는데 조사 한 글자 때문에 안 덮인 것으로 세면 정면 글이 부분으로 떨어진다.
+ * 실측(2026-09-11): '김연아 임신설에 대한 공식입장' 의 블로그탭 상위 10 중 일곱이
+ * "김연아 임신설 공식입장…" 처럼 정면으로 같은 얘기를 쓰는데 **정면 0** 으로 적혔다.
+ * '임신설에' 가 제목의 '임신설' 로 0.75 만 덮여 평균을 0.999 아래로 끌어내린 탓이다.
+ *
+ * 덩어리 매칭이 끝나고 **남은 것이 딱 한 글자이고 그게 조사일 때만** 덮인 것으로 본다.
+ * 줄기는 이미 제목에 있다는 뜻이므로 한 글자를 더 얹는 것이지, 없는 말을 있다고 하지 않는다.
+ */
+const PARTICLE_TAILS = new Set(['은', '는', '이', '가', '을', '를', '에', '의', '도', '만', '와', '과', '로', '나', '야', '랑']);
+
+/**
+ * 뜻을 안 가진 문법 어절. 셈에서 뺀다.
+ *
+ * '김연아 임신설에 **대한** 공식입장' 의 '대한' 은 제목에 안 써도 같은 글이다.
+ * 그런데 어절 넷 중 하나라 혼자 25% 를 깎아 정면 판정을 무너뜨렸다.
+ * 후보를 뽑는 쪽(title-candidates.ts 의 EDGE_STOPS)도 같은 이유로 이런 말을 버린다.
+ *
+ * 단, **내용 어절이 둘 이상 남을 때만** 뺀다 — 검색어를 한 어절로 줄이면 아무 글이나 정면이 된다.
+ */
+const GRAMMAR_ONLY = new Set([
+  '대한', '대해', '대하여', '관련', '관한', '관해', '관하여', '위한', '위해', '위하여', '통한', '통해',
+  '및', '등', '그', '이', '저', '것', '수', '때', '중', '더', '좀',
+]);
+
+/**
  * 어절 하나를 제목이 얼마나 덮는가(0~1).
  *
  * ## 왜 통짜 비교로는 안 되나 (2026-08-11 실측)
@@ -111,7 +138,9 @@ function tokenCoverage(haystack: string, token: string): number {
       rest = rest.slice(1);
     }
   }
-  return covered / token.length;
+  // 남은 것이 조사 한 글자면 줄기가 이미 제목에 있다는 뜻이다 — 덮인 것으로 본다.
+  if (rest.length === 1 && covered > 0 && PARTICLE_TAILS.has(rest)) covered += 1;
+  return Math.min(1, covered / token.length);
 }
 
 /**
@@ -120,10 +149,13 @@ function tokenCoverage(haystack: string, token: string): number {
  */
 export function titleCoverage(title: string, keyword: string): number {
   const haystack = normalizeForMatch(title);
-  const tokens = String(keyword)
+  const all = String(keyword)
     .split(/\s+/)
     .map(normalizeForMatch)
     .filter((token) => token.length >= MIN_CHUNK);
+  // 뜻 없는 문법 어절은 뺀다. 단 내용 어절이 둘 이상 남을 때만 — 한 어절로 줄이면 아무 글이나 정면이 된다.
+  const content = all.filter((token) => !GRAMMAR_ONLY.has(token));
+  const tokens = content.length >= 2 ? content : all;
   if (tokens.length === 0) return 0;
   const total = tokens.reduce((sum, token) => sum + tokenCoverage(haystack, token), 0);
   return total / tokens.length;

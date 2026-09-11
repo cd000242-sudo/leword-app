@@ -62,7 +62,13 @@ export interface RealtimeNicheResult {
   rows: RealtimeNicheRow[];
   summary: {
     issues: number; candidates: number; trafficPass: number; demandPass: number;
-    slotMeasured: number; blocked: number; niche: number; pending: number; preemption: number;
+    slotMeasured: number;
+    /** 자리를 재려고 실제로 시도한 수. slotMeasured 와 다르면 그 차이가 실패다. */
+    attempted: number;
+    blocked: number;
+    /** 막힘(403/429)이 아닌 실패 — 창 두 개·네트워크·타임아웃 등. 전에는 어디에도 안 세어졌다. */
+    failed: number;
+    niche: number; pending: number; preemption: number;
   };
   /** 이번에 처음 본 검색어(직전 회차에 없던 것). 실시간을 따라가고 있다는 증거다. */
   newKeywords: string[];
@@ -99,17 +105,40 @@ function blogTabUrl(keyword: string): string {
   return `https://search.naver.com/search.naver?ssc=tab.blog.all&sm=tab_jum&query=${encodeURIComponent(keyword)}`;
 }
 
-/** 한 검색어의 블로그탭 상위 10 을 이 PC 브라우저로 받아 판정한다. 실패는 null — '못 잼'으로 남긴다. */
-async function measureSlotLocally(keyword: string): Promise<{ serp: IssueSlotSerp | null; blocked: boolean }> {
+/**
+ * 한 검색어의 블로그탭 상위 10 을 이 PC 브라우저로 받아 판정한다.
+ *
+ * 실패하면 **왜 실패했는지 같이 돌려준다.** 전에는 버렸다 —
+ * 실측(2026-09-11 01:05 회차): 자리를 기다리는 5건을 시도해 5건 다 실패했는데
+ * blocked 는 403/429 만 세므로 그 실패가 어디에도 안 남았다(slotMeasured 0 · blocked 0 · message null).
+ * 화면에는 '못 잼' 세 글자만 떴고 사장님은 이유를 알 길이 없었다.
+ * (그때 진짜 원인은 앱 인스턴스가 둘이라 브라우저를 다툰 것. 창구 자체는 멀쩡했다 — ok=200·478KB·3.7초.)
+ */
+async function measureSlotLocally(keyword: string): Promise<{ serp: IssueSlotSerp | null; blocked: boolean; reason: string | null }> {
   const res = await localSerpFetch(blogTabUrl(keyword));
-  if (!res.ok || !res.body) return { serp: null, blocked: Boolean(res.rateLimited) };
+  if (!res.ok || !res.body) {
+    const reason = res.error || (res.status ? `응답 ${res.status}` : '검색 화면을 못 받음');
+    return { serp: null, blocked: Boolean(res.rateLimited), reason };
+  }
   const analysis = analyzeSerp(res.body, keyword);
-  return { serp: toSlotSerp(analysis, verdictFor(analysis), new Date().toISOString()), blocked: false };
+  return { serp: toSlotSerp(analysis, verdictFor(analysis), new Date().toISOString()), blocked: false, reason: null };
 }
 
 const SEAT_LABEL: Record<string, string> = { winnable: '열림', contested: '반열림', locked: '잠김', unmeasured: '못 잼' };
 
-function toRow(row: IssueNicheKeyword): RealtimeNicheRow {
+/**
+ * 자리를 안 잰 두 가지를 구분한다.
+ *   '안 잼' — 앞 관문(트래픽·수요)을 통과 못 해 애초에 대상이 아니었다. 정상이다.
+ *   '못 잼' — 대상이었는데 재다 실패했다. 다시 누르면 채워진다.
+ * 한 단어로 덮으면 사장님이 무엇을 해야 할지 알 수 없다.
+ */
+function seatLabelOf(row: IssueNicheKeyword, attempted: ReadonlySet<string>): string {
+  const label = SEAT_LABEL[String(row.slotStatus)];
+  if (label && label !== '못 잼') return label;
+  return attempted.has(row.keyword) ? '못 잼' : '안 잼';
+}
+
+function toRow(row: IssueNicheKeyword, attempted: ReadonlySet<string>): RealtimeNicheRow {
   const verdict: RealtimeNicheRow['verdict'] = row.isNiche ? 'niche'
     : row.isPending ? 'pending'
       : row.isPreemption ? 'preemption' : 'out';
@@ -121,7 +150,7 @@ function toRow(row: IssueNicheKeyword): RealtimeNicheRow {
     documentCount: row.documentCount ?? null,
     hasLiveDemand: Boolean(row.hasLiveDemand),
     demandStatus: row.demandStatus ?? null,
-    seat: SEAT_LABEL[String(row.slotStatus)] || '못 잼',
+    seat: seatLabelOf(row, attempted),
     seatFacing: row.serp ? row.serp.exactTitleHits : null,
     seatVacancy: row.serp && typeof (row.serp as any).openSlot === 'number' ? (row.serp as any).openSlot : null,
     verdict,
@@ -176,7 +205,10 @@ export async function runRealtimeNiche(
   });
 
   const results = new Map<string, IssueSlotSerp>();
+  const attempted = new Set<string>();
+  const failReasons: string[] = [];
   let blocked = 0;
+  let failed = 0;
   for (let index = 0; index < plan.targets.length; index += 1) {
     if (abortRequested) break;
     const keyword = plan.targets[index];
@@ -184,12 +216,19 @@ export async function runRealtimeNiche(
       phase: 'slot', current: index + 1, total: plan.targets.length, keyword,
       message: `자리 재는 중 ${index + 1}/${plan.targets.length} · ${keyword}`,
     });
+    attempted.add(keyword);
     const measured = await measureSlotLocally(keyword);
-    if (measured.serp) results.set(keyword, measured.serp);
-    else if (measured.blocked) {
+    if (measured.serp) { results.set(keyword, measured.serp); continue; }
+    // 막힘(403/429)과 그 밖의 실패를 따로 센다 — 전에는 후자가 어디에도 안 남았다.
+    if (measured.blocked) {
       blocked += 1;
       // 자리 실측기와 같은 규칙 — 5연속 차단이면 그만둔다. 억지로 더 두드리면 회선이 막힌다.
       if (localSerpStats().consecutiveBlocked >= 5) break;
+      continue;
+    }
+    failed += 1;
+    if (measured.reason && failReasons.length < 3 && !failReasons.includes(measured.reason)) {
+      failReasons.push(measured.reason);
     }
   }
 
@@ -198,7 +237,7 @@ export async function runRealtimeNiche(
 
   const rows = applied.ledgerRows
     .filter((row) => row.isNiche || row.isPending || row.isPreemption)
-    .map(toRow)
+    .map((row) => toRow(row, attempted))
     .sort((a, b) => {
       const rank = (v: string) => (v === 'niche' ? 0 : v === 'preemption' ? 1 : 2);
       return rank(a.verdict) - rank(b.verdict) || (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
@@ -218,13 +257,23 @@ export async function runRealtimeNiche(
       trafficPass: board.rows.filter((r) => r.trafficGate).length,
       demandPass: board.rows.filter((r) => r.demandGate).length,
       slotMeasured: results.size,
+      attempted: attempted.size,
       blocked,
+      failed,
       niche: rows.filter((r) => r.verdict === 'niche').length,
       pending: rows.filter((r) => r.verdict === 'pending').length,
       preemption: rows.filter((r) => r.verdict === 'preemption').length,
     },
     newKeywords,
-    message: blocked > 0 ? `네이버가 ${blocked}건을 막았습니다 — 잠시 뒤 다시 재면 채워집니다.` : null,
+    /*
+     * 안 재진 자리는 반드시 이유를 말한다. 전에는 막힘(403/429)만 보고 그 밖의 실패는 조용히 넘겨서,
+     * 5건을 시도해 5건 다 실패한 회차가 "자리 잰 것 0 · 막힘 0 · 안내 없음"으로 끝났다.
+     */
+    message: blocked > 0
+      ? `네이버가 ${blocked}건을 막았습니다 — 잠시 뒤 다시 재면 채워집니다.`
+      : (failed > 0
+        ? `자리 ${failed}건을 못 쟀습니다${failReasons.length ? ` (${failReasons.join(' · ')})` : ''} — 다시 누르면 채워집니다. LEWORD 창을 두 개 띄우면 브라우저를 다퉈 이렇게 됩니다.`
+        : null),
   };
   writeJson(LATEST(), result);
   report({ phase: 'done', message: `끝 — 틈새 ${result.summary.niche} · 자리 잰 것 ${results.size} · ${result.seconds}초` });

@@ -61,6 +61,23 @@ export interface TrendImportResult {
   message: string | null;
 }
 
+/**
+ * 빈자리 = **자리가 열렸고 + 찾는 사람이 실측됐다.**
+ *
+ * 전에는 자리 판정만 봤다. 그랬더니 아무도 안 치는 말이 '열림'으로 올라왔다 —
+ * 실측(2026-09-11) '시메오네 아틀레티코 결렬 가능성 50~60%' 는 표본 3 · 정면 0 · 부분 0 이라 열림인데,
+ * 상위 목록이 "대한민국 영어공장"·"월스트리트 퀀트의 시선" 처럼 그 검색어와 아무 상관 없는 글이었다.
+ * 자리가 빈 게 아니라 아무도 그 말로 안 온다. 검색량도 '—' 였다(검색광고가 그 말을 모른다).
+ *
+ * '빈자리'라는 말 자체가 "찾는 사람은 있는데 그 자리를 아무도 안 가져갔다"는 뜻이다.
+ * 앞부분이 실측 안 됐으면 빈자리가 아니다. 버리지는 않는다 — [전체] 에서 그대로 보이고 줄에 이유가 붙는다.
+ */
+export function isRealVacancy(row: { seat?: string; searchVolume?: number | null }): boolean {
+  const seat = String(row?.seat || '');
+  if (seat !== '열림' && seat !== '반열림') return false;
+  return typeof row?.searchVolume === 'number' && row.searchVolume > 0;
+}
+
 const DIR = () => path.join(app.getPath('userData'), 'trend-import');
 const LATEST = () => path.join(DIR(), 'latest.json');
 
@@ -281,7 +298,7 @@ export async function runTrendImport(
       measuredVolume,
       measuredDocs,
       measuredSeat,
-      open: rows.filter((r) => r.seat === '열림').length,
+      open: rows.filter(isRealVacancy).length,
       blocked,
     },
     message: blocked > 0 ? `네이버가 ${blocked}건을 막았습니다 — 잠시 뒤 다시 재면 채워집니다.` : null,

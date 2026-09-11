@@ -237,11 +237,11 @@ function goldenDiscoveryViralSortScore(item: GoldenDiscoveryLike): number {
 export function isClassicSssMetrics(volume: number, docs: number, ratio: number): boolean {
   return isClassicSss(volume, docs, ratio);
 }
-/** @see grade.isWinnableSss — 폐기된 저볼륨 SSS 경로의 레거시 호환 별칭(항상 false). */
+/** @see grade.isWinnableSss — 저볼륨(100~1500)·문서수 500↓·비율 3+ 인 진짜 저경쟁. */
 export function isWinnableSssMetrics(volume: number, docs: number, ratio: number): boolean {
   return isWinnableSss(volume, docs, ratio);
 }
-/** @see grade.isGoldenSss — SSS 지표 = classic only. */
+/** @see grade.isGoldenSss — SSS 지표 = classic OR winnable. */
 export function isGoldenSssMetrics(volume: number, docs: number, ratio: number): boolean {
   return isGoldenSss(volume, docs, ratio);
 }
@@ -253,7 +253,11 @@ export function isStrictGoldenDiscoverySss(item: GoldenDiscoveryLike): boolean {
   const volume = readSearchVolume(item);
   const docs = readDocumentCount(item);
   const ratio = readGoldenRatio(item);
-  return (score === null || score >= 85) && isClassicSssMetrics(volume, docs, ratio);
+  // classic 은 점수 85+, winnable 은 80+ — grade.ts 의 두 임계값을 그대로 쓴다(하드코딩 금지).
+  return (
+    ((score === null || score >= 85) && isClassicSssMetrics(volume, docs, ratio))
+    || ((score === null || score >= 80) && isWinnableSssMetrics(volume, docs, ratio))
+  );
 }
 
 export function isActionableGoldenDiscoverySss(item: GoldenDiscoveryLike): boolean {

@@ -89,6 +89,31 @@ async function measureOne(keyword: string, postUrl: string): Promise<{
  * 한 번 재고 봉투까지 만든다.
  * 글 목록은 blog-class 의 1단계가 이미 받아 둔 것을 그대로 물려받는다 — 다시 받지 않는다.
  */
+/**
+ * 순위를 잴 순서 — **작은 말부터**.
+ *
+ * 전에는 검색량 큰 것부터 재고 maxRank 에서 끊었다("값이 큰 자리부터 남는다").
+ * 그런데 이 단계가 찾는 것은 내가 **이미 이긴** 자리다. 작은 블로그가 이기는 건 작은 말이다.
+ *
+ * 실측(leadernam- 최근 100개, 2026-09-11): 잰 80건의 검색량이 160~137,600(중간값 1,410)이었는데
+ * 순위를 찾은 9건은 **전부 3,610 이하, 8건이 1,000 미만**이었다. 큰 말 쪽은 건당 2초를 쓰고 빈손이었다.
+ * 게다가 직전 회차에서 4위였던 '베란다 청소 방법'(검색량 90)이 후보가 늘자 상위 80 밖으로 밀려
+ * 아예 안 재졌고, 그래서 이긴 것이 2 → 1 로 줄었다. 더 많이 쟀는데 결과가 나빠지는 정렬이었다.
+ *
+ * 상한은 그대로 둔다 — 재는 수가 아니라 그 80칸에 무엇이 들어가는지만 바꾼다.
+ * 검색량을 못 잰 줄은 뒤로 보낸다(없는 값을 0 으로 쳐서 앞세우면 안 잰 것을 제일 작은 것으로 만든다).
+ */
+export function orderRankTargets<T extends { searchVolume: number | null }>(rows: readonly T[]): T[] {
+  return rows
+    .map((row, i) => ({ row, i }))
+    .sort((a, b) => {
+      const av = typeof a.row.searchVolume === 'number' ? a.row.searchVolume : Number.POSITIVE_INFINITY;
+      const bv = typeof b.row.searchVolume === 'number' ? b.row.searchVolume : Number.POSITIVE_INFINITY;
+      return (av - bv) || (a.i - b.i);
+    })
+    .map((x) => x.row);
+}
+
 export async function measureMyRanks(
   posts: ReadonlyArray<{ title: string; url: string; publishedOn: string | null; searchable?: boolean }>,
   adConfig: { accessLicense: string; secretKey: string; customerId: string },
@@ -132,8 +157,7 @@ export async function measureMyRanks(
     }
   }
 
-  // 검색량 큰 것부터 잰다 — 상한에서 끊겨도 값이 큰 자리부터 남는다.
-  const targets = withVolume.sort((a, b) => b.searchVolume - a.searchVolume).slice(0, maxRank);
+  const targets = orderRankTargets(withVolume).slice(0, maxRank);
 
   // ── 순위 + 자리
   const rows: WonRow[] = [];

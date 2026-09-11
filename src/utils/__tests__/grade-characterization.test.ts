@@ -39,26 +39,29 @@ eq('classic docs 5001 탈락', isClassicSss(1000, 5001, 5), false);
 eq('classic docs 0 탈락', isClassicSss(1000, 0, 5), false);
 eq('classic ratio 4.9 탈락', isClassicSss(1000, 200, 4.9), false);
 
-// ── 저볼륨 winnable SSS 경로 폐기 ──
-eq('winnable 정상 지표도 SSS 우회 승격 금지', isWinnableSss(300, 80, 3), false);
+// ── 저볼륨 winnable SSS 경로 (2026-09-11 사장님 지시로 복원. 2026-07-15~09-11 꺼져 있었다) ──
+eq('winnable 정상 지표는 SSS', isWinnableSss(300, 80, 3), true);
 eq('winnable vol 99 탈락', isWinnableSss(99, 80, 3), false);
-eq('winnable vol 1500도 승격 금지', isWinnableSss(1500, 400, 3), false);
+eq('winnable vol 1500 통과(상한 포함)', isWinnableSss(1500, 400, 3), true);
 eq('winnable vol 1501 탈락', isWinnableSss(1501, 400, 3), false);
-eq('winnable docs 500도 승격 금지', isWinnableSss(300, 500, 3), false);
+eq('winnable docs 500 통과(상한 포함)', isWinnableSss(300, 500, 3), true);
 eq('winnable docs 501 탈락', isWinnableSss(300, 501, 3), false);
 eq('winnable ratio 2.9 탈락', isWinnableSss(300, 80, 2.9), false);
 
 // ── golden = classic only ──
 eq('golden classic', isGoldenSss(1000, 200, 5), true);
-eq('golden 저볼륨 winnable 제외', isGoldenSss(300, 80, 3), false);
+eq('golden 저볼륨 winnable 포함', isGoldenSss(300, 80, 3), true);
 eq('golden 둘다 탈락', isGoldenSss(800, 900, 0.9), false);
 
 // ── classifyGrade 풀 래더 (점수+지표) ──
 eq('SSS classic', classifyGrade({ score: 85, volume: 1000, docs: 200, ratio: 5 }), 'SSS');
-// classic 지표라도 점수 84면 SSS가 아니며 하위 SS로 내려간다.
+// classic 지표라도 점수 84면 classic SSS 는 아니다. 다만 winnable 지표를 겸하면 80+ 로 SSS 가 된다.
 eq('classic-only 점수 84 → SS', classifyGrade({ score: 84, volume: 2000, docs: 3000, ratio: 5 }), 'SS');
-eq('classic 지표 점수 84 → SS', classifyGrade({ score: 84, volume: 1000, docs: 200, ratio: 5 }), 'SS');
-eq('저볼륨 winnable 점수 80 → S', classifyGrade({ score: 80, volume: 300, docs: 80, ratio: 3 }), 'S');
+// 검색량 1000·문서수 200·비율 5 는 classic 이면서 winnable(100~1500·500↓·3+) 이기도 하다 → 점수 80+ 라 SSS.
+eq('classic+winnable 겸한 지표 점수 84 → SSS', classifyGrade({ score: 84, volume: 1000, docs: 200, ratio: 5 }), 'SSS');
+// 순수 classic 만인 지표(문서수가 winnable 상한 500 초과)는 점수 84 면 SS 로 내려간다.
+eq('classic 전용 지표 점수 84 → SS', classifyGrade({ score: 84, volume: 2000, docs: 600, ratio: 5 }), 'SS');
+eq('저볼륨 winnable 점수 80 → SSS', classifyGrade({ score: 80, volume: 300, docs: 80, ratio: 3 }), 'SSS');
 eq('winnable 점수 79 → S', classifyGrade({ score: 79, volume: 300, docs: 80, ratio: 3 }), 'S');
 eq('SS 정상', classifyGrade({ score: 75, volume: 500, docs: 9000, ratio: 3 }), 'SS');
 eq('SS 점수 74 → S', classifyGrade({ score: 74, volume: 500, docs: 9000, ratio: 3 }), 'S');
@@ -72,7 +75,7 @@ eq('점수85 docs폭발 → SSS/SS 아님, S로 내려감', classifyGrade({ scor
 
 // ── classifyGradeByMetrics (마인드맵, 지표-only) ──
 eq('metric SSS classic', classifyGradeByMetrics(1000, 200, 5), 'SSS');
-eq('metric 저볼륨 winnable → S', classifyGradeByMetrics(300, 80, 3), 'S');
+eq('metric 저볼륨 winnable → SSS', classifyGradeByMetrics(300, 80, 3), 'SSS');
 eq('metric SS', classifyGradeByMetrics(500, 10000, 3), 'SS');
 eq('metric S', classifyGradeByMetrics(300, 15000, 2), 'S');
 eq('metric A', classifyGradeByMetrics(100, 30000, 1.5), 'A');
@@ -99,7 +102,11 @@ grid.forEach(([v, d, r], i) => {
 
 // ── 임계값 상수 스냅샷 (CLAUDE.md 등급 시스템과 정합) ──
 eq('thr sssClassic vol', GRADE_THRESHOLDS.sssClassic.volumeMin, 1000);
-eq('thr sssWinnable 폐기', 'sssWinnable' in GRADE_THRESHOLDS, false);
+eq('thr sssWinnable vol 하한', GRADE_THRESHOLDS.sssWinnable.volumeMin, 100);
+eq('thr sssWinnable vol 상한', GRADE_THRESHOLDS.sssWinnable.volumeMax, 1500);
+eq('thr sssWinnable docs 상한', GRADE_THRESHOLDS.sssWinnable.docsMax, 500);
+eq('thr sssWinnable 비율 하한', GRADE_THRESHOLDS.sssWinnable.ratioMin, 3);
+eq('thr sssWinnable 점수 하한', GRADE_THRESHOLDS.sssWinnable.scoreMin, 80);
 eq('thr ss score', GRADE_THRESHOLDS.ss.scoreMin, 75);
 const _t: Grade = 'SSS'; void _t;
 
