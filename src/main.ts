@@ -46,7 +46,7 @@ import {
   isUpdateDownloaded,
   installDownloadedUpdate,
 } from './updater';
-import { setupKeywordMasterHandlers } from './main/keywordMasterIpcHandlers';
+import { setupKeywordMasterHandlers, stopMyLaneSchedulers } from './main/keywordMasterIpcHandlers';
 import { setupPremiumHandlers } from './main/premiumFeatures';
 import * as licenseManager from './utils/licenseManager';
 import { checkInternetConnection, startNetworkMonitoring } from './utils/network-checker';
@@ -165,6 +165,9 @@ function createKeywordWindow() {
   // v2.43.81: 종료 시 pending 업데이트 있으면 RunOnce 등록 (안전망)
   app.on('before-quit', () => {
     try { registerRunOncePendingUpdate(); } catch {}
+    // 내 판(자리 감시·오늘의 글감·실시간 틈새) 타이머를 멈춘다.
+    // 성능 우선 모드와는 무관하게 도는 것들이라(사장님 2026-09-11 "내 판만 돌게") 여기서 정리한다.
+    try { stopMyLaneSchedulers(); } catch {}
   });
 
   // console.log('[LEWORD] preload script:', keywordWindow.webContents.getWebPreferences().preload);

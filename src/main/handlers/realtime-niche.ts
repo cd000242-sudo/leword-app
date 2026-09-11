@@ -38,6 +38,7 @@ const SLOT_MAX = 200;
 const DIR = () => path.join(app.getPath('userData'), 'realtime-niche');
 const LATEST = () => path.join(DIR(), 'latest.json');
 const CACHE = () => path.join(DIR(), 'slot-cache.json');
+const PREFS = () => path.join(DIR(), 'prefs.json');
 
 export interface RealtimeNicheRow {
   keyword: string;
@@ -285,6 +286,69 @@ function stopAuto(): void {
   autoMinutes = 0;
 }
 
+/**
+ * 자동 회차 간격을 **파일로 기억한다.**
+ *
+ * 왜(실측 2026-09-11): 이 값이 `let autoMinutes = 0` 으로 메모리에만 있었다.
+ * 켜 두어도 앱을 끄면 사라지고 다시 켜면 0(꺼짐)이다. 사장님이 앱을 계속 켜 두시는 이유가
+ * "알아서 돌아라"인데 재시작 한 번이면 그 뜻이 지워졌다
+ * (사장님 "그래서 앱을 계속 켜놓고있는건데" → "아 내가 꺼놔서 그렇구나" — 끄신 게 아니었다).
+ * 오늘의 글감(topic-briefs-local)은 이미 prefs.json 으로 기억한다. 같은 방식으로 맞춘다.
+ *
+ * 못 읽으면 꺼짐으로 본다 — 안 잰 것을 켜짐으로 바꾸지 않는다.
+ */
+function readAutoMinutes(): number {
+  try {
+    const saved = Math.floor(Number(JSON.parse(fs.readFileSync(PREFS(), 'utf8')).autoMinutes) || 0);
+    return saved > 0 ? Math.max(30, saved) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeAutoMinutes(minutes: number): void {
+  ensureDir();
+  try {
+    fs.writeFileSync(PREFS(), JSON.stringify({ autoMinutes: minutes }, null, 1), 'utf8');
+  } catch { /* 저장 못 해도 이번 세션은 돈다 */ }
+}
+
+/**
+ * 자동 회차를 건다.
+ *
+ * @param send 진행을 보낼 곳. **없으면 조용히 돈다** — 앱만 켜 두고 화면을 안 연 경우다.
+ *   전에는 회차를 건 창(event.sender)에 묶여 있어서, 되살릴 때 보낼 곳이 없으면 걸 수가 없었다.
+ *
+ * 30분 아래로는 안 내린다. 실측(2026-09-10): 후보 40개만 재는 데도 118초, 정상 회차는 10~15분이다.
+ * 더 자주 돌리면 회선이 쉬는 틈이 없어 집 주소가 네이버에서 눈총을 받는다 —
+ * 사장님 개인 네이버 사용까지 영향을 받는다.
+ */
+function startAuto(minutes: number, send?: (payload: unknown) => void): void {
+  stopAuto();
+  if (!(minutes > 0)) return;
+  autoMinutes = Math.max(30, minutes);
+  autoTimer = setInterval(() => {
+    if (running) return;
+    running = true;
+    abortRequested = false;
+    runRealtimeNiche({
+      onProgress: (p) => { try { send?.(p); } catch { /* 무시 */ } },
+    })
+      .then((result) => { try { send?.({ phase: 'done', message: '자동 회차 끝', result }); } catch { /* 무시 */ } })
+      .catch(() => { /* 자동 회차 실패는 조용히 — 다음 차례에 다시 한다 */ })
+      .finally(() => { running = false; });
+  }, autoMinutes * 60_000);
+}
+
+/** 앱이 켜질 때 저장된 간격으로 되살린다. 화면을 안 열어도 돈다. */
+export function restoreRealtimeNicheAuto(): void {
+  const saved = readAutoMinutes();
+  if (saved > 0) {
+    startAuto(saved);
+    console.log(`[REALTIME-NICHE] 저장된 자동 회차 되살림 — ${saved}분마다`);
+  }
+}
+
 export function setupRealtimeNicheHandlers(): void {
   if (!ipcMain.listenerCount('realtime-niche-get')) {
     ipcMain.handle('realtime-niche-get', async () => ({
@@ -324,29 +388,22 @@ export function setupRealtimeNicheHandlers(): void {
   if (!ipcMain.listenerCount('realtime-niche-auto')) {
     ipcMain.handle('realtime-niche-auto', async (event, payload?: { minutes?: number }) => {
       const minutes = Math.max(0, Math.floor(Number(payload?.minutes) || 0));
-      stopAuto();
-      if (minutes === 0) return { success: true, autoMinutes: 0 };
-      /*
-       * 30분 아래로는 안 내린다. 실측(2026-09-10): 후보 40개만 재는 데도 118초가 걸렸고,
-       * 정상 회차(후보 240 + 자리 실측)는 10~15분이다. 15분 간격이면 회선이 쉬는 틈이 없어
-       * 집 주소가 네이버에서 눈총을 받는다 — 사장님 개인 네이버 사용까지 영향을 받는다.
-       */
-      autoMinutes = Math.max(30, minutes);
-      autoTimer = setInterval(() => {
-        if (running) return;
-        running = true;
-        abortRequested = false;
-        runRealtimeNiche({
-          onProgress: (p) => { try { event.sender.send(REALTIME_NICHE_PROGRESS_CHANNEL, p); } catch { /* 무시 */ } },
-        })
-          .then((result) => { try { event.sender.send(REALTIME_NICHE_PROGRESS_CHANNEL, { phase: 'done', message: '자동 회차 끝', result }); } catch { /* 무시 */ } })
-          .catch(() => { /* 자동 회차 실패는 조용히 — 다음 차례에 다시 한다 */ })
-          .finally(() => { running = false; });
-      }, autoMinutes * 60_000);
+      if (minutes === 0) {
+        stopAuto();
+        // 끈 것도 기억한다 — 0 도 값이다. 안 그러면 다음에 켤 때 옛 간격이 살아난다.
+        writeAutoMinutes(0);
+        return { success: true, autoMinutes: 0 };
+      }
+      startAuto(minutes, (p) => {
+        try { event.sender.send(REALTIME_NICHE_PROGRESS_CHANNEL, p); } catch { /* 창이 닫혔을 수 있다 */ }
+      });
+      writeAutoMinutes(autoMinutes);
       return { success: true, autoMinutes };
     });
   }
 
+  // 화면을 안 열어도 돌아야 한다 — 앱을 켜 두는 이유가 그것이다.
+  restoreRealtimeNicheAuto();
   console.log('[REALTIME-NICHE] ✅ 실시간 틈새(앱 전용) 핸들러 등록 완료');
 }
 

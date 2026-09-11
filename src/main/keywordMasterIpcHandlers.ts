@@ -68,19 +68,36 @@ function startBackgroundWorkers(): void {
   }
 }
 
+/*
+ * 성능 우선 모드가 멈추는 것 — **예전 워커만.**
+ *
+ * 전에는 자리 감시·오늘의 글감·실시간 틈새까지 한 덩어리로 같이 멈췄다.
+ * 그런데 enableBackgroundWorkers 는 기본값이 false 이고 사장님 config.json 에는
+ * 그 값이 아예 없다 → 앱이 늘 성능 우선 모드로 켜졌다 → **자동 회차가 하나도 안 돌았다.**
+ * 사장님이 앱을 계속 켜 두시는 이유가 "알아서 돌아라"인데 그 뜻이 통째로 지워지고 있었다
+ * (실측 2026-09-11: 틈새 되살리기 로그가 뜨고 직후 여기서 꺼졌다).
+ *
+ * 사장님 결정(2026-09-11) "내 판(자리·글감·틈새)만 돌게".
+ * 이 셋은 각자 화면에 on/off 스위치가 있다 — 끄고 싶으면 거기서 끈다.
+ * 예전 자동사냥·급등스캔·프리크롤러와 한 덩어리로 묶지 않는다.
+ * (앱을 닫을 때는 아래 stopMyLaneSchedulers 로 같이 멈춘다 — 타이머를 남기지 않는다.)
+ */
 function stopBackgroundWorkers(): void {
   stopAutoHealthCheck();
   stopAutoHuntingScheduler();
   stopSurgeScanner();
   stopPrecrawler();
   stopRankTracker();
-  stopSeatWatchScheduler();
-  stopRealtimeNicheScheduler();
-  // 글감 자동 회차는 한 번에 몇 분씩 브라우저를 쓴다 — 성능 우선 모드면 같이 멈춘다.
-  stopTopicBriefsScheduler();
   stopCiWatchdog();
   stopLifecycleTracker();
   stopRefreshScheduler();
+}
+
+/** 앱을 닫을 때 내 판 타이머도 같이 멈춘다 — 성능 모드와는 무관하다. */
+export function stopMyLaneSchedulers(): void {
+  stopSeatWatchScheduler();
+  stopRealtimeNicheScheduler();
+  stopTopicBriefsScheduler();
 }
 
 async function applyBackgroundWorkerPreference(enable: boolean): Promise<{ enabled: boolean }> {
