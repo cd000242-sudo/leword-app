@@ -57,10 +57,17 @@ async function main() {
    */
   const clockToday = kstToday(); // ISO 날짜 자리 = 한국 날짜
   const planned = scheduledRound(arg('schedule'), new Date());
-  const today = planned ? planned.day : clockToday;
+  /*
+   * today 는 **Date 로 유지한다.** 아래에서 todaysRounds·pickFactsForPrompt·buildBriefPrompt·
+   * validateBriefs 가 전부 Date 를 받는다 — 문자열을 넘기면 kstNow.toISOString 에서 죽는다.
+   * (실측 2026-09-11: 그렇게 넘겨서 예약 회차 두 건이 연달아 실패했다. 손으로 돌린 회차는
+   *  github.event.schedule 이 비어 planned 가 null 이라 멀쩡해서 한동안 안 보였다.)
+   * 예약이 정한 날짜는 그 날의 KST 자정으로 민 Date 로 바꿔 쓴다.
+   */
+  const today = planned ? new Date(`${planned.day}T00:00:00.000Z`) : clockToday;
   const slot = planned ? planned.slot : roundSlotOf(clockToday);
   if (planned) {
-    console.log(`예약 '${arg('schedule')}' → ${today} ${slot} 회차로 기록한다(실행 시각으로는 ${clockToday} ${roundSlotOf(clockToday)}).`);
+    console.log(`예약 '${arg('schedule')}' → ${planned.day} ${slot} 회차로 기록한다(실행 시각으로는 ${clockToday.toISOString().slice(0, 10)} ${roundSlotOf(clockToday)}).`);
   }
   // --carry: 사이트에 실린 직전 파일. 오늘(KST) 앞 회차를 남기고 이번 회차를 덧붙인다(아침·오후·저녁).
   const carryPath = arg('carry') ? path.resolve(arg('carry')) : '';
