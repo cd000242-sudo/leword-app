@@ -1483,6 +1483,12 @@
       추정하지 않는다 — 안 잰 쌍은 '아직 안 잼'이고, 적중률 분모는 잰 쌍만이다.
     -->
     <section class="leword-screen" data-screen="rank">
+      <!--
+        LEWORD 가 고른 것이 실제로 올라갔나(2026-09-11) — 사장님 "그걸 꾸준히 쓰면 성과가 나는거야?".
+        추적 전체가 아니라 **표시(leword-pick)가 붙은 것만** 센다. 지금 쌓인 319건 중 307건이
+        제목을 잘라 만든 조각이라 같이 세면 "첫 페이지 59건" 같은 숫자가 나오는데 그 말들은 아무도 안 친다.
+      -->
+      <div id="proofBox" style="margin-bottom: 14px;"></div>
       <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
           <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
@@ -9166,6 +9172,8 @@
             return;
           }
           const isNew = new Set(result.newKeywords || []);
+          // 추적 시작이 이 줄의 실측값을 같이 넘기려면 화면이 들고 있어야 한다.
+          window.__nicheRows = rows;
           body.innerHTML = '<div style="overflow-x:auto; border:1px solid rgba(255,255,255,0.1); border-radius:10px;">'
             + '<table style="width:100%; border-collapse:collapse; font-size:13px;">'
             + '<thead><tr style="background:rgba(255,255,255,0.05); color:#94a3b8; font-size:11.5px;">'
@@ -9212,7 +9220,7 @@
             : btn('🔍 자리 보기', "openNaverSearch('" + kw + "', 'blog')");
           return seatBtn
             + btn('더 파보기', "nicheDrilldown('" + kw + "', " + idx + ")", true)
-            + btn('추적 시작', "nicheTrack('" + kw + "')")
+            + btn('추적 시작', "nicheTrack('" + kw + "', " + idx + ")")
             + btn('네이버', "openNaverSearch('" + kw + "')");
         }
 
@@ -9249,11 +9257,24 @@
         };
 
         /** 다 썼으면 노출 추적으로 — 오늘 쓸 한 편 카드와 같은 창구다. */
-        window.nicheTrack = async function nicheTrack(kw) {
+        window.nicheTrack = async function nicheTrack(kw, idx) {
           const url = window.prompt('발행한 글 주소를 넣어 주세요. 7·14·28일 뒤 순위를 잽니다.\n\n검색어: ' + kw);
           if (!url) return;
+          // 오늘 쓸 한 편과 같은 표시·같은 값으로 넣는다. 두 화면이 다른 모양으로 넣으면 성과를 같이 못 센다.
+          const row = ((window.__nicheRows || [])[idx]) || {};
           try {
-            const res = await window.electronAPI.invoke('exposure-add-manual', { keyword: kw, postUrl: String(url).trim() });
+            const res = await window.electronAPI.invoke('exposure-add-manual', {
+              keyword: kw, postUrl: String(url).trim(),
+              category: 'leword-pick',
+              pick: {
+                source: '실시간 틈새',
+                searchVolume: typeof row.searchVolume === 'number' ? row.searchVolume : null,
+                documentCount: typeof row.documentCount === 'number' ? row.documentCount : null,
+                seat: row.seat || null,
+                facing: typeof row.seatFacing === 'number' ? row.seatFacing : null,
+                measuredAt: row.measuredAt || new Date().toISOString(),
+              },
+            });
             window.alert(res && res.success ? '추적을 시작했습니다. [노출 추적] 화면에서 볼 수 있습니다.' : ((res && res.error) || '추적을 시작하지 못했습니다'));
           } catch (error) {
             window.alert(String((error && error.message) || error));
@@ -9610,8 +9631,26 @@
           if (!/^https?:\/\//i.test(url)) { if (msg) msg.textContent = '글 주소를 http 로 시작하게 넣어 주세요.'; return; }
           if (msg) msg.textContent = '추적에 넣는 중…';
           try {
+            /*
+             * category 를 'leword-pick' 으로 박는다 — 이 표시가 붙은 것만 성과 계산에 센다.
+             * 지금 추적에 쌓인 319건 중 307건이 제목을 잘라 만든 조각이라(auto-extracted),
+             * 그걸 같이 세면 "첫 페이지 59건" 같은 숫자가 나오는데 그 말들은 아무도 안 친다.
+             *
+             * pick 은 **고르던 그 순간에 잰 값**이다. 나중에 다시 재면 자리가 이미 변해 있어
+             * 무엇이 갈랐는지 알 수 없다. 그래서 그때 박아 둔다.
+             */
             const res = await window.electronAPI.invoke('exposure-add-manual', {
-              keyword: pick.keyword, postUrl: url, postTitle: (pick.titles[0] && pick.titles[0].text) || pick.keyword, category: pick.topic || 'daily-pick',
+              keyword: pick.keyword, postUrl: url,
+              postTitle: (pick.titles[0] && pick.titles[0].text) || pick.keyword,
+              category: 'leword-pick',
+              pick: {
+                source: pick.source || '오늘 쓸 한 편',
+                searchVolume: typeof pick.searchVolume === 'number' ? pick.searchVolume : null,
+                documentCount: typeof pick.documentCount === 'number' ? pick.documentCount : null,
+                seat: pick.seat || null,
+                facing: typeof pick.seatFacing === 'number' ? pick.seatFacing : null,
+                measuredAt: pick.measuredAt || new Date().toISOString(),
+              },
             });
             if (msg) {
               msg.innerHTML = (res && res.success)
@@ -10482,7 +10521,55 @@
           status.innerHTML = rankEsc(data.rssUrl || '') + ' · 추적 ' + (t.trackedPairs || 0) + '쌍 · 잰 것 ' + (t.checkedPairs || 0) + '쌍';
         };
 
+        /*
+         * LEWORD 가 고른 것의 성적표.
+         *
+         * 판정·셈은 전부 메인 프로세스(leword-proof)가 한다 — 여기서 비율을 새로 만들지 않는다.
+         * 표본이 적으면 서버가 rate 를 null 로 주고 왜 비율이 없는지 note 에 적어 보낸다.
+         * 그 말을 그대로 찍는다. 3건 중 1건을 33%라 적는 순간 이 판은 못 믿을 판이 된다.
+         */
+        window.renderProof = function renderProof(proof) {
+          const box = document.getElementById('proofBox');
+          if (!box) return;
+          if (!proof || proof.tracked === 0) {
+            box.innerHTML = '<div style="padding:14px 16px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px; font-size:12.5px; color:#64748b; line-height:1.7;">'
+              + '<b style="color:#e2e8f0;">아직 LEWORD 가 고른 글이 추적에 없습니다.</b><br>'
+              + '[오늘 쓸 한 편] 이나 [실시간 검색어] 카드에서 글을 쓰고 <b style="color:#94a3b8;">발행 주소를 넣으면</b> 여기에 쌓입니다.'
+              + (proof && proof.excluded ? ' (옛 자동 추출 기록 ' + proof.excluded + '건은 검색어가 아니라 제목 조각이라 세지 않습니다.)' : '')
+              + '</div>';
+            return;
+          }
+          const tile = (label, value, hint) => '<div style="flex:1 1 130px; padding:11px 13px; background:#111c31; border:1px solid rgba(255,255,255,0.08); border-radius:10px;">'
+            + '<div style="font-size:10.5px; color:#64748b; margin-bottom:3px;">' + rankEsc(label) + '</div>'
+            + '<div style="font-size:19px; font-weight:700; color:#e2e8f0; font-variant-numeric:tabular-nums;">' + rankEsc(value) + '</div>'
+            + (hint ? '<div style="font-size:10.5px; color:#64748b; margin-top:2px;">' + rankEsc(hint) + '</div>' : '')
+            + '</div>';
+          const edge = (proof.wonMaxDocumentCount != null || proof.lostMinDocumentCount != null)
+            ? '<div style="margin-top:10px; font-size:12.5px; color:#cbd5e1; line-height:1.7;">'
+              + (proof.wonMaxDocumentCount != null ? '올라간 것 중 가장 큰 경쟁 글 <b style="color:#22c55e;">' + Number(proof.wonMaxDocumentCount).toLocaleString('ko-KR') + '개</b>' : '')
+              + (proof.wonMaxDocumentCount != null && proof.lostMinDocumentCount != null ? ' · ' : '')
+              + (proof.lostMinDocumentCount != null ? '안 올라간 것 중 가장 작은 경쟁 글 <b style="color:#f87171;">' + Number(proof.lostMinDocumentCount).toLocaleString('ko-KR') + '개</b>' : '')
+              + '<div style="font-size:11.5px; color:#64748b; margin-top:3px;">이 둘 사이가 지금까지 실측된 경계입니다.</div></div>'
+            : '';
+          box.innerHTML = '<div style="padding:14px 16px; background:#0f172a; border:1px solid rgba(251,191,36,0.22); border-radius:12px;">'
+            + '<div style="font-size:13.5px; font-weight:700; color:#fbbf24; margin-bottom:10px;">LEWORD 가 고른 글의 성적표</div>'
+            + '<div style="display:flex; gap:8px; flex-wrap:wrap;">'
+            + tile('추적에 넣은 것', proof.tracked + '개')
+            + tile('순위를 잰 것', proof.measured + '개', proof.pending ? '아직 안 잰 것 ' + proof.pending : '')
+            + tile('첫 페이지에 든 것', proof.won + '개', '10위 안')
+            + tile('적중률', proof.rate == null ? '—' : Math.round(proof.rate * 100) + '%', proof.rate == null ? '표본 부족' : '')
+            + '</div>'
+            + edge
+            + (proof.note ? '<div style="margin-top:9px; font-size:12px; color:#94a3b8;">' + rankEsc(proof.note) + '</div>' : '')
+            + (proof.excluded ? '<div style="margin-top:6px; font-size:11.5px; color:#64748b;">옛 자동 추출 기록 ' + proof.excluded + '건은 검색어가 아니라 제목 조각이라 세지 않습니다.</div>' : '')
+            + '</div>';
+        };
+
         window.loadRankBoard = async function loadRankBoard() {
+          try {
+            const proof = await window.electronAPI.invoke('exposure-proof');
+            if (proof && proof.success) window.renderProof(proof.proof);
+          } catch { /* 성적표를 못 그려도 아래 표는 보여 준다 */ }
           try {
             const res = await window.electronAPI.invoke('exposure-get-stats');
             if (!res || !res.success) return;

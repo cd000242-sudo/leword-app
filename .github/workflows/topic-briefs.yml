@@ -105,7 +105,21 @@ jobs:
           LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json
           # 달 12,000 건에서 기능 자체를 잠근다((80 + 대안 70) × 3회 × 31 = 13,950 이 이론 최대, 실제는 대안 대상이 절반 이하).
           # 사장님 2026-09-09 오후: "글감 자리 실측을 전부 해도 되지 않아? 20달러 내로 가능할 듯" — 황금 회차를 주 1회로 줄여 예산을 옮겼다.
-          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":12000}'
+          #
+          # ── 계정 무료 5,000 을 레인끼리 나눠 갖는다(2026-09-11) ──
+          # 거버너의 FREE_CEILING 은 **장부 파일 하나의 total** 에 적용된다. 그런데 레인마다 장부가
+          # 따로라(golden·briefs·issue) 셋이 각자 "나는 무료 5,000 이 있다"고 믿었다.
+          # 브라이트데이터 계정의 무료는 월 5,000 하나뿐이다 — 고치기 전 최악이 유료 19,000콜 = $28.50 이었다.
+          #
+          # 몫은 9월 실측 속도로 나눴다(2026-09-01~11): golden 월 10,320 · briefs 월 2,326 · issue 월 649.
+          #   golden 3,800 + briefs 900 + issue 300 = 5,000  (정확히 계정 무료)
+          # 유료 상한도 레인마다 못 박는다(기본값 0 이라 안 적으면 그 레인은 무료에서 멈춘다):
+          #   golden 9,000 + briefs 2,500 + issue 1,000 = 12,500콜 × $1.50/1,000 = **$18.75**
+          # 사장님 한도 "20달러만 안 넘으면 된다"(2026-09-07) 안이다.
+          # 이 산수는 brightdata-budget-invariant.test.ts 가 세 워크플로를 읽어 잠근다 — 한쪽만 올리면 깨진다.
+          LEWORD_BRIGHTDATA_FREE_CEILING: '900'
+          LEWORD_BRIGHTDATA_PAID_OVERAGE: '2500'
+          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":3400}'
           SERP_MODE: ${{ github.event.inputs.serp || 'brightdata' }}
           MAX_SERP: ${{ github.event.inputs.maxSerp || '80' }}
           SKIP_IF_DONE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}

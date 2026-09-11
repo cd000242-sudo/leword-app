@@ -2,6 +2,7 @@
 // AI API 미사용 (RSS XML 파싱 + 토큰 매칭 + 모바일 SERP HTTP fetch)
 import { ipcMain, app } from 'electron';
 import axios from 'axios';
+import { summarizeProof } from '../../utils/leword-proof';
 import * as cheerio from 'cheerio';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -23,6 +24,24 @@ interface TrackedKeyword {
   registeredAt: string;
   lastCheckedAt?: string;
   history: SerpCheck[];
+  /**
+   * LEWORD 가 고를 때 잰 값. 손으로 넣은 옛 기록에는 없다.
+   *
+   * 왜 남기나(2026-09-11): 나중에 "정면 N개 이하 · 경쟁 글 M개 이하에서는 올라갔다" 는 경계를
+   * **이 블로그 실측으로** 뽑으려면, 고른 순간의 조건을 그때 박아 둬야 한다.
+   * 나중에 다시 재면 자리가 이미 변해 있어서 무엇이 갈랐는지 알 수 없다.
+   */
+  pick?: PickFacts;
+}
+
+/** 고를 때 잰 값 — leword-proof.ts 의 PickFacts 와 같은 모양이다. */
+interface PickFacts {
+  source: string;
+  searchVolume: number | null;
+  documentCount: number | null;
+  seat: string | null;
+  facing: number | null;
+  measuredAt: string;
 }
 
 interface SerpCheck {
@@ -726,7 +745,7 @@ export function setupExposureTrackingHandlers(): void {
 
   // 7. 수동 페어 등록 (자동 매칭이 못 잡은 경우)
   if (!ipcMain.listenerCount('exposure-add-manual')) {
-    ipcMain.handle('exposure-add-manual', async (_e, p: { keyword: string; postUrl: string; postTitle?: string; category?: string }) => {
+    ipcMain.handle('exposure-add-manual', async (_e, p: { keyword: string; postUrl: string; postTitle?: string; category?: string; pick?: PickFacts }) => {
       try {
         const kw = String(p?.keyword || '').trim();
         const url = String(p?.postUrl || '').trim();
@@ -741,9 +760,29 @@ export function setupExposureTrackingHandlers(): void {
           category: p.category,
           registeredAt: new Date().toISOString(),
           history: [],
+          // 준 것만 담는다 — 없으면 없는 채로 둔다(빈 값을 잰 것처럼 만들지 않는다).
+          ...(p.pick ? { pick: p.pick } : {}),
         });
         writeJson(FILE_TRACKED(), tracked);
         return { success: true, totalTracked: tracked.length };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+  }
+
+  /*
+   * LEWORD 가 고른 것이 실제로 올라갔나 — 사장님 "그걸 꾸준히 쓰면 성과가 나는거야?"(2026-09-11).
+   *
+   * 지금까지는 답할 근거가 없었다. 추적 319건 중 307건이 제목을 잘라 만든 조각이라
+   * '첫 페이지 59건' 이 숫자로는 화려한데 그 12건을 검색광고에 물으니 전부 "모름" 이었다.
+   * 아무도 안 치는 말에서 1위 하는 건 쉽다.
+   *
+   * 그래서 표시(leword-pick)가 붙은 것만 센다. 판정은 leword-proof 가 하고 여기는 읽어서 넘기기만 한다.
+   */
+  if (!ipcMain.listenerCount('exposure-proof')) {
+    ipcMain.handle('exposure-proof', async () => {
+      try {
+        const tracked = readJson<TrackedKeyword[]>(FILE_TRACKED(), []);
+        return { success: true, proof: summarizeProof(tracked as any) };
       } catch (err: any) { return { success: false, error: err?.message }; }
     });
   }
