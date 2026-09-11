@@ -27,6 +27,7 @@ const path = require('path');
 const { classifySearchIntent, resolveIntentFromSerp } = require('../src/utils/keyword-intent');
 const { SECTION_MARKER_VERSION, trustedSections } = require('../src/utils/naver-serp-structure');
 const { judgeEarlyMover } = require('../src/utils/early-mover');
+const { repairFreeSample } = require('../src/utils/free-sample');
 const { shapeFromLabel, analyzeDemandWithRecency } = require('../src/utils/keyword-demand-shape');
 const { judgeNamedPersonRisk } = require('../src/utils/named-person-risk');
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
@@ -667,9 +668,18 @@ async function main() {
    */
   const kstDay = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
   const previousSample = prevPayload && prevPayload.freeSample;
-  const freeSample = previousSample && previousSample.day === kstDay
-    ? previousSample
-    : { day: kstDay, keywords: merged.rows.slice(0, 5).map((row) => row.keyword) };
+  /*
+   * 같은 날이면 직전의 다섯을 이어받되 **보드에서 사라진 자리는 메운다.**
+   *
+   * 전에는 직전 것을 통째로 재사용했다. 그런데 보드 행은 회차마다 바뀐다(신규·이월·만료) —
+   * 실측(발행 2026-09-09, 행 43개): 그 다섯 중 보드에 남은 것이 '제주렌트카 본사' 하나뿐이라
+   * 비로그인 방문자가 카드를 **한 장만** 봤다(사장님 "황금키워드는 1개만 보인다고 문의왔어요").
+   * 화면은 순번이 아니라 이름으로 잠금을 푸니까 이름이 없으면 그대로 잠긴다.
+   *
+   * 하루 고정의 뜻은 그대로다 — 살아남은 이름은 안 바뀐다. 채우는 건 사라진 자리뿐이다.
+   */
+  const carried = previousSample && previousSample.day === kstDay ? previousSample.keywords : null;
+  const freeSample = { day: kstDay, keywords: repairFreeSample(merged, carried) };
 
   const payload = {
     publishedAt: new Date().toISOString(),

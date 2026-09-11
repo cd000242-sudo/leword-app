@@ -4880,12 +4880,12 @@
           };
         }
 
-        function kitPanelHtml(kw, idx, kit, relatedFallback, note) {
+        function kitPanelHtml(kw, idx, kit, relatedFallback, note, closeFn) {
           const { titlesHtml, pillsHtml, legend, basisLine } = kitPanelParts(kit, relatedFallback, note);
           return ''
             + '<div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:12px; font-size:12px; color:#94a3b8;">'
             + '<b style="color:#fbbf24; font-weight:600; font-size:13px;">' + kitEsc(kw) + '</b> 으로 지금 쓴다면'
-            + '<button onclick="goldenDrilldown(\'' + String(kw).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', ' + idx + ')" style="margin-left:auto; font:inherit; font-size:11.5px; color:#64748b; background:none; border:0; cursor:pointer;">닫기 ▴</button>'
+            + '<button onclick="' + (closeFn || 'goldenDrilldown') + '(\'' + String(kw).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', ' + idx + ')" style="margin-left:auto; font:inherit; font-size:11.5px; color:#64748b; background:none; border:0; cursor:pointer;">닫기 ▴</button>'
             + '</div>'
             + '<div style="display:grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap:14px;">'
             + '<div><h4 style="margin:0 0 8px; font-family: ui-monospace, Consolas, monospace; font-size:10px; letter-spacing:.1em; color:#64748b; font-weight:500;">제목 후보</h4>'
@@ -4917,15 +4917,25 @@
           if (legendBox) legendBox.textContent = parts.legend;
         }
 
-        window.goldenDrilldown = async function(kw, idx) {
-          const row = document.getElementById('golden-drill-' + idx);
-          const content = document.getElementById('golden-drill-content-' + idx);
-          if (!row || !content) return;
-          if (row.style.display !== 'none') {
-            row.style.display = 'none';
-            return;
-          }
-          row.style.display = '';
+        /**
+         * 글감 펼치기 — **화면이 달라도 같은 부품을 쓴다.**
+         *
+         * 사장님 2026-09-11: "실검 틈새는 바로 재지는데 그게 끝이야. 파생이나 연관키워드
+         * 확장키워드도 없고 분석하는버튼도없고". 부품은 이미 있었다 — 황금 발굴이 쓰던
+         * golden-writing-kit(제목 후보·같이 넣을 말)과 analyze-keyword-demand(수요)다.
+         * 그게 goldenDrilldown 안에 묻혀 있어서 틈새가 못 썼다.
+         *
+         * 새로 만들지 않고 여기로 꺼낸다. 두 화면이 사본을 따로 두면 같은 검색어에
+         * 다른 제목이 나오기 시작한다.
+         *
+         * @param content 펼쳐 넣을 요소
+         * @param kw      검색어
+         * @param idx     화면 안 번호 — kitPanelHtml 이 수요 상자 id 를 이걸로 만든다
+         * @param opts    { closeFn: 닫기가 부를 함수 이름, onSeat: 자리를 잰 뒤 그 화면이 표에 옮길 일 }
+         */
+        window.openWritingKit = async function openWritingKit(content, kw, idx, opts) {
+          const options = opts || {};
+          const closeFn = options.closeFn || 'goldenDrilldown';
           /*
            * 한 번 만든 글감은 기억한다. 접었다 다시 펴는 것만으로 자리를 또 재면
            * 같은 페이지를 네 번 더 받는다(약 24초). 발굴 결과가 새로 그려지면 어차피 비워진다.
@@ -4934,7 +4944,7 @@
           window.__kitCache = window.__kitCache || {};
           const remembered = window.__kitCache[cacheKey];
           if (remembered) {
-            content.innerHTML = kitPanelHtml(kw, idx, remembered.kit, remembered.fallback, null);
+            content.innerHTML = kitPanelHtml(kw, idx, remembered.kit, remembered.fallback, null, closeFn);
             window.analyzeDemand(kw, idx);
             return;
           }
@@ -4948,7 +4958,7 @@
               documentCount: typeof k.documentCount === 'number' ? k.documentCount : null,
             }));
             // 먼저 아는 것만 그린다 — 자리를 재는 동안 빈 화면을 보이지 않는다.
-            content.innerHTML = kitPanelHtml(kw, idx, null, fallback, '자리를 재는 중… (한 건에 6초쯤, 최대 4건)');
+            content.innerHTML = kitPanelHtml(kw, idx, null, fallback, '자리를 재는 중… (한 건에 6초쯤, 최대 4건)', closeFn);
             window.analyzeDemand(kw, idx);
 
             const cached = (window.__seatTopTitles || {})[String(kw).replace(/\s+/g, '')];
@@ -4981,11 +4991,24 @@
             }
             kitPatchPanel(content, kit, fallback, null);
             window.__kitCache[cacheKey] = { kit, fallback };
-            // 펼치면서 잰 본 키워드 자리는 표의 자리 칸에도 그대로 옮긴다 — 두 번 재지 않는다.
-            if (kit.seed && kit.seed.seat) window.goldenFillSeatFromKit(kw, kit.seed);
+            // 펼치면서 잰 자리는 그 화면의 표에도 그대로 옮긴다 — 두 번 재지 않는다.
+            if (kit.seed && kit.seed.seat && typeof options.onSeat === 'function') options.onSeat(kw, kit.seed);
           } catch (err) {
             content.innerHTML = '<div style="color:#ef4444; font-size:12px;">조회 실패: ' + kitEsc((err && err.message) || err) + '</div>';
           }
+        };
+
+        /** 황금 발굴의 펼치기 — 행을 여닫고 본체에 넘긴다. */
+        window.goldenDrilldown = async function goldenDrilldown(kw, idx) {
+          const row = document.getElementById('golden-drill-' + idx);
+          const content = document.getElementById('golden-drill-content-' + idx);
+          if (!row || !content) return;
+          if (row.style.display !== 'none') { row.style.display = 'none'; return; }
+          row.style.display = '';
+          await window.openWritingKit(content, kw, idx, {
+            closeFn: 'goldenDrilldown',
+            onSeat: (keyword, seed) => window.goldenFillSeatFromKit(keyword, seed),
+          });
         };
 
         /** 글감을 펴면서 잰 자리를 표의 자리 칸·거르개 표식에 반영한다. */
@@ -9154,7 +9177,7 @@
             + '<th style="text-align:left; padding:9px 10px;">자리</th>'
             + '<th style="text-align:left; padding:9px 10px;">판정</th>'
             + '<th style="padding:9px 6px;"></th></tr></thead><tbody>'
-            + rows.map((r) => '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
+            + rows.map((r, i) => '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
               + '<td style="padding:9px 10px; font-weight:600;">' + r.keyword
                 + (isNew.has(r.keyword) ? ' <span style="font-size:10px; font-weight:800; padding:1px 6px; border-radius:999px; background:rgba(251,191,36,0.18); color:#fbbf24;">NEW</span>' : '')
               + '</td>'
@@ -9162,12 +9185,79 @@
               + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + nicheNum(r.searchVolume) + '</td>'
               + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums;">' + nicheNum(r.documentCount) + '</td>'
               + '<td style="padding:9px 10px;">' + (r.hasLiveDemand ? '<span style="color:#22c55e;">▲ 실측</span>' : '<span style="color:#64748b;">—</span>') + '</td>'
-              + '<td style="padding:9px 10px;"><span style="font-weight:700; ' + (NICHE_SEAT_STYLE[r.seat] || '') + '">' + r.seat + '</span>'
+              + '<td id="niche-seat-' + i + '" style="padding:9px 10px;"><span style="font-weight:700; ' + (NICHE_SEAT_STYLE[r.seat] || '') + '">' + r.seat + '</span>'
                 + (r.seatFacing !== null && r.seatFacing !== undefined ? '<span style="color:#64748b; font-size:11.5px;"> · 정면 ' + r.seatFacing + '</span>' : '') + '</td>'
               + '<td style="padding:9px 10px;"><span style="display:inline-block; padding:2px 8px; border-radius:999px; font-weight:800; font-size:11px; ' + (NICHE_VERDICT_STYLE[r.verdict] || '') + '">' + (NICHE_VERDICT_LABEL[r.verdict] || r.verdict) + '</span></td>'
-              + '<td style="padding:9px 6px; text-align:right;"><button onclick="openNaverSearch(\'' + String(r.keyword).replace(/'/g, "\\'") + '\')" style="padding:4px 9px; border:1px solid rgba(255,255,255,0.16); border-radius:6px; background:transparent; color:#e2e8f0; font-size:11.5px; cursor:pointer;">네이버</button></td>'
-              + '</tr>').join('')
+              + '<td style="padding:9px 6px; text-align:right; white-space:nowrap;">' + nicheActions(r, i) + '</td>'
+              + '</tr>'
+              /*
+               * 펼칠 자리. 황금 발굴과 같은 부품(openWritingKit)이 여기에 제목 후보·같이 넣을 말·
+               * 근거·수요를 그린다 — 사장님 2026-09-11 "그게 끝이야. 파생이나 연관키워드도 없고".
+               */
+              + '<tr id="niche-drill-' + i + '" style="display:none;"><td colspan="8" style="padding:14px 16px; background:#0b1220; border-top:1px solid rgba(251,191,36,0.18);">'
+              + '<div id="niche-drill-content-' + i + '"></div>'
+              + '</td></tr>').join('')
             + '</tbody></table></div>';
+        };
+
+        /** 틈새 행의 버튼들 — 오늘 쓸 한 편 카드와 같은 부품을 부른다. */
+        function nicheActions(row, idx) {
+          const kw = String(row.keyword).replace(/'/g, "\\'");
+          const btn = (label, onclick, accent) => '<button onclick="' + onclick + '" style="margin-left:4px; padding:4px 9px; border:1px solid '
+            + (accent ? '#fbbf24' : 'rgba(255,255,255,0.16)') + '; border-radius:6px; background:' + (accent ? '#fbbf24' : 'transparent')
+            + '; color:' + (accent ? '#1a1200' : '#e2e8f0') + '; font-size:11.5px; font-weight:' + (accent ? '800' : '400') + '; cursor:pointer;">' + label + '</button>';
+          // 자리를 아직 안 잰 줄은 그 자리에서 잴 수 있게 한다(앞 관문을 통과 못 해 '안 잼'인 줄도 사장님이 직접 보고 싶을 수 있다).
+          const seatBtn = (row.seat === '안 잼' || row.seat === '못 잼')
+            ? btn('자리 재기', "nicheMeasureSeat('" + kw + "', " + idx + ")")
+            : btn('🔍 자리 보기', "openNaverSearch('" + kw + "', 'blog')");
+          return seatBtn
+            + btn('더 파보기', "nicheDrilldown('" + kw + "', " + idx + ")", true)
+            + btn('추적 시작', "nicheTrack('" + kw + "')")
+            + btn('네이버', "openNaverSearch('" + kw + "')");
+        }
+
+        /** 틈새의 펼치기 — 행을 여닫고 황금 발굴과 같은 본체에 넘긴다. */
+        window.nicheDrilldown = async function nicheDrilldown(kw, idx) {
+          const row = document.getElementById('niche-drill-' + idx);
+          const content = document.getElementById('niche-drill-content-' + idx);
+          if (!row || !content) return;
+          if (row.style.display !== 'none') { row.style.display = 'none'; return; }
+          row.style.display = '';
+          await window.openWritingKit(content, kw, idx, { closeFn: 'nicheDrilldown' });
+        };
+
+        /**
+         * 이 줄의 자리를 지금 잰다 — 자리 실측기와 같은 창구(seat-measure)다.
+         * 회차가 앞 관문에서 걸러 안 잰 줄도 사장님이 직접 확인할 수 있어야 한다.
+         */
+        window.nicheMeasureSeat = async function nicheMeasureSeat(kw, idx) {
+          const cell = document.getElementById('niche-seat-' + idx);
+          if (cell) cell.innerHTML = '<span style="color:#94a3b8; font-size:11.5px;">재는 중…</span>';
+          try {
+            const res = await window.electronAPI.invoke('seat-measure-run', { keywords: [kw], withStructure: true });
+            const measured = (res && res.rows && res.rows[0]) || null;
+            if (!cell) return;
+            if (!measured || measured.status !== 'ok' || !measured.verdict) {
+              cell.innerHTML = '<span style="color:#fbbf24; font-size:11.5px;">못 쟀습니다 — 다시 눌러 보세요</span>';
+              return;
+            }
+            cell.innerHTML = '<span style="font-weight:700; ' + (NICHE_SEAT_STYLE[measured.verdict] || '') + '">' + measured.verdict + '</span>'
+              + (typeof measured.facing === 'number' ? '<span style="color:#64748b; font-size:11.5px;"> · 정면 ' + measured.facing + '</span>' : '');
+          } catch (error) {
+            if (cell) cell.innerHTML = '<span style="color:#fca5a5; font-size:11.5px;">' + String((error && error.message) || error) + '</span>';
+          }
+        };
+
+        /** 다 썼으면 노출 추적으로 — 오늘 쓸 한 편 카드와 같은 창구다. */
+        window.nicheTrack = async function nicheTrack(kw) {
+          const url = window.prompt('발행한 글 주소를 넣어 주세요. 7·14·28일 뒤 순위를 잽니다.\n\n검색어: ' + kw);
+          if (!url) return;
+          try {
+            const res = await window.electronAPI.invoke('exposure-add-manual', { keyword: kw, postUrl: String(url).trim() });
+            window.alert(res && res.success ? '추적을 시작했습니다. [노출 추적] 화면에서 볼 수 있습니다.' : ((res && res.error) || '추적을 시작하지 못했습니다'));
+          } catch (error) {
+            window.alert(String((error && error.message) || error));
+          }
         };
 
         window.openNaverSearch = function openNaverSearch(keyword) {
