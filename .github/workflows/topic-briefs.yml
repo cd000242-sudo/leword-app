@@ -114,7 +114,9 @@ jobs:
           npm install -g @anthropic-ai/claude-code
           # skipIfSlotDone: 이 회차가 오늘 이미 실렸으면 곧장 나간다(예약을 회차마다 세 번 걸어 둔 까닭).
           # 수동 실행(workflow_dispatch)은 다시 돌리려는 뜻이므로 건너뛰지 않는다.
-          node scripts/topic-briefs.js --out=topic-briefs.json --perField=5 --carry=site/spa/public/data/topic-briefs.json --serp="$SERP_MODE" --maxSerp="$MAX_SERP" --maxAltSerp=70 --skipIfSlotDone="$SKIP_IF_DONE"
+          # --schedule: 어느 예약이 발동했는지. 이게 없으면 스크립트가 시계로 회차를 정하는데,
+          # 자정을 넘겨 늦게 돈 저녁 예약이 다음 날 아침 회차를 잡아먹는다(실측 2026-09-11).
+          node scripts/topic-briefs.js --out=topic-briefs.json --perField=5 --carry=site/spa/public/data/topic-briefs.json --serp="$SERP_MODE" --maxSerp="$MAX_SERP" --maxAltSerp=70 --skipIfSlotDone="$SKIP_IF_DONE" --schedule="${{ github.event.schedule }}"
 
       # 다른 정적 보드와 같은 폴더 — 화면(TopicBriefsBoard)이 /data/topic-briefs.json 을 읽는다.
       #

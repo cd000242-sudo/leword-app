@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const {
   BRIEF_FIELDS, toFactCards, pickFactsForPrompt, buildBriefPrompt, validateBriefs, serpFitOf, markStars, kstToday, applyMeasuredVolumes,
-  roundSlotOf, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats, pickRelatedKeywords, chooseAlternative,
+  roundSlotOf, scheduledRound, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats, pickRelatedKeywords, chooseAlternative,
 } = require('../src/utils/topic-briefs');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
@@ -43,8 +43,25 @@ async function main() {
   const perField = Number(arg('perField')) || 5; // 사장님 2026-09-09: 주제마다 5개 이상
   const serpMode = arg('serp', 'none'); // local | brightdata | none
   const maxSerp = Number(arg('maxSerp')) || 40;
-  const today = kstToday(); // ISO 날짜 자리 = 한국 날짜
-  const slot = roundSlotOf(today);
+  /*
+   * 회차는 **어느 예약이 발동했는지**로 정한다 — 시계로 정하면 늦은 예약이 남의 회차를 잡아먹는다.
+   *
+   * 실측 사고(2026-09-11, 사장님 "12시 오늘의 글감 안돌았네"):
+   *   09-10 저녁 예약(UTC 11:23)이 4시간 늦어 09-11 00:36 KST 에 돌았다.
+   *   시계로 보면 0시는 '아침'이고 날짜도 09-11 이라 **09-10 저녁이 09-11 아침으로** 실렸다.
+   *   그러자 그날 진짜 아침 틱 셋이 skipIfSlotDone 에 걸려 전부 건너뛰었고,
+   *   낮 틱은 깃허브가 떨어뜨려 그날 회차가 하나로 끝났다.
+   *
+   * 깃허브가 github.event.schedule 로 준 cron 을 그대로 받아 그 예약이 원래 돌았어야 할
+   * 시각으로 날짜·회차를 정한다. 손으로 돌린 회차(cron 없음)는 예전처럼 시계를 쓴다.
+   */
+  const clockToday = kstToday(); // ISO 날짜 자리 = 한국 날짜
+  const planned = scheduledRound(arg('schedule'), new Date());
+  const today = planned ? planned.day : clockToday;
+  const slot = planned ? planned.slot : roundSlotOf(clockToday);
+  if (planned) {
+    console.log(`예약 '${arg('schedule')}' → ${today} ${slot} 회차로 기록한다(실행 시각으로는 ${clockToday} ${roundSlotOf(clockToday)}).`);
+  }
   // --carry: 사이트에 실린 직전 파일. 오늘(KST) 앞 회차를 남기고 이번 회차를 덧붙인다(아침·오후·저녁).
   const carryPath = arg('carry') ? path.resolve(arg('carry')) : '';
   let carried = null;
