@@ -29,10 +29,16 @@ const stopEnd = hub.indexOf('}', hub.indexOf('stopRefreshScheduler();', stopStar
 const stopBlock = hub.slice(stopStart, stopEnd);
 
 describe('성능 우선 모드가 내 판을 끄지 않는다', () => {
-  it('자리 감시·글감·틈새를 성능 모드에서 멈추지 않는다', () => {
+  it('자리 감시·글감·틈새·회차 감시견을 성능 모드에서 멈추지 않는다', () => {
     expect(stopBlock, '자리 감시가 성능 모드에 묶여 있다').not.toContain('stopSeatWatchScheduler()');
     expect(stopBlock, '글감이 성능 모드에 묶여 있다').not.toContain('stopTopicBriefsScheduler()');
     expect(stopBlock, '틈새가 성능 모드에 묶여 있다').not.toContain('stopRealtimeNicheScheduler()');
+    /*
+     * 회차 감시견은 **빠진 회차를 깨우라고 만든 것**이다(2026-09-10).
+     * 그게 성능 모드에 같이 꺼져 있었다 — 그래서 2026-09-11 낮 글감이 안 돌았을 때
+     * 아무도 안 깨웠다. 안전장치를 안전장치 스위치로 끄고 있었던 셈이다.
+     */
+    expect(stopBlock, '회차 감시견이 성능 모드에 묶여 있다').not.toContain('stopCiWatchdog()');
   });
 
   it('예전 워커는 그대로 성능 모드가 다스린다 — 이건 안 건드린다', () => {
@@ -53,7 +59,7 @@ describe('내 판은 각자 자기 스위치로 돈다', () => {
 
   it('끄는 길은 남아 있다 — 앱을 닫을 때 타이머를 정리한다', () => {
     expect(hub).toContain('export function stopMyLaneSchedulers');
-    for (const fn of ['stopSeatWatchScheduler()', 'stopRealtimeNicheScheduler()', 'stopTopicBriefsScheduler()']) {
+    for (const fn of ['stopSeatWatchScheduler()', 'stopRealtimeNicheScheduler()', 'stopTopicBriefsScheduler()', 'stopCiWatchdog()']) {
       expect(hub.slice(hub.indexOf('export function stopMyLaneSchedulers'))).toContain(fn);
     }
     // 그리고 실제로 종료 훅이 부른다 — 안 부르면 그냥 죽은 코드다.

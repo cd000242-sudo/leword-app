@@ -88,7 +88,6 @@ function stopBackgroundWorkers(): void {
   stopSurgeScanner();
   stopPrecrawler();
   stopRankTracker();
-  stopCiWatchdog();
   stopLifecycleTracker();
   stopRefreshScheduler();
 }
@@ -98,6 +97,13 @@ export function stopMyLaneSchedulers(): void {
   stopSeatWatchScheduler();
   stopRealtimeNicheScheduler();
   stopTopicBriefsScheduler();
+  /*
+   * 회차 감시견도 여기에 둔다. 이건 **빠진 회차를 깨우라고 만든 안전장치**인데
+   * 성능 우선 모드에 같이 꺼져 있었다 — 안전장치를 안전장치 스위치로 끈 꼴이다.
+   * 실측 2026-09-11: 낮 글감 3틱이 전부 안 떴는데 아무도 안 깨웠다.
+   * 20분마다 발행본을 한 번 읽는 게 전부라 PC 부하도 사실상 없다.
+   */
+  stopCiWatchdog();
 }
 
 async function applyBackgroundWorkerPreference(enable: boolean): Promise<{ enabled: boolean }> {
