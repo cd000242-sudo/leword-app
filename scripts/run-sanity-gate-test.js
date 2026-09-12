@@ -343,6 +343,12 @@ const VITEST_SUITES = [
     'src/utils/__tests__/preempt-volume-gate.test.ts',
     // 확장·연관 여부가 후보 → 배치 → 발행까지 이름 그대로 가는지(필드 복사 누락 재발 방지).
     'src/utils/__tests__/preempt-expansion-wiring.test.ts',
+    /*
+     * 예약 회차가 통째로 죽던 회귀(today 를 Date → 문자열로 바꾼 것). 예약으로만 죽고
+     * 손으로 돌리면 멀쩡해서 한동안 안 보였다. 게이트에 없던 것을 넣는다(2026-09-12).
+     */
+    'src/utils/__tests__/brief-round-date-type.test.ts',
+    'src/utils/__tests__/brief-round-slot.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
