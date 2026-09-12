@@ -416,6 +416,22 @@ async function main() {
     });
     if (dbSeeds.length > 0) console.log(`  ${topic} 창고 씨앗 ${dbSeeds.length}개: ${dbSeeds.slice(0, 6).join(', ')}${dbSeeds.length > 6 ? ' …' : ''}`);
     const baseSeeds = [...coverage.seedTerms, ...seasonalSeeds, ...dbSeeds];
+    /*
+     * 씨앗이 어느 갈래에서 왔는지 적어 둔다 (2026-09-12).
+     *
+     * 사장님: "그키워드중에 확장 및 연관키워드 위주로 알려줘야 메리트가있는거지".
+     * 그런데 발행된 행에는 그게 씨앗 머리말인지 연관어에서 늘린 것인지가 **아예 없었다**
+     * (실측: origin·isDerived·source 어느 필드도 없음). 앞세울 근거가 없었던 것이다.
+     *
+     *   coverage  상시 어휘(방법·후기) — 계절성 0. 머리 키워드가 나오는 자리다.
+     *   seasonal  계절 씨앗 — 이 보드가 노리는 갈래.
+     *   warehouse 창고(검색광고 업종·이벤트) 씨앗.
+     *   related   검색광고 연관어에서 한 번 더 늘린 씨앗 — 가장 깊은 갈래다.
+     */
+    const seedKind = new Map();
+    for (const term of coverage.seedTerms) seedKind.set(term, 'coverage');
+    for (const term of seasonalSeeds) seedKind.set(term, 'seasonal');
+    for (const term of dbSeeds) if (!seedKind.has(term)) seedKind.set(term, 'warehouse');
     const expansionSeeds = new Set(baseSeeds);
     for (const seed of baseSeeds) {
       try {
@@ -425,7 +441,11 @@ async function main() {
           .slice(0, secondarySeeds)
           .forEach((row) => {
             const keyword = String(row.keyword || '').trim();
-            if (keyword && keyword.replace(/\s+/g, '').length <= 15) expansionSeeds.add(keyword);
+            if (keyword && keyword.replace(/\s+/g, '').length <= 15) {
+              expansionSeeds.add(keyword);
+              // 연관어에서 온 씨앗 — 여기서 늘어난 말이 가장 깊은 확장이다.
+              if (!seedKind.has(keyword)) seedKind.set(keyword, 'related');
+            }
           });
       } catch (error) {
         console.log(`  !! ${topic}/${seed} 연관어 — ${String(error.message).slice(0, 70)}`);
@@ -476,6 +496,13 @@ async function main() {
           phrases.set(keyword, {
             keyword,
             seed,
+            /** 씨앗이 어느 갈래였나 — coverage/seasonal/warehouse/related. */
+            seedKind: seedKind.get(seed) || 'coverage',
+            /**
+             * 씨앗보다 몇 어절 늘었나. 0 이면 씨앗 그대로(머리 키워드),
+             * 1 이상이면 자동완성이 붙인 확장이다. 화면이 '확장 위주'로 세울 근거다.
+             */
+            expansionWords: Math.max(0, wordCount(keyword) - wordCount(seed)),
             longTail: wordCount(keyword) >= minWords,
             inRealtime: realtime.has(keyword.replace(/\s+/g, '')),
           });
@@ -790,6 +817,9 @@ async function main() {
         searchVolume: row.searchVolume,
         documentCount,
         seed: row.seed,
+        // 확장·연관 여부 — 배치·발행이 이름 그대로 옮겨야 화면까지 간다(필드 복사 누락 사고 재발 방지).
+        seedKind: row.seedKind || null,
+        expansionWords: row.expansionWords ?? null,
         longTail: row.longTail,
         inRealtime: row.inRealtime,
         trendType: trend.type,

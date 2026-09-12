@@ -341,6 +341,8 @@ const VITEST_SUITES = [
     'src/utils/__tests__/preemption-timing-group.test.ts',
     'src/utils/__tests__/board-order.test.ts',
     'src/utils/__tests__/preempt-volume-gate.test.ts',
+    // 확장·연관 여부가 후보 → 배치 → 발행까지 이름 그대로 가는지(필드 복사 누락 재발 방지).
+    'src/utils/__tests__/preempt-expansion-wiring.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

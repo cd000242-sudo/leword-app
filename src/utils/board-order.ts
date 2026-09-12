@@ -30,6 +30,10 @@ export interface DemandSeriesPoint {
 
 export interface OrderableRow {
   keyword: string;
+  /** 씨앗 갈래 — coverage(상시) · seasonal(계절) · warehouse(창고) · related(연관어에서 늘림). */
+  seedKind?: string | null;
+  /** 씨앗보다 몇 어절 늘었나. 0 이면 씨앗 그대로(머리 키워드). */
+  expansionWords?: number | null;
   searchVolume?: number | null;
   tier?: string;
   demandSeries?: DemandSeriesPoint[] | null;
@@ -190,6 +194,24 @@ export function preemptRank(row: PreemptRankInput): number {
   return PREEMPT_OTHER;
 }
 
+/**
+ * 확장 차례 — 작을수록 앞.
+ *   0 씨앗에서 늘어난 말(확장·연관)
+ *   1 못 쟀다 — 옛 회차 행에는 이 값이 없다
+ *   2 씨앗 그대로(머리 키워드)
+ */
+export function expansionRank(row: { expansionWords?: number | null }): number {
+  /*
+   * null 을 Number() 에 넣으면 0 이 된다 — '못 쟀다'가 '씨앗 그대로'로 둔갑해서
+   * 맨 뒤로 밀린다. 배치·발행이 못 잰 값을 null 로 적으므로 실제로 생기는 일이다.
+   * (테스트가 잡았다. 2026-09-12)
+   */
+  if (row.expansionWords === null || row.expansionWords === undefined) return 1;
+  const n = Number(row.expansionWords);
+  if (!Number.isFinite(n)) return 1;
+  return n >= 1 ? 0 : 2;
+}
+
 export interface OrderOptions {
   now?: Date;
   /** tier 우열. 검색량이 같을 때만 쓴다(발행 스크립트의 TIER_ORDER). */
@@ -276,9 +298,18 @@ export function orderForPublish<T extends OrderableRow>(rows: readonly T[], opti
    * 하신 그 모양이다. 상위 포화(정면 8/10↑)는 여전히 뒤로 민다 — 자리가 없는 것을
    * 앞에 세우면 시기가 맞아도 못 들어간다.
    */
+  /*
+   * 같은 시기 차례 안에서는 **확장·연관 키워드를 앞에** 둔다.
+   *
+   * 사장님 2026-09-12: "그키워드중에 확장 및 연관키워드 위주로 알려줘야 메리트가있는거지".
+   * 씨앗 그대로인 말(expansionWords 0)은 누구나 아는 머리 키워드다 — 검색량은 크지만
+   * 상위가 이미 차 있다. 씨앗에서 늘어난 말이 이 보드가 팔아야 할 것이다.
+   * 못 잰 행(null)은 가운데에 둔다 — 모르는 것을 앞뒤 어느 쪽으로도 밀지 않는다.
+   */
   return [...annotated].sort((a, b) =>
     (Number(a.preemptRank) - Number(b.preemptRank))
     || (Number(a.frontalSaturated) - Number(b.frontalSaturated))
+    || (expansionRank(a) - expansionRank(b))
     || (Number(b.effectiveVolume) - Number(a.effectiveVolume))
     || (tierRank(a.tier) - tierRank(b.tier)));
 }

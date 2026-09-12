@@ -125,6 +125,13 @@ function toPublicRow(row) {
     briefingRisk: row.briefingRisk || null,
     regulatoryLabel: row.regulatoryLabel || '',
     trendLabel: row.trendLabel || '',
+    /*
+     * 확장·연관 여부 — 화면이 "씨앗 머리말"과 "거기서 늘린 말"을 갈라 보여 줄 근거다.
+     * seedKind  coverage(상시) · seasonal(계절) · warehouse(창고) · related(연관어에서 늘림)
+     * expansionWords  씨앗보다 몇 어절 늘었나. 0 이면 씨앗 그대로다.
+     */
+    seedKind: row.seedKind || null,
+    expansionWords: Number.isFinite(Number(row.expansionWords)) ? Number(row.expansionWords) : null,
     timing: row.timing || '',
     monthsToPeak: row.monthsToPeak ?? null,
     /*

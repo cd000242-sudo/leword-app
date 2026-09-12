@@ -129,6 +129,13 @@ function loadCandidates(inPath) {
       trendLabel: row.trendLabel || '',
       // 제목 배선용 — 같은 씨앗 형제를 찾는 열쇠다. 없으면 어절 공유로 대신한다.
       seed: row.seed || null,
+      /*
+       * 확장·연관 여부(2026-09-12, 사장님 "확장 및 연관키워드 위주로 알려줘야").
+       * 후보가 잰 값을 이름 그대로 옮긴다 — 여기서 빠뜨리면 계산해 놓고 버리는 것이다
+       * (timing 필드가 그렇게 네 곳에서 빠져 있었다).
+       */
+      seedKind: row.seedKind || null,
+      expansionWords: Number.isFinite(Number(row.expansionWords)) ? Number(row.expansionWords) : null,
       // 애드센스 레인 판정 재료(검색량 응답에 같이 온 실측). 없으면 null.
       cpc: Number.isFinite(Number(row.cpc)) && Number(row.cpc) > 0 ? Number(row.cpc) : null,
       adCompetition: row.adCompetition || null,
