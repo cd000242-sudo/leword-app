@@ -10299,8 +10299,12 @@
 
           const when = ytView.at ? new Date(ytView.at) : null;
           const two = (n) => String(n).padStart(2, '0');
-          status.textContent = rows.length + ' / ' + all.length + '개 · 네이버에 글이 적은 것 ' + gaps.length + '개'
-            + (when ? ' · ' + (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + two(when.getHours()) + ':' + two(when.getMinutes()) + ' 에 잼' : '');
+          // 출처를 밝힌다 — 사이트 회차인지 이 PC 로 잰 것인지 모르면 숫자를 못 믿는다(지식인과 같은 규칙).
+          const site = ytView.fromSite ? new Date(ytView.fromSite) : null;
+          const stamp = when
+            ? ' · ' + (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + two(when.getHours()) + ':' + two(when.getMinutes()) + ' 에 이 PC 로 잼'
+            : (site && !isNaN(site) ? ' · 사이트 회차 ' + (site.getMonth() + 1) + '월 ' + site.getDate() + '일 ' + two(site.getHours()) + ':' + two(site.getMinutes()) : '');
+          status.textContent = rows.length + ' / ' + all.length + '개 · 네이버에 글이 적은 것 ' + gaps.length + '개' + stamp;
         };
 
         window.runYoutubeHunt = async function runYoutubeHunt() {
@@ -10334,9 +10338,43 @@
           }
         };
 
-        window.loadYoutubeBoard = function loadYoutubeBoard() {
+        /*
+         * 사이트 회차를 먼저 싣는다 (2026-09-12) — 지식인과 같은 이유다.
+         * 유튜브 API 할당량은 사장님이 눌렀을 때만 쓴다. 그 전까지는 사이트 회차를 보여 준다.
+         *
+         * 사이트 행에는 시간당 조회수가 video 안에 들어 있다. 없으면 안 지어낸다 — 빈칸으로 둔다.
+         */
+        function ytFromSite(row) {
+          const video = row.video || {};
+          const perHour = Number(video.viewsPerHour);
+          return {
+            keyword: row.keyword,
+            relatedKeywords: Array.isArray(row.expansions) ? row.expansions : [],
+            totalSearchVolume: Number(row.searchVolume) || 0,
+            documentCount: Number(row.documentCount) || 0,
+            ratio: typeof row.ratio === 'number' ? row.ratio : null,
+            youtubeViewsPerHour: Number.isFinite(perHour) ? perHour : null,
+            warnings: [],
+          };
+        }
+
+        window.loadYoutubeBoard = async function loadYoutubeBoard() {
           // 열 때 저절로 부르지 않는다 — 유튜브 API 할당량을 쓰는 일이라 사장님이 눌러서 시작한다.
           window.renderYoutubeBoard();
+          if ((ytView.rows || []).length > 0) return;
+          try {
+            const res = await window.electronAPI.invoke('site-board-get', { key: 'youtube' });
+            if (!res || !res.success || (ytView.rows || []).length > 0) return;
+            const board = res.board || {};
+            const rows = Array.isArray(board.rows) ? board.rows : [];
+            if (!rows.length) return;
+            ytView.rows = rows.map(ytFromSite);
+            ytView.analyzed = Number(board.videoCount) || 0;
+            ytView.fromSite = board.collectedAt || '';
+            window.renderYoutubeBoard();
+          } catch (error) {
+            /* 사이트를 못 읽어도 [지금 찾기] 는 그대로 쓴다 */
+          }
         };
 
         let kinView = { tab: 'popular', rows: [], stats: null, at: 0 };
@@ -10475,8 +10513,12 @@
           const seatCount = all.filter(kinHasSeat).length;
           const when = kinView.at ? new Date(kinView.at) : null;
           const two = (n) => String(n).padStart(2, '0');
-          status.textContent = rows.length + ' / ' + all.length + '개 · 답변 자리 있는 것 ' + seatCount + '개'
-            + (when ? ' · ' + (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + two(when.getHours()) + ':' + two(when.getMinutes()) + ' 에 찾음' : '');
+          // 출처를 밝힌다 — 사이트 회차인지 이 PC 로 찾은 것인지 모르면 숫자를 못 믿는다.
+          const site = kinView.fromSite ? new Date(kinView.fromSite) : null;
+          const stamp = when
+            ? ' · ' + (when.getMonth() + 1) + '월 ' + when.getDate() + '일 ' + two(when.getHours()) + ':' + two(when.getMinutes()) + ' 에 이 PC 로 찾음'
+            : (site && !isNaN(site) ? ' · 사이트 회차 ' + (site.getMonth() + 1) + '월 ' + site.getDate() + '일 ' + two(site.getHours()) + ':' + two(site.getMinutes()) : '');
+          status.textContent = rows.length + ' / ' + all.length + '개 · 답변 자리 있는 것 ' + seatCount + '개' + stamp;
         };
 
         window.setKinTab = function setKinTab(tab) {
@@ -10502,6 +10544,7 @@
             kinView.rows = Array.isArray(res.goldenQuestions) ? res.goldenQuestions : [];
             kinView.stats = res.stats || null;
             kinView.at = Date.now();
+            kinView.fromSite = '';   // 이제 이 PC 로 잰 값이다 — 사이트 출처 표시를 지운다
             window.renderKinBoard();
           } catch (error) {
             status.innerHTML = '<span style="color:#fca5a5;">' + kinEsc((error && error.message) || error) + '</span>';
@@ -10510,9 +10553,44 @@
           }
         };
 
-        window.loadKinBoard = function loadKinBoard() {
+        /*
+         * 사이트 회차를 먼저 싣는다 (2026-09-12).
+         *
+         * 사장님: "앱도 똑같이 연동되어야죠". 전에는 화면을 열면 "아직 찾은 질문이 없습니다" 만
+         * 있었다 — 사이트에는 이미 회차가 실려 있는데도. 이 PC 로 긁는 것은 브라우저를 몇 분
+         * 쓰는 일이라 여전히 눌러서 시작한다. 다만 **빈 화면으로 두지는 않는다.**
+         *
+         * 사이트 행은 모양이 다르다(link/answers/views). 화면이 아는 이름으로 바꿔 준다.
+         * 사이트에 없는 값(분야·답변 각도·블로그 제목)은 안 지어낸다 — 없으면 없는 대로 그린다.
+         */
+        function kinFromSite(row) {
+          return {
+            title: row.title,
+            url: row.link,
+            answerCount: Number(row.answers) || 0,
+            viewCount: Number(row.views) || 0,
+            askedAt: row.askedAt || '',
+            summary: row.summary || '',
+          };
+        }
+
+        window.loadKinBoard = async function loadKinBoard() {
           // 화면을 열 때 저절로 긁지 않는다 — 브라우저를 몇 분 쓰는 일이라 사장님이 눌러서 시작한다.
           window.renderKinBoard();
+          if ((kinView.rows || []).length > 0) return;   // 이 PC 로 이미 찾아 둔 것이 있으면 그것이 우선이다
+          const status = document.getElementById('kinStatus');
+          try {
+            const res = await window.electronAPI.invoke('site-board-get', { key: 'kin' });
+            if (!res || !res.success || (kinView.rows || []).length > 0) return;
+            const board = res.board || {};
+            const rows = [].concat(board.realtime || [], board.rising || [], board.hidden || []);
+            if (!rows.length) return;
+            kinView.rows = rows.map(kinFromSite);
+            kinView.fromSite = board.fetchedAt || '';
+            window.renderKinBoard();
+          } catch (error) {
+            if (status && !(kinView.rows || []).length) status.textContent = '사이트 회차를 못 읽었습니다 — [지금 찾기] 로 이 PC 에서 찾을 수 있습니다.';
+          }
         };
 
         let rankView = null;

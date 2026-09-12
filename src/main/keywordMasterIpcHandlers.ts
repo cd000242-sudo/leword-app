@@ -24,6 +24,7 @@ import { setupDailyPickHandlers } from './handlers/daily-pick';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
 import { setupTrendImportHandlers } from './handlers/trend-import';
 import { startCiWatchdog, stopCiWatchdog, setupCiWatchdogHandlers } from './handlers/ci-watchdog';
+import { setupSiteBoardHandlers } from './handlers/site-board';
 import { startWebBridgeHost } from './web-bridge-host';
 import { startRefreshScheduler, stopRefreshScheduler } from './key-wizard/refresh-scheduler';
 import { startLifecycleTracker, stopLifecycleTracker } from '../utils/pro-hunter-v12/lifecycle-tracker';
@@ -204,6 +205,9 @@ export function setupKeywordMasterHandlers() {
   // 같은 창구로 '지금 갱신'도 연다 — 깨우는 힘이 이 PC 의 gh 로그인이라 사장님만 된다.
   setupCiWatchdogHandlers();
   startCiWatchdog();
+  // 사이트 회차 그대로 보기(2026-09-12) — 지식인·유튜브 화면이 열리자마자 발행본을 보여 준다.
+  //   사장님: "앱도 똑같이 연동되어야죠". 실측하니 절반만 읽고 있었다.
+  setupSiteBoardHandlers();
   // 웹 ↔ 클로드코드 브리지 — 사이트가 이 PC 의 구독 CLI 를 쓰는 통로(127.0.0.1 전용).
   startWebBridgeHost();
 

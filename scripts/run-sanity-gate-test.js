@@ -332,6 +332,8 @@ const VITEST_SUITES = [
     'src/utils/__tests__/ui-tag-balance.test.ts',
     'src/utils/__tests__/ci-watchdog.test.ts',
     'src/utils/__tests__/board-round-done.test.ts',
+    // 사이트 회차를 앱이 그대로 읽는 배선 — 끊기면 화면이 조용히 빈다(사장님 "연동이 제대로 안 되어 있다").
+    'src/utils/__tests__/site-board-lane.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
