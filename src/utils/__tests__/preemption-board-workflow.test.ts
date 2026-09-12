@@ -239,10 +239,46 @@ describe('선점 보드 워크플로 — 실행 시각', () => {
      * UTC 목요일 22:00 이라 요일 필드가 0,4 다. 1,5 를 적으면 한국 시간으로
      * 화요일·토요일에 돈다 — 지시받은 요일과 다르게 도는데 아무도 안 죽는다.
      */
-    it('주 2회, 한국 월·금 아침(06:23 KST)에 돈다 — 사장님 2026-09-11 "월·금 주 2회로 되돌려라"', () => {
-        const crons = [...workflow.matchAll(/cron:\s*'([^']+)'/g)].map((m) => m[1]);
-        // UTC 일요일 21:23 = 한국 월요일 06:23 · UTC 목요일 21:23 = 한국 금요일 06:23
-        expect(crons).toEqual(['23 21 * * 0', '23 21 * * 4']);
+    it('주 2회, 한국 월·금 아침에 돈다 — 사장님 2026-09-11 "월·금 주 2회로 되돌려라"', () => {
+        const crons = [...workflow.matchAll(/cron:\s*'(\S+) (\S+) \S+ \S+ (\S+)'/g)];
+        expect(crons.length, '예약이 없다').toBeGreaterThan(0);
+        /*
+         * 2026-09-12: 한 회차를 세 틱으로 늘렸다(06:23·07:23·08:23 KST). 깃허브가 틱을
+         * 통째로 떨어뜨리기 때문이다 — 8/14 부터 8회 전부 성공했는데 09-11 금요일 틱만
+         * 실행 기록이 없었다. 그래서 여기서 크론 문자열을 그대로 박아 두지 않는다.
+         * 지켜야 할 사실은 **한국 요일이 월·금이고 아침 시간대라는 것** 뿐이다.
+         * 헛돌지 않는 것은 guard 잡이 맡는다(아래 따로 검사한다).
+         */
+        const days = new Set<number>();
+        for (const [, minute, hourField, dayField] of crons) {
+            for (const h of hourField.split(',')) {
+                const utcHour = Number(h);
+                const kstHour = (utcHour + 9) % 24;
+                // UTC 에서 9시간을 더해 자정을 넘기면 한국 요일이 하루 밀린다
+                const shift = utcHour + 9 >= 24 ? 1 : 0;
+                for (const d of dayField.split(',')) days.add((Number(d) + shift) % 7);
+                expect(kstHour, `한국 ${kstHour}시는 아침 회차가 아니다`).toBeGreaterThanOrEqual(6);
+                expect(kstHour, `한국 ${kstHour}시는 아침 회차가 아니다`).toBeLessThanOrEqual(9);
+                expect(Number(minute), '정각은 깃허브가 몰려서 떨어뜨린다 — :23 으로 둔다').toBe(23);
+            }
+        }
+        expect([...days].sort(), '한국 요일이 월(1)·금(5) 이 아니다').toEqual([1, 5]);
+    });
+
+    /*
+     * 틱을 늘렸으면 문지기가 반드시 있어야 한다. 한 회차가 4시간 + BD 예산이라,
+     * 문지기 없이 세 틱이 다 일하면 비용이 세 배가 된다.
+     */
+    it('먼저 돈 틱이 실었으면 나머지는 곧장 나간다 — 비용 드는 잡 앞에 문지기가 있다', () => {
+        expect(workflow, '문지기 잡이 없다').toMatch(/^\s{2}guard:/m);
+        expect(workflow, '문지기가 발행본을 안 본다').toContain('board-round-done.js');
+        for (const job of ['seeds', 'discover', 'publish']) {
+            const at = workflow.indexOf(`${job}:`);
+            const body = workflow.slice(at, at + 600);
+            // needs: guard  또는  needs: [guard, seeds]  둘 다 받는다
+            expect(body, `${job} 잡이 문지기를 안 기다린다`).toMatch(/needs:\s*\[?[\w,\s]*guard/);
+            expect(body, `${job} 잡이 문지기 결과를 안 본다`).toContain("needs.guard.outputs.skip != 'true'");
+        }
     });
 
     /*

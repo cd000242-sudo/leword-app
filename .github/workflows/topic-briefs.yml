@@ -41,6 +41,12 @@ on:
         description: '자리 실측 상한(건) — 기본 80 = 회차 글감 전부'
         default: '80'
         required: false
+      # 앱의 회차 감시견이 '빠진 회차'를 대신 깨울 때 true 로 넣는다.
+      # 그러면 예약과 똑같이 skipIfSlotDone 을 거쳐, 그 사이 회차가 실렸으면 헛돌지 않는다.
+      respectDone:
+        description: 이미 실린 회차면 건너뛴다 (감시견이 깨울 때 true)
+        default: 'false'
+        required: false
 
 concurrency:
   group: topic-briefs
@@ -122,7 +128,7 @@ jobs:
           LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"briefs":3400}'
           SERP_MODE: ${{ github.event.inputs.serp || 'brightdata' }}
           MAX_SERP: ${{ github.event.inputs.maxSerp || '80' }}
-          SKIP_IF_DONE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}
+          SKIP_IF_DONE: ${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }}
         run: |
           mkdir -p site/data
           npm install -g @anthropic-ai/claude-code

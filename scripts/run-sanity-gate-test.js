@@ -318,6 +318,20 @@ const VITEST_SUITES = [
     'src/utils/__tests__/seed-drift.test.ts',
     // 2군 이유 문장에 내부 임계값이 새면 판단 근거가 통째로 공개된다.
     'src/utils/__tests__/reference-row-reason.test.ts',
+    /*
+     * 2026-09-12 에 넷을 더 묶었다. 넷 다 "조용히 나가는" 종류라 게이트 말고는 잡을 데가 없다.
+     *
+     *  · 렌더러 문법 — <script> 블록 하나가 깨지면 그 안 함수 수백 개가 통째로 사라진다.
+     *    타입 검사는 .html 을 안 보고, 화면 스모크는 pageerror 0건으로 통과했다(실사고).
+     *  · 태그 균형 — 여분의 </div> 두 개가 셸을 일찍 닫아 화면 11개가 셸 바깥에 그려졌다.
+     *    사이드바 아래로 밀려나 빈 화면처럼 보였다(실사고).
+     *  · 회차 감시견·문지기 — 사장님이 가장 자주 지적하시는 "왜 또 안 돌았냐"를 막는 장치다.
+     *    회차 시각이 크론과 어긋나면 멀쩡한 회차를 또 깨우거나(4시간·BD 예산) 영영 안 깨운다.
+     */
+    'src/utils/__tests__/ui-script-syntax.test.ts',
+    'src/utils/__tests__/ui-tag-balance.test.ts',
+    'src/utils/__tests__/ci-watchdog.test.ts',
+    'src/utils/__tests__/board-round-done.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
