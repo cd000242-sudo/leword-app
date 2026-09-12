@@ -361,9 +361,15 @@ describe('선점 보드 워크플로 — 씨앗 잡 키', () => {
         expect(step).toContain('NAVER_SEARCH_AD_CUSTOMER_ID');
     });
 
+    /*
+     * 2026-09-12: 하한은 그대로 500 인데 **무엇을 그 하한에 대는지**가 바뀌었다.
+     * 지금 검색량이 아니라 gateVolume — 앞으로 1~6개월 안에 터질 계절이면 피크 값으로 본다.
+     * 12월에 터질 말을 9월 검색량으로 자르면 선점할 말이 통째로 사라진다(사장님 지적).
+     * 무엇을 살리고 무엇을 안 살리는지는 preempt-volume-gate.test.ts 가 따로 잠근다.
+     */
     it('발행 게이트는 하한 500 과 자리(1페이지 빈자리 또는 정면 ≤2)를 요구한다', () => {
         const publish = fs.readFileSync(path.join(root, 'scripts', 'publish-preemption-board.js'), 'utf8');
-        expect(publish).toContain('&& Number(row.searchVolume) >= minVolume');
+        expect(publish).toContain('&& gateVolume(row) >= minVolume');
         expect(publish).toContain('&& hasSeat(row)');
         const gate = fs.readFileSync(path.join(root, 'src', 'utils', 'preemption-gate.ts'), 'utf8');
         expect(gate).toContain('minSearchVolume: 500,');

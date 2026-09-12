@@ -144,6 +144,52 @@ export function timingGroupFor(monthsToPeak: number): string {
   return '성수기 지남';
 }
 
+/**
+ * 선점 차례 — 작을수록 앞.
+ *
+ * 사장님 2026-09-12: "지금 미리쓰면 나중에 몇월달에 트래픽이 몰릴가능성이있는 키워드를
+ * 알려주고 … 이건그냥 황금키워드를 그냥 카테고리별로 나눠놓은거자나".
+ *
+ * 맞는 말이었다. 실측(발행본 43행): 앞으로 피크가 오는 행은 **4행**뿐이고 나머지 39행은
+ * 피크까지 0개월이다. 그런데 줄 세우기가 검색량만 보니 그 4행이 중간에 묻혔고,
+ * 앞줄은 제주렌트카 본사(9,360)·무료게임 crazy(4,650) 같은 머리 키워드가 차지했다.
+ *
+ * 그래서 **시기가 먼저**다. 검색량은 같은 차례 안에서만 쓴다.
+ *   0  선점 — 앞으로 1~6개월 안에 몰린다. 2년 반복으로 확인된 계절.
+ *   1  선점(1년치) — 같은 조건인데 24개월이 없어 반복을 아직 확인 못 했다.
+ *      버리지 않는다: 저볼륨 키워드는 데이터랩이 점을 덜 줘서 영영 24개월이 안 된다(실측 19/43).
+ *      대신 화면이 "1년치만 봤다"고 밝힌다 — 모르는 것을 아는 것처럼 적지 않는다.
+ *   2  그 밖(지금 뜨는 중·연중 상시·판정 없음)
+ *   3  성수기 지남 — 다음 피크까지 열 달을 기다린다. 맨 뒤.
+ */
+export const PREEMPT_CONFIRMED = 0;
+export const PREEMPT_ONE_YEAR = 1;
+export const PREEMPT_OTHER = 2;
+export const PREEMPT_PAST = 3;
+
+export interface PreemptRankInput {
+  monthsToPeak?: number | null;
+  peakRecurring?: boolean | null;
+  peakMultiplier?: number | null;
+  latestVsPeakPct?: number | null;
+  monthsSincePeak?: number | null;
+}
+
+export function preemptRank(row: PreemptRankInput): number {
+  const months = Number(row.monthsToPeak);
+  const ahead = Number.isFinite(months) && months >= LEAD_MIN && months <= LEAD_MAX;
+  if (ahead && Number(row.peakMultiplier) >= SEASONAL_MULTIPLIER) {
+    // 재작년이 다른 달이었다면 계절이 아니라 일회성 급등이다 — 선점감이 아니다.
+    if (row.peakRecurring === false) return PREEMPT_OTHER;
+    return row.peakRecurring === true ? PREEMPT_CONFIRMED : PREEMPT_ONE_YEAR;
+  }
+  // 피크가 지났고 지금이 그때의 절반도 안 되면 맨 뒤다 — 다음 피크까지 한참이다.
+  const pct = Number(row.latestVsPeakPct);
+  const since = Number(row.monthsSincePeak);
+  if (Number.isFinite(pct) && pct < 60 && Number.isFinite(since) && since >= 2) return PREEMPT_PAST;
+  return PREEMPT_OTHER;
+}
+
 export interface OrderOptions {
   now?: Date;
   /** tier 우열. 검색량이 같을 때만 쓴다(발행 스크립트의 TIER_ORDER). */
@@ -167,7 +213,7 @@ export interface OrderOptions {
 export type PublishedOrderRow<T extends OrderableRow> = T
   & Partial<Omit<PeakEstimate, 'monthsToPeak'>>
   & Pick<OrderableRow, 'monthsToPeak' | 'timingGroup'>
-  & { frontalSaturated: boolean; effectiveVolume: number };
+  & { frontalSaturated: boolean; effectiveVolume: number; preemptRank: number; peakConfidence: string };
 
 export function orderForPublish<T extends OrderableRow>(rows: readonly T[], options: OrderOptions = {}): PublishedOrderRow<T>[] {
   const now = options.now ?? new Date();
@@ -177,26 +223,62 @@ export function orderForPublish<T extends OrderableRow>(rows: readonly T[], opti
     const peak = estimatePeak(row, now);
     const saturated = isFrontalSaturated(row);
     const current = Number(row.searchVolume) || 0;
-    if (!peak) return { ...row, frontalSaturated: saturated, effectiveVolume: current };
-    const seasonal = peak.peakRecurring === true && peak.peakMultiplier >= SEASONAL_MULTIPLIER;
+    if (!peak) {
+      // 시계열이 모자라 피크를 못 셌다. 그래도 지금 수준은 알 수 있으면 차례를 준다.
+      const base = { ...row, frontalSaturated: saturated, effectiveVolume: current, peakConfidence: '' };
+      return { ...base, preemptRank: preemptRank(base as PreemptRankInput) };
+    }
+    const strong = peak.peakMultiplier >= SEASONAL_MULTIPLIER;
+    const seasonal = peak.peakRecurring === true && strong;
     const ahead = peak.monthsToPeak >= LEAD_MIN && peak.monthsToPeak <= LEAD_MAX;
-    return {
+    /*
+     * 시기를 **1년치만 있어도 적는다**(2026-09-12). 전에는 2년 반복이 확인된 행에만
+     * 적었는데, 실측 43행 중 24개월이 있는 행이 10행뿐이라 사실상 아무 행에도 안 적혔다.
+     * 저볼륨 키워드는 데이터랩이 점을 덜 줘서 영영 24개월이 안 된다 — 기다려도 안 온다.
+     * 대신 얼마나 본 것인지를 같이 싣는다(peakConfidence). 화면이 그대로 밝힌다.
+     */
+    const confidence = peak.peakRecurring === true ? '2년 반복 확인'
+      : peak.peakRecurring === false ? '작년엔 다른 달'
+        : '1년치만 봄';
+    const annotatedRow = {
       ...row,
       frontalSaturated: saturated,
       peakMonth: peak.peakMonth,
       peakMultiplier: peak.peakMultiplier,
       peakRecurring: peak.peakRecurring,
       peakVolume: peak.peakVolume,
-      /** 줄 세우는 키. 곧 터질 계절만 피크로, 나머지는 지금 값으로. 화면엔 안 나간다. */
+      peakConfidence: confidence,
+      /*
+       * 줄 세우는 키. 화면엔 안 나간다.
+       * 피크 검색량으로 부풀리는 것은 **2년 반복이 확인된 계절**만이다.
+       * 1년치만 본 행은 지금 값으로 센다 — 모르는 것을 근거로 앞에 세우지 않는다.
+       * (일회성 급등은 재작년이 달랐다는 것을 확인했으니 당연히 지금 값이다.)
+       */
       effectiveVolume: seasonal && ahead ? peak.peakVolume : current,
+      /*
+       * 시기 라벨은 **2년 반복이 확인된 행에만** 적는다 — 모르는 것을 아는 것처럼 적지 않는다.
+       * 피크가 지난 것도 적는다(timingGroupFor(11) = '성수기 지남'). 그게 사실이고,
+       * 그 사실이 있어야 아래 preemptRank 가 맨 뒤로 민다.
+       * 1년치만 본 행은 라벨을 비우되 선점 차례에는 넣는다 — peakConfidence 가 그 사정을 말한다.
+       */
       ...(seasonal
         ? { monthsToPeak: peak.monthsToPeak, timingGroup: timingGroupFor(peak.monthsToPeak) }
         : {}),
     };
+    return { ...annotatedRow, preemptRank: preemptRank(annotatedRow as PreemptRankInput) };
   });
 
+  /*
+   * 시기가 먼저, 검색량은 같은 차례 안에서만.
+   *
+   * 전에는 검색량(effectiveVolume)이 첫 키였다. 그래서 "앞으로 몰릴 것"이 몇 개 있어도
+   * 머리 키워드에 묻혔다 — 사장님이 "그냥 황금키워드를 카테고리별로 나눠놓은 것" 이라고
+   * 하신 그 모양이다. 상위 포화(정면 8/10↑)는 여전히 뒤로 민다 — 자리가 없는 것을
+   * 앞에 세우면 시기가 맞아도 못 들어간다.
+   */
   return [...annotated].sort((a, b) =>
-    (Number(a.frontalSaturated) - Number(b.frontalSaturated))
+    (Number(a.preemptRank) - Number(b.preemptRank))
+    || (Number(a.frontalSaturated) - Number(b.frontalSaturated))
     || (Number(b.effectiveVolume) - Number(a.effectiveVolume))
     || (tierRank(a.tier) - tierRank(b.tier)));
 }

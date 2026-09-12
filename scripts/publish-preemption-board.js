@@ -442,13 +442,44 @@ async function main() {
     const facing = facingOf(row);
     return (slot != null && slot >= 1 && slot <= 10) || (facing != null && facing <= 2);
   };
-  const lowVolume = merged.rows.filter((row) => Number(row.searchVolume) < minVolume).length;
+  /*
+   * ── 선점 키워드는 '지금 검색량'으로 자르면 안 된다 (2026-09-12) ──
+   *
+   * 사장님: "지금 미리쓰면 나중에 몇월달에 트래픽이 몰릴가능성이있는 키워드를 알려주고
+   * … 이건그냥 황금키워드를 그냥 카테고리별로 나눠놓은거자나".
+   *
+   * 실측으로 원인을 찾았다. 이 게이트가 검색량 하한(500)을 **지금 달 값**으로 봤다.
+   * 그런데 12월에 터질 말은 9월엔 바닥이다 — '김장 시기'가 9월에 200이면 잘리고,
+   * 11월이 되어서야 통과한다. 그때는 이미 상위가 정면 글로 찬 뒤다(실측: 검색량 1만↑
+   * 9행 전부 상위 10개가 1~3주 전 글이었다). **선점하려는 바로 그 말을 "지금 작다"는
+   * 이유로 잘라내고 있었다.**
+   *
+   * 그래서 하한을 **피크 검색량으로도** 볼 수 있게 한다. 부풀리기가 아니다:
+   *   peakVolume = 지금 검색량 × (피크 비율 ÷ 마지막 완결 달 비율)  — 둘 다 데이터랩 실측
+   * 그리고 아무 행에나 적용하지 않는다. 피크가 **앞으로 1~6개월 안**이고 평소의 2배
+   * 이상일 때만이다(board-order 의 같은 창). 지난 피크로는 통과 못 한다.
+   */
+  const { estimatePeak, LEAD_MIN, LEAD_MAX, SEASONAL_MULTIPLIER } = require('../src/utils/board-order');
+  const gateNow = new Date();
+  /** 이 행을 자를 때 쓸 검색량. 앞으로 터질 계절이면 피크 값, 아니면 지금 값. */
+  const gateVolume = (row) => {
+    const current = Number(row.searchVolume) || 0;
+    const peak = estimatePeak(row, gateNow);
+    if (!peak) return current;
+    const ahead = peak.monthsToPeak >= LEAD_MIN && peak.monthsToPeak <= LEAD_MAX;
+    // 재작년이 다른 달이었으면 계절이 아니라 일회성 급등이다 — 부풀리지 않는다.
+    if (!ahead || peak.peakRecurring === false || peak.peakMultiplier < SEASONAL_MULTIPLIER) return current;
+    return Math.max(current, peak.peakVolume);
+  };
+
+  const lowVolume = merged.rows.filter((row) => gateVolume(row) < minVolume).length;
+  const savedByPeak = merged.rows.filter((row) => Number(row.searchVolume) < minVolume && gateVolume(row) >= minVolume);
   const noSeat = merged.rows.filter((row) => !hasSeat(row)).length;
   merged.rows = merged.rows.filter((row) => (
     (row.openSlot == null || Number(row.openSlot) > 0)
     && ACTIVE_TOPICS.has(String(row.topic || ''))
     && !deadReasons.has(row)
-    && Number(row.searchVolume) >= minVolume
+    && gateVolume(row) >= minVolume
     && hasSeat(row)
   ));
   if (beforeGate !== merged.rows.length) {
@@ -456,6 +487,13 @@ async function main() {
       `  게이트      ${beforeGate} → ${merged.rows.length}행`
       + ` (자리없음 ${noSlot} · 폐지레인 ${offLane} · 죽은검색어 ${deadReasons.size} · 저볼륨<${minVolume} ${lowVolume} · 1페이지 자리 없음 ${noSeat}, 겹칠 수 있음)`,
     );
+  }
+  if (savedByPeak.length > 0) {
+    console.log(`  선점 구제    지금은 작지만 곧 터질 ${savedByPeak.length}행을 살렸다`);
+    savedByPeak.slice(0, 8).forEach((row) => {
+      const peak = estimatePeak(row, gateNow);
+      console.log(`    · ${row.keyword} — 지금 ${row.searchVolume} · 피크 ${peak.peakMonth}월 ${peak.monthsToPeak}개월 뒤 · 평소의 ${peak.peakMultiplier}배 → ${peak.peakVolume}`);
+    });
   }
 
   /*

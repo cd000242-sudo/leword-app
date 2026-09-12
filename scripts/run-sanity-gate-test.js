@@ -337,6 +337,10 @@ const VITEST_SUITES = [
     // 브라이트데이터 예산 — 여기가 틀리면 돈이 나간다. 레인 셋의 합계 상한과 이웃 장부 읽기.
     'src/utils/__tests__/brightdata-budget-invariant.test.ts',
     'src/utils/__tests__/brightdata-peer-ledger.test.ts',
+    // 선점 보드가 '카테고리별 황금키워드'로 되돌아가지 않게 — 시기 배지·줄세우기·검색량 게이트.
+    'src/utils/__tests__/preemption-timing-group.test.ts',
+    'src/utils/__tests__/board-order.test.ts',
+    'src/utils/__tests__/preempt-volume-gate.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
