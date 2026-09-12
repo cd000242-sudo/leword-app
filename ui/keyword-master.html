@@ -4864,19 +4864,30 @@
             return kst.slice(5, 10).replace('-', '월 ') + '일 ' + kst.slice(11, 16) + ' (' + ago + ')';
           };
           box.innerHTML = (res.boards || []).map((b) => {
-            // 세 상태를 구분해 적는다 — 실렸다 / 비었다 / 못 읽었다. 못 읽은 것을 '비었다'로 적으면 헛걸음한다.
-            const mark = b.filled === true
-              ? '<span style="color:#22c55e;">이번 회차 실림</span>'
-              : b.filled === false
-                ? '<span style="color:#fbbf24;">이번 회차 비었음</span>'
-                : '<span style="color:#64748b;">못 읽음</span>';
+            /*
+             * 상태를 뭉뚱그리지 않는다.
+             *   실렸다 / 비었다 / 못 읽었다  — 앞 셋은 회차가 있는 보드
+             *   그리고 **깨울 수 없는 보드** — 예약이 없거나 이 PC 의 로그인이 있어야 도는 것.
+             * 깨울 수 없는 것을 버튼과 함께 보여 주면 눌러도 아무 일이 없어 더 헷갈린다.
+             */
+            const wakeable = !!b.workflow;
+            const mark = !wakeable
+              ? '<span style="color:#64748b;">깨울 수 없음</span>'
+              : b.filled === true
+                ? '<span style="color:#22c55e;">이번 회차 실림</span>'
+                : b.filled === false
+                  ? '<span style="color:#fbbf24;">이번 회차 비었음</span>'
+                  : '<span style="color:#64748b;">못 읽음</span>';
             const label = b.dueLabel && b.dueLabel !== '회차' ? ' · ' + esc(b.dueLabel) : '';
+            const tail = wakeable
+              ? '<button data-refresh="' + esc(b.workflow) + '" onclick="refreshBoardNow(this)" '
+                + 'style="margin-left:auto; padding:5px 11px; border:0; border-radius:7px; font-size:11.5px; font-weight:600; background:#fbbf24; color:#1a1200; cursor:pointer;">지금 갱신</button>'
+              : '<span style="margin-left:auto; font-size:11.5px; color:#64748b; text-align:right; max-width:340px;">' + esc(b.note || '') + '</span>';
             return '<div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid rgba(255,255,255,0.055);">'
               + '<b style="min-width:150px; color:#e2e8f0; font-size:12.5px;">' + esc(b.name) + '</b>'
               + '<span style="min-width:200px;">' + when(b.lastBuiltAt) + '</span>'
               + '<span>' + mark + label + '</span>'
-              + '<button data-refresh="' + esc(b.workflow) + '" onclick="refreshBoardNow(this)" '
-              + 'style="margin-left:auto; padding:5px 11px; border:0; border-radius:7px; font-size:11.5px; font-weight:600; background:#fbbf24; color:#1a1200; cursor:pointer;">지금 갱신</button>'
+              + tail
               + '</div>';
           }).join('') || '<span style="color:#64748b;">감시 중인 보드가 없습니다.</span>';
         };
@@ -9254,15 +9265,58 @@
         const NICHE_VERDICT_LABEL = { niche: '틈새', preemption: '선점 후보', pending: '자리 대기', out: '탈락' };
         const NICHE_SEAT_STYLE = { '열림': 'color:#22c55e;', '반열림': 'color:#f59e0b;', '잠김': 'color:#f87171;', '못 잼': 'color:#fbbf24;', '안 잼': 'color:#64748b;' };
 
+        /*
+         * 사이트 회차를 화면이 아는 모양으로 옮긴다 (2026-09-12).
+         *
+         * 사장님: "앱도 똑같이 연동되어야죠". 이 PC 로 한 번도 안 쟀으면 화면이 비어 있었다 —
+         * 사이트에는 이미 회차가 실려 있는데도. 지식인·유튜브와 같은 방식이다.
+         *
+         * 사이트 자리 판정은 영문(WINNABLE/…)이고 앱은 우리말이다. 같은 판정기에서 나온 값이라
+         * 말만 바꾼다. 모르는 값은 지어내지 않고 '안 잼'으로 둔다.
+         */
+        const NICHE_SITE_SEAT = { WINNABLE: '열림', PARTIAL: '반열림', LOCKED: '잠김', CARD: '카드답', NO_DATA: '자료없음' };
+
+        function nicheFromSite(row) {
+          const serp = row.serp || {};
+          return {
+            keyword: row.keyword,
+            baseKeyword: row.issue || row.topic || '',
+            searchVolume: row.searchVolume,
+            documentCount: row.documentCount,
+            hasLiveDemand: !!row.hasLiveDemand,
+            seat: NICHE_SITE_SEAT[serp.verdict] || '안 잼',
+            seatFacing: typeof row.frontalDocCount === 'number' ? row.frontalDocCount : null,
+            verdict: row.verdict,
+          };
+        }
+
         window.loadRealtimeNiche = async function loadRealtimeNiche() {
+          let hasLocal = false;
           try {
             const res = await window.electronAPI.invoke('realtime-niche-get');
             if (res && res.success) {
-              if (res.result) renderRealtimeNiche(res.result);
+              if (res.result) { renderRealtimeNiche(res.result); hasLocal = true; }
               const auto = document.getElementById('realtimeNicheAuto');
               if (auto && res.autoMinutes) auto.value = String(res.autoMinutes);
             }
           } catch { /* 저장된 게 없으면 그냥 둔다 */ }
+          if (hasLocal) return;   // 이 PC 로 잰 것이 있으면 그것이 우선이다
+
+          // 이 PC 로 한 번도 안 쟀으면 사이트 회차를 보장선으로 보여 준다.
+          try {
+            const site = await window.electronAPI.invoke('site-board-get', { key: 'issueNiche' });
+            if (!site || !site.success) return;
+            const board = site.board || {};
+            const rows = (Array.isArray(board.rows) ? board.rows : []).map(nicheFromSite);
+            if (!rows.length) return;
+            const m = board.measured || {};
+            renderRealtimeNiche({
+              rows,
+              summary: { niche: m.niche || 0, preemption: m.preemption || 0, pending: m.pending || 0, issues: m.issues || 0, candidates: m.candidates || 0 },
+              ranAt: board.publishedAt || null,
+              fromSite: true,
+            });
+          } catch { /* 사이트를 못 읽어도 [지금 재기] 는 그대로 쓴다 */ }
         };
 
         function nicheNum(value) { return value === null || value === undefined ? '—' : Number(value).toLocaleString('ko-KR'); }
@@ -9278,7 +9332,7 @@
             + ' &nbsp;|&nbsp; 이슈 ' + (s.issues || 0) + ' → 후보 ' + (s.candidates || 0)
             + ' · 트래픽 ' + (s.trafficPass || 0) + ' · 수요 ' + (s.demandPass || 0)
             + ' · 자리 잰 것 ' + (s.slotMeasured || 0) + (s.blocked ? ' · 막힘 ' + s.blocked : '')
-            + ' &nbsp;|&nbsp; ' + when + ' · ' + (result.seconds || 0) + '초'
+            + ' &nbsp;|&nbsp; ' + (result.fromSite ? '사이트 회차 ' + when : when + ' · ' + (result.seconds || 0) + '초')
             + ((result.newKeywords && result.newKeywords.length) ? ' &nbsp;|&nbsp; <span style="color:#fbbf24;">새로 들어온 검색어 ' + result.newKeywords.length + '</span>' : '');
           const rows = result.rows || [];
           if (rows.length === 0) {

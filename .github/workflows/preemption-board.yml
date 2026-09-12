@@ -383,6 +383,18 @@ jobs:
       - name: 예산에 맞춰 자르기
         run: node scripts/trim-candidates.js --in=candidates.json --out=candidates-trimmed.json --keep=80 --boostKeep=100
 
+      # 이웃 레인 장부만 읽으려고 사이트 레포를 한 벌 받아 둔다(쓰지 않는다).
+      # 아래 '사이트 레포 체크아웃'(발행용)은 이 4시간짜리 잡의 맨 뒤에 있어서, 여기서 못 쓴다.
+      # 실패해도 회차는 살린다 — 이웃을 0 으로 치면 이 레인이 조금 더 쓸 뿐, 합계 상한은
+      # 다른 레인이 이 레인의 장부를 읽어 여전히 지킨다.
+      - name: 이웃 장부 읽기용 체크아웃
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: quota-peers
+
       - name: 자리 판정 (Bright Data)
         env:
           BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}
@@ -393,6 +405,9 @@ jobs:
           # 상한이 여기서 한 번도 작동한 적이 없다(2026-08-22 확인) — 매 회차가
           # 사용량 0 에서 시작했다. 최초 관측 장부와 같은 방식으로 되돌려 커밋한다.
           LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/data/brightdata-quota-state.json
+          # 같은 계정을 쓰는 다른 레인의 장부 — 읽기만 한다(상한을 합계로 보기 위해).
+          # 이 잡의 사이트 체크아웃은 BD 단계보다 뒤에 있어서, 장부 읽기용으로 따로 한 벌 받아 둔다.
+          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/quota-peers/data/brightdata-quota-briefs.json,${{ github.workspace }}/quota-peers/data/brightdata-quota-issue.json
           # 무료 5,000 을 넘겨 허용할 유료 초과분.
           #
           # 사장님 한도: "10달러까지 상한을 늘려 사용 가능하니까 걱정하지 말고,
@@ -417,8 +432,22 @@ jobs:
           #   golden 9,000 + briefs 2,500 + issue 1,000 = 12,500콜 × $1.50/1,000 = **$18.75**
           # 사장님 한도 "20달러만 안 넘으면 된다"(2026-09-07) 안이다.
           # 이 산수는 brightdata-budget-invariant.test.ts 가 세 워크플로를 읽어 잠근다 — 한쪽만 올리면 깨진다.
-          LEWORD_BRIGHTDATA_FREE_CEILING: '3800'
-          LEWORD_BRIGHTDATA_PAID_OVERAGE: '9000'
+          # ── 무료 5,000 을 레인 셋이 **함께** 센다 (2026-09-12) ──
+          #
+          # 전에는 몫을 쪼갰다(golden 3,800 + briefs 900 + issue 300 = 5,000).
+          # 합계는 맞았지만 **노는 레인의 몫을 바쁜 레인이 못 썼다** — 9월 실측에서
+          # issue 는 281콜만 쓰고 1,019콜을 놀렸다. 또 세 숫자가 따로 놀아서
+          # 한쪽만 고치면 합이 조용히 틀어졌다.
+          #
+          # 이제 거버너가 **이웃 장부까지 읽어** 합계로 상한을 본다(QUOTA_PEER_FILES).
+          # 쓰기는 여전히 제 장부에만 한다 — 동시에 도는 레인이 서로를 덮지 않게.
+          # 그래서 세 레인이 같은 숫자를 쓴다. 이 숫자가 계정 전체의 상한이다:
+          #   무료 5,000 + 유료 12,500 = 17,500콜, 유료분 12,500 × $1.50/1,000 = **$18.75**
+          # 사장님 한도 "20달러만 안 넘으면 된다"(2026-09-07) 안이다.
+          # 한 레인이 다 먹지 못하게 막는 것은 아래 FEATURE_CAPS 다.
+          # 이 산수는 brightdata-budget-invariant.test.ts 가 세 워크플로를 읽어 잠근다.
+          LEWORD_BRIGHTDATA_FREE_CEILING: '5000'
+          LEWORD_BRIGHTDATA_PAID_OVERAGE: '12500'
           # 황금 기능 달 11,000 — 주 2회 × 회차 1,200 × 4.3주 ≈ 10,320 이 이론 최대라 그 위에서 멈춘다.
           #
           # 2026-09-09 에 4,000 으로 낮췄다가 2026-09-11 사장님 지시로 되돌린다("주 2회 + 상한 11,000").

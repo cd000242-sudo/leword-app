@@ -334,6 +334,9 @@ const VITEST_SUITES = [
     'src/utils/__tests__/board-round-done.test.ts',
     // 사이트 회차를 앱이 그대로 읽는 배선 — 끊기면 화면이 조용히 빈다(사장님 "연동이 제대로 안 되어 있다").
     'src/utils/__tests__/site-board-lane.test.ts',
+    // 브라이트데이터 예산 — 여기가 틀리면 돈이 나간다. 레인 셋의 합계 상한과 이웃 장부 읽기.
+    'src/utils/__tests__/brightdata-budget-invariant.test.ts',
+    'src/utils/__tests__/brightdata-peer-ledger.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

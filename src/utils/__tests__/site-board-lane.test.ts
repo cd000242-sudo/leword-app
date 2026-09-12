@@ -85,10 +85,22 @@ describe('화면이 실제로 사이트 회차를 싣는다', () => {
   });
 
   it('이 PC 로 찾아 둔 것이 있으면 사이트 것으로 덮지 않는다', () => {
+    // 실검 틈새는 저장된 회차가 있으면 곧장 나간다(hasLocal). 나머지 둘은 rows 로 본다.
+    const niche = cut('window.loadRealtimeNiche =', 'function nicheNum');
+    expect(niche, '실검 틈새가 이 PC 회차를 사이트 것으로 덮는다').toContain('if (hasLocal) return;');
     for (const fn of ['loadKinBoard', 'loadYoutubeBoard']) {
       const body = html.slice(html.indexOf(`window.${fn} =`), html.indexOf(`window.${fn} =`) + 1600);
       expect(body, `${fn} 이 이미 찾아 둔 것을 덮는다`).toMatch(/\.rows \|\| \[\]\)\.length > 0\) return;/);
     }
+  });
+
+  it('실검 틈새 화면도 같다 — 사이트 자리 판정(영문)을 앱 말로 옮긴다', () => {
+    const fn = cut('const NICHE_SITE_SEAT', 'window.renderRealtimeNiche');
+    expect(fn).toContain("invoke('site-board-get', { key: 'issueNiche' })");
+    // 같은 판정기에서 나온 값이라 말만 바꾼다 — 모르는 값은 지어내지 않는다
+    expect(fn).toContain("WINNABLE: '열림'");
+    expect(fn).toContain("LOCKED: '잠김'");
+    expect(fn).toMatch(/NICHE_SITE_SEAT\[serp\.verdict\] \|\| '안 잼'/);
   });
 
   it('출처를 밝힌다 — 사이트 회차인지 이 PC 로 잰 것인지', () => {

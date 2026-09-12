@@ -110,6 +110,54 @@ function emptyState(month: string): MonthState {
   return { schema: SCHEMA, month, byAccount: {} };
 }
 
+/**
+ * 같은 계정을 쓰는 **다른 레인의 장부**들.
+ *
+ * 실측 결함(2026-09-11 발견, 2026-09-12 수정) — 장부가 레인마다 따로 있었다:
+ *   선점 보드   app 레포 data/brightdata-quota-state.json
+ *   오늘의 글감 site 레포 data/brightdata-quota-briefs.json
+ *   실검 틈새   site 레포 data/brightdata-quota-issue.json
+ * 셋이 **각자** 무료 5,000 을 세니 합쳐 15,000 까지 '무료'로 통과했다.
+ * Bright Data 무료는 계정당 월 5,000 이라, 나머지 10,000 은 조용히 유료로 나갔다.
+ * 사장님 한도("20달러만 안 넘으면 된다")를 이 장부가 실제로는 못 막고 있었다.
+ *
+ * 고치는 방법으로 '파일 하나로 합치기'는 안 골랐다 — 레인 셋이 동시에 돌 수 있어
+ * 같은 파일에 쓰면 서로의 기록을 덮는다(under-count = 유료 유출, 가장 위험한 방향).
+ * 대신 **쓰기는 제 장부에만, 읽기는 이웃까지** 한다. 상한 판단만 합계로 본다.
+ */
+function peerFiles(): string[] {
+  const raw = process.env['LEWORD_BRIGHTDATA_QUOTA_PEER_FILES'];
+  if (!raw) return [];
+  const own = stateFile();
+  return raw.split(',').map((x) => x.trim()).filter((x) => x && x !== own);
+}
+
+/** 이웃 장부들의 이번 달 사용량 합계. 못 읽는 파일은 0 으로 친다(아직 안 생긴 레인). */
+function peerUsage(account: string, nowMs: number): { total: number; byFeature: Record<string, number> } {
+  const month = kstMonth(nowMs);
+  const out: { total: number; byFeature: Record<string, number> } = { total: 0, byFeature: {} };
+  for (const file of peerFiles()) {
+    try {
+      const stat = fs.statSync(file);
+      if (stat.size > STATE_MAX_BYTES) continue;
+      const parsed = JSON.parse(fs.readFileSync(file, 'utf8')) as MonthState;
+      // 달이 다르면 이번 달 지출이 아니다. 스키마가 다르면 못 믿는다.
+      if (!parsed || parsed.schema !== SCHEMA || parsed.month !== month) continue;
+      const u = parsed.byAccount && parsed.byAccount[account];
+      if (!u) continue;
+      const total = Math.floor(Number(u.total));
+      if (Number.isSafeInteger(total) && total > 0) out.total += total;
+      for (const [k, v] of Object.entries(u.byFeature || {})) {
+        const n = Math.floor(Number(v));
+        if (Number.isSafeInteger(n) && n > 0) out.byFeature[k] = (out.byFeature[k] || 0) + n;
+      }
+    } catch {
+      // 못 읽은 이웃은 0 으로 친다. 여기서 막아 버리면 이웃 파일 하나가 없어서 회차가 통째로 죽는다.
+    }
+  }
+  return out;
+}
+
 function readState(nowMs: number): MonthState {
   const month = kstMonth(nowMs);
   const file = stateFile();
@@ -170,7 +218,13 @@ export function reserveBrightDataRequests(
   const usage = usageFor(state, account);
   const caps = featureCaps();
 
-  const featureUsed = Math.max(0, Math.floor(usage.byFeature[feature] || 0));
+  /*
+   * 상한은 **레인 합계**로 본다. 제 장부만 보면 셋이 각자 5,000 을 써 버린다.
+   * 쓰기는 여전히 제 장부에만 한다(아래 record) — 동시에 도는 레인이 서로를 덮지 않게.
+   */
+  const peers = peerUsage(account, nowMs);
+  const sharedTotal = usage.total + peers.total;
+  const featureUsed = Math.max(0, Math.floor(usage.byFeature[feature] || 0)) + Math.max(0, Math.floor(peers.byFeature[feature] || 0));
   const featureCap = caps[feature] ?? null;
   const featureRemaining = featureCap === null ? null : Math.max(0, featureCap - featureUsed);
 
@@ -185,13 +239,13 @@ export function reserveBrightDataRequests(
    */
   const allowPaid = opts.allowPaid ?? PAID_OVERAGE > 0;
   const ceiling = allowPaid ? HARD_CEILING : FREE_CEILING;
-  const accountRemaining = Math.max(0, ceiling - usage.total);
+  const accountRemaining = Math.max(0, ceiling - sharedTotal);
 
   let granted = want;
   if (featureRemaining !== null) granted = Math.min(granted, featureRemaining);
   granted = Math.min(granted, accountRemaining);
 
-  const freeRemaining = Math.max(0, FREE_CEILING - usage.total);
+  const freeRemaining = Math.max(0, FREE_CEILING - sharedTotal);
   const wouldBePaid = Math.max(0, granted - freeRemaining);
 
   const decision: QuotaDecision = {
@@ -199,7 +253,8 @@ export function reserveBrightDataRequests(
     granted,
     account,
     month: state.month,
-    accountUsed: usage.total,
+    // 사용량은 합계로 말한다 — 제 장부만 말하면 로그가 "아직 여유 있다"고 거짓말한다.
+    accountUsed: sharedTotal,
     accountRemainingFree: freeRemaining,
     featureUsed,
     featureRemaining,
@@ -245,18 +300,29 @@ export function brightDataQuotaSnapshot(opts: { account?: string; nowMs?: number
   used: number;
   remainingFree: number;
   byFeature: Record<string, number>;
+  /** 이 레인이 제 장부에 적은 몫. */
+  ownUsed: number;
+  /** 같은 계정을 쓰는 다른 레인들이 적은 몫. */
+  peerUsed: number;
 } {
   const nowMs = opts.nowMs ?? Date.now();
   const account = accountKey(opts.account);
   const state = readState(nowMs);
   const usage = usageFor(state, account);
+  const peers = peerUsage(account, nowMs);
+  const used = usage.total + peers.total;
+  const byFeature: Record<string, number> = { ...usage.byFeature };
+  for (const [k, v] of Object.entries(peers.byFeature)) byFeature[k] = (byFeature[k] || 0) + v;
   return {
     month: state.month,
     account,
     freeCeiling: FREE_CEILING,
     hardCeiling: HARD_CEILING,
-    used: usage.total,
-    remainingFree: Math.max(0, FREE_CEILING - usage.total),
-    byFeature: { ...usage.byFeature },
+    // 레인 합계다. 이 숫자가 회차 로그에 찍히는 값이라, 제 장부만 세면 사장님이 남은 예산을 오해한다.
+    used,
+    remainingFree: Math.max(0, FREE_CEILING - used),
+    byFeature,
+    ownUsed: usage.total,
+    peerUsed: peers.total,
   };
 }

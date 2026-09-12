@@ -120,6 +120,44 @@ export const BOARDS: readonly WatchedBoard[] = [
   },
 ];
 
+/**
+ * 깨울 수 없는 보드 — 현황만 본다.
+ *
+ * 사장님 2026-09-12 "나머지도 어제또는 10일날 돌린게 최신이야". 그 '나머지' 를 세어 보니
+ * 예약이 도는 보드 넷 말고도 사이트가 싣는 판이 둘 더 있었다. 둘 다 깨울 워크플로가 없다:
+ *
+ *   제목 창고  깃허브 예약(brief-titles.yml)이 하루 네 번 돈다 — 실은 멀쩡하다.
+ *              앱에 화면이 없어 사장님 눈에 안 보였을 뿐이다. 여기 숫자로 둔다.
+ *   제휴       수집기가 제휴사 **로그인** 뒤에 있다(토스 쉐어링크·네이버 브랜드커넥트).
+ *              그 로그인은 이 PC 의 쿠키 프로필에만 있어서 깃허브가 못 돈다.
+ *              자동화하려면 제휴사 로그인을 깃허브 시크릿에 넣어야 하는데, 그건 사장님 결정이다.
+ *              앱에서 눌러 돌리는 것도 지금은 안 된다 — 배포 패키지에 scripts/ 가 안 들어간다.
+ *
+ * 못 깨우는 것을 안 보여 주면 "왜 안 도는지" 를 또 사람이 세어 봐야 한다. 숫자와 이유를 같이 적는다.
+ */
+export type WatchOnlyBoard = {
+  name: string;
+  url: string;
+  lastBuiltAt: (data: unknown) => number | null;
+  /** 왜 여기서 못 깨우는지 — 화면에 그대로 적는다. */
+  note: string;
+};
+
+export const WATCH_ONLY: readonly WatchOnlyBoard[] = [
+  {
+    name: '제목 창고',
+    url: 'https://leaderspro.kr/data/brief-titles.json',
+    lastBuiltAt: topLevel('generatedAt'),
+    note: '하루 4회 예약으로 돕니다. 앱에는 화면이 없어 사이트에서 봅니다.',
+  },
+  {
+    name: '제휴 황금키워드',
+    url: 'https://leaderspro.kr/data/affiliate-campaigns.json',
+    lastBuiltAt: topLevel('collectedAt'),
+    note: '제휴사 로그인이 이 PC 에만 있어 깃허브가 못 돕니다 — 지금은 손으로 돌립니다.',
+  },
+];
+
 /** 한국 요일(0=일). */
 function kstWeekday(ms: number): number {
   return new Date(ms + KST_MS).getUTCDay();
@@ -250,9 +288,48 @@ export async function checkOnce(nowMs: number = Date.now()): Promise<{ acted: bo
  * 깨우는 힘은 이 PC 의 gh 로그인에서 나오고, 남의 PC 에는 그 로그인이 없다.
  * 사이트에 버튼을 달면 아무나 누르고, 막으려면 서버에 깃허브 토큰을 새로 심어야 한다.
  */
-export async function refreshNow(workflow: string): Promise<{ ok: boolean; detail: string }> {
+/**
+ * 같은 보드를 이만큼 안에 또 깨우지 않는다.
+ *
+ * 왜(실사고 2026-09-12): 내가 오늘의 글감을 07:11 과 07:12 에 **두 번** 보냈다.
+ * 워크플로에 concurrency 가 걸려 있어 두 번째는 큐에 섰다가, 첫 회차가 끝난 뒤
+ * 그대로 한 회차를 더 돌았다 — 아침 회차가 73개에서 65개로 덮였고 BD 한 회차분이 헛나갔다.
+ * 손으로 돌린 실행은 "다시 돌려라"는 뜻이라 문지기를 일부러 안 거치게 해 뒀으니,
+ * 연달아 누르는 것은 여기서 막아야 한다.
+ *
+ * 10분으로 둔 이유: 회차가 시작됐는지 깃허브 화면에서 확인하기에 충분하고,
+ * 정말 다시 돌려야 할 상황(회차가 실패해서 곧장 재시도)까지 막지는 않는다.
+ */
+const REFRESH_COOLDOWN_MS = 10 * 60_000;
+
+function refreshLedgerKey(workflow: string): string {
+  return `수동:${workflow}`;
+}
+
+/** 남은 쿨다운(ms). 0 이면 지금 눌러도 된다. */
+export function refreshCooldownLeft(lastIso: string | undefined, nowMs: number): number {
+  if (!lastIso) return 0;
+  const at = Date.parse(lastIso);
+  if (!Number.isFinite(at)) return 0;
+  return Math.max(0, REFRESH_COOLDOWN_MS - (nowMs - at));
+}
+
+export async function refreshNow(workflow: string, nowMs: number = Date.now()): Promise<{ ok: boolean; detail: string }> {
   const board = BOARDS.find((b) => b.workflow === workflow);
   if (!board) return { ok: false, detail: `모르는 보드다: ${workflow}` };
+
+  // 감시견과 같은 장부를 쓴다 — 앱을 껐다 켜도 기억한다.
+  const ledger = readLedger();
+  const left = refreshCooldownLeft(ledger[refreshLedgerKey(workflow)], nowMs);
+  if (left > 0) {
+    const min = Math.ceil(left / 60_000);
+    return {
+      ok: false,
+      detail: `${board.name} 회차를 방금 깨웠습니다. ${min}분 뒤에 다시 누를 수 있습니다.`
+        + ' (연달아 누르면 회차가 두 번 돌아 BrightData 가 그만큼 더 나갑니다.)',
+    };
+  }
+
   return new Promise((resolve) => {
     execFile('gh', ['workflow', 'run', workflow, '--repo', REPO, '--ref', 'main'], { timeout: 60_000 }, (error, stdout, stderr) => {
       if (error) {
@@ -264,6 +341,8 @@ export async function refreshNow(workflow: string): Promise<{ ok: boolean; detai
             : detail.slice(0, 200),
         });
       } else {
+        // 성공했을 때만 적는다 — 실패한 시도까지 세면 고칠 기회를 막는다.
+        writeLedger({ ...readLedger(), [refreshLedgerKey(workflow)]: new Date(nowMs).toISOString() });
         resolve({ ok: true, detail: `${board.name} 회차를 깨웠습니다. 결과가 사이트에 실리기까지 시간이 걸립니다.` });
       }
     });
@@ -279,12 +358,14 @@ export type BoardStatus = {
   /** 이번 회차 예정 시각(ISO)과 이름. */
   dueAt: string | null;
   dueLabel: string | null;
-  /** true=실렸다, false=비었다, null=못 읽었다. */
+  /** true=실렸다, false=비었다, null=못 읽었다(또는 회차 개념이 없는 보드). */
   filled: boolean | null;
+  /** 깨울 수 없는 보드면 그 이유. 깨울 수 있으면 빈 문자열. */
+  note: string;
 };
 
 export async function boardStatuses(nowMs: number = Date.now()): Promise<BoardStatus[]> {
-  return Promise.all(BOARDS.map(async (board) => {
+  const wakeable = await Promise.all(BOARDS.map(async (board) => {
     const due = dueRound(board, nowMs);
     const last = await lastBuiltAtOf(board);
     return {
@@ -294,8 +375,23 @@ export async function boardStatuses(nowMs: number = Date.now()): Promise<BoardSt
       dueAt: due ? new Date(due.dueAtMs).toISOString() : null,
       dueLabel: due ? due.label : null,
       filled: due ? roundFilled(last, due.dueAtMs) : null,
+      note: '',
     };
   }));
+  // 못 깨우는 보드도 같이 보여 준다 — 안 보이면 "왜 안 도는지" 를 또 사람이 세어 봐야 한다.
+  const readOnly = await Promise.all(WATCH_ONLY.map(async (board) => {
+    const last = await lastBuiltAtOf(board as unknown as WatchedBoard);
+    return {
+      name: board.name,
+      workflow: '',
+      lastBuiltAt: last === null ? null : new Date(last).toISOString(),
+      dueAt: null,
+      dueLabel: null,
+      filled: null,
+      note: board.note,
+    };
+  }));
+  return [...wakeable, ...readOnly];
 }
 
 export function setupCiWatchdogHandlers(): void {

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
-import { BOARDS, dueRound, kstDay, roundFilled, lastBuiltAtOf, type WatchedBoard } from '../../main/handlers/ci-watchdog';
+import { BOARDS, dueRound, kstDay, roundFilled, lastBuiltAtOf, refreshCooldownLeft, type WatchedBoard } from '../../main/handlers/ci-watchdog';
 
 /**
  * 회차 감시견 — 여기가 틀리면 멀쩡한 회차를 또 깨우거나(선점 보드는 4시간 + BD 예산),
@@ -168,5 +168,35 @@ describe('회차 목록을 가진 보드는 마지막 회차 시각으로 본다
     const last = await lastBuiltAtOf(briefs, ok);
     const afternoon = dueRound(briefs, kst(9, 12, 14, 0))!;
     expect(roundFilled(last, afternoon.dueAtMs)).toBe(false);
+  });
+});
+/*
+ * 지금 갱신 쿨다운 (2026-09-12).
+ *
+ * 실사고: 내가 오늘의 글감을 07:11 과 07:12 에 두 번 보냈다. concurrency 때문에 두 번째는
+ * 큐에 섰다가 첫 회차가 끝난 뒤 한 회차를 더 돌았다 — 아침 회차가 73개에서 65개로 덮였고
+ * BD 한 회차분이 헛나갔다. 손으로 돌린 실행은 일부러 문지기를 안 거치게 해 뒀으니,
+ * 연달아 누르는 것은 여기서 막는다.
+ */
+describe('지금 갱신을 연달아 못 누른다', () => {
+  const at = (m: number) => new Date(kst(9, 12, 10, m)).toISOString();
+
+  it('방금 깨웠으면 남은 시간이 있다', () => {
+    expect(refreshCooldownLeft(at(0), kst(9, 12, 10, 1))).toBeGreaterThan(0);
+    expect(refreshCooldownLeft(at(0), kst(9, 12, 10, 9))).toBeGreaterThan(0);
+  });
+
+  it('10분이 지나면 다시 누를 수 있다 — 정말 다시 돌려야 할 때까지 막지는 않는다', () => {
+    expect(refreshCooldownLeft(at(0), kst(9, 12, 10, 10))).toBe(0);
+    expect(refreshCooldownLeft(at(0), kst(9, 12, 11, 0))).toBe(0);
+  });
+
+  it('누른 적이 없으면 막지 않는다', () => {
+    expect(refreshCooldownLeft(undefined, Date.now())).toBe(0);
+    expect(refreshCooldownLeft('언젠가', Date.now())).toBe(0);
+  });
+
+  it('1분 간격 두 번(내가 저지른 그 모양)은 막힌다', () => {
+    expect(refreshCooldownLeft(at(11), kst(9, 12, 10, 12))).toBeGreaterThan(0);
   });
 });

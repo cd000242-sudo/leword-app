@@ -297,8 +297,17 @@ describe('선점 보드 워크플로 — 실행 시각', () => {
         expect(workflow).toContain('--maxPerRun=1200');
     });
 
-    it('유료 초과 상한은 그대로다 — 회차를 늘렸다고 지갑을 더 열지 않는다', () => {
-        expect(workflow).toContain("LEWORD_BRIGHTDATA_PAID_OVERAGE: '9000'");
+    /*
+     * 2026-09-12: 예산 모델이 '레인별 몫'에서 '레인 합계 상한'으로 바뀌었다.
+     * 그래서 이 레인의 PAID_OVERAGE 는 제 몫(9,000)이 아니라 **계정 전체 상한**을 적는다.
+     * 이 레인이 혼자 다 못 먹게 막는 것은 위의 FEATURE_CAPS(golden 11,000)다.
+     * 계정 합계가 20달러 안인지는 brightdata-budget-invariant.test.ts 가 세 워크플로를 읽어 잠근다.
+     */
+    it('회차를 늘렸다고 이 레인이 더 먹지 않는다 — 기능 상한이 그대로다', () => {
+        // 따옴표가 섞여 있어 템플릿 리터럴로 적는다 — 역슬래시 이스케이프는 패치 도구가 먹는다(실측).
+        expect(workflow).toContain(`LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"golden":11000}'`);
+        // 상한은 합계로 보므로, 이웃 장부를 실제로 가리켜야 그 합계가 참이 된다
+        expect(workflow, '이웃 장부를 안 가리키면 이 레인만 보고 판단한다').toContain('LEWORD_BRIGHTDATA_QUOTA_PEER_FILES');
     });
 });
 
