@@ -109,7 +109,8 @@ function mergeCandidateFiles(files, options = {}) {
     }
 
     const topics = {};
-    for (const { data } of alive) {
+    // `file` 을 안 꺼내 partial 샤드마다 ReferenceError 로 죽던 것(2026-09-15 검증에서 실행으로 확인) — 부분 저장이 무용지물이었다
+    for (const { file, data } of alive) {
         if (data.partial) console.log(`  ::warning::샤드 ${file} 는 부분 결과다(주제 도중 상한) — 잰 만큼만 합친다`);
         const shardTopicMap = (data.topics && typeof data.topics === 'object') ? data.topics : {};
         for (const [topic, rows] of Object.entries(shardTopicMap)) {

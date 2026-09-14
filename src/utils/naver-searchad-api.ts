@@ -16,6 +16,28 @@ import {
   selectSearchAdAccount,
 } from './searchad-account-pool';
 import { getSearchAdVolumeCached, setSearchAdVolumeCached } from './searchad-volume-cache';
+
+/**
+ * 검색량 조회 한 요청에 담는 키워드 수. 실측(scripts/verify-v2.49.20-chunksize.ts)으로 4 —
+ * 부르는 쪽도 이 크기로 묶어 보내야 "한 묶음 = 한 요청"이다. 5개씩 보내면 4+1 로 갈라져
+ * 요청이 두 배가 됐다(2026-09-15 실측). preemption-candidates 가 같이 쓴다.
+ */
+export const SEARCHAD_VOLUME_CHUNK_SIZE = 4;
+
+/** 대기열 예산 안에 차례가 안 와서 서지 않은 것 — 자리·쿼터·요청을 하나도 안 썼다. */
+export class SearchAdQueueBusyError extends Error {
+  constructor(projectedWaitMs: number, maxWaitMs: number) {
+    super(`검색광고 대기열 ${projectedWaitMs}ms — 예산 ${maxWaitMs}ms 안에 차례가 안 온다`);
+    this.name = 'SearchAdQueueBusyError';
+  }
+}
+
+/** 줄에 서 있는 동안 부른 쪽이 접었다 — fetch 의 AbortError 와 같은 이름으로 돌려준다. */
+function abortedWhileQueued(): Error {
+  const err = new Error('검색광고 대기 중 abort');
+  err.name = 'AbortError';
+  return err;
+}
 import {
   alignSearchAdRowsByKeyword,
   SEARCHAD_KEYWORD_BINDING_VERSION,
@@ -225,7 +247,7 @@ function resolveSearchAdCustomerId(config: NaverSearchAdConfig): string {
  * 여러 키워드의 검색량을 한꺼번에 또는 순차적으로 조회
  */
 /**
- * 여러 키워드의 검색량을 한꺼번에 조회 (5개씩 배치 처리로 최적화)
+ * 여러 키워드의 검색량을 한꺼번에 조회 (SEARCHAD_VOLUME_CHUNK_SIZE=4개씩 배치 처리)
  */
 export async function getNaverSearchAdKeywordVolume(
   config: NaverSearchAdConfig,
@@ -287,7 +309,7 @@ export async function getNaverSearchAdKeywordVolume(
   //   다 이 깊은 버그를 못 보고 표면만 만짐.
   //   v2.49.18 휴리스틱 fallback 은 그대로 유지 (svEstimated 마킹). 정확 매칭 100% 보장 후
   //   사용자에게 결과 50~300건 복원 + 추정 칩으로 신뢰도 보장.
-  const chunkSize = 4;
+  const chunkSize = SEARCHAD_VOLUME_CHUNK_SIZE;
   for (let i = 0; i < toMeasure.length; i += chunkSize) {
     // 🛡️ Phase 1: 일일 쿼터 소프트 상한 도달 → 남은 키워드 전부 null(측정 스킵) 후 종료 (계정 25k 절대 안 넘김)
     const activeConfig = selectSearchAdAccount(accountPool);
@@ -520,7 +542,9 @@ export interface KeywordSuggestion {
 export async function getNaverSearchAdKeywordSuggestions(
   config: NaverSearchAdConfig,
   seedKeyword: string,
-  limit: number = 200
+  limit: number = 200,
+  /** maxWaitMs: 대기열 예산 — 넘으면 줄에 서지 않고 SearchAdQueueBusyError · signal: 부르는 쪽의 abort */
+  options: { maxWaitMs?: number; signal?: AbortSignal } = {}
 ): Promise<KeywordSuggestion[]> {
   // SearchAd hintKeywords is limited to 15 characters. A truncated seed returns
   // suggestions for a different keyword and spends quota on unusable evidence.
@@ -564,12 +588,38 @@ export async function getNaverSearchAdKeywordSuggestions(
 
     // Rate Limit 조절 (Atomic-like scheduling)
     const now = Date.now();
+    /*
+     * 줄에 서기 전에 예상 대기를 본다 (2026-09-15). 이 대기열은 프로세스 전체가 공유한다 —
+     * 간격 × 앞사람 수만큼 기다린다. 부르는 쪽이 예산(maxWaitMs)을 주면, 그 안에 차례가
+     * 안 올 때 **서지 않고** 바로 거절한다: 자리를 잡아 남까지 늦추지도, 쿼터를 예약하지도,
+     * 요청을 보내지도 않는다. 연관어 폴백이 상한 뒤 값만 버리고 비용은 치르던 것을 막는다.
+     */
+    const projectedWaitMs = Math.max(0, lastSearchAdRequestAt + SEARCHAD_SUGGEST_INTERVAL_MS - now);
+    if (options.maxWaitMs !== undefined && projectedWaitMs > options.maxWaitMs) {
+      throw new SearchAdQueueBusyError(projectedWaitMs, options.maxWaitMs);
+    }
     lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + SEARCHAD_SUGGEST_INTERVAL_MS); // 최소 0.5초(샤드 회차면 base) 간격 유지
     const waitMs = lastSearchAdRequestAt - now;
     if (waitMs > 0) await new Promise(resolve => setTimeout(resolve, waitMs));
+    if (options.signal?.aborted) throw abortedWhileQueued();   // 기다리는 동안 부른 쪽이 접었다 — 쿼터·요청을 안 쓴다
 
     if (!reserveSearchAdCall(accountId, 1)) return [];
-    const response = await fetch(`${apiUrl}?${params.toString()}`, { method, headers });
+    /*
+     * 요청은 20초로 묶고(검색량 조회와 같은 상한), 부른 쪽의 abort 도 그대로 잇는다. 예전엔
+     * signal 이 없어 undici 기본(수 분)까지 열려 있었다 — 연관어 폴백이 상한을 넘겨 값을
+     * 버린 뒤에도 요청은 계속 갔다.
+     */
+    const fetchController = new AbortController();
+    const fetchTimeoutId = setTimeout(() => fetchController.abort(), 20000);
+    const relayAbort = () => fetchController.abort();
+    options.signal?.addEventListener('abort', relayAbort, { once: true });
+    let response: Response;
+    try {
+      response = await fetch(`${apiUrl}?${params.toString()}`, { method, headers, signal: fetchController.signal });
+    } finally {
+      clearTimeout(fetchTimeoutId);
+      options.signal?.removeEventListener('abort', relayAbort);
+    }
     if (!response.ok) {
       throw new Error(`API 호출 실패: ${response.status}`);
     }
@@ -625,6 +675,9 @@ export async function getNaverSearchAdKeywordSuggestions(
     return selectedSuggestions;
 
   } catch (error: any) {
+    // 대기열 거절과 부른 쪽의 abort 는 "실패"가 아니라 부르는 쪽의 결정이다 — 삼키지 않고 돌려준다.
+    // 20초 자체 타임아웃의 abort 는 예전처럼 [] 다(부르는 쪽이 접은 게 아니다).
+    if (error?.name === 'SearchAdQueueBusyError' || (error?.name === 'AbortError' && options.signal?.aborted)) throw error;
     console.warn('[NAVER-SEARCHAD] 제안 조회 실패:', error.message);
     return [];
   }

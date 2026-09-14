@@ -331,6 +331,25 @@ async function main() {
   const pastDeadline = () => Date.now() >= deadlineAt;
   const deadlineCuts = [];   // 무엇을 얼마나 잘랐나 — 끝에 한 줄로 밝힌다
   /*
+   * 실측 단계의 **하드 스톱** (2026-09-15 검증에서 드러난 것).
+   *
+   * 마감은 넓히기만 끊는다. 그런데 240분을 먹는 진짜 단계는 넓히기가 아니라 검색량 실측이었다 —
+   * 샤드 회차는 검색광고 호출 간격이 3.6초(러너 4대가 계정 하나를 나눠 쓴다)라, 주제 하나가
+   * 표본 4,000개를 재면 1,000요청 × 3.6초 = 60분이고 주제 6개가 한 줄에 서면 그 여섯 배다.
+   * 09-08 에 유일하게 끝난 샤드(간격 900ms)도 213분 중 165분을 검색량 실측에 썼다.
+   *
+   * 그래서 마감과 별개로 하드 스톱을 둔다: 지나면 (1) 아직 실측을 시작 안 한 주제는 표본을
+   * perTopic×5 로 줄이고 (2) 재는 중인 주제는 남은 묶음을 재지 않고 (3) 문서수도 조금만 더 잰다.
+   * 잰 만큼으로 정렬·저장까지는 정상 경로로 간다 — 그래야 partial 이 아니라 완결본이 올라간다.
+   * 표본이 줄면 그 회차 수확도 줄지만, 4시간 태우고 빈손보다 낫다. 잘라 낸 양은 로그에 남긴다.
+   *
+   * 기본 0 = 없음. 워크플로가 잡 제한(240분)에서 문서수·저장·업로드 여유를 뺀 값을 준다.
+   */
+  const hardStopMinutes = Number(arg('hardStopMinutes')) || 0;
+  const hardStopAt = hardStopMinutes > 0 ? Date.now() + hardStopMinutes * 60_000 : Infinity;
+  const pastHardStop = () => Date.now() >= hardStopAt;
+  const hardStopCuts = [];
+  /*
    * 검색광고 게이트는 러너 수만큼 넓힌다(2026-09-08 실측: 4러너 동시 호출로 429 폭주).
    * 계정 전체 초당 호출을 러너 하나일 때(220ms)로 되돌리는 값이다. --adGateMs 로 덮어쓸 수 있다.
    */
@@ -483,7 +502,8 @@ async function main() {
      *
      * 위 1단계에서 씨앗마다 검색광고 연관어를 이미 200개씩 받았다. 자동완성이 씨앗 하나마다
      * 그 폴백을 또 부르면 같은 창구를 수천 번 더 두드리는 것이고, 실측(09-14 샤드 로그)에서
-     * 바로 그 호출이 20초 abort 까지 매달려 회차를 죽였다. issue-context 가 같은 이유로
+     * 바로 그 호출이 검색광고 공유 대기열(호출 간격 3.6초 × 동시 주제 6 ≈ 21초)에 매달려
+     * 회차를 죽였다. issue-context 가 같은 이유로
      * 이미 이 플래그를 쓴다. 다른 다섯 소스(다음·구글·스마트블록·AI 브리핑·관련 질문)는 그대로다.
      */
     const autocompleteConfig = { ...openApi, skipSearchAdRelated: true };
@@ -575,9 +595,12 @@ async function main() {
      * 기본값이 perTopic 에 묶여 있었다. 그래서 씨앗을 205 → 275 로 늘렸을 때
      * 발굴 문장은 29,175개가 됐는데 실측한 것은 주제당 72개(전체의 7.9%)뿐이었고,
      * 늘린 씨앗이 결과를 못 바꿨다 — 씨앗을 늘릴수록 각 씨앗의 몫만 얇아진다.
-     * 검색량 조회는 무료다(5개씩 묶어 보낸다). 표본은 따로 정한다.
+     * 검색량 조회는 무료다(4개씩 묶어 보낸다). 표본은 따로 정한다.
      */
-    const sampleCap = Number(arg('sampleCap')) || perTopic * 20;
+    const sampleCapArg = Number(arg('sampleCap')) || perTopic * 20;
+    // 하드 스톱이 지난 뒤 실측을 시작하는 주제는 표본을 확 줄인다 — 3.6초씩 드는 줄에 새로 길게 서지 않는다
+    const sampleCap = pastHardStop() ? Math.min(sampleCapArg, perTopic * 5) : sampleCapArg;
+    if (sampleCap < sampleCapArg) hardStopCuts.push(`${topic}: 표본 ${sampleCapArg} → ${sampleCap}`);
     for (let round = 0; phraseList.length < sampleCap; round += 1) {
       let added = 0;
       for (const queue of queues) {
@@ -595,8 +618,17 @@ async function main() {
      * 이제 보존한다. 추가 호출·쿼터 소모 없음.
      */
     const adSignals = new Map();
-    for (let i = 0; i < phraseList.length; i += 5) {
-      const chunk = phraseList.slice(i, i + 5).map((row) => row.keyword);
+    /*
+     * 검색광고 검색량은 어댑터가 4개씩 한 요청으로 보낸다(SEARCHAD_VOLUME_CHUNK_SIZE). 여기서
+     * 5개씩 묶어 넘기면 4+1 로 갈라져 요청이 두 배가 됐다(2026-09-15 실측) — 샤드 회차는
+     * 요청마다 3.6초 대기열이라 실측 단계가 그만큼 길었다. 어댑터의 크기를 그대로 쓴다.
+     */
+    const { SEARCHAD_VOLUME_CHUNK_SIZE: volumeChunk } = require('../src/utils/naver-searchad-api');
+    if (!(volumeChunk >= 1)) throw new Error('naver-searchad-api 가 SEARCHAD_VOLUME_CHUNK_SIZE 를 내보내지 않는다');
+    let volumeCut = 0;
+    for (let i = 0; i < phraseList.length; i += volumeChunk) {
+      if (pastHardStop()) { volumeCut = phraseList.length - i; break; }   // 하드 스톱 — 남은 묶음은 안 잰다(검색량 없는 문장은 아래에서 빠진다)
+      const chunk = phraseList.slice(i, i + volumeChunk).map((row) => row.keyword);
       try {
         const rows = await getNaverSearchAdKeywordVolume(searchAd, chunk);
         for (const row of rows) {
@@ -643,6 +675,8 @@ async function main() {
 
     // ── 4) 문서수 실측 → 비율로 자리 가능성 1차 판정 ────────────────────
     const measured = [];
+    let docCut = 0;             // 하드 스톱 뒤 안 잰 후보 수
+    let docScansAfterStop = 0;  // 하드 스톱 뒤에도 perTopic 개까지는 잰다 — 하나도 없이 끝내지 않으려고
     for (const row of shortlist) {
       /*
        * 필요한 만큼 찾으면 멈춘다 — 문서수 조회를 아끼기 위해서다.
@@ -650,6 +684,10 @@ async function main() {
        * 잘라낸 쪽이 어디에 몰려 있는지 모른 채 고르게 된다.
        */
       if (measured.length >= perTopic && !measureLog) break;
+      if (pastHardStop()) {
+        if (docScansAfterStop >= perTopic) { docCut += 1; continue; }   // 하드 스톱 — 잰 것으로 간다
+        docScansAfterStop += 1;
+      }
       /*
        * 유통기한 컷 — 문서수 조회(쿼터) 전에 자른다.
        *
@@ -906,6 +944,10 @@ async function main() {
       deadlineCuts.push(`${topic}: 확장 씨앗 ${expansionSkipped}/${expansionSeeds.size}개 안 넓힘`);
       console.log(`  ⏱ ${topic} — 마감(${deadlineMinutes}분) 지나 확장 씨앗 ${expansionSkipped}/${expansionSeeds.size}개는 안 넓혔다. 모은 것으로 실측·저장한다.`);
     }
+    if (volumeCut > 0 || docCut > 0) {
+      hardStopCuts.push(`${topic}: 검색량 ${volumeCut}문장 · 문서수 ${docCut}후보 안 잼`);
+      console.log(`  ⏱ ${topic} — 하드 스톱(${hardStopMinutes}분) 지나 검색량 ${volumeCut}문장 · 문서수 ${docCut}후보는 안 쟀다. 잰 것으로 정렬·저장한다.`);
+    }
     console.log(
       `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
       + ` 씨앗 ${String(expansionSeeds.size).padStart(3)} → 완결 ${String(phrases.size).padStart(4)}(조각 ${incompleteLog.length}·이탈 ${driftLog.length} 제외)`
@@ -936,6 +978,9 @@ async function main() {
   if (deadlineCuts.length > 0) {
     // 잘라 낸 것을 숨기지 않는다. 다음 회차에 상한을 조정할 근거가 이 줄이다.
     console.log(`  ⏱ 마감 ${deadlineMinutes}분에 걸려 덜 넓힌 주제 ${deadlineCuts.length}개 — ${deadlineCuts.join(' · ')}`);
+  }
+  if (hardStopCuts.length > 0) {
+    console.log(`  ⏱ 하드 스톱 ${hardStopMinutes}분에 걸려 덜 잰 주제 ${hardStopCuts.length}개 — ${hardStopCuts.join(' · ')}`);
   }
 
   /*

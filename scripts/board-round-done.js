@@ -20,7 +20,7 @@
  * 근거가 아니다. 안 돌면 사장님 보드가 비고, 한 번 더 돌면 돈만 든다. 빈 보드가 더 나쁘다.
  *
  *   node scripts/board-round-done.js \
- *     --url=https://leaderspro.kr/data/preemption-board.json --field=publishedAt --rounds=06:23
+ *     --url=https://leaderspro.kr/data/preemption-board.json --field=publishedAt --rounds=04:23
  *   → 표준출력에 done=true|false, GITHUB_OUTPUT 이 있으면 거기에도 쓴다.
  */
 const fs = require('fs');
@@ -100,9 +100,14 @@ function arg(name, fallback) {
 async function main() {
   const url = arg('url');
   const field = arg('field', 'publishedAt');
-  const rounds = String(arg('rounds', '06:23')).split(',').map((x) => x.trim()).filter(Boolean);
+  const rounds = String(arg('rounds', '')).split(',').map((x) => x.trim()).filter(Boolean);
   if (!url) {
     console.error('--url 이 필요하다');
+    process.exit(2);
+  }
+  // 보드마다 회차가 달라 기본값을 두지 않는다 — 기본값이 있으면 빠뜨린 호출이 없는 회차를 기준으로 조용히 판정한다
+  if (rounds.length === 0) {
+    console.error('--rounds=HH:MM[,HH:MM] 이 필요하다');
     process.exit(2);
   }
   const { value, note } = await readPublishedAt(url, field, fetch);

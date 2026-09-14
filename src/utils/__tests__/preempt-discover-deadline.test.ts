@@ -18,6 +18,8 @@ import { describe, expect, it } from 'vitest';
  *   ① 발굴의 자동완성은 검색광고 폴백을 건너뛴다(1단계에서 이미 씨앗마다 200개 받았다)
  *   ② 스크립트가 스스로 마감을 지키고, 마감 뒤엔 더 넓히지 않되 모은 것은 실측·저장까지 끝낸다
  *   ③ 워크플로가 잡 제한보다 넉넉히 앞선 마감을 주고, 연관어 씨앗 수를 줄인다
+ *   ④ 실측 단계에는 하드 스톱이 따로 있다 — 검증(2026-09-15)에서 240분을 먹는 진짜 단계는
+ *      넓히기가 아니라 검색량 실측(요청마다 3.6초 대기열)이었다. 마감만으로는 회차가 안 산다.
  */
 const ROOT = path.join(__dirname, '..', '..', '..');
 const candidates = fs.readFileSync(path.join(ROOT, 'scripts', 'preemption-candidates.js'), 'utf8');
@@ -54,11 +56,21 @@ describe('② 스크립트가 스스로 마감을 지킨다', () => {
     expect(candidates).toContain('마감 ${deadlineMinutes}분에 걸려 덜 넓힌 주제 ${deadlineCuts.length}개');
   });
 
-  it('마감은 확장만 끊고 실측·저장은 그대로 간다 — 그래야 partial 이 올라가고 합치기가 산다', () => {
-    // 마감 판정이 실측 단계(검색광고 검색량)나 저장(savePartial)에는 걸려 있지 않다
-    const measure = candidates.slice(candidates.indexOf('const sampleCap = Number(arg'));
-    const beforeSave = measure.slice(0, measure.indexOf('savePartial()'));
+  it('마감은 확장만 끊는다 — 실측은 마감이 아니라 하드 스톱이 끊는다', () => {
+    // 표본 결정부터 저장까지: 마감 판정은 없고, 하드 스톱 판정이 표본·검색량·문서수 세 곳에 있다
+    const start = candidates.indexOf('const sampleCapArg = Number(arg');
+    expect(start).toBeGreaterThan(-1);
+    const measure = candidates.slice(start);
+    const end = measure.indexOf('savePartial()');
+    expect(end).toBeGreaterThan(-1);
+    const beforeSave = measure.slice(0, end);
     expect(beforeSave).not.toContain('pastDeadline()');
+    expect((beforeSave.match(/pastHardStop\(\)/g) || []).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('하드 스톱은 기본 없음이고, 잘라 낸 양을 주제마다·회차 끝에 밝힌다', () => {
+    expect(candidates).toMatch(/const hardStopMinutes = Number\(arg\('hardStopMinutes'\)\) \|\| 0;/);
+    expect(candidates).toContain('하드 스톱 ${hardStopMinutes}분에 걸려 덜 잰 주제 ${hardStopCuts.length}개');
   });
 });
 
@@ -75,5 +87,12 @@ describe('③ 워크플로가 마감과 표본을 맞춘다', () => {
 
   it('연관어 씨앗을 40 에서 줄였다 — 그대로면 마감 안에 주제 하나도 못 끝낸다', () => {
     expect(num('secondarySeeds')).toBeLessThanOrEqual(20);
+  });
+
+  it('하드 스톱이 마감 뒤·잡 제한 앞에 있다 — 실측을 여기서 멈춰야 4시간 태우고 빈손이 안 된다', () => {
+    const jobTimeout = Number((workflow.match(/discover:[\s\S]*?timeout-minutes:\s*(\d+)/) || [])[1]);
+    const hardStop = num('hardStopMinutes');
+    expect(hardStop, '하드 스톱 인자가 없다').toBeGreaterThan(num('deadlineMinutes'));
+    expect(jobTimeout - hardStop, `여유 ${jobTimeout - hardStop}분 — 문서수·저장·업로드에 모자란다`).toBeGreaterThanOrEqual(30);
   });
 });

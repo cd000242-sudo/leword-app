@@ -355,6 +355,14 @@ const VITEST_SUITES = [
      */
     'src/utils/__tests__/related-fallback-wallclock.test.ts',
     'src/utils/__tests__/preempt-discover-deadline.test.ts',
+    /*
+     * 회차 2시간 앞당김(2026-09-15)의 뒤처리 — 검증에서 추천키워드 워크플로 테스트가 옛 cron 을
+     * 물고 있는 채 게이트 밖에 있었다. 실제 예약 9개가 제 회차로 가는지도 여기서 잠근다.
+     */
+    'src/utils/__tests__/today-picks-workflow.test.ts',
+    'src/utils/__tests__/brief-round-cron-slots.test.ts',
+    // partial 샤드가 합치기를 ReferenceError 로 죽이던 것 — 부분 저장이 한 번도 끝까지 간 적이 없었다
+    'src/utils/__tests__/preemption-shard-partial-merge.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

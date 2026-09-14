@@ -663,7 +663,7 @@ export interface BriefRound {
   briefs: TopicBrief[];
 }
 
-/** 회차 이름 — KST 시각으로. 07:00 아침 · 13:00 오후 · 19:00 저녁 크론에 맞춘 경계(11시·17시). */
+/** 회차 이름 — KST 시각으로. 04:23 아침 · 10:23 오후 · 16:23 저녁 크론에 맞춘 경계(9시·15시). */
 export function roundSlotOf(kstNow: Date): RoundSlot {
   const hour = kstNow.getUTCHours(); // kstToday() 로 민 Date 라 UTC 자리가 KST 시각
   /*

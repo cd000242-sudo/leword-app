@@ -177,7 +177,8 @@ export interface IssueBoardBuildResult {
   expired: number;
 }
 
-const DEFAULT_SCHEDULE = '매일 07·13·19시(KST) 갱신';
+// 사이트가 그대로 보여 주는 문구 — 워크플로 cron(20·2·8 UTC)·문지기 --rounds 와 같은 회차여야 한다(2026-09-15 2시간 앞당김)
+const DEFAULT_SCHEDULE = '매일 05·11·17시(KST) 갱신';
 const DEFAULT_CARRY_HOURS = 48;
 /*
  * 비로그인 맛보기 — 황금키워드보드는 5건이지만 이 보드는 **3건**이다(사장님

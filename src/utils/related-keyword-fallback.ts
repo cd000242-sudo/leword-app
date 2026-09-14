@@ -19,18 +19,42 @@ import axios from 'axios';
 import { rankRelatedKeywordCandidates } from './keyword-relevance';
 
 const FALLBACK_TIMEOUT = 5000;
+/*
+ * 검색광고 소스만 따로 20초를 준다 (2026-09-15).
+ *
+ * 이 소스는 HTTP 가 느린 게 아니라 **공유 대기열**에 선다 — naver-searchad-api 는 프로세스
+ * 전체가 한 줄로 서서 호출 간격(앱 0.5초, 샤드 회차는 LEWORD_SEARCHAD_MIN_INTERVAL_MS=3600)을
+ * 지킨다. 동시에 부르는 쪽이 많을수록 뒷사람의 대기가 길어진다: 샤드에서 주제 6개가 나란히
+ * 부르면 3.6초 × 6 ≈ 21.6초 — 09-14 샤드 로그의 중앙값 21,194ms 가 바로 이것이다.
+ * 앱에서도 동시 30개면 0.5초 × 30 = 15초까지 선다.
+ *
+ * 5초로 끊으면 앱에서 검색량이 실린 연관어(이 모듈에서 검색량이 나오는 유일한 소스)를
+ * 부하가 조금만 있어도 잃는다. 그래서 대기열 소스는 20초를 주되, 끊을 때는 **일도 같이
+ * 끊는다** — 줄에 서기 전에 예상 대기가 예산을 넘으면 서지 않고(자리·쿼터·요청 다 안 씀),
+ * 이미 서 있으면 abort 신호로 요청을 거둔다. 값만 버리고 비용은 그대로 치르는 일이 없다.
+ */
+const SEARCHAD_FALLBACK_TIMEOUT = 20000;
+/** 줄에 설 때 허용하는 예상 대기 — 요청 자체(보통 1~2초)에 4초를 남긴다. */
+const SEARCHAD_QUEUE_BUDGET_MS = SEARCHAD_FALLBACK_TIMEOUT - 4000;
 
 /**
  * 약속 하나에 벽시계 상한을 씌운다. 넘기면 **거절**한다(빈 값으로 해결하지 않는다) —
  * 그래야 아래 "N/M 소스 성공" 집계에서 늦은 소스가 실패로 정직하게 세어진다.
  * 타이머는 끝나면 반드시 거둔다 — 안 거두면 회차마다 수천 개가 이벤트 루프를 붙잡는다.
+ * 작업을 신호 받는 함수로 주면, 상한을 넘길 때 abort 를 보내 **일도 거둔다** — 그래야
+ * 늦은 응답을 기다리는 대신 그 응답을 만드는 비용(대기열 자리·쿼터·요청)까지 끊긴다.
  */
-export function withWallClock<T>(task: Promise<T>, ms: number): Promise<T> {
+export function withWallClock<T>(task: Promise<T> | ((signal: AbortSignal) => Promise<T>), ms: number): Promise<T> {
+    const controller = new AbortController();
+    const running = typeof task === 'function' ? Promise.resolve().then(() => task(controller.signal)) : task;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const deadline = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`wall-clock ${ms}ms 초과`)), ms);
+        timer = setTimeout(() => {
+            controller.abort();
+            reject(new Error(`wall-clock ${ms}ms 초과`));
+        }, ms);
     });
-    return Promise.race([task, deadline]).finally(() => {
+    return Promise.race([running, deadline]).finally(() => {
         if (timer) clearTimeout(timer);
     });
 }
@@ -55,7 +79,8 @@ export interface RelatedKeywordResult {
  */
 async function fetchSearchAdRelKeywords(
     seed: string,
-    config: FallbackConfig
+    config: FallbackConfig,
+    signal?: AbortSignal
 ): Promise<{
     keyword: string;
     monthlyPcVolume: number | null;
@@ -75,7 +100,10 @@ async function fetchSearchAdRelKeywords(
                 secretKey: config.naverSearchAdSecretKey,
                 customerId: config.naverSearchAdCustomerId,
             },
-            seed
+            seed,
+            200,
+            // 대기열이 예산 안에 차례를 못 주면 서지 않고 거절한다 · 상한에 걸리면 요청을 거둔다
+            { maxWaitMs: SEARCHAD_QUEUE_BUDGET_MS, signal }
         );
         return (items || []).map((it: any) => ({
             keyword: it.keyword || it.relKeyword || '',
@@ -84,6 +112,8 @@ async function fetchSearchAdRelKeywords(
             totalSearchVolume: exactSearchAdTotal(it),
         })).filter(i => i.keyword);
     } catch (err: any) {
+        // 대기열 거절·abort 는 삼키지 않는다 — 아래 집계에서 "성공"으로 보이면 안 된다
+        if (err?.name === 'SearchAdQueueBusyError' || err?.name === 'AbortError') throw err;
         console.warn(`[FALLBACK:relkwd] ${seed} 실패: ${err?.message}`);
         return [];
     }
@@ -267,35 +297,6 @@ export async function fetchRelatedKeywordsMulti(
     const t0 = Date.now();
     const tasks: Promise<{ source: string; keywords: string[]; volumes?: Map<string, number> }>[] = [];
 
-    // 1️⃣ 검색광고 (가장 강력)
-    if (!options.skipSearchAd && config.naverSearchAdAccessLicense) {
-        tasks.push(
-            fetchSearchAdRelKeywords(seed, config).then(items => {
-                const volumes = new Map<string, number>();
-                items.forEach(i => {
-                    if (i.totalSearchVolume !== null) {
-                        volumes.set(i.keyword, i.totalSearchVolume);
-                    }
-                });
-                return { source: 'naver-relkwd', keywords: items.map(i => i.keyword), volumes };
-            })
-        );
-    }
-    // 3️⃣ 다음
-    tasks.push(fetchDaumSuggestions(seed).then(k => ({ source: 'daum-suggest', keywords: k })));
-    // 4️⃣ 구글
-    tasks.push(fetchGoogleSuggestions(seed).then(k => ({ source: 'google-suggest', keywords: k })));
-    // 5️⃣ SmartBlock (네이버 공식 확대 발표 — 20%→40%)
-    if (!options.skipSmartBlock) {
-        tasks.push(fetchNaverSmartBlockKeywords(seed).then(k => ({ source: 'naver-smartblock', keywords: k })));
-    }
-    // 6️⃣ 🆕 AI 브리핑 (네이버 공식 신규 대체 서비스)
-    if (!options.skipAi) {
-        tasks.push(fetchNaverAiBriefingKeywords(seed).then(k => ({ source: 'naver-ai-briefing', keywords: k })));
-        // 7️⃣ 🆕 관련 질문 (네이버 공식 신규 대체 서비스)
-        tasks.push(fetchNaverRelatedQuestions(seed).then(k => ({ source: 'naver-related-question', keywords: k })));
-    }
-
     /*
      * 벽시계 상한 — 소스 하나가 매달려도 여기서 끊는다 (2026-09-15).
      *
@@ -303,17 +304,44 @@ export async function fetchRelatedKeywordsMulti(
      * (황금키워드 보드가 09-09 이후 6일간 안 바뀜). 샤드 하나 로그를 세니 이 함수 한 번이
      * 중앙값 21,194ms · 90% 21,410ms 였다. 09-07 정상 회차에서는 3,210ms 였다.
      *
-     * 왜 20초인가 — 위의 다섯 HTTP 소스에는 FALLBACK_TIMEOUT(5초)이 axios 옵션으로
-     * 걸려 있지만, 검색광고 소스는 naver-searchad-api 의 native fetch 를 타서
-     * 그 안의 **20초 abort** 가 상한이었다. 검색광고가 응답을 물고 있으면(한 계정을
-     * 러너 4대가 동시에 부르는 상황) 매 씨앗마다 20초를 꼬박 기다렸다.
-     * "6/6 소스 성공" 으로 찍힌 것은 catch 가 [] 를 돌려 성공처럼 보였기 때문이다.
+     * 21초의 정체 — 다섯 HTTP 소스는 FALLBACK_TIMEOUT(5초)이 axios 옵션으로 걸려 있어
+     * 5초를 못 넘긴다. 검색광고 소스는 HTTP 가 아니라 naver-searchad-api 의 **공유 대기열**에
+     * 섰다: 샤드 회차는 호출 간격이 3.6초(LEWORD_SEARCHAD_MIN_INTERVAL_MS)이고 주제 6개가
+     * 나란히 부르니 차례가 3.6 × 6 ≈ 21.6초 뒤에 온다. 그러고도 catch 가 [] 를 돌려
+     * "6/6 소스 성공" 으로 찍혔다 — 기다림이 성공처럼 보였다.
      *
-     * 그래서 소스마다 같은 상한을 race 로 씌운다. 5초 안에 못 온 소스는 그 회차엔 없는
-     * 것으로 친다 — 나머지 소스가 답을 준다. 늦게 온 응답은 버린다(경쟁 끝난 뒤 resolve
-     * 되어도 아무도 안 읽는다). 결과 모양·점수·정렬은 그대로다.
+     * 그래서 소스마다 상한을 race 로 씌운다. HTTP 소스는 5초, 대기열 소스는 20초(위 설명).
+     * 상한 안에 못 온 소스는 그 회차엔 없는 것으로 친다 — 나머지 소스가 답을 준다.
+     * 대기열 소스는 끊을 때 일도 거둔다(abort). 결과 모양·점수·정렬은 그대로다.
      */
-    const results = await Promise.allSettled(tasks.map((task) => withWallClock(task, FALLBACK_TIMEOUT)));
+    // 1️⃣ 검색광고 (가장 강력)
+    if (!options.skipSearchAd && config.naverSearchAdAccessLicense) {
+        tasks.push(withWallClock((signal) => fetchSearchAdRelKeywords(seed, config, signal).then(items => {
+            const volumes = new Map<string, number>();
+            items.forEach(i => {
+                if (i.totalSearchVolume !== null) {
+                    volumes.set(i.keyword, i.totalSearchVolume);
+                }
+            });
+            return { source: 'naver-relkwd', keywords: items.map(i => i.keyword), volumes };
+        }), SEARCHAD_FALLBACK_TIMEOUT));
+    }
+    // 3️⃣ 다음
+    tasks.push(withWallClock(fetchDaumSuggestions(seed).then(k => ({ source: 'daum-suggest', keywords: k })), FALLBACK_TIMEOUT));
+    // 4️⃣ 구글
+    tasks.push(withWallClock(fetchGoogleSuggestions(seed).then(k => ({ source: 'google-suggest', keywords: k })), FALLBACK_TIMEOUT));
+    // 5️⃣ SmartBlock (네이버 공식 확대 발표 — 20%→40%)
+    if (!options.skipSmartBlock) {
+        tasks.push(withWallClock(fetchNaverSmartBlockKeywords(seed).then(k => ({ source: 'naver-smartblock', keywords: k })), FALLBACK_TIMEOUT));
+    }
+    // 6️⃣ 🆕 AI 브리핑 (네이버 공식 신규 대체 서비스)
+    if (!options.skipAi) {
+        tasks.push(withWallClock(fetchNaverAiBriefingKeywords(seed).then(k => ({ source: 'naver-ai-briefing', keywords: k })), FALLBACK_TIMEOUT));
+        // 7️⃣ 🆕 관련 질문 (네이버 공식 신규 대체 서비스)
+        tasks.push(withWallClock(fetchNaverRelatedQuestions(seed).then(k => ({ source: 'naver-related-question', keywords: k })), FALLBACK_TIMEOUT));
+    }
+
+    const results = await Promise.allSettled(tasks);
 
     // 키워드별 집계
     const map = new Map<string, { sources: Set<string>; freq: number; monthlyVolume: number }>();
@@ -349,9 +377,10 @@ export async function fetchRelatedKeywordsMulti(
 
     const ms = Date.now() - t0;
     const succeeded = results.filter(r => r.status === 'fulfilled').length;
-    // 시간 초과로 끊긴 소스를 따로 센다 — "6/6 성공" 이 20초짜리 실패를 감추던 것이 실사고였다.
+    // 시간 초과·대기열 거절로 빠진 소스를 따로 센다 — "6/6 성공" 이 21초짜리 기다림을 감추던 것이 실사고였다.
     const timedOut = results.filter(r => r.status === 'rejected' && /wall-clock/.test(String((r as PromiseRejectedResult).reason?.message || ''))).length;
-    console.log(`[RELATED-FALLBACK] "${seed}" → ${ranked.length}개 (${succeeded}/${tasks.length} 소스 성공${timedOut ? ` · 시간초과 ${timedOut}` : ''}, ${ms}ms)`);
+    const queueBusy = results.filter(r => r.status === 'rejected' && (r as PromiseRejectedResult).reason?.name === 'SearchAdQueueBusyError').length;
+    console.log(`[RELATED-FALLBACK] "${seed}" → ${ranked.length}개 (${succeeded}/${tasks.length} 소스 성공${timedOut ? ` · 시간초과 ${timedOut}` : ''}${queueBusy ? ` · 대기열 거절 ${queueBusy}` : ''}, ${ms}ms)`);
 
     return ranked.map(item => ({
         keyword: item.keyword,

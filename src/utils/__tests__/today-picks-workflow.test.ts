@@ -11,8 +11,11 @@ const root = path.join(__dirname, '..', '..', '..');
 const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'today-picks.yml'), 'utf8');
 
 describe('오늘의 추천키워드 워크플로', () => {
-    it('매일 아침(KST 06:30 = UTC 21:30) 돈다', () => {
-        expect(workflow.match(/cron:\s*'([^']+)'/)?.[1]).toBe('30 21 * * *');
+    it('매일 아침 — 한 회차에 예약을 세 번 건다(KST 04:30 · 05:30 · 06:30 = UTC 전날 19:30 · 20:30 · 21:30). 먼저 도는 하나만 일한다', () => {
+        // 2시간 앞당김(2026-09-15) — 예약이 2시간쯤 늦게 떠서 "1시가 넘어도 안 올라온다"던 것.
+        expect([...workflow.matchAll(/cron:\s*'([^']+)'/g)].map((m) => m[1])).toEqual([
+            '30 19 * * *', '30 20 * * *', '30 21 * * *',
+        ]);
     });
 
     it('문서수 실측용 오픈 API 키와 사이트 배포키를 넘긴다', () => {
