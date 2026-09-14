@@ -37,7 +37,7 @@ describe('실검 틈새 보드 워크플로', () => {
   it('하루 3회 — 한국 07·13·19시(UTC 22·4·10). 분은 정각을 피한다', () => {
     // 정각 예약이 2~4.5시간 늦게 돌았다(22:00→23:47, 04:00→08:31, 10:00→14:04 실측).
     // 다른 회차 워크플로와 같은 :23 으로 옮겼다.
-    expect(workflow).toMatch(/cron:\s*'23 22,4,10 \* \* \*'/);
+    expect(workflow).toMatch(/cron:\s*'23 20,2,8 \* \* \*'/);
   });
 
   it('문서수 상한을 회차에 넘긴다 — 안 넘기면 3,000 으로 떨어져 자리 실측 대상이 회차당 2건이 된다', () => {
@@ -177,7 +177,7 @@ describe('실검 틈새 보드 워크플로', () => {
       expect(slot).toContain('BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}');
       expect(slot).toContain('BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}');
       expect(slot).toContain('LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-issue.json');
-      expect(slot).toMatch(/LEWORD_BRIGHTDATA_FEATURE_CAPS: '\{"issue":2000\}'/);
+      expect(slot).toMatch(/LEWORD_BRIGHTDATA_FEATURE_CAPS: '\{"issue":1300\}'/);
       expect(slot).not.toContain('CLAUDE_CODE_OAUTH_TOKEN');
       expect(slot).toContain('continue-on-error: true');
       expect(slot).toMatch(/timeout-minutes: \d+/);

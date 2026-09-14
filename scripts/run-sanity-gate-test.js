@@ -349,6 +349,12 @@ const VITEST_SUITES = [
      */
     'src/utils/__tests__/brief-round-date-type.test.ts',
     'src/utils/__tests__/brief-round-slot.test.ts',
+    /*
+     * 선점 발굴이 240분 제한에 잘리던 것(2026-09-15). 황금 보드가 6일 정지했는데 회차는
+     * "cancelled" 로만 남아 아무도 안 봤다. 폴백 벽시계 + 발굴 마감 배선을 잠근다.
+     */
+    'src/utils/__tests__/related-fallback-wallclock.test.ts',
+    'src/utils/__tests__/preempt-discover-deadline.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

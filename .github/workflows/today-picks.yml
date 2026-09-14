@@ -14,10 +14,11 @@ on:
     # 한 회차를 세 틱으로 건다(2026-09-12). :30 한 틱만 걸어 뒀더니 늘 2시간쯤 늦게 돌고
     # (09-09 08:35 · 09-10 08:27 · 09-11 08:21 실측) 사장님이 "어제 돌린 게 최신"이라고 하셨다.
     # 먼저 도는 하나만 일한다 — 나머지는 아래 문지기에서 곧장 나간다.
-    # 한국 06:30 · 07:30 · 08:30 = UTC 전날 21:30 · 22:30 · 23:30
+    # 2시간 앞당겨 건다(2026-09-12) — 깃허브 예약이 한결같이 2시간쯤 늦게 뜬다.
+    # 한국 04:30 · 05:30 · 06:30 = UTC 전날 19:30 · 20:30 · 21:30
+    - cron: '30 19 * * *'
+    - cron: '30 20 * * *'
     - cron: '30 21 * * *'
-    - cron: '30 22 * * *'
-    - cron: '30 23 * * *'
   workflow_dispatch:
     inputs:
       # 앱의 회차 감시견이 '빠진 회차'를 대신 깨울 때 true 로 넣는다.
@@ -51,7 +52,7 @@ jobs:
             echo 'done=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          node scripts/board-round-done.js --url=https://leaderspro.kr/data/today-picks.json --field=builtAt --rounds=06:30
+          node scripts/board-round-done.js --url=https://leaderspro.kr/data/today-picks.json --field=builtAt --rounds=04:30
 
   picks:
     needs: guard

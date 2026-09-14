@@ -257,7 +257,9 @@ describe('선점 보드 워크플로 — 실행 시각', () => {
                 // UTC 에서 9시간을 더해 자정을 넘기면 한국 요일이 하루 밀린다
                 const shift = utcHour + 9 >= 24 ? 1 : 0;
                 for (const d of dayField.split(',')) days.add((Number(d) + shift) % 7);
-                expect(kstHour, `한국 ${kstHour}시는 아침 회차가 아니다`).toBeGreaterThanOrEqual(6);
+                // 2026-09-12: 깃허브 예약이 한결같이 2시간쯤 늦게 떠서 예약을 2시간 앞당겼다(04:23·05:23·06:23).
+                // 그래서 아침 회차의 아래쪽 경계가 4시다. 위쪽 9시는 그대로 — 그 뒤는 아침이 아니다.
+                expect(kstHour, `한국 ${kstHour}시는 아침 회차가 아니다`).toBeGreaterThanOrEqual(4);
                 expect(kstHour, `한국 ${kstHour}시는 아침 회차가 아니다`).toBeLessThanOrEqual(9);
                 expect(Number(minute), '정각은 깃허브가 몰려서 떨어뜨린다 — :23 으로 둔다').toBe(23);
             }

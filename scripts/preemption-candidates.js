@@ -310,6 +310,27 @@ async function main() {
    */
   const concurrency = Number(arg('concurrency')) || 6;
   /*
+   * 벽시계 마감 (2026-09-15).
+   *
+   * 실사고: 09-12 부터 발굴 샤드 4개가 **매 회차 240분 제한에 걸려 잘렸다.** 황금키워드 보드가
+   * 09-09 이후 6일간 안 바뀌었다. 잘리면 주제 하나도 못 끝내 partial 조차 없고, 합치기가
+   * "쓸 수 있는 샤드가 하나도 없다"로 죽는다 — 4시간 태우고 빈손이다.
+   *
+   * 원인은 둘이 곱해진 것이다: 자동완성 한 번이 3초(09-07) → 21초(검색광고 폴백이 20초 abort 까지
+   * 매달림)로 늘었고, 표본 상한을 6.7배 열어 샤드당 확장 씨앗이 902 → 2,361+ 로 늘었다.
+   * 21초 × 2,361 = 13.8시간. 어느 쪽을 고쳐도 상한 없이 도는 한 언젠가 또 잘린다.
+   *
+   * 그래서 스크립트 스스로 마감을 지킨다. 마감이 오면 **새 씨앗을 더 넓히지 않고**, 그때까지
+   * 모은 문장으로 실측·저장까지 정상 경로로 끝낸다. 깃허브가 죽이는 것이 아니라 스스로 끝내므로
+   * 아티팩트가 올라가고 합치기가 산다. 잘라 낸 것은 로그에 남긴다 — 조용한 상한은 두지 않는다.
+   *
+   * 기본 0 = 마감 없음(예전과 같음). 워크플로가 잡 제한(240분)보다 넉넉히 앞선 값을 준다.
+   */
+  const deadlineMinutes = Number(arg('deadlineMinutes')) || 0;
+  const deadlineAt = deadlineMinutes > 0 ? Date.now() + deadlineMinutes * 60_000 : Infinity;
+  const pastDeadline = () => Date.now() >= deadlineAt;
+  const deadlineCuts = [];   // 무엇을 얼마나 잘랐나 — 끝에 한 줄로 밝힌다
+  /*
    * 검색광고 게이트는 러너 수만큼 넓힌다(2026-09-08 실측: 4러너 동시 호출로 429 폭주).
    * 계정 전체 초당 호출을 러너 하나일 때(220ms)로 되돌리는 값이다. --adGateMs 로 덮어쓸 수 있다.
    */
@@ -457,9 +478,20 @@ async function main() {
     // 자동완성은 사람이 실제로 치는 형태(띄어쓰기 포함)로 돌려준다.
     // 여기가 "어디에서도 찾기 힘든" 키워드가 나오는 유일한 지점이다.
     const phrases = new Map();
+    /*
+     * 자동완성 안의 연관어 폴백에서 **검색광고는 뺀다** (2026-09-15).
+     *
+     * 위 1단계에서 씨앗마다 검색광고 연관어를 이미 200개씩 받았다. 자동완성이 씨앗 하나마다
+     * 그 폴백을 또 부르면 같은 창구를 수천 번 더 두드리는 것이고, 실측(09-14 샤드 로그)에서
+     * 바로 그 호출이 20초 abort 까지 매달려 회차를 죽였다. issue-context 가 같은 이유로
+     * 이미 이 플래그를 쓴다. 다른 다섯 소스(다음·구글·스마트블록·AI 브리핑·관련 질문)는 그대로다.
+     */
+    const autocompleteConfig = { ...openApi, skipSearchAdRelated: true };
+    let expansionSkipped = 0;
     for (const seed of expansionSeeds) {
+      if (pastDeadline()) { expansionSkipped += 1; continue; }   // 마감 — 더 넓히지 않는다
       try {
-        const expansions = await getNaverAutocompleteKeywords(seed, openApi);
+        const expansions = await getNaverAutocompleteKeywords(seed, autocompleteConfig);
         for (const phrase of expansions) {
           const keyword = String(phrase || '').replace(/\s+/g, ' ').trim();
           if (!keyword || phrases.has(keyword)) continue;
@@ -870,6 +902,10 @@ async function main() {
     measured.sort((a, b) => sortWeight(analyzeKeywordSignals(a.keyword), a.keyword, a.searchVolume)
       - sortWeight(analyzeKeywordSignals(b.keyword), b.keyword, b.searchVolume));
     const seconds = Math.round((Date.now() - started) / 1000);
+    if (expansionSkipped > 0) {
+      deadlineCuts.push(`${topic}: 확장 씨앗 ${expansionSkipped}/${expansionSeeds.size}개 안 넓힘`);
+      console.log(`  ⏱ ${topic} — 마감(${deadlineMinutes}분) 지나 확장 씨앗 ${expansionSkipped}/${expansionSeeds.size}개는 안 넓혔다. 모은 것으로 실측·저장한다.`);
+    }
     console.log(
       `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`
       + ` 씨앗 ${String(expansionSeeds.size).padStart(3)} → 완결 ${String(phrases.size).padStart(4)}(조각 ${incompleteLog.length}·이탈 ${driftLog.length} 제외)`
@@ -897,6 +933,10 @@ async function main() {
     // 주제 하나가 죽어도 회차를 버리지 않는다 — 예전 루프도 그렇게 돌았다.
     console.log(`  !! ${topic} — ${String(error && error.message || error).slice(0, 90)}`);
   });
+  if (deadlineCuts.length > 0) {
+    // 잘라 낸 것을 숨기지 않는다. 다음 회차에 상한을 조정할 근거가 이 줄이다.
+    console.log(`  ⏱ 마감 ${deadlineMinutes}분에 걸려 덜 넓힌 주제 ${deadlineCuts.length}개 — ${deadlineCuts.join(' · ')}`);
+  }
 
   /*
    * 결과는 **주제 입력 순서 그대로** 담는다.

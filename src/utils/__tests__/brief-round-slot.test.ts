@@ -71,12 +71,12 @@ describe('예약이 아닌 실행은 시계를 쓴다', () => {
 });
 
 describe('시계로 정하는 규칙은 그대로 둔다', () => {
-  it('11시 전은 아침, 17시 전은 오후, 그 뒤는 저녁', () => {
+  it('9시 전은 아침, 15시 전은 오후, 그 뒤는 저녁', () => {
     const kst = (h: number) => new Date(Date.UTC(2026, 8, 11, h, 30));
     expect(roundSlotOf(kst(6))).toBe('아침');
-    expect(roundSlotOf(kst(10))).toBe('아침');
+    expect(roundSlotOf(kst(10))).toBe('오후');
     expect(roundSlotOf(kst(12))).toBe('오후');
-    expect(roundSlotOf(kst(16))).toBe('오후');
+    expect(roundSlotOf(kst(16))).toBe('저녁');
     expect(roundSlotOf(kst(18))).toBe('저녁');
   });
 });

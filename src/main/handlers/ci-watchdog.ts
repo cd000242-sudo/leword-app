@@ -78,10 +78,11 @@ export const BOARDS: readonly WatchedBoard[] = [
     name: '오늘의 글감',
     url: 'https://leaderspro.kr/data/topic-briefs.json',
     workflow: 'topic-briefs.yml',
+    // 2026-09-12 에 2시간 앞당겼다 — 크론과 같은 값이어야 한다(테스트가 대조한다).
     rounds: [
-      { hour: 6, minute: 23, label: '아침' },
-      { hour: 12, minute: 23, label: '오후' },
-      { hour: 18, minute: 23, label: '저녁' },
+      { hour: 4, minute: 23, label: '아침' },
+      { hour: 10, minute: 23, label: '오후' },
+      { hour: 16, minute: 23, label: '저녁' },
     ],
     // 회차 목록이라 마지막 회차의 builtAt 이 '마지막으로 실린 시각'이다.
     // 회차 이름으로 맞추지 않는다 — 늦게 돈 저녁 회차가 아침으로 적히던 사고가 있었다(2026-09-11).
@@ -96,7 +97,7 @@ export const BOARDS: readonly WatchedBoard[] = [
     name: '황금키워드(선점 보드)',
     url: 'https://leaderspro.kr/data/preemption-board.json',
     workflow: 'preemption-board.yml',
-    rounds: [{ hour: 6, minute: 23, label: '회차' }],
+    rounds: [{ hour: 4, minute: 23, label: '회차' }],
     days: [1, 5], // 한국 월요일·금요일
     lastBuiltAt: topLevel('publishedAt'),
   },
@@ -104,7 +105,7 @@ export const BOARDS: readonly WatchedBoard[] = [
     name: '오늘의 추천키워드',
     url: 'https://leaderspro.kr/data/today-picks.json',
     workflow: 'today-picks.yml',
-    rounds: [{ hour: 6, minute: 30, label: '회차' }],
+    rounds: [{ hour: 4, minute: 30, label: '회차' }],
     lastBuiltAt: topLevel('builtAt'),
   },
   {
@@ -112,9 +113,9 @@ export const BOARDS: readonly WatchedBoard[] = [
     url: 'https://leaderspro.kr/data/issue-niche-board.json',
     workflow: 'issue-niche-board.yml',
     rounds: [
-      { hour: 7, minute: 23, label: '아침' },
-      { hour: 13, minute: 23, label: '오후' },
-      { hour: 19, minute: 23, label: '저녁' },
+      { hour: 5, minute: 23, label: '아침' },
+      { hour: 11, minute: 23, label: '오후' },
+      { hour: 17, minute: 23, label: '저녁' },
     ],
     lastBuiltAt: topLevel('publishedAt'),
   },

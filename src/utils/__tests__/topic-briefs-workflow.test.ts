@@ -14,14 +14,14 @@ describe('오늘의 글감 워크플로', () => {
         // :23 으로 옮긴 뒤에도 09-09 09:23 예약이 13:47 에 돌았고(4.4시간), 21:23·03:23 은 아예 안 돌았다.
         // 늦으면 회차 이름까지 밀려 아침이 통째로 빈다 — 그래서 한 회차에 예약을 여러 번 건다.
         expect([...workflow.matchAll(/cron:\s*'([^']+)'/g)].map((m) => m[1])).toEqual([
-            '23 21 * * *', '23 22 * * *', '23 23 * * *',
-            '23 3 * * *', '23 4 * * *', '23 5 * * *',
-            '23 9 * * *', '23 10 * * *', '23 11 * * *',
+            '23 19 * * *', '23 20 * * *', '23 21 * * *',
+            '23 1 * * *', '23 2 * * *', '23 3 * * *',
+            '23 7 * * *', '23 8 * * *', '23 9 * * *',
         ]);
     });
 
     it('예약 실행은 이미 실린 회차를 건너뛴다 — 수동 실행은 건너뛰지 않는다', () => {
-        expect(workflow).toContain("SKIP_IF_DONE: ${{ github.event_name == 'schedule' && 'true' || 'false' }}");
+        expect(workflow).toContain("SKIP_IF_DONE: ${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }}");
         expect(workflow).toContain('--skipIfSlotDone="$SKIP_IF_DONE"');
     });
 
@@ -59,7 +59,7 @@ describe('오늘의 글감 워크플로', () => {
         expect(/MAX_SERP:\s*\$\{\{\s*github\.event\.inputs\.maxSerp\s*\|\|\s*'80'\s*\}\}/.test(workflow)).toBe(true);
         expect(/BRIGHTDATA_TOKEN:\s*\$\{\{\s*secrets\.BRIGHTDATA_TOKEN\s*\}\}/.test(workflow)).toBe(true);
         expect(workflow).toContain('LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json');
-        expect(workflow).toContain('LEWORD_BRIGHTDATA_FEATURE_CAPS: \'{"briefs":12000}\'');
+        expect(workflow).toContain('LEWORD_BRIGHTDATA_FEATURE_CAPS: \'{"briefs":3400}\'');
         expect(workflow).toContain('git add data/brightdata-quota-briefs.json');
         // 장부를 읽어야 하므로 사이트 체크아웃이 글감 뽑기보다 앞이다
         expect(workflow.indexOf('사이트 레포 체크아웃')).toBeLessThan(workflow.indexOf('scripts/topic-briefs.js'));

@@ -80,10 +80,10 @@ describe('지금 어느 회차인가', () => {
     expect(dueRound(briefs, kst(9, 12, 20, 0))?.label).toBe('저녁');
   });
 
-  it('회차 예정 시각은 06:23 · 12:23 · 18:23 KST — 크론과 같은 분이다', () => {
+  it('회차 예정 시각은 04:23 · 10:23 · 16:23 KST — 크론과 같은 분이다', () => {
     const briefs = boardOf('오늘의 글감');
     const morning = dueRound(briefs, kst(9, 12, 9, 0))!;
-    expect(new Date(morning.dueAtMs + 9 * 3_600_000).toISOString()).toBe('2026-09-12T06:23:00.000Z');
+    expect(new Date(morning.dueAtMs + 9 * 3_600_000).toISOString()).toBe('2026-09-12T04:23:00.000Z');
   });
 
   it('한국 새벽에는 어제 저녁 회차를 본다 — 오늘 아침을 기다리다 어제를 놓치지 않게', () => {
@@ -106,7 +106,7 @@ describe('주 2회 보드는 그 요일만 센다', () => {
     // 2026-09-12 는 토요일. 직전 회차는 09-11 금요일 06:23.
     const due = dueRound(golden, kst(9, 12, 8, 12))!;
     expect(due.day).toBe('2026-09-11');
-    expect(new Date(due.dueAtMs + 9 * 3_600_000).toISOString()).toBe('2026-09-11T06:23:00.000Z');
+    expect(new Date(due.dueAtMs + 9 * 3_600_000).toISOString()).toBe('2026-09-11T04:23:00.000Z');
   });
 
   it('금요일 회차가 09-09 발행본으로는 안 채워진다 — 그래서 깨워야 한다', () => {

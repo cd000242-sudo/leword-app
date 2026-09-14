@@ -666,8 +666,17 @@ export interface BriefRound {
 /** 회차 이름 — KST 시각으로. 07:00 아침 · 13:00 오후 · 19:00 저녁 크론에 맞춘 경계(11시·17시). */
 export function roundSlotOf(kstNow: Date): RoundSlot {
   const hour = kstNow.getUTCHours(); // kstToday() 로 민 Date 라 UTC 자리가 KST 시각
-  if (hour < 11) return '아침';
-  if (hour < 17) return '오후';
+  /*
+   * 경계를 2시간 당겼다(2026-09-12, 11·17 → 9·15).
+   *
+   * 사장님: "애초에 일찍 돌려버리면 1~2시간늦게 안올라올꺼아냐".
+   * 예약을 2시간 앞당겨 걸었으므로(아침 04:23 · 오후 10:23 · 저녁 16:23 KST)
+   * 회차 이름을 가르는 경계도 같이 당겨야 한다. 안 그러면 10:23 예약이 '아침'으로
+   * 기록되고, 그날 진짜 아침 회차가 "이미 실렸다"며 통째로 건너뛰어진다
+   * (09-11 에 겪은 사고와 같은 모양이다).
+   */
+  if (hour < 9) return '아침';
+  if (hour < 15) return '오후';
   return '저녁';
 }
 

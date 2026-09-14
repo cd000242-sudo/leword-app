@@ -19,6 +19,21 @@ import axios from 'axios';
 import { rankRelatedKeywordCandidates } from './keyword-relevance';
 
 const FALLBACK_TIMEOUT = 5000;
+
+/**
+ * 약속 하나에 벽시계 상한을 씌운다. 넘기면 **거절**한다(빈 값으로 해결하지 않는다) —
+ * 그래야 아래 "N/M 소스 성공" 집계에서 늦은 소스가 실패로 정직하게 세어진다.
+ * 타이머는 끝나면 반드시 거둔다 — 안 거두면 회차마다 수천 개가 이벤트 루프를 붙잡는다.
+ */
+export function withWallClock<T>(task: Promise<T>, ms: number): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const deadline = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`wall-clock ${ms}ms 초과`)), ms);
+    });
+    return Promise.race([task, deadline]).finally(() => {
+        if (timer) clearTimeout(timer);
+    });
+}
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36';
 
 export interface FallbackConfig {
@@ -281,7 +296,24 @@ export async function fetchRelatedKeywordsMulti(
         tasks.push(fetchNaverRelatedQuestions(seed).then(k => ({ source: 'naver-related-question', keywords: k })));
     }
 
-    const results = await Promise.allSettled(tasks);
+    /*
+     * 벽시계 상한 — 소스 하나가 매달려도 여기서 끊는다 (2026-09-15).
+     *
+     * 실사고: 선점 보드 발굴 샤드 4개가 09-12 부터 **매 회차 240분 제한에 걸려 잘렸다**
+     * (황금키워드 보드가 09-09 이후 6일간 안 바뀜). 샤드 하나 로그를 세니 이 함수 한 번이
+     * 중앙값 21,194ms · 90% 21,410ms 였다. 09-07 정상 회차에서는 3,210ms 였다.
+     *
+     * 왜 20초인가 — 위의 다섯 HTTP 소스에는 FALLBACK_TIMEOUT(5초)이 axios 옵션으로
+     * 걸려 있지만, 검색광고 소스는 naver-searchad-api 의 native fetch 를 타서
+     * 그 안의 **20초 abort** 가 상한이었다. 검색광고가 응답을 물고 있으면(한 계정을
+     * 러너 4대가 동시에 부르는 상황) 매 씨앗마다 20초를 꼬박 기다렸다.
+     * "6/6 소스 성공" 으로 찍힌 것은 catch 가 [] 를 돌려 성공처럼 보였기 때문이다.
+     *
+     * 그래서 소스마다 같은 상한을 race 로 씌운다. 5초 안에 못 온 소스는 그 회차엔 없는
+     * 것으로 친다 — 나머지 소스가 답을 준다. 늦게 온 응답은 버린다(경쟁 끝난 뒤 resolve
+     * 되어도 아무도 안 읽는다). 결과 모양·점수·정렬은 그대로다.
+     */
+    const results = await Promise.allSettled(tasks.map((task) => withWallClock(task, FALLBACK_TIMEOUT)));
 
     // 키워드별 집계
     const map = new Map<string, { sources: Set<string>; freq: number; monthlyVolume: number }>();
@@ -317,7 +349,9 @@ export async function fetchRelatedKeywordsMulti(
 
     const ms = Date.now() - t0;
     const succeeded = results.filter(r => r.status === 'fulfilled').length;
-    console.log(`[RELATED-FALLBACK] "${seed}" → ${ranked.length}개 (${succeeded}/${tasks.length} 소스 성공, ${ms}ms)`);
+    // 시간 초과로 끊긴 소스를 따로 센다 — "6/6 성공" 이 20초짜리 실패를 감추던 것이 실사고였다.
+    const timedOut = results.filter(r => r.status === 'rejected' && /wall-clock/.test(String((r as PromiseRejectedResult).reason?.message || ''))).length;
+    console.log(`[RELATED-FALLBACK] "${seed}" → ${ranked.length}개 (${succeeded}/${tasks.length} 소스 성공${timedOut ? ` · 시간초과 ${timedOut}` : ''}, ${ms}ms)`);
 
     return ranked.map(item => ({
         keyword: item.keyword,
