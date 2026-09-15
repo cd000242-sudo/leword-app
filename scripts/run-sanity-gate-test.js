@@ -378,6 +378,8 @@ const VITEST_SUITES = [
      */
     'src/utils/__tests__/searchad-ceiling-per-job.test.ts',
     'src/utils/__tests__/demand-shape-datalab-failure-log.test.ts',
+    // 구독 CLI 설치가 네트워크에 매달려 회차를 잃지 않게 — 받기·설치에 시간 제한(2026-09-15)
+    'src/utils/__tests__/subscription-setup-bounded.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

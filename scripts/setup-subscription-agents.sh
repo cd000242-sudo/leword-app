@@ -6,10 +6,19 @@ set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 printf '%s\n' "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+# Bound every download and install. This step has no step timeout, so a stalled network
+# used to hold the whole job until its limit and the round was lost. A timeout now fails
+# the command, which takes the existing warning path below. Runners without `timeout`
+# (e.g. macOS) run the command unbounded, as before.
+run_limited() {
+  local seconds="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then timeout "$seconds" "$@"; else "$@"; fi
+}
+
 for entry in 'claude @anthropic-ai/claude-code' 'codex @openai/codex'; do
   read -r command package <<< "$entry"
   if ! command -v "$command" >/dev/null 2>&1; then
-    if ! npm install -g "$package"; then
+    if ! run_limited 600 npm install -g "$package"; then
       echo "::warning::$command installation failed; remaining providers will still be tried."
     fi
   fi
@@ -18,7 +27,7 @@ done
 if ! command -v agy >/dev/null 2>&1; then
   if [ "${RUNNER_OS:-Linux}" = 'Linux' ]; then
     installer=$(mktemp)
-    if ! curl -fsSL https://antigravity.google/cli/install.sh -o "$installer" || ! bash "$installer"; then
+    if ! curl -fsSL --max-time 120 https://antigravity.google/cli/install.sh -o "$installer" || ! run_limited 600 bash "$installer"; then
       echo '::warning::Gemini CLI installation failed; remaining providers will still be tried.'
     fi
     rm -f "$installer"
