@@ -101,12 +101,13 @@ const fakeDeps = (overrides: Partial<MyBlogDeps> = {}): FakeDeps => {
 };
 
 describe('내 블로그 판 — 30위 안에 붙어 본 말에서 넓혀 찾는다', () => {
-  it('가까운 씨앗부터 연관어로 넓히고, 긴 씨앗은 짧게 줄여 한 번 더 묻는다', async () => {
+  it('첫 페이지 씨앗부터 넓히고 같은 씨앗에서는 자동완성 말이 먼저 — 긴 씨앗은 짧게 줄여 한 번 더 묻는다', async () => {
     const deps = fakeDeps();
     const got = await findFromMyBlog(measured, profile, deps);
     expect(got.seeds).toBe(6);
     expect(deps.calls).toContain('suggest:베란다 청소');
-    expect(got.candidates.map((x) => x.keyword)).toEqual(['베란다곰팡이', '화장실바닥청소', '베란다청소업체', '바닥청소세제', '타일 바닥 청소 세제']);
+    // 7위 '베란다 청소 방법'과 10위 '타일 바닥 청소'를 번갈아 — 타일 쪽은 자동완성 말이 연관어보다 앞
+    expect(got.candidates.map((x) => x.keyword)).toEqual(['베란다곰팡이', '타일 바닥 청소 세제', '베란다청소업체', '화장실바닥청소', '바닥청소세제']);
   });
 
   it('자동완성 말은 검색량을 따로 재서 범위 안인 것만 남긴다', async () => {
@@ -145,5 +146,50 @@ describe('내 블로그 판 — 30위 안에 붙어 본 말에서 넓혀 찾는�
     const got = await findFromMyBlog(measured, profile, deps);
     expect(got.candidates).toHaveLength(0);
     expect(got.seeds).toBe(6);
+  });
+});
+
+/*
+ * 줄세우기 근거(2026-09-15 사장님 블로그 실측, 자리 36건):
+ *   첫 페이지(1~10위) 씨앗에서 넓힌 말 21건 중 반열림 7 · 11~30위 씨앗에서 넓힌 말 15건 중 0.
+ *   첫 페이지 씨앗 안에서도 자동완성(띄어 쓴 긴 말) 8건 중 5 · 붙여 쓴 연관어 13건 중 2.
+ *   씨앗마다 연관어를 검색량 큰 순으로 세운 첫 실행은 '부산청소업체'·'준공청소' 같은 업체 말이 앞칸을 먹어 12건이 전부 잠김이었다.
+ */
+describe('줄세우기 — 첫 페이지 씨앗 먼저, 같은 씨앗에서는 자동완성 먼저', () => {
+  it('11~30위 씨앗에서 넓힌 말은 첫 페이지 씨앗의 말을 다 세운 뒤에 온다', async () => {
+    const deps = fakeDeps({
+      suggest: async (seed) => {
+        if (seed === '거실 청소') return [{ keyword: '거실청소업체', searchVolume: 3000 }, { keyword: '거실청소순서', searchVolume: 900 }];
+        if (seed === '타일 바닥 청소') return [{ keyword: '화장실바닥청소', searchVolume: 1640 }];
+        return [];
+      },
+    });
+    const order = (await findFromMyBlog(measured, profile, deps)).candidates.map((x) => x.keyword);
+    expect(order).toEqual(['타일 바닥 청소 세제', '화장실바닥청소', '거실청소업체', '거실청소순서']);
+  });
+
+  it('같은 말이 자동완성과 연관어로 둘 다 오면 띄어 쓴 자동완성 쪽을 남긴다 — 제목에 그대로 쓰인다', async () => {
+    const deps = fakeDeps({
+      suggest: async (seed) => (seed === '타일 바닥 청소' ? [{ keyword: '타일바닥청소세제', searchVolume: 880 }] : []),
+    });
+    const got = await findFromMyBlog(measured, profile, deps);
+    expect(got.candidates.map((x) => x.keyword)).toEqual(['타일 바닥 청소 세제']);
+    expect(got.candidates[0].why).toBe("내 글이 10위였던 '타일 바닥 청소'에서 자동완성으로 찾은 말");
+  });
+
+  it('자동완성은 앞 씨앗 6개까지, 씨앗마다 20개까지만 검색량을 잰다 — 검색광고 호출을 묶어 둔다', async () => {
+    const places = ['욕실', '주방', '현관', '베란다', '창틀', '거실', '방충망', '세탁기'];
+    const seedRows = places.map((place, i) => r(`${place} 청소`, i + 1, 500));
+    let autoCalls = 0;
+    let asked = 0;
+    const deps: MyBlogDeps = {
+      suggest: async () => [],
+      autocomplete: async (seed) => { autoCalls += 1; return Array.from({ length: 25 }, (_, j) => `${seed} 순서${j}`); },
+      volumes: async (keywords) => { asked = keywords.length; return new Map(); },
+    };
+    const got = await findFromMyBlog(seedRows, buildProfile({ wonRows: seedRows })!, deps);
+    expect(got.seeds).toBe(8);
+    expect(autoCalls).toBe(6);
+    expect(asked).toBe(6 * 20);
   });
 });

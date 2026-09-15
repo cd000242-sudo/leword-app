@@ -25,7 +25,7 @@
 import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { buildNearBand, judgeRange, type BlogEnvelope, type NearBand, type WonRow } from '../../utils/blog-class/envelope';
+import { buildNearBand, isWon, judgeRange, type BlogEnvelope, type NearBand, type WonRow } from '../../utils/blog-class/envelope';
 import {
   buildProfile,
   coreWords,
@@ -55,10 +55,12 @@ const MAX_SEEDS = 12;
 const PER_SEED = 15;
 /** 연관어가 이보다 적게 오면 씨앗을 짧게 줄여 한 번 더 묻는다(시험: '베란다 청소 방법' → 1개). */
 const FEW_SUGGESTIONS = 5;
-/** 자동완성으로도 넓힐 앞 씨앗 수 — 사람이 띄어 치는 모양을 보태는 용도라 적게 쓴다. */
-const AUTOCOMPLETE_SEEDS = 4;
-/** 씨앗 하나가 자동완성으로 더 남기는 말 상한. */
-const AUTOCOMPLETE_PER_SEED = 5;
+/** 자동완성으로도 넓힐 앞 씨앗 수 — 씨앗은 가까운 순이라 첫 페이지 씨앗이 먼저 들어온다. */
+const AUTOCOMPLETE_SEEDS = 6;
+/** 씨앗 하나에서 검색량을 재 볼 자동완성 말 상한 — 검색광고 호출(4개씩 한 번)을 묶어 둔다. */
+const AUTOCOMPLETE_ASK = 20;
+/** 씨앗 하나가 자동완성으로 남기는 말 상한. */
+const AUTOCOMPLETE_PER_SEED = 10;
 
 const U = (...p: string[]) => path.join(app.getPath('userData'), ...p);
 
@@ -337,6 +339,14 @@ export interface MyBlogDeps {
 /**
  * 30위 안에 붙어 본 말을 씨앗으로 새 말을 찾는다. 범위가 없으면 찾지 않는다 — 기준 없이 넓히지 않는다.
  * 창구가 실패해도 판 전체를 죽이지 않는다(그 씨앗만 빈손).
+ *
+ * 줄세우기 — 첫 페이지 씨앗 먼저, 같은 씨앗 안에서는 자동완성 먼저.
+ * 근거(2026-09-15 사장님 블로그 실측, 자리 36건):
+ *   첫 페이지(1~10위) 씨앗에서 넓힌 말 21건 중 반열림 7 · 11~30위 씨앗에서 넓힌 말 15건 중 0.
+ *   첫 페이지 씨앗 안에서도 자동완성(띄어 쓴 긴 말) 8건 중 5 · 붙여 쓴 연관어 13건 중 2.
+ *   처음에는 씨앗마다 연관어를 검색량 큰 순으로 세웠더니 '부산청소업체'·'준공청소' 같은 업체 말이
+ *   자리 잴 칸을 먹어 12건이 전부 잠김이었다.
+ * 같은 말이 자동완성과 연관어로 둘 다 오면 띄어 쓴 자동완성 쪽을 남긴다 — 제목에 그대로 쓰인다.
  */
 export async function findFromMyBlog(
   rows: readonly WonRow[],
@@ -349,37 +359,27 @@ export async function findFromMyBlog(
   const say = (message: string) => { if (onMessage) { try { onMessage(message); } catch { /* 듣는 쪽 사정 */ } } };
   const seeds = nearRows(rows).slice(0, MAX_SEEDS);
   const seen = new Set(profile.ownKeywords);
-  const lists: Expansion[][] = [];
 
-  for (let i = 0; i < seeds.length; i += 1) {
-    const seed = seeds[i];
-    say(`내 블로그 말에서 찾는 중 ${i + 1}/${seeds.length} · ${seed.keyword}`);
-    let items: Array<{ keyword: string; searchVolume: number | null }> = [];
-    try { items = await deps.suggest(seed.keyword); } catch { items = []; }
-    if (items.length < FEW_SUGGESTIONS) {
-      const short = shortenSeed(seed.keyword);
-      if (short) {
-        try { items = items.concat(await deps.suggest(short)); } catch { /* 이 씨앗은 여기까지 */ }
-      }
-    }
-    lists.push(pickExpansions(seed, items, band, seen, PER_SEED, '연관어'));
-  }
-
-  // 자동완성 — 사람이 띄어 치는 모양을 보탠다. 검색량이 안 오니 모아서 한 번에 잰다.
+  // ① 자동완성 — 사람이 띄어 치는 긴 말. 검색량이 안 오니 모아서 한 번에 잰다.
   const phrases: Array<{ seedIndex: number; phrase: string }> = [];
   const autoSeeds = Math.min(AUTOCOMPLETE_SEEDS, seeds.length);
   for (let i = 0; i < autoSeeds; i += 1) {
     const seed = seeds[i];
+    say(`내 블로그 말에서 찾는 중 — 자동완성 ${i + 1}/${autoSeeds} · ${seed.keyword}`);
     let found: string[] = [];
     try { found = await deps.autocomplete(shortenSeed(seed.keyword) || seed.keyword); } catch { found = []; }
     const words = coreWords(seed.keyword);
+    let asked = 0;
     for (const phrase of found) {
+      if (asked >= AUTOCOMPLETE_ASK) break;
       const key = flat(phrase);
       if (!key || seen.has(key) || !words.some((word) => key.includes(word))) continue;
       if (phrases.some((p) => flat(p.phrase) === key)) continue;
       phrases.push({ seedIndex: i, phrase });
+      asked += 1;
     }
   }
+  const autoLists: Expansion[][] = seeds.map(() => []);
   if (phrases.length > 0) {
     say(`자동완성 말 ${phrases.length}개의 검색량을 재는 중`);
     let volumes = new Map<string, number | null>();
@@ -389,11 +389,32 @@ export async function findFromMyBlog(
         .filter((p) => p.seedIndex === i)
         .map((p) => ({ keyword: p.phrase, searchVolume: volumes.get(flat(p.phrase)) ?? null }));
       if (measured.length === 0) continue;
-      lists[i] = lists[i].concat(pickExpansions(seeds[i], measured, band, seen, AUTOCOMPLETE_PER_SEED, '자동완성'));
+      autoLists[i] = pickExpansions(seeds[i], measured, band, seen, AUTOCOMPLETE_PER_SEED, '자동완성');
     }
   }
 
-  const candidates = interleave(lists).map((e): Candidate => ({
+  // ② 연관어 — 검색량이 같이 온다. 자동완성이 이미 남긴 말은 건너뛴다.
+  const lists: Expansion[][] = [];
+  for (let i = 0; i < seeds.length; i += 1) {
+    const seed = seeds[i];
+    say(`내 블로그 말에서 찾는 중 — 연관어 ${i + 1}/${seeds.length} · ${seed.keyword}`);
+    let items: Array<{ keyword: string; searchVolume: number | null }> = [];
+    try { items = await deps.suggest(seed.keyword); } catch { items = []; }
+    if (items.length < FEW_SUGGESTIONS) {
+      const short = shortenSeed(seed.keyword);
+      if (short) {
+        try { items = items.concat(await deps.suggest(short)); } catch { /* 이 씨앗은 여기까지 */ }
+      }
+    }
+    lists.push([...autoLists[i], ...pickExpansions(seed, items, band, seen, PER_SEED, '연관어')]);
+  }
+
+  // ③ 첫 페이지 씨앗에서 넓힌 말을 다 세운 뒤에 11~30위 씨앗의 말. 각 층 안에서는 씨앗마다 번갈아.
+  const firstPage = lists.filter((_, i) => isWon(seeds[i]));
+  const further = lists.filter((_, i) => !isWon(seeds[i]));
+  const ordered = [...interleave(firstPage), ...interleave(further)];
+
+  const candidates = ordered.map((e): Candidate => ({
     keyword: e.keyword,
     source: '내 블로그',
     topic: profile.declaredTopic || '',
