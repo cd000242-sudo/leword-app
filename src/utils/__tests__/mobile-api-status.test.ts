@@ -46,7 +46,7 @@ assert('youtube item exists', !!youtube);
 assert('youtube is missing when api key is empty', youtube?.status === 'missing', youtube?.status);
 
 assert('summary counts all diagnostic items',
-  snapshot.summary.total === snapshot.items.length && snapshot.summary.total >= 5);
+  snapshot.summary.total === snapshot.items.length && snapshot.summary.total >= 4);
 assert('overall status becomes partial when at least one required source is partial',
   snapshot.overallStatus === 'partial', snapshot.overallStatus);
 

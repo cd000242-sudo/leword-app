@@ -75,6 +75,13 @@ export interface WebBridgeDeps {
     provider?: string;
   }) => Promise<unknown>;
   /**
+   * 글감 주제 판정(쇼핑 · 정책 · AI) — 검색어 목록만 받는다(2026-09-16, 워커에서 앱으로 옮김).
+   * 사이트 AI 는 앱 브리지 전용이다(사장님 결정 "브리지 전용으로 정리"). 문장은 앱이 만든다.
+   */
+  gapTopics?: (input: { keywords: string[]; provider?: string }) => Promise<unknown>;
+  /** 이 앱이 센 엔진 사용량(최근 5시간 · 24시간 호출 수). 서비스가 준 한도(%)가 아니다. */
+  agentUsage?: () => Promise<unknown>;
+  /**
    * 외부유입 레이더 평가 — 사이트 토큰이 죽어도 앱 구독으로 이어 간다.
    * 재료(후보 목록 + 내 글 요지)만 받고 문장은 앱이 만든다.
    */
@@ -401,6 +408,41 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           return;
         }
         json(res, 200, { ok: true, result: await deps.postIdeas({ kind, keyword, context, title, body, provider }) });
+        return;
+      }
+
+      /*
+       * 글감 주제 판정(쇼핑 · 정책 · AI) — 2026-09-16 워커에서 옮겼다(사이트 AI 는 앱 브리지 전용).
+       * 재료만 받는다: 검색어는 문자열만 · 60자 · 최대 60개(워커와 같은 한도), 엔진 이름은 허용목록만.
+       */
+      if (deps.gapTopics && req.method === 'POST' && req.url === '/v1/bridge/gap-topics') {
+        let keywords: string[] = [];
+        let provider = '';
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          keywords = Array.isArray(parsed?.keywords)
+            ? parsed.keywords
+              .map((keyword: unknown) => (typeof keyword === 'string' ? keyword.trim().slice(0, 60) : ''))
+              .filter(Boolean)
+              .slice(0, 60)
+            : [];
+          const wanted = String(parsed?.provider || '').trim();
+          provider = ['claude', 'codex', 'gemini', 'grok'].includes(wanted) ? wanted : '';
+        } catch {
+          json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
+          return;
+        }
+        if (keywords.length === 0) {
+          json(res, 400, { ok: false, error: '판정할 검색어가 없습니다.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.gapTopics({ keywords, provider }) });
+        return;
+      }
+
+      // 이 앱이 센 엔진 사용량 — 사이트 사용량 칸이 토큰으로 서비스 한도를 조회하던 것을 바꿨다(2026-09-16).
+      if (deps.agentUsage && req.method === 'GET' && req.url === '/v1/bridge/agent-usage') {
+        json(res, 200, { ok: true, result: await deps.agentUsage() });
         return;
       }
 

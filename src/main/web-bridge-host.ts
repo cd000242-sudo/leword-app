@@ -160,6 +160,39 @@ export function startWebBridgeHost(): void {
         return { ideas, provider: run.provider };
       },
       /*
+       * 글감 주제 판정(쇼핑 · 정책 · AI) — 워커에만 있던 판정을 옮겼다(2026-09-16 사장님 결정 "앱 브리지로 옮기기").
+       * 20개씩 묶어 묻고, 뒤 묶음이 실패하면 모은 것까지 돌려준다(워커와 같음). 첫 묶음부터 실패하면 오류로 알린다.
+       */
+      gapTopics: async ({ keywords, provider }) => {
+        const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
+        const { createDefaultAgentChain } = await import('../utils/agent-cli/defaultChain');
+        const { buildGapTopicsPrompt, chunkGapTopicKeywords, parseGapTopics } = await import('../utils/gap-topics-prompt');
+        const topics: ReturnType<typeof parseGapTopics> = [];
+        let answeredBy = '';
+        for (const chunk of chunkGapTopicKeywords(keywords)) {
+          try {
+            const run = await runWithAnyAgent(buildGapTopicsPrompt(chunk), createDefaultAgentChain({ preferredProvider: provider }), {
+              timeoutMs: 120_000,
+              validate: (reply) => { if (parseGapTopics(reply, chunk).length === 0) throw new Error('주제 판정을 읽지 못했습니다'); },
+            });
+            topics.push(...parseGapTopics(String(run.reply || ''), chunk));
+            answeredBy = answeredBy || run.provider;
+          } catch (error) {
+            if (topics.length === 0) throw error;
+            break; // 모은 것까지는 내보낸다
+          }
+        }
+        return { topics, provider: answeredBy };
+      },
+      /*
+       * 이 앱이 센 엔진 사용량(최근 5시간 · 24시간 호출 수) — 사이트 사용량 칸이 클로드 토큰으로 서비스 한도를 조회하던 것을
+       * 바꿨다(2026-09-16 사장님 결정 "앱이 센 사용량으로 교체"). 서비스가 준 한도가 아니라 이 PC 앱이 돌린 횟수다.
+       */
+      agentUsage: async () => {
+        const { summarizeAgentUsage } = await import('../utils/agent-cli/usageLedger');
+        return { usage: await summarizeAgentUsage(), countedBy: 'app' };
+      },
+      /*
        * 레이더 평가 — 사이트 토큰이 죽어도 앱 구독으로 이어 간다
        * (사장님 지시 2026-08-23). 재료만 받고 문장은 여기서 만든다.
        */

@@ -1131,7 +1131,7 @@ export interface MobileAgentAssistContext {
   includeAiInference?: boolean;
   forceExternalInference?: boolean;
   externalAi?: boolean;
-  externalAiKeyOwner?: 'user-local' | 'server-approved';
+  externalAiKeyOwner?: 'user-local';
   externalAiProvider?: 'anthropic' | 'openai';
   externalAiProviders?: Array<'anthropic' | 'openai'>;
   maxAgentRows?: number;

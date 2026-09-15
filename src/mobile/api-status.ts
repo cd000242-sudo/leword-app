@@ -100,20 +100,8 @@ const DIAGNOSTICS: DiagnosticSpec[] = [
     readyRecommendation: 'SERP 교차 검증과 콘텐츠 갭 분석을 확장할 수 있습니다.',
     missingRecommendation: 'Google SERP 교차 검증은 제한됩니다. 네이버 기반 분석은 계속 사용할 수 있습니다.',
   },
-  {
-    id: 'ai',
-    label: 'AI 보강',
-    requiredForMobileResults: false,
-    keys: [
-      { name: 'anthropicApiKey', aliases: ['anthropicApiKey', 'ANTHROPIC_API_KEY', 'CLAUDE_API_KEY'] },
-      { name: 'geminiApiKey', aliases: ['geminiApiKey', 'GEMINI_API_KEY', 'GEMINI_KEY'] },
-      { name: 'manusApiKey', aliases: ['manusApiKey', 'MANUS_API_KEY'] },
-      { name: 'openaiApiKey', aliases: ['openaiApiKey', 'OPENAI_API_KEY'] },
-    ],
-    affects: ['intent-summary', 'content-gap', 'pro-enrichment'],
-    readyRecommendation: '의도 요약, 콘텐츠 갭, PRO 보강 설명이 더 풍부해집니다.',
-    missingRecommendation: 'AI 설명 보강은 줄어들지만 데이터 기반 점수 계산은 유지됩니다.',
-  },
+  // 'AI 보강'(서버 환경변수의 Anthropic · Gemini · Manus · OpenAI 키) 항목은 뺐다 — 서버는 API 키로 AI 를 부르지 않는다
+  // (2026-09-16 사장님 결정). 키를 채우라는 안내가 곧 과금을 권하는 셈이었다.
 ];
 
 function loadDefaultEnv(): EnvLike {

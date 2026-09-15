@@ -442,6 +442,11 @@ const VITEST_SUITES = [
     'src/utils/__tests__/agent-setup-wizard-wiring.test.ts',
     // 앱은 클로드 구독 토큰을 사이트로 넘기지 않는다 — 사이트 AI 는 브리지 전용(2026-09-16)
     'src/utils/__tests__/bridge-no-subscription-token.test.ts',
+    // 사이트 AI 브리지 전용 — 글감 주제 판정 · 앱이 센 사용량 경로(2026-09-16)
+    'src/utils/__tests__/gap-topics-prompt.test.ts',
+    'src/utils/__tests__/bridge-gap-topics-usage.test.ts',
+    // 모바일 서버는 서버 키로 AI 를 부르지 않는다 — 브리핑 검색 이유 추론(Claude · Manus) 제거(2026-09-16)
+    'src/utils/__tests__/briefing-reasoner-no-server-ai.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

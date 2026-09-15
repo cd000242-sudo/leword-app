@@ -1423,13 +1423,13 @@ function booleanField(source: unknown, key: string): boolean {
 async function buildAdminAiWorkerStatus(body: AdminAiWorkerStatusRequest) {
   const selectedProvider = sanitizeAdminAiProvider(body?.selectedProvider);
   const apiAssistInput = body && typeof body.apiAssist === 'object' ? body.apiAssist : {};
-  const serverAiCredentials = configuredServerExternalAiCredentials();
-  const serverAiProviders = configuredExternalAiProviders(serverAiCredentials);
+  // 서버 소유 AI 키(Anthropic · OpenAI · Manus)는 쓰지 않는다(2026-09-16 사장님 결정 "서버 키 경로를 코드에서 제거") —
+  // 준비 상태는 화면이 알려 준 사용자 본인 키만 센다.
   const apiAssist = {
-    anthropic: booleanField(apiAssistInput, 'anthropic') || serverAiProviders.includes('anthropic'),
-    manus: booleanField(apiAssistInput, 'manus') || !!process.env['MANUS_API_KEY'],
-    openai: booleanField(apiAssistInput, 'openai') || serverAiProviders.includes('openai'),
-    serverKeyUseEnabled: serverExternalAiKeyUseEnabled(),
+    anthropic: booleanField(apiAssistInput, 'anthropic'),
+    manus: booleanField(apiAssistInput, 'manus'),
+    openai: booleanField(apiAssistInput, 'openai'),
+    serverKeyUseEnabled: false,
   };
   const codexCommand = firstConfiguredCommand(['LEWORD_CODEX_CLI', 'CODEX_CLI_PATH'], 'codex');
   const claudeCommand = firstConfiguredCommand(['LEWORD_CLAUDE_CODE_CLI', 'LEWORD_CLAUDE_CLI', 'CLAUDE_CODE_CLI_PATH'], 'claude');
@@ -2544,10 +2544,9 @@ const USER_API_CREDENTIAL_KEYS: UserApiCredentialKey[] = [
 const EXTERNAL_AI_USER_CREDENTIAL_KEYS = ['anthropicApiKey', 'openaiApiKey'] as const;
 const EXTERNAL_AI_MAX_ROWS = 8;
 const EXTERNAL_AI_MAX_OUTPUT_TOKENS = 2048;
-const SERVER_EXTERNAL_AI_OPT_IN_ENV = 'LEWORD_ALLOW_SERVER_EXTERNAL_AI';
 
 type ExternalAiProvider = 'anthropic' | 'openai';
-type ExternalAiKeyOwner = 'user-local' | 'server-approved' | 'none';
+type ExternalAiKeyOwner = 'user-local' | 'none';
 
 type UserApiCredentials = Partial<Record<UserApiCredentialKey, string>>;
 
@@ -2599,35 +2598,11 @@ function fingerprintExternalAiCredentials(credentials: UserApiCredentials): stri
     : 'none';
 }
 
-function enabledEnvironmentFlag(name: string): boolean {
-  return /^(?:1|true|yes|on)$/i.test(String(process.env[name] || '').trim());
-}
-
-function serverExternalAiKeyUseEnabled(): boolean {
-  return enabledEnvironmentFlag(SERVER_EXTERNAL_AI_OPT_IN_ENV);
-}
-
 function configuredExternalAiProviders(credentials: UserApiCredentials): ExternalAiProvider[] {
   const providers: ExternalAiProvider[] = [];
   if (credentials.anthropicApiKey) providers.push('anthropic');
   if (credentials.openaiApiKey) providers.push('openai');
   return providers;
-}
-
-function configuredServerExternalAiCredentials(): UserApiCredentials {
-  if (!serverExternalAiKeyUseEnabled()) return {};
-  let config: Partial<EnvConfig> = {};
-  try {
-    config = EnvironmentManager.getInstance().getConfig();
-  } catch {
-    config = {};
-  }
-  return sanitizeUserApiCredentials({
-    anthropicApiKey: config.anthropicApiKey
-      || process.env['ANTHROPIC_API_KEY']
-      || process.env['CLAUDE_API_KEY'],
-    openaiApiKey: config.openaiApiKey || process.env['OPENAI_API_KEY'],
-  });
 }
 
 function normalizeExternalAiProvider(value: unknown): ExternalAiProvider | undefined {
@@ -2664,26 +2639,17 @@ function attachTrustedExternalAiPolicy(
   const agentAssist = sanitizeAgentAssistOwnershipMarkers(raw.agentAssist);
   if (!agentAssist) return raw;
 
+  // 서버 소유 키로는 부르지 않는다(2026-09-16 사장님 결정 "서버 키 경로를 코드에서 제거") — 사용자 본인 키만 쓴다.
   const userProviders = configuredExternalAiProviders(credentials);
-  const serverCredentials = userProviders.length ? {} : configuredServerExternalAiCredentials();
-  const serverProviders = configuredExternalAiProviders(serverCredentials);
   const requestedProvider = normalizeExternalAiProvider(agentAssist.provider);
   const requested = externalAiRequested(agentAssist);
-  const keyOwner: ExternalAiKeyOwner = userProviders.length
-    ? 'user-local'
-    : requested && serverExternalAiKeyUseEnabled() && serverProviders.length
-      ? 'server-approved'
-      : 'none';
-  const availableProviders = keyOwner === 'user-local'
-    ? userProviders
-    : keyOwner === 'server-approved'
-      ? serverProviders
-      : [];
+  const keyOwner: ExternalAiKeyOwner = userProviders.length ? 'user-local' : 'none';
+  const availableProviders = keyOwner === 'user-local' ? userProviders : [];
   const effectiveExternalInference = requested
     && process.env['LEWORD_AGENT_EXTERNAL_INFERENCE'] !== '0'
     && !!requestedProvider
     && availableProviders.includes(requestedProvider);
-  const fingerprintCredentials = keyOwner === 'user-local' ? credentials : serverCredentials;
+  const fingerprintCredentials: UserApiCredentials = keyOwner === 'user-local' ? credentials : {};
 
   return {
     ...raw,
@@ -2698,7 +2664,7 @@ function attachTrustedExternalAiPolicy(
       ...(includeCredentialFingerprint ? {
         externalAiKeyFingerprint: fingerprintExternalAiCredentials(fingerprintCredentials),
       } : {}),
-      externalAiServerKeyOptIn: keyOwner === 'server-approved',
+      externalAiServerKeyOptIn: false,
     },
   };
 }
@@ -2779,10 +2745,7 @@ function normalizeAgentAssistCacheParam(value: unknown): unknown {
   const includeAiInference = raw.includeAiInference === true;
   const forceExternalInference = raw.forceExternalInference === true;
   const externalAi = raw.externalAi === true;
-  const keyOwner: ExternalAiKeyOwner = raw.externalAiKeyOwner === 'user-local'
-    || raw.externalAiKeyOwner === 'server-approved'
-    ? raw.externalAiKeyOwner
-    : 'none';
+  const keyOwner: ExternalAiKeyOwner = raw.externalAiKeyOwner === 'user-local' ? 'user-local' : 'none';
   const keyProviders = normalizeStringListParam(raw.externalAiProviders, 2)
     .filter((item): item is ExternalAiProvider => item === 'anthropic' || item === 'openai');
   const maxAgentRows = Math.max(1, Math.min(
@@ -2811,7 +2774,7 @@ function normalizeAgentAssistCacheParam(value: unknown): unknown {
     maxAgentRows,
     externalInferencePolicy: {
       mode: effectiveExternalInference
-        ? keyOwner === 'server-approved' ? 'external-server-approved' : 'external-user-opt-in'
+        ? 'external-user-opt-in'
         : 'rule-only',
       provider: provider || 'none',
       maxRows: maxAgentRows,

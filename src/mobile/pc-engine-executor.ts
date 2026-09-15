@@ -218,9 +218,7 @@ function normalizeAgentAssistContext(value: unknown): MobileAgentAssistContext |
     includeAiInference: raw.includeAiInference === true,
     forceExternalInference: raw.forceExternalInference === true,
     externalAi: raw.externalAi === true,
-    externalAiKeyOwner: externalAiKeyOwner === 'user-local' || externalAiKeyOwner === 'server-approved'
-      ? externalAiKeyOwner
-      : undefined,
+    externalAiKeyOwner: externalAiKeyOwner === 'user-local' ? externalAiKeyOwner : undefined,
     externalAiProvider: externalAiProvider === 'anthropic' || externalAiProvider === 'openai'
       ? externalAiProvider
       : undefined,
@@ -1440,7 +1438,7 @@ type ExternalAgentInsightResponse = {
 type ExternalAgentInsightSelection = {
   provider: ExternalAgentProvider;
   apiKey: string;
-  keyOwner: 'user-local' | 'server-approved';
+  keyOwner: 'user-local';
 };
 
 class ExternalAgentInsightCallError extends Error {
@@ -1466,7 +1464,7 @@ function resolveExternalAgentInsightSelection(
     || process.env['LEWORD_AGENT_EXTERNAL_INFERENCE'] === '0'
   ) return null;
   const keyOwner = agent.externalAiKeyOwner;
-  if (keyOwner !== 'user-local' && keyOwner !== 'server-approved') return null;
+  if (keyOwner !== 'user-local') return null;
   const allowedProviders = new Set(
     (agent.externalAiProviders || [])
       .map((provider) => normalizeKeyword(provider).toLowerCase())

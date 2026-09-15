@@ -19,7 +19,7 @@ import { callAI, RuleFallbackRequired, runsInDesktopApp } from '../pro-hunter-v1
  *
  * 예전에는 Anthropic API 키로 claude-sonnet-4-6 을 불렀다 — 종량 과금이고 코덱스 · 제미나이 폴백이 없었다.
  * AI 메이트 제목 · LSI 등 callAI 를 쓰는 기능이 전부 이 경로였다. 모바일 서버(pro-blueprint → draft-generator)도
- * 같은 파일을 부르므로 앱 밖은 기존 경로를 그대로 둔다 — 서버의 API 키 사용은 사장님 결정 사항이다.
+ * 같은 파일을 부른다 — 앱 밖도 API 키로 부르지 않는다(2026-09-16 사장님 결정 "서버 키 경로를 코드에서 제거").
  */
 const savedFlag = process.env.LEWORD_AI_AGENT_ONLY;
 
@@ -67,12 +67,22 @@ describe('데스크톱 앱 — 구독 에이전트만', () => {
   });
 });
 
-describe('앱 밖(모바일 서버 · 스크립트) — 기존 경로 그대로', () => {
+describe('앱 밖(모바일 서버 · 스크립트) — API 키로도 부르지 않는다', () => {
   it('데스크톱이 아니면 에이전트를 부르지 않는다', async () => {
     delete process.env.LEWORD_AI_AGENT_ONLY;
     config.value = {};
     expect(runsInDesktopApp()).toBe(false);
     await expect(callAI('프롬프트')).rejects.toBeInstanceOf(RuleFallbackRequired);
+    expect(agent.runWithAnyAgent).not.toHaveBeenCalled();
+  });
+
+  it('서버에 Anthropic 키가 있어도 SDK 를 부르지 않고 규칙 결과로 넘긴다 — claude 모드여도 같다', async () => {
+    delete process.env.LEWORD_AI_AGENT_ONLY;
+    for (const aiInferenceMode of ['auto', 'claude']) {
+      config.value = { aiInferenceMode, anthropicApiKey: 'sk-ant-server-test-key' };
+      await expect(callAI('프롬프트')).rejects.toBeInstanceOf(RuleFallbackRequired);
+    }
+    expect(sdk.create).not.toHaveBeenCalled();
     expect(agent.runWithAnyAgent).not.toHaveBeenCalled();
   });
 });

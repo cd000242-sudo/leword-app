@@ -203,6 +203,22 @@ const result: MobileKeywordResult = {
             && manusOnlyStatusJson.apiAssist?.manusConnected === false
             && manusOnlyStatusJson.apiAssist?.count === 0,
           JSON.stringify(manusOnlyStatusJson));
+        // 옛 서버 스위치를 켜고 서버 키를 넣어도 서버 소유 키는 준비 상태로 세지 않는다(2026-09-16 사장님 결정).
+        process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI = '1';
+        process.env.OPENAI_API_KEY = 'sk-server-key-must-stay-unused-with-flag';
+        const serverFlagStatus = await fetch(`${baseUrl}/v1/admin/ai-worker/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selectedProvider: 'api', apiAssist: {} }),
+        });
+        const serverFlagStatusJson: any = await serverFlagStatus.json();
+        assert('server-owned external AI keys stay unused even with the old server opt-in flag',
+          serverFlagStatus.ok
+            && serverFlagStatusJson.ready?.api === false
+            && serverFlagStatusJson.apiAssist?.serverKeyUseEnabled === false
+            && serverFlagStatusJson.apiAssist?.count === 0,
+          JSON.stringify(serverFlagStatusJson));
+        delete process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI;
       } finally {
         for (const key of externalAiEnvKeys) {
           const value = externalAiEnvBefore[key];
@@ -1872,16 +1888,18 @@ const result: MobileKeywordResult = {
       externalPolicyExecutions.length === 7,
       JSON.stringify(externalPolicyExecutions.map((params) => params?.agentAssist)));
 
+    // 서버 소유 키는 옛 스위치를 켜도 쓰지 않는다(2026-09-16 사장님 결정 "서버 키 경로를 코드에서 제거").
     process.env.LEWORD_ALLOW_SERVER_EXTERNAL_AI = '1';
-    await submitExternalPolicyJob(externalPolicyBody);
-    const serverApprovedParams = externalPolicyExecutions[7];
-    assert('server-owned external AI key requires and records the explicit server approval scope',
-      serverApprovedParams?.agentAssist?.externalAiKeyOwner === 'server-approved'
-        && serverApprovedParams.agentAssist.externalAiProvider === 'openai'
-        && serverApprovedParams.agentAssist.externalAiProviders?.includes('openai')
-        && serverApprovedParams.agentAssist.includeAiInference === true
-        && externalPolicyExecutions.length === 8,
-      JSON.stringify(serverApprovedParams?.agentAssist));
+    const serverFlagJob = await submitExternalPolicyJob(externalPolicyBody);
+    const executionsAfterFlag = externalPolicyExecutions.slice(7);
+    assert('server-owned external AI key is never used, even with the old server opt-in flag',
+      executionsAfterFlag.every((params: any) => params?.agentAssist?.externalAiKeyOwner === 'none'
+        && params.agentAssist.includeAiInference === false
+        && Array.isArray(params.agentAssist.externalAiProviders)
+        && params.agentAssist.externalAiProviders.length === 0)
+        && !externalPolicyExecutions.some((params: any) => params?.agentAssist?.externalAiKeyOwner === 'server-approved')
+        && !JSON.stringify(serverFlagJob.completed).includes('server-approved'),
+      JSON.stringify(executionsAfterFlag.map((params: any) => params?.agentAssist)));
   } finally {
     if (previousServerOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = previousServerOpenAiKey;
