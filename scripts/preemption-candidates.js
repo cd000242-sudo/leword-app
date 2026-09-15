@@ -59,6 +59,7 @@ const { titleCoverage, DEFAULT_SERP_THRESHOLDS: SERP_THRESHOLDS } = require('../
 const { DEFAULT_PREEMPTION_THRESHOLDS } = require('../src/utils/preemption-gate');
 const { judgeCompleteness } = require('../src/utils/keyword-completeness');
 const { analyzeKeywordSignals, sortWeight } = require('../src/utils/keyword-intent');
+const { pickMeasureSample } = require('../src/utils/candidate-sample');
 const { sharesSeedToken } = require('../src/utils/seed-drift');
 const { judgeEphemeralKeyword, judgeAnswerCardKeyword } = require('../src/utils/preemption-supply-guards');
 const { shardTopics } = require('./candidate-shards');
@@ -583,13 +584,10 @@ async function main() {
      * 전부 한 씨앗에서 나와 후보가 1건으로 떨어졌다. 씨앗을 5개 넣은 의미가
      * 사라지는 것은 앞서 한 번 겪은 문제다.
      */
-    const bySeedQueue = new Map();
-    for (const row of phrases.values()) {
-      if (!bySeedQueue.has(row.seed)) bySeedQueue.set(row.seed, []);
-      bySeedQueue.get(row.seed).push(row);
-    }
-    const phraseList = [];
-    const queues = [...bySeedQueue.values()];
+    /*
+     * 실용 말(정보 · 비교 · 거래)을 먼저, 남은 자리를 나머지로 — 둘 다 씨앗별로 돌아가며(2026-09-15 사장님 "실용 말을 먼저 재기").
+     * 깔때기 실측: 실용 의도 말 6,623개 중 47%가 표본 상한 밖이라 검색량을 아예 안 쟀다. 표본 수와 관문은 그대로다(candidate-sample.ts).
+     */
     /*
      * 검색량을 실측할 표본 수.
      *
@@ -602,16 +600,8 @@ async function main() {
     // 하드 스톱이 지난 뒤 실측을 시작하는 주제는 표본을 확 줄인다 — 3.6초씩 드는 줄에 새로 길게 서지 않는다
     const sampleCap = pastHardStop() ? Math.min(sampleCapArg, perTopic * 5) : sampleCapArg;
     if (sampleCap < sampleCapArg) hardStopCuts.push(`${topic}: 표본 ${sampleCapArg} → ${sampleCap}`);
-    for (let round = 0; phraseList.length < sampleCap; round += 1) {
-      let added = 0;
-      for (const queue of queues) {
-        if (round >= queue.length) continue;
-        phraseList.push(queue[round]);
-        added += 1;
-        if (phraseList.length >= sampleCap) break;
-      }
-      if (added === 0) break;
-    }
+    const sample = pickMeasureSample(phrases.values(), sampleCap);
+    const phraseList = sample.rows;
     const volumes = new Map();
     /*
      * CPC·광고 경쟁도는 같은 응답에 이미 실려 온다 — 예전엔 검색량만 꺼내고
@@ -973,6 +963,8 @@ async function main() {
       answerCard: answerCardLog.length, answerCardSamples: answerCardLog.slice(0, 5),
       driftSamples: driftLog.slice(0, 5),
       rows: measured.length, seconds,
+      // 실용 말(정보 · 비교 · 거래) 몇 개를 표본에 넣었나 — 실용 말 먼저 재기(2026-09-15)의 효과를 회차마다 센다.
+      practicalPhrases: sample.practicalTotal, practicalSampled: sample.practicalSampled,
       incompleteSamples: incompleteLog.slice(0, 8),
       },
     };

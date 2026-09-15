@@ -407,6 +407,8 @@ const VITEST_SUITES = [
     'src/utils/__tests__/golden-local-runner.test.ts',
     'src/utils/__tests__/golden-local-merge.test.ts',
     'src/utils/__tests__/golden-local-wiring.test.ts',
+    // 선점 후보 표본 — 실용 말을 먼저 잰다(2026-09-15, 표본 수 · 관문 그대로 순서만)
+    'src/utils/__tests__/candidate-sample.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
