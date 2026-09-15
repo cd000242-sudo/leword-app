@@ -10,6 +10,7 @@
  *   · 키는 사용자 설정(config.json)만 쓴다. 자리는 이 PC 크로미엄. Bright Data 는 부르지 않는다.
  *   · 씨앗 창고는 사이트 레포의 공개 파일을 하루 한 번 받아 둔다. 못 받으면 받아 둔 것을, 그것도 없으면 창고 없이 돈다.
  *   · 결과는 userData/golden-local/published.json(이 PC 판). 발굴 화면이 사이트 판과 합쳐 보인다(golden-site-rows).
+ *   · 자리 재기가 쇼핑 쪽으로 넘긴 말은 userData/golden-local/shopping.json 에 90일 쌓아 발굴 화면이 따로 보인다.
  * 새벽은 한 번에 3주제씩 32주제를 차례로 돈다 — 실측(2026-09-15) 4주제 후보 찾기만 71분이라 하루에 전부는 못 돈다.
  */
 import { app, BrowserWindow, ipcMain, Notification } from 'electron';
@@ -30,6 +31,7 @@ import {
   workFiles,
 } from '../../utils/golden-local-plan';
 import { startGoldenLocalRun, type GoldenLocalRunHandle } from '../../utils/golden-local-runner';
+import { mergeShoppingStore, normalizeShoppingEntries, type ShoppingLaneEntry } from '../../utils/golden-shopping-rows';
 import { shouldSkipBackground } from '../../utils/hunt-progress-flag';
 import { isWatchDue } from '../../utils/seat-watch';
 import { isSeatWatchRunning } from './seat-watch';
@@ -47,6 +49,7 @@ const STATE = () => path.join(DIR(), 'state.json');
 const PREFS = () => path.join(DIR(), 'prefs.json');
 const FIRST_SEEN = () => path.join(DIR(), 'first-seen.json');
 const PUBLISHED = () => path.join(DIR(), 'published.json');
+const SHOPPING = () => path.join(DIR(), 'shopping.json');
 const WORK = () => path.join(DIR(), 'work');
 /** 스크립트가 있는 곳 — 개발은 레포, 설치판은 app.asar. 이 파일의 컴파일본(dist/src/main/handlers)에서 네 칸 위다. */
 const APP_ROOT = () => path.resolve(__dirname, '..', '..', '..', '..');
@@ -137,6 +140,29 @@ export function readGoldenLocalBoard(): { publishedAt?: string | null; rows: any
   return board && Array.isArray(board.rows) ? board : null;
 }
 
+/** 이 PC 에 쌓아 둔 쇼핑 쪽 말(자리 재기가 넘긴 말, 90일) — 발굴 화면(golden-site-rows)이 황금 표 아래 따로 보인다. */
+export function readGoldenLocalShopping(): ShoppingLaneEntry[] {
+  return normalizeShoppingEntries(readJson<unknown>(SHOPPING(), []), null);
+}
+
+/**
+ * 이번 회차 자리 재기가 쇼핑 쪽으로 넘긴 말을 쌓는다(2026-09-15, 사장님 "쇼핑으로 넘긴 말도 앱에 따로 보이기").
+ * 발행 스크립트는 문서량을 안 싣고 발행할 행이 없으면 파일도 안 쓴다 — 그래서 자리 재기 결과(board.json)에서 바로 읽는다.
+ * 작업 파일은 회차 시작 때 지우므로 board.json 이 있으면 이번 회차 것이다.
+ */
+function saveShoppingFromRun(): number {
+  try {
+    const board = readJson<any>(workFiles(WORK()).board, null);
+    const incoming = normalizeShoppingEntries(board && board.routedShopping, new Date().toISOString());
+    if (incoming.length === 0) return 0;
+    writeJson(SHOPPING(), mergeShoppingStore(readGoldenLocalShopping(), incoming, Date.now()));
+    return incoming.length;
+  } catch (error: any) {
+    console.warn('[GOLDEN-LOCAL] 쇼핑 쪽 말 저장 실패:', error?.message);
+    return 0;
+  }
+}
+
 function broadcast(payload: Record<string, unknown>): void {
   for (const win of BrowserWindow.getAllWindows()) {
     try {
@@ -212,6 +238,7 @@ async function runGoldenLocal(topics: string[], reason: RunReason): Promise<Last
   broadcast({ type: 'run-start', topics, reason, at: self.startedAt });
   let summaries: string[] = [];
   const finish = (result: Pick<LastRun, 'ok' | 'aborted' | 'message' | 'tail'>): LastRun => {
+    const shopping = saveShoppingFromRun();
     const lastRun: LastRun = {
       at: new Date().toISOString(),
       reason,
@@ -224,7 +251,7 @@ async function runGoldenLocal(topics: string[], reason: RunReason): Promise<Last
     saveState({ lastRun });
     broadcast({ type: 'run-end', ...lastRun });
     const outcome = lastRun.ok ? '끝' : lastRun.aborted ? '멈춤' : '실패';
-    console.log(`[GOLDEN-LOCAL] ${reason} ${topics.join(',')} — ${outcome} · 고른 주제 ${lastRun.pickedRows ?? 0}행 · 이 PC 판 ${lastRun.rows ?? 0}행 ${lastRun.message}`);
+    console.log(`[GOLDEN-LOCAL] ${reason} ${topics.join(',')} — ${outcome} · 고른 주제 ${lastRun.pickedRows ?? 0}행 · 이 PC 판 ${lastRun.rows ?? 0}행 · 쇼핑 쪽 ${shopping} ${lastRun.message}`);
     return lastRun;
   };
   try {

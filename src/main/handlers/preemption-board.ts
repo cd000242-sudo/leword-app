@@ -17,7 +17,7 @@ import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { measureKeywords } from './seat-measure';
-import { readGoldenLocalBoard } from './golden-local';
+import { readGoldenLocalBoard, readGoldenLocalShopping } from './golden-local';
 
 export const PREEMPTION_PROGRESS_CHANNEL = 'preemption-board-progress';
 
@@ -145,11 +145,21 @@ export function setupPreemptionBoardHandlers(): void {
       const localBoard = readGoldenLocalBoard();
       if (!goldenBoardMemo && !localBoard) return { success: false, error: '사이트 황금 판을 받지 못했습니다 — 인터넷을 확인해 주세요.' };
       const { buildSiteGoldenRows, mergeGoldenBoardRows, SITE_GATE } = await import('../../utils/golden-site-merge');
+      const { buildShoppingLaneRows, normalizeShoppingEntries } = await import('../../utils/golden-shopping-rows');
       const category = payload?.category || '';
       const reseats = readReseats();
       const board = goldenBoardMemo ? goldenBoardMemo.board : null;
       const siteRows = buildSiteGoldenRows(board, category, reseats);
       const localRows = buildSiteGoldenRows(localBoard, category, reseats, 'app-board');
+      const rows = mergeGoldenBoardRows(siteRows, localRows);
+      /*
+       * 쇼핑 쪽으로 넘긴 말(2026-09-15, 사장님 "쇼핑으로 넘긴 말도 앱에 따로 보이기") — 황금 판 규칙은 그대로 두고
+       * 넘긴 말을 따로 모아 준다. 이 PC 에 쌓아 둔 것(문서량 있음)을 먼저, 사이트 판 것을 다음에. 황금 판에 실린 말은 뺀다.
+       */
+      const shoppingRows = buildShoppingLaneRows([
+        { from: 'app-board', entries: readGoldenLocalShopping() },
+        { from: 'site-board', entries: normalizeShoppingEntries(board && board.routedShopping, board ? board.publishedAt || null : null) },
+      ], category, rows.map((row) => row.keyword));
       return {
         success: true,
         publishedAt: board ? board.publishedAt || null : null,
@@ -158,7 +168,8 @@ export function setupPreemptionBoardHandlers(): void {
         siteError: board ? null : '사이트 황금 판을 받지 못해 이 PC 판만 보입니다.',
         localPublishedAt: localBoard ? localBoard.publishedAt || null : null,
         localTotal: localBoard ? localBoard.rows.length : 0,
-        rows: mergeGoldenBoardRows(siteRows, localRows),
+        rows,
+        shoppingRows,
         gate: SITE_GATE,
       };
     });

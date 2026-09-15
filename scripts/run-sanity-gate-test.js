@@ -409,6 +409,9 @@ const VITEST_SUITES = [
     'src/utils/__tests__/golden-local-wiring.test.ts',
     // 선점 후보 표본 — 실용 말을 먼저 잰다(2026-09-15, 표본 수 · 관문 그대로 순서만)
     'src/utils/__tests__/candidate-sample.test.ts',
+    // 쇼핑 쪽으로 넘긴 말을 발굴 화면에 따로(2026-09-15) — 모으기 규칙 · 메인 응답 · 화면 구획
+    'src/utils/__tests__/golden-shopping-rows.test.ts',
+    'src/utils/__tests__/golden-shopping-wiring.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

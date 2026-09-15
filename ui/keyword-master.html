@@ -4359,7 +4359,7 @@
          * 결정: 사이트 판 전부 + 앱이 더 찾은 말은 사이트와 같은 관문 통과분. 관문은 메인이 이미 걸렀다(golden-site-merge) —
          * 여기서는 사이트 줄을 앞에 두고 같은 말을 한 번만 싣는다. 자리 칸은 사이트가 잰 사실을 그대로 적고 판정을 새로 만들지 않는다.
          */
-        window.__goldenSite = { rows: [], publishedAt: null, category: null, total: 0 };
+        window.__goldenSite = { rows: [], publishedAt: null, category: null, total: 0, shoppingRows: [] };
 
         window.loadGoldenSiteRows = async function loadGoldenSiteRows() {
           const category = (document.getElementById('keywordCategory') || {}).value || '';
@@ -4376,6 +4376,7 @@
               total: Number(res.total) || 0,
               localPublishedAt: res.localPublishedAt || null,
               localTotal: Number(res.localTotal) || 0,
+              shoppingRows: Array.isArray(res.shoppingRows) ? res.shoppingRows : [],
             };
           } catch (error) {
             console.warn('[GOLDEN] 사이트 판을 못 받았습니다:', (error && error.message) || error);
@@ -4618,6 +4619,75 @@
           await window.goldenLocalRefresh();
         };
 
+        /*
+         * 쇼핑 쪽으로 넘긴 말(2026-09-15, 사장님 "쇼핑으로 넘긴 말도 앱에 따로 보이기").
+         * 황금 표는 그대로 둔다 — 쇼핑판 말은 본판에서 뺀다(플랫폼 레인 2026-08-17). 대신 표 아래에 따로 모아 보인다:
+         * 사이트 판 · 이 PC 판에서 자리 재기가 넘긴 말 + 이번 발굴에서 쇼핑판으로 빠진 말. 숫자는 잰 그대로, 못 잰 칸은 '-'.
+         */
+        window.goldenShoppingSectionHtml = function goldenShoppingSectionHtml(foundShoppingRows) {
+          const esc = (value) => String(value == null ? '' : value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+          const flat = (value) => String(value || '').replace(/\s+/g, '').toLowerCase();
+          const boardRows = window.__goldenSite && Array.isArray(window.__goldenSite.shoppingRows) ? window.__goldenSite.shoppingRows : [];
+          const found = (Array.isArray(foundShoppingRows) ? foundShoppingRows : []).map((row) => {
+            const pc = typeof row.pcSearchVolume === 'number' && isFinite(row.pcSearchVolume) ? row.pcSearchVolume : null;
+            const mo = typeof row.mobileSearchVolume === 'number' && isFinite(row.mobileSearchVolume) ? row.mobileSearchVolume : null;
+            const volume = pc !== null || mo !== null ? (pc || 0) + (mo || 0) : (typeof row.searchVolume === 'number' ? row.searchVolume : null);
+            return {
+              keyword: row.keyword,
+              topic: '',
+              searchVolume: volume,
+              documentCount: typeof row.documentCount === 'number' ? row.documentCount : null,
+              reasons: Array.isArray(row.laneReasons) ? row.laneReasons : [],
+              from: 'found',
+              measuredAt: null,
+            };
+          });
+          const seen = new Set();
+          const rows = boardRows.concat(found).filter((row) => {
+            const key = flat(row && row.keyword);
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          if (rows.length === 0) return '';
+          const ordered = rows.slice().sort((a, b) => (typeof b.searchVolume === 'number' ? b.searchVolume : -1) - (typeof a.searchVolume === 'number' ? a.searchVolume : -1));
+          const SHOW = 100;
+          const number = (value) => (typeof value === 'number' && isFinite(value) ? value.toLocaleString() : '-');
+          const whereLabel = (row) => {
+            const when = row.measuredAt && typeof window.goldenPublishedLabel === 'function' ? window.goldenPublishedLabel(row.measuredAt) : '';
+            const name = row.from === 'site-board' ? '사이트 판' : row.from === 'app-board' ? '이 PC 판' : '이번 발굴';
+            return name + (when ? ' · ' + when : '');
+          };
+          const body = ordered.slice(0, SHOW).map((row) => {
+            const reasons = Array.isArray(row.reasons) ? row.reasons : [];
+            const kwJs = String(row.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return '<tr style="border-top:1px solid rgba(255,255,255,0.05);">'
+              + '<td style="padding:8px 10px; color:#e2e8f0; font-weight:600;">' + esc(row.keyword) + '</td>'
+              + '<td style="padding:8px 10px; color:#94a3b8;">' + esc(row.topic || '-') + '</td>'
+              + '<td style="padding:8px 10px; text-align:right; color:#e2e8f0; font-variant-numeric:tabular-nums;">' + number(row.searchVolume) + '</td>'
+              + '<td style="padding:8px 10px; text-align:right; color:#94a3b8; font-variant-numeric:tabular-nums;">' + number(row.documentCount) + '</td>'
+              + '<td style="padding:8px 10px; color:#94a3b8; max-width:280px;" title="' + esc(reasons.join(' / ')) + '">' + esc(reasons[0] || '쇼핑판 키워드') + '</td>'
+              + '<td style="padding:8px 10px; color:#64748b; white-space:nowrap;">' + esc(whereLabel(row)) + '</td>'
+              + '<td style="padding:8px 10px; text-align:center;"><button onclick="lewordNaverSearch(\'' + kwJs + '\')" title="네이버 검색" style="padding:4px 8px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.12); border-radius:6px; cursor:pointer; font-size:11px;">🔍</button></td>'
+              + '</tr>';
+          }).join('');
+          const more = ordered.length > SHOW
+            ? '<div style="padding:8px 14px; font-size:11.5px; color:#64748b;">외 ' + (ordered.length - SHOW) + '개는 검색량이 더 작아 목록에서 접었습니다.</div>'
+            : '';
+          return '<div style="margin-top:14px; border-radius:12px; background:#0f172a; border:1px solid rgba(244,114,182,0.22); overflow:hidden;">'
+            + '<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.06);">'
+            + '<span style="padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; background:rgba(244,114,182,0.14); color:#f9a8d4;">쇼핑 쪽</span>'
+            + '<span style="font-size:12.5px; color:#e2e8f0; font-weight:600;">검색 화면이 상품판이라 황금 표에서 뺀 말 ' + ordered.length + '개</span>'
+            + '<span style="font-size:11.5px; color:#64748b;">검색량 · 문서량은 잰 그대로 · 쇼핑 커넥트용</span>'
+            + '</div>'
+            + '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:12.5px;">'
+            + '<thead><tr style="color:#64748b; font-size:11px; text-align:left;">'
+            + '<th style="padding:8px 10px; font-weight:500;">키워드</th><th style="padding:8px 10px; font-weight:500;">주제</th>'
+            + '<th style="padding:8px 10px; font-weight:500; text-align:right;">검색량</th><th style="padding:8px 10px; font-weight:500; text-align:right;">문서량</th>'
+            + '<th style="padding:8px 10px; font-weight:500;">넘긴 이유</th><th style="padding:8px 10px; font-weight:500;">잰 곳</th><th style="padding:8px 10px; font-weight:500; text-align:center;">검색</th>'
+            + '</tr></thead><tbody>' + body + '</tbody></table></div>' + more + '</div>';
+        };
+
         function displayGoldenResults(results) {
           const resultsDiv = document.getElementById('goldenResults');
 
@@ -4643,7 +4713,7 @@
           results = window.goldenMergeSiteRows(results);
 
           if (!results || results.length === 0) {
-            resultsDiv.innerHTML = '<div class="loading">발굴된 키워드가 없습니다.</div>';
+            resultsDiv.innerHTML = '<div class="loading">발굴된 키워드가 없습니다.</div>' + window.goldenShoppingSectionHtml([]);
             return;
           }
 
@@ -4652,7 +4722,7 @@
           const routedShoppingRows = results.filter((r) => r.platformLane === 'shopping');
           results = results.filter((r) => r.platformLane !== 'shopping');
           if (results.length === 0) {
-            resultsDiv.innerHTML = `<div class="loading">발굴 결과 전부(${routedShoppingRows.length}건)가 쇼핑판 키워드였습니다 — 🛒 쇼핑 커넥트에서 확인하세요.</div>`;
+            resultsDiv.innerHTML = `<div class="loading">발굴 결과 전부(${routedShoppingRows.length}건)가 쇼핑판 키워드였습니다 — 🛒 쇼핑 커넥트에서 확인하세요.</div>` + window.goldenShoppingSectionHtml(routedShoppingRows);
             return;
           }
 
@@ -4815,7 +4885,7 @@
         </div>
       `;
 
-          resultsDiv.innerHTML = html;
+          resultsDiv.innerHTML = html + window.goldenShoppingSectionHtml(routedShoppingRows);
           if (typeof window.injectSeatBar === 'function') window.injectSeatBar(resultsDiv);
           if (typeof window.goldenFoldConditions === 'function') window.goldenFoldConditions();
         }
