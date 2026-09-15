@@ -68,6 +68,13 @@ describe('② 스크립트가 스스로 마감을 지킨다', () => {
     expect((beforeSave.match(/pastHardStop\(\)/g) || []).length).toBeGreaterThanOrEqual(3);
   });
 
+  it('러너 검색광고 상한에 닿으면 남은 검색량 묶음을 안 잰다 — 묶음마다 경고 한 줄씩 수천 줄을 만들지 않는다', () => {
+    const loop = candidates.slice(candidates.indexOf('for (let i = 0; i < phraseList.length; i += volumeChunk) {'));
+    const head = loop.slice(0, loop.indexOf('const chunk = phraseList.slice('));
+    expect(head, '상한 판정이 묶음 호출보다 앞에 있어야 한다').toContain('if (!selectSearchAdAccountFromEnv(searchAd)) {');
+    expect(candidates).toContain("require('../src/utils/searchad-account-pool')");
+  });
+
   it('하드 스톱은 기본 없음이고, 잘라 낸 양을 주제마다·회차 끝에 밝힌다', () => {
     expect(candidates).toMatch(/const hardStopMinutes = Number\(arg\('hardStopMinutes'\)\) \|\| 0;/);
     expect(candidates).toContain('하드 스톱 ${hardStopMinutes}분에 걸려 덜 잰 주제 ${hardStopCuts.length}개');

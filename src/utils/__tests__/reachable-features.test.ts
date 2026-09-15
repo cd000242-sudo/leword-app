@@ -146,7 +146,8 @@ describe('셸 사이드바 기능 도달 가능성', () => {
 
     it('황금키워드 발굴 본판은 제 화면 섹션 안에 있다', () => {
         const golden = sliceBetween(html, '<section class="leword-screen" data-screen="golden">', '</section>');
-        expect(golden).toContain('<h2 style="margin: 0;">황금키워드 발굴</h2>');
+        // 머리글 스타일은 목업을 따라 바뀐다(301ed4d3 입력 줄 재구성) — 잠그는 것은 '이 섹션 안에 그 제목이 있다'이다
+        expect(golden).toMatch(/<h2[^>]*>황금키워드 발굴<\/h2>/);
         expect(golden).toContain('id="goldenResults"');
     });
 

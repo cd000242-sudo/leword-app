@@ -363,6 +363,21 @@ const VITEST_SUITES = [
     'src/utils/__tests__/brief-round-cron-slots.test.ts',
     // partial 샤드가 합치기를 ReferenceError 로 죽이던 것 — 부분 저장이 한 번도 끝까지 간 적이 없었다
     'src/utils/__tests__/preemption-shard-partial-merge.test.ts',
+    /*
+     * 게이트 밖에 있어서 조용히 썩은 화면·판정 배선 테스트 5건(2026-09-15 발견 — 리팩터로 닻만 낡아
+     * HEAD 부터 빨갛는데 아무도 못 봤다). 렌더러는 tsc·스모크가 못 잡으니 여기서 잡는다.
+     */
+    'src/utils/__tests__/reachable-features.test.ts',
+    'src/utils/__tests__/kin-board-wiring.test.ts',
+    'src/utils/__tests__/golden-writing-kit.test.ts',
+    'src/utils/__tests__/blog-rank-candidate-budget.test.ts',
+    'src/utils/__tests__/blog-class-plain-words.test.ts',
+    /*
+     * 검색광고 일일 쿼터를 CI 잡마다 나눈다(2026-09-15) — 키를 넘기는 잡에 상한이 있고 최악의 하루 합이
+     * 계정 한도 안인지. 데이터랩이 빈손으로 돌아온 사유를 알리는지.
+     */
+    'src/utils/__tests__/searchad-ceiling-per-job.test.ts',
+    'src/utils/__tests__/demand-shape-datalab-failure-log.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

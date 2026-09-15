@@ -195,7 +195,14 @@ describe('발굴 화면 — 거르개·접기·펼침 배선', () => {
   });
 
   it('수요 분석을 한 번만 부른다 — 판을 다시 그리며 두 번 부르면 에이전트가 두 번 돈다', () => {
-    const fn = html.slice(html.indexOf('window.goldenDrilldown = async function'), html.indexOf('window.goldenFillSeatFromKit'));
+    /*
+     * 글감 펼치기 본체가 goldenDrilldown 에서 openWritingKit 으로 나왔다 — 실검 틈새도 같은 부품을 쓰게.
+     * 황금 발굴의 펼치기는 본체를 부르기만 하므로 셈은 본체에서 한다(닻이 낡아 HEAD 부터 0 을 세고 있었다).
+     */
+    const drill = html.slice(html.indexOf('window.goldenDrilldown = async function'), html.indexOf('window.goldenFillSeatFromKit'));
+    expect(drill, '황금 발굴 펼치기가 본체를 안 부른다').toContain('await window.openWritingKit(content, kw, idx, {');
+    const fn = html.slice(html.indexOf('window.openWritingKit = async function'), html.indexOf('window.goldenDrilldown = async function'));
+    expect(fn.length, '글감 펼치기 본체를 못 찾았다').toBeGreaterThan(200);
     // 기억해 둔 것을 다시 펼 때 1회 + 처음 그릴 때 1회. 그보다 많으면 같은 일을 반복하는 것이다.
     expect((fn.match(/window\.analyzeDemand\(/g) || []).length).toBe(2);
     // 결과가 온 뒤에는 통째로 다시 그리지 않고 두 칸만 갈아 끼운다

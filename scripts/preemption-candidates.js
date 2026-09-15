@@ -153,6 +153,7 @@ async function main() {
   }
 
   const { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+  const { selectSearchAdAccountFromEnv } = require('../src/utils/searchad-account-pool');
   const { getNaverAutocompleteKeywords } = require('../src/utils/naver-autocomplete');
   const { getNaverBlogDocumentCount, takeRecentBlogTitles } = require('../src/utils/naver-blog-api');
   const { analyzeDemandWithRecency } = require('../src/utils/keyword-demand-shape');
@@ -626,8 +627,14 @@ async function main() {
     const { SEARCHAD_VOLUME_CHUNK_SIZE: volumeChunk } = require('../src/utils/naver-searchad-api');
     if (!(volumeChunk >= 1)) throw new Error('naver-searchad-api 가 SEARCHAD_VOLUME_CHUNK_SIZE 를 내보내지 않는다');
     let volumeCut = 0;
+    let volumeCutByQuota = false;
     for (let i = 0; i < phraseList.length; i += volumeChunk) {
       if (pastHardStop()) { volumeCut = phraseList.length - i; break; }   // 하드 스톱 — 남은 묶음은 안 잰다(검색량 없는 문장은 아래에서 빠진다)
+      /*
+       * 러너 상한(LEWORD_SEARCHAD_SOFT_CEILING)에 닿았으면 여기서 멈춘다(2026-09-15). 어댑터도 상한에서
+       * null 을 돌려주지만, 묶음마다 경고를 한 줄씩 찍어 남은 수천 묶음이 수천 줄이 된다. 한 번 보고 멈춘다.
+       */
+      if (!selectSearchAdAccountFromEnv(searchAd)) { volumeCut = phraseList.length - i; volumeCutByQuota = true; break; }
       const chunk = phraseList.slice(i, i + volumeChunk).map((row) => row.keyword);
       try {
         const rows = await getNaverSearchAdKeywordVolume(searchAd, chunk);
@@ -945,8 +952,9 @@ async function main() {
       console.log(`  ⏱ ${topic} — 마감(${deadlineMinutes}분) 지나 확장 씨앗 ${expansionSkipped}/${expansionSeeds.size}개는 안 넓혔다. 모은 것으로 실측·저장한다.`);
     }
     if (volumeCut > 0 || docCut > 0) {
-      hardStopCuts.push(`${topic}: 검색량 ${volumeCut}문장 · 문서수 ${docCut}후보 안 잼`);
-      console.log(`  ⏱ ${topic} — 하드 스톱(${hardStopMinutes}분) 지나 검색량 ${volumeCut}문장 · 문서수 ${docCut}후보는 안 쟀다. 잰 것으로 정렬·저장한다.`);
+      const cutBy = volumeCutByQuota ? '검색광고 러너 상한 도달' : `하드 스톱(${hardStopMinutes}분) 지남`;
+      hardStopCuts.push(`${topic}: 검색량 ${volumeCut}문장 · 문서수 ${docCut}후보 안 잼(${cutBy})`);
+      console.log(`  ⏱ ${topic} — ${cutBy} — 검색량 ${volumeCut}문장 · 문서수 ${docCut}후보는 안 쟀다. 잰 것으로 정렬·저장한다.`);
     }
     console.log(
       `  ${measured.length > 0 ? 'OK' : '00'} ${topic.padEnd(15)}`

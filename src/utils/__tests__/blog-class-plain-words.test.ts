@@ -52,7 +52,8 @@ describe('블로그 사실 카드', () => {
 
   it('최근 활동과 발행 리듬을 한 문장으로 붙인다', () => {
     const card = describeBlogFacts({ snapshot: snapshot(), activity: activity() });
-    expect(card.lines[0].text).toBe('최근 30일에 12개를 올렸어요. 보통 2일에 한 편씩 올려요.');
+    // 최근 30일 리듬은 최근 30일 수에서만 뽑는다(a2ec1331 — 표본 전체 중앙값과 섞으면 서로를 반박했다). 30 ÷ 12 = 2.5 → 3일
+    expect(card.lines[0].text).toBe('최근 30일에 12개를 올렸어요. 보통 3일에 한 편씩 올려요.');
   });
 
   it('최근 30일에 글이 없으면 그 사실을 그대로 말한다', () => {

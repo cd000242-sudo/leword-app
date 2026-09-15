@@ -19,6 +19,27 @@ import { naverApiFetch } from './naver-api-hub';
 const defaultNaverFetch: typeof fetch = ((url: any, init: any) =>
   naverApiFetch(String(url), init)) as typeof fetch;
 
+/*
+ * 데이터랩 실패를 조용히 삼키지 않는다 (2026-09-15).
+ * 빈 배열은 호출자가 추세를 '판정불가'로 남기는 정상 경로라 계약은 그대로 두되, 왜 비었는지는 알린다 —
+ * API HUB 가 legacy 로 떨어진 세션은 legacy 일일 한도(1,000)에 막혀 회차의 행 전체가 판정불가가 되는데
+ * 로그가 조용했다(적대 검증). 같은 사유는 처음 한 번과 100번째마다만 찍는다 — 회차당 수천 줄이 되지 않게.
+ */
+const datalabFailures = new Map<string, number>();
+
+function noteDatalabFailure(reason: string): void {
+  const count = (datalabFailures.get(reason) || 0) + 1;
+  datalabFailures.set(reason, count);
+  if (count === 1 || count % 100 === 0) {
+    console.warn(`[DEMAND-SHAPE] 데이터랩 ${reason} — 이 키워드들은 추세 판정불가로 남는다 (같은 사유 ${count}회째)`);
+  }
+}
+
+/** 이번 프로세스에서 데이터랩이 빈손으로 돌아온 횟수(사유별). 회차 요약에 쓴다. */
+export function datalabFailureCounts(): Record<string, number> {
+  return Object.fromEntries(datalabFailures);
+}
+
 export type DemandShape = 'seasonal' | 'evergreen' | 'rising' | 'declining' | 'volatile' | 'unknown';
 
 export const DEMAND_SHAPE_LABEL: Record<DemandShape, string> = {
@@ -314,13 +335,14 @@ export async function fetchMonthlyDemandPoints(
         keywordGroups: [{ groupName: keyword, keywords: [keyword] }],
       }),
     });
-    if (!response.ok) return [];
+    if (!response.ok) { noteDatalabFailure(`응답 ${response.status}`); return []; }
     const payload = await response.json() as { results?: Array<{ data?: Array<{ period?: string; ratio?: number }> }> };
     return (payload.results?.[0]?.data || [])
       .map((point) => ({ period: String(point.period || ''), ratio: Number(point.ratio) }))
       .filter((point) => Number.isFinite(point.ratio));
-  } catch {
+  } catch (error) {
     // 모양을 지어내지 않는다. 빈 배열이면 호출자가 unknown 으로 남긴다.
+    noteDatalabFailure(`호출 실패(${(error as Error)?.name || 'Error'})`);
     return [];
   }
 }
@@ -357,13 +379,14 @@ export async function fetchMonthlyDemand(
         keywordGroups: [{ groupName: keyword, keywords: [keyword] }],
       }),
     });
-    if (!response.ok) return [];
+    if (!response.ok) { noteDatalabFailure(`응답 ${response.status}`); return []; }
     const payload = await response.json() as { results?: Array<{ data?: Array<{ ratio?: number }> }> };
     return (payload.results?.[0]?.data || [])
       .map((point) => Number(point.ratio))
       .filter((value) => Number.isFinite(value));
-  } catch {
+  } catch (error) {
     // 모양을 지어내지 않는다. 빈 배열이면 호출자가 unknown 으로 남긴다.
+    noteDatalabFailure(`호출 실패(${(error as Error)?.name || 'Error'})`);
     return [];
   }
 }

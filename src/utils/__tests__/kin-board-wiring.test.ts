@@ -35,7 +35,8 @@ describe('지식인 화면 배선', () => {
     expect(html).toContain(`data-screen="kin" aria-selected="false" onclick="showScreen('kin')"`);
     expect(html).toContain('<section class="leword-screen" data-screen="kin">');
     expect(html).toContain("kin: { load: 'loadKinBoard' }");
-    expect(html).toContain('window.loadKinBoard = function');
+    // 사이트 회차를 먼저 읽느라 async 가 됐다(ac5830ec) — 잠그는 것은 '라우터가 부르는 함수가 정의돼 있다'이다
+    expect(html).toMatch(/window\.loadKinBoard = (async )?function/);
     expect(renderer).toContain("invoke('search-kin-questions'");
   });
 

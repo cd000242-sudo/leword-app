@@ -28,6 +28,7 @@ describe('후보 예산', () => {
   });
 
   it('검색량이 잡힌 것만 순위를 잰다 — 넓힌 후보가 그대로 요청이 되지 않는다', () => {
-    expect(rank).toContain('const targets = withVolume.sort');
+    // 정렬이 orderRankTargets 로 나왔다(31cfb384) — 잠그는 것은 '순위 대상은 검색량이 잡힌 것에서만 나온다'이다
+    expect(rank).toMatch(/const targets = orderRankTargets\(withVolume\)/);
   });
 });

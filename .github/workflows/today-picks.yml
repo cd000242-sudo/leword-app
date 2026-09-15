@@ -55,6 +55,11 @@ jobs:
           node scripts/board-round-done.js --url=https://leaderspro.kr/data/today-picks.json --field=builtAt --rounds=04:30
 
   picks:
+    # 검색광고 일일 쿼터(계정 25,000)를 러너들이 나눠 쓴다(2026-09-15). 장부는 러너의 tmpdir 이라 잡마다 새 장부 —
+    # 상한을 안 주면 러너마다 22,000 을 혼자 쓴다. 합은 searchad-ceiling-per-job.test 가 잠근다.
+    # 창고 갱신의 씨앗 검색량 — today-picks.js 자체는 검색광고를 안 부른다(09-15 로그에 호출 0).
+    env:
+      LEWORD_SEARCHAD_SOFT_CEILING: '1000'
     needs: guard
     if: ${{ needs.guard.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
