@@ -34,6 +34,7 @@ const { forgeTitles } = require('../src/utils/title-forge/forge');
 const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
+const { requireJson, requireJsonObject } = require('../src/utils/agent-cli/replyValidators');
 
 /*
  * 구독 CLI 는 하나만 믿지 않는다. 2026-08-18 회차는 클로드 로그인이 끊겨
@@ -319,7 +320,7 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
     '',
     '최종 출력(JSON 하나만): {"new":[...], "picked":[...], "seo":"...", "home":"...", "why":"..."}',
   ].join('\n');
-  const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
+  const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS, validate: requireJson() });
   lastProvider = run.provider;
   const parsed = tryExtractJson(run.reply);
   const candidateSet = new Set(relatedCandidates || []);
@@ -394,7 +395,7 @@ async function judgeMonetization(keyword, verifiedSubs) {
     '- 예상 수익·트래픽 숫자를 지어내지 마라. 뻔한 덕담 금지',
     '',
     'JSON 만 출력: {"verdict":"good|bad|mixed","points":[{"text":"..."}],"angle":"쓴다면 이런 각도"}',
-  ].join('\n'), AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
+  ].join('\n'), AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS, validate: requireJsonObject('verdict') });
   const parsed = tryExtractJson(run.reply);
   if (!parsed || !['good', 'bad', 'mixed'].includes(String(parsed.verdict))) return null;
   const points = (Array.isArray(parsed.points) ? parsed.points : [])

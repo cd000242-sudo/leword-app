@@ -22,6 +22,7 @@ import { getNaverSearchAdKeywordVolume } from '../utils/naver-searchad-api';
 import { createDefaultAgentChain } from '../utils/agent-cli/defaultChain';
 import { runWithAnyAgent } from '../utils/agent-cli/runAny';
 import { tryExtractJson } from '../utils/agent-cli/parse';
+import { requireJsonObject } from '../utils/agent-cli/replyValidators';
 import {
   buildDemandEvidence,
   groundDemandReasons,
@@ -181,7 +182,7 @@ export async function analyzeKeywordDemand(
         '   points 는 실측 검색어를 인용한 판단 1~2개, angle 은 쓴다면의 각도 한 줄.',
         '',
         'JSON 만: {"reasons":[{"text":"...","basis":"검색량"}],"verdict":"good|bad|mixed","points":[{"text":"..."}],"angle":"..."}',
-      ].join('\n'), lightChain, { timeoutMs: AI_TIMEOUT_MS });
+      ].join('\n'), lightChain, { timeoutMs: AI_TIMEOUT_MS, validate: requireJsonObject() });
       agent.available = true;
       agent.provider = run.provider;
       const parsed = tryExtractJson(run.reply) as {
@@ -215,7 +216,7 @@ export async function analyzeKeywordDemand(
       const run = await runWithAnyAgent(
         buildPrompt(keyword, candidates.slice(0, 15), volumeLines),
         chain,
-        { timeoutMs: AI_TIMEOUT_MS },
+        { timeoutMs: AI_TIMEOUT_MS, validate: requireJsonObject() },
       );
       agent.available = true;
       agent.provider = run.provider;
@@ -285,7 +286,7 @@ export async function analyzeKeywordDemand(
           '"관심이 높아지고 있다" 같은 아무 데나 붙는 문장, 측정하지 않은 것(연령·성별·계절)은 금지.',
           '',
           'JSON 만 출력: {"reasons":[{"text":"...","basis":"검색량"}]}',
-        ].join('\n'), chain, { timeoutMs: AI_TIMEOUT_MS });
+        ].join('\n'), chain, { timeoutMs: AI_TIMEOUT_MS, validate: requireJsonObject('reasons') });
         const retry = tryExtractJson(second.reply) as { reasons?: DemandReason[] } | null;
         reasons = groundDemandReasons(retry?.reasons || [], evidence);
       }
@@ -318,7 +319,7 @@ export async function analyzeKeywordDemand(
           '',
           'JSON 만 출력:',
           '{"verdict":"good|bad|mixed","points":[{"text":"...","basis":"검색량"}],"angle":"쓴다면 이런 각도"}',
-        ].join('\n'), chain, { timeoutMs: AI_TIMEOUT_MS });
+        ].join('\n'), chain, { timeoutMs: AI_TIMEOUT_MS, validate: requireJsonObject('verdict') });
         const parsedVerdict = tryExtractJson(verdictRun.reply) as {
           verdict?: string; points?: DemandReason[]; angle?: string;
         } | null;

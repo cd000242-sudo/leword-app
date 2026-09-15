@@ -20,6 +20,7 @@ const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
+const { requireJsonObject } = require('../src/utils/agent-cli/replyValidators');
 
 const arg = (name, fallback = '') => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -69,7 +70,7 @@ async function main() {
     const prompt = buildKeywordBriefPrompt(row, facts, today);
     let reply = '';
     try {
-      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 150_000 });
+      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 150_000, validate: requireJsonObject() });
       reply = run.reply;
     } catch (error) {
       failed += 1;

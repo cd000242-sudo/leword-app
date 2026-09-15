@@ -13,7 +13,7 @@ import { join } from 'path';
 import { spawnCollect } from './spawnHelper';
 import { classifyExit } from './parse';
 import { buildCodexSubscriptionEnv } from './subscriptionEnv';
-import { AgentCliError } from './types';
+import { AgentCliError, type AgentErrorCode } from './types';
 import { buildAgentFailureMessage } from './failureMessage';
 
 export interface CodexRunOptions {
@@ -21,6 +21,24 @@ export interface CodexRunOptions {
   model?: string;
   timeoutMs?: number;
   signal?: AbortSignal;
+}
+
+/**
+ * 코덱스 표준에러는 버전 · 작업 폴더 · 모델 머리말과 프롬프트 메아리로 시작하고, 실제 오류는 끝의 `ERROR:` 줄에 온다
+ * (2026-09-15 실측: 로그인이 풀리면 5번 재접속 뒤 "ERROR: unexpected status 401 Unauthorized …" 로 끝났다).
+ * ERROR 줄만 모아 분류한다 — 통째로 보면 프롬프트에 든 '한도' 같은 말로 오분류한다.
+ */
+function codexErrorLines(stderr: string): string {
+  return String(stderr ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^error\b/i.test(line))
+    .join('\n');
+}
+
+/** 오류 상세는 끝부분을 남긴다 — 앞 800자는 머리말뿐이라 원인이 잘렸다. */
+function codexFailureDetail(stderr: string, stdout: string): string {
+  return (codexErrorLines(stderr) || String(stderr || stdout || '')).slice(-800);
 }
 
 /**
@@ -40,6 +58,10 @@ export async function runCodex(prompt: string, opts: CodexRunOptions = {}): Prom
       '--ignore-rules',
       '--ephemeral',
       '--color', 'never',
+      // 읽기 전용 샌드박스 · ChatGPT 로그인 강제(2026-09-15 실측: 둘 다 붙여도 ChatGPT 로그인으로 8초에 정상 답).
+      // forced_login_method 가 없으면 저장된 API 키 로그인이나 OPENAI_API_KEY 로 조용히 종량 과금되던 이슈가 있다(openai/codex #20099).
+      '-s', 'read-only',
+      '-c', 'forced_login_method="chatgpt"',
       '-o', outPath,
       '-C', dir,
     ];
@@ -63,13 +85,9 @@ export async function runCodex(prompt: string, opts: CodexRunOptions = {}): Prom
     });
 
     if (res.code !== 0) {
-      const code = classifyExit('codex', res.stderr, res.stdout);
-      throw new AgentCliError(
-        code,
-        'codex',
-        buildAgentFailureMessage('codex', code, res.stderr || res.stdout),
-        (res.stderr || res.stdout || '').slice(0, 800),
-      );
+      const detail = codexFailureDetail(res.stderr, res.stdout);
+      const code = classifyExit('codex', detail);
+      throw new AgentCliError(code, 'codex', buildAgentFailureMessage('codex', code, detail), detail);
     }
 
     let text = '';
@@ -80,12 +98,12 @@ export async function runCodex(prompt: string, opts: CodexRunOptions = {}): Prom
       text = '';
     }
     if (!text) {
-      throw new AgentCliError(
-        'empty_output',
-        'codex',
-        buildAgentFailureMessage('codex', 'empty_output', res.stderr),
-        res.stderr.slice(0, 500),
-      );
+      // 종료 코드 0 인데 최종 답이 없으면 끝의 ERROR 줄로 원인을 가린다 — 사용 한도 실패가 0 으로 끝났다는 보고가 있다.
+      const errorLines = codexErrorLines(res.stderr);
+      const classified = errorLines ? classifyExit('codex', errorLines) : 'nonzero_exit';
+      const code: AgentErrorCode = classified === 'nonzero_exit' ? 'empty_output' : classified;
+      const detail = codexFailureDetail(res.stderr, '');
+      throw new AgentCliError(code, 'codex', buildAgentFailureMessage('codex', code, detail), detail);
     }
     return text;
   } finally {

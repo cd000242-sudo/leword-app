@@ -181,7 +181,11 @@ export function startWebBridgeHost(): void {
           ? { kind: 'kin', title, body }
           : { kind: 'keyword', keyword, context });
         const chain = createDefaultAgentChain({ preferredProvider: provider });
-        const run = await runWithAnyAgent(prompt, chain, { timeoutMs: 120_000 });
+        // 글감을 하나도 못 읽는 답은 다음 엔진으로 넘긴다 — 같은 파서로 검사해야 체인을 통과하고 빈 결과가 나는 일이 없다.
+        const run = await runWithAnyAgent(prompt, chain, {
+          timeoutMs: 120_000,
+          validate: (reply) => { if (parsePostIdeas(reply).length === 0) throw new Error('글감을 읽지 못했습니다'); },
+        });
         const ideas = parsePostIdeas(String(run.reply || ''));
         return { ideas, provider: run.provider };
       },
@@ -196,7 +200,10 @@ export function startWebBridgeHost(): void {
         const { buildRadarEvaluatePrompt, parseRadarVerdicts } = await import('../utils/radar-evaluate-prompt');
         const prompt = buildRadarEvaluatePrompt({ items, myTitle, mySummary });
         const chain = createDefaultAgentChain({ preferredProvider: provider });
-        const run = await runWithAnyAgent(prompt, chain, { timeoutMs: 150_000 });
+        const run = await runWithAnyAgent(prompt, chain, {
+          timeoutMs: 150_000,
+          validate: (reply) => { if (parseRadarVerdicts(reply).length === 0) throw new Error('평가를 읽지 못했습니다'); },
+        });
         return { evaluations: parseRadarVerdicts(String(run.reply || '')), provider: run.provider };
       },
       /*

@@ -21,6 +21,7 @@
 import { createDefaultAgentChain } from './agent-cli/defaultChain';
 import { runWithAnyAgent, type AgentAttempt } from './agent-cli/runAny';
 import { tryExtractJson } from './agent-cli/parse';
+import { requireJsonList } from './agent-cli/replyValidators';
 import { filterIssueKeywords, ISSUE_MEASURABLE_MAX_TOKENS, type IssueContext } from './issue-context';
 
 export interface IssueNextWave {
@@ -207,7 +208,10 @@ export async function analyzeIssuesWith(
   if (contexts.length === 0) return new Map();
   const prompt = buildIssueAnalysisPrompt(contexts, perIssue);
   try {
-    const run = await runWithAnyAgent(prompt, runners, { timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MS });
+    const run = await runWithAnyAgent(prompt, runners, {
+      timeoutMs: options.timeoutMs ?? AGENT_TIMEOUT_MS,
+      validate: requireJsonList('items'),
+    });
     return parseIssueAnalysisReply(run.reply, contexts, perIssue);
   } catch (error) {
     options.onError?.(error instanceof Error ? error.message : String(error));

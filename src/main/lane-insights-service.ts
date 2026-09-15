@@ -21,6 +21,7 @@ import { forgeTitles, type ForgedTitles } from '../utils/title-forge/forge';
 import { tryExtractJson } from '../utils/agent-cli/parse';
 import { createDefaultAgentChain } from '../utils/agent-cli/defaultChain';
 import { runWithAnyAgent } from '../utils/agent-cli/runAny';
+import { requireJsonArray } from '../utils/agent-cli/replyValidators';
 import type { AgentProvider } from '../utils/agent-cli/types';
 
 /** 검색량을 실측할 확장 상한 — 검색광고 쿼터를 아낀다(5개 묶음 3회). */
@@ -98,7 +99,7 @@ async function proposeAiSubKeywords(
     '- JSON 문자열 배열로만 출력: ["검색어1", "검색어2", ...]',
   ].join('\n');
 
-  const run = await runWithAnyAgent(prompt, createDefaultAgentChain(), { timeoutMs: AI_TIMEOUT_MS });
+  const run = await runWithAnyAgent(prompt, createDefaultAgentChain(), { timeoutMs: AI_TIMEOUT_MS, validate: requireJsonArray() });
   const parsed = tryExtractJson(run.reply);
   if (!Array.isArray(parsed)) return { provider: run.provider, proposals: [] };
   const proposals = parsed

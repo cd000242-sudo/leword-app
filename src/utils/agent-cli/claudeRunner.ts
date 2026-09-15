@@ -30,6 +30,7 @@ import {
 } from './subscriptionEnv';
 import { AgentCliError } from './types';
 import { buildAgentFailureMessage } from './failureMessage';
+import { assertClaudeSubscriptionBilling } from './billingGuard';
 
 export interface ClaudeRunOptions {
   /** Provided for API symmetry with codex; claude has no --output-schema, so it is unused here. */
@@ -45,6 +46,8 @@ export interface ClaudeRunOptions {
  */
 export async function runClaude(prompt: string, opts: ClaudeRunOptions = {}): Promise<string> {
   const { model, timeoutMs, signal } = opts;
+  // 저장된 API 키 · Console 로그인이면 종량 과금되므로 띄우기 전에 막는다(2026-09-15, 사장님 "에이전트만 사용").
+  await assertClaudeSubscriptionBilling();
   const dir = await mkdtemp(join(tmpdir(), 'agentcli-claude-'));
 
   try {

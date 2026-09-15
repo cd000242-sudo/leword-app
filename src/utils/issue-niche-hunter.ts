@@ -40,6 +40,7 @@ import { classifyKeyword } from './category-classifier';
 import { createDefaultAgentChain } from './agent-cli/defaultChain';
 import { runWithAnyAgent } from './agent-cli/runAny';
 import { tryExtractJson } from './agent-cli/parse';
+import { requireJsonList } from './agent-cli/replyValidators';
 import { collectIssueContexts, type IssueContext, type IssueContextSources } from './issue-context';
 import { createAgentIssueAnalyzer, type IssueAnalysis, type IssueAnalyzer, type IssueNextWave } from './issue-next-wave';
 import type { NaverSearchAdConfig } from './naver-searchad-api';
@@ -430,7 +431,7 @@ async function generateCandidatesWith(
     issues.map((k, i) => `${i + 1}. ${k}`).join('\n'),
   ].join('\n');
   try {
-    const run = await runWithAnyAgent(prompt, runners, { timeoutMs: 120_000 });
+    const run = await runWithAnyAgent(prompt, runners, { timeoutMs: 120_000, validate: requireJsonList('items') });
     const parsed: any = tryExtractJson(run.reply);
     const items: any[] = Array.isArray(parsed?.items) ? parsed.items : (Array.isArray(parsed) ? parsed : []);
     for (const row of items) {

@@ -417,6 +417,20 @@ const VITEST_SUITES = [
     'src/utils/__tests__/hub-only-keys-wiring.test.ts',
     // 실용 말은 쇼핑 구획이 3번째 이후면 쇼핑 쪽으로 넘기지 않는다(2026-09-15) — 레인 판정 SSoT(사이트 배치 · 이 PC 판 · 발굴)
     'src/utils/__tests__/platform-lane.test.ts',
+    // 에이전트 폴백 완성(2026-09-15) — 막힌 엔진 기억 · 답 검사 · 취소 · 전체 상한 · 과금 경로 차단 · 엔진별 실제 오류 판별
+    'src/utils/__tests__/agent-engine-health.test.ts',
+    'src/utils/__tests__/agent-chain-resilience.test.ts',
+    'src/utils/__tests__/agent-billing-guard.test.ts',
+    'src/utils/__tests__/agent-metered-detect.test.ts',
+    'src/utils/__tests__/agy-runner-envelope.test.ts',
+    'src/utils/__tests__/codex-runner-hardening.test.ts',
+    'src/utils/__tests__/agent-classify-real-errors.test.ts',
+    'src/utils/__tests__/agent-reply-validators.test.ts',
+    'src/utils/__tests__/run-any-agent.test.ts',
+    'src/utils/__tests__/default-agent-chain.test.ts',
+    'src/utils/__tests__/lane-insights-fallback.test.ts',
+    'src/utils/__tests__/claude-failure-detail.test.ts',
+    'src/utils/__tests__/agy-detect-failure.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

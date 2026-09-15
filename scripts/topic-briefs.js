@@ -24,6 +24,7 @@ const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
+const { requireJsonArray } = require('../src/utils/agent-cli/replyValidators');
 const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
 
 const arg = (name, fallback = '') => {
@@ -137,7 +138,7 @@ async function main() {
     let reply = '';
     let provider = '';
     try {
-      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000 });
+      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000, validate: requireJsonArray() });
       reply = run.reply; provider = run.provider; agentCalls += 1;
     } catch (error) {
       const message = String((error && error.message) || error);

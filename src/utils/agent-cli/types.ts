@@ -90,6 +90,11 @@ export interface AgentCliStatus {
    * 그록·제미나이처럼 CLI 가 안 알려 주는 곳은 비워 둔다 — 지어내지 않는다.
    */
   subscriptionType?: string;
+  /**
+   * API 키 · Console · 게이트웨이처럼 종량 과금 경로로 로그인돼 있다는 **증거**가 있을 때만 true(2026-09-15).
+   * 구독 유형을 모르는 것과는 다르다 — 생성 직전 차단(billingGuard)은 이 값만 본다.
+   */
+  meteredAuth?: boolean;
   /** Present only on the direct result of an explicit login action. */
   loginAction?: 'already_authenticated' | 'authenticated';
 }

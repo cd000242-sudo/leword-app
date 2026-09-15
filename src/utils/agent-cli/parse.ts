@@ -39,6 +39,30 @@ export function tryExtractJson(text: string): unknown | undefined {
   return undefined;
 }
 
+const RESET_UNIT_MS: Readonly<Record<string, number>> = Object.freeze({
+  d: 86_400_000,
+  h: 3_600_000,
+  m: 60_000,
+  s: 1_000,
+});
+
+/**
+ * 한도 초기화까지 남은 시간(ms)을 CLI 문구에서 읽는다(2026-09-15). 모르면 null — 지어내지 않는다.
+ * 실측 agy: "Individual quota reached. … Resets in 87h35m9s." · "try again in 45 minutes" 꼴도 읽는다.
+ * "resets 3pm" 같은 시각 표기는 시간대를 알 수 없어 읽지 않는다.
+ */
+export function parseRateLimitResetMs(text: string): number | null {
+  const unit = '(days?|d|hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)(?![a-z])';
+  const match = new RegExp(`\\b(?:resets?|try again)\\s+in\\s+((?:\\d+\\s*${unit}\\s*,?\\s*(?:and\\s+)?)+)`, 'i')
+    .exec(String(text ?? ''));
+  if (!match) return null;
+  let total = 0;
+  for (const part of match[1].matchAll(new RegExp(`(\\d+)\\s*${unit}`, 'gi'))) {
+    total += Number(part[1]) * (RESET_UNIT_MS[part[2].charAt(0).toLowerCase()] ?? 0);
+  }
+  return total > 0 ? total : null;
+}
+
 /**
  * Parse the envelope printed by `claude -p --output-format json`.
  * Shape: { type, subtype, result, is_error, ... }. Returns the `result` text.
@@ -118,20 +142,31 @@ export function classifyExit(
     return 'not_installed';
   }
 
+  // agy 는 print-timeout 에 걸리면 종료 코드 0 으로 이 문구만 남긴다(2026-09-15 실측).
+  if (/\bprint timeout after\b/.test(hay)) {
+    return 'timeout';
+  }
+
   if (isSubscriptionInactiveMessage(hay)) {
     return 'subscription_inactive';
   }
 
+  // API 크레딧 잔액 문구 — 구독이 아닌 종량 경로다(Claude 공식 errors 문서).
+  if (/credit balance is too low/.test(hay)) {
+    return 'subscription_inactive';
+  }
+
   if (
-    /usage limit|rate limit|rate.limited|quota|too many requests|\b429\b|weekly limit|5-?hour|limit reached|out of (credits|tokens)|insufficient_quota|resource_exhausted/.test(
+    /usage limit|rate limit|rate.limited|quota|too many requests|\b429\b|weekly limit|session limit|5-?hour|limit reached|out of (credits|tokens)|insufficient_quota|resource_exhausted/.test(
       hay,
     )
   ) {
     return 'rate_limited';
   }
 
+  // 코덱스 토큰 폐기 문구(openai/codex #41973)도 로그인 문제다 — 예전 규칙은 '비정상 종료'로 뭉갰다.
   if (
-    /not logged in|unauthorized|\b401\b|authentication|auth(entication)? (failed|required)|please (run|sign in)|login required|run `?codex login`?|run `?claude login`?|no credentials|credential|unauthenticated|oauth/.test(
+    /not logged in|unauthorized|\b401\b|authentication|auth(entication)? (failed|required)|please (run|sign in)|login required|run `?codex login`?|run `?claude login`?|no credentials|credential|unauthenticated|oauth|refresh token|sign in again|log (?:out|in) again|token (?:has )?expired/.test(
       hay,
     )
   ) {

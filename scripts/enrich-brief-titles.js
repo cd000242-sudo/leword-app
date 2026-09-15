@@ -28,6 +28,7 @@ const fs = require('fs');
 const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
+const { requireJsonArray } = require('../src/utils/agent-cli/replyValidators');
 
 /*
  * 배치 전용 모델 고정 — 기본 모델(페이블5, 최상위 티어)을 매시간 제목 짓기에
@@ -191,7 +192,7 @@ function buildPrompt(batch) {
 }
 
 async function titlesForBatch(batch) {
-  const run = await runWithAnyAgent(buildPrompt(batch), AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS });
+  const run = await runWithAnyAgent(buildPrompt(batch), AGENT_CHAIN, { timeoutMs: AI_TIMEOUT_MS, validate: requireJsonArray() });
   const parsed = tryExtractJson(run.reply);
   if (!Array.isArray(parsed)) return { provider: run.provider, titles: [] };
 

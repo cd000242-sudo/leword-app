@@ -5,11 +5,17 @@
 // "IneligibleTierError: This client is no longer supported for Gemini Code Assist for individuals".
 // agy authenticates the same Google account through the OS keyring instead.
 //
-// Invocation: agy --print-timeout <n>s   (prompt on stdin, UTF-8)
-//   - stdin is a pipe (non-TTY) here, so agy runs in print mode and writes the answer to stdout.
-//     Verified against agy 1.1.5: a piped prompt works without -p/--print.
-//   - There is NO JSON-envelope flag (agy 1.1.5 --help). stdout IS the answer, so the envelope
-//     parsing step that gemini needed no longer exists.
+// Invocation: agy --output-format json --print-timeout <n>s   (prompt on stdin, UTF-8)
+//   - stdin is a pipe (non-TTY) here, so agy runs in print mode.
+//   - --output-format json (2026-09-15, agy 1.2.3 measured on an account whose free quota was used up):
+//     plain output retried 6 times for the whole print-timeout (2m) and exited 0 with EMPTY stdout, so the
+//     app saw only "empty reply" and lost the real cause. The JSON envelope carries it:
+//       {"conversation_id":…,"status":"ERROR","response":"","error":"API error (attempt 6): RESOURCE_EXHAUSTED
+//        (code 429): Individual quota reached. … Resets in 87h35m9s.",…}
+//     The success status value is not documented and could not be measured on that account, so any status
+//     outside the error family with a non-empty response counts as success.
+//   - Since agy 1.1.28 a print timeout returns the partial answer as if it were complete (Lykhoyda/ask-llm
+//     #325). stderr then says "[agy] print timeout after …; returning partial output" — such answers are dropped.
 //   - --print-timeout defaults to 5m, SHORTER than the app's 6m agent deadline. Left implicit,
 //     agy would cut long posts off before the caller's own timeout ever fired.
 //   - --model replaces gemini's -m.
@@ -21,18 +27,22 @@ import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { spawnCollect } from './spawnHelper';
-import { classifyExit } from './parse';
+import { classifyExit, tryExtractJson } from './parse';
 import { buildGeminiSubscriptionEnv } from './subscriptionEnv';
 import { agentCommandName } from './commandName';
-import { AgentCliError } from './types';
+import { AgentCliError, type AgentErrorCode } from './types';
 import { buildAgentFailureMessage } from './failureMessage';
 
 /** Let agy report its own timeout before spawnCollect SIGKILLs it. */
 const PRINT_TIMEOUT_MARGIN_MS = 5_000;
 const MIN_PRINT_TIMEOUT_SEC = 30;
+/** agy 가 print-timeout 에 걸려 미완성 답을 돌려줄 때 표준에러에 남기는 문구(2026-09-15 실측). */
+const PARTIAL_TIMEOUT_PATTERN = /print timeout after .*returning partial output/i;
+/** 봉투 status 중 실패로 볼 것. 성공 값은 문서에 없어 이 목록 밖이면서 답이 있으면 성공으로 본다. */
+const FAILED_STATUS_PATTERN = /error|fail|timeout|cancel/i;
 
 export interface GeminiRunOptions {
-  /** Provided for API symmetry with codex; agy has no output-schema flag, so it is unused here. */
+  /** API symmetry with codex. agy has --json-schema, but its success envelope could not be measured yet, so unused. */
   schema?: Record<string, unknown>;
   model?: string;
   timeoutMs?: number;
@@ -48,6 +58,25 @@ function printTimeoutArgs(timeoutMs?: number): string[] {
   return ['--print-timeout', `${seconds}s`];
 }
 
+interface AgyEnvelope {
+  status?: unknown;
+  response?: unknown;
+  error?: unknown;
+}
+
+/** JSON 봉투면 그 객체를, 아니면 null. 봉투 필드가 하나도 없는 JSON(옛 평문 답이 JSON 이던 경우)은 봉투로 보지 않는다. */
+function readAgyEnvelope(stdout: string): AgyEnvelope | null {
+  const parsed = tryExtractJson(stdout);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+  const record = parsed as Record<string, unknown>;
+  return 'status' in record || 'response' in record || 'error' in record ? record : null;
+}
+
+function fail(code: AgentErrorCode, detail: string): never {
+  const text = String(detail ?? '');
+  throw new AgentCliError(code, 'gemini', buildAgentFailureMessage('gemini', code, text), text.slice(0, 800));
+}
+
 /**
  * Run `agy` for a single prompt and return the final response text.
  * Throws AgentCliError on failure (install / login / rate-limit / timeout / empty output).
@@ -58,7 +87,7 @@ export async function runGemini(prompt: string, opts: GeminiRunOptions = {}): Pr
   const dir = await mkdtemp(join(tmpdir(), 'agentcli-gemini-'));
 
   try {
-    const args = [...printTimeoutArgs(timeoutMs)];
+    const args = ['--output-format', 'json', ...printTimeoutArgs(timeoutMs)];
     if (model) args.push('--model', model);
 
     const res = await spawnCollect({
@@ -72,25 +101,29 @@ export async function runGemini(prompt: string, opts: GeminiRunOptions = {}): Pr
       env: buildGeminiSubscriptionEnv(),
     });
 
-    if (res.code !== 0) {
-      const code = classifyExit('gemini', res.stderr, res.stdout);
-      throw new AgentCliError(
-        code,
-        'gemini',
-        buildAgentFailureMessage('gemini', code, res.stderr || res.stdout),
-        (res.stderr || res.stdout || '').slice(0, 800),
-      );
+    const stdout = res.stdout ?? '';
+    const stderr = res.stderr ?? '';
+    const partialTimeout = PARTIAL_TIMEOUT_PATTERN.test(stderr);
+    const envelope = readAgyEnvelope(stdout);
+
+    if (envelope) {
+      const errorText = typeof envelope.error === 'string' ? envelope.error.trim() : '';
+      const status = typeof envelope.status === 'string' ? envelope.status : '';
+      if (errorText || FAILED_STATUS_PATTERN.test(status) || res.code !== 0) {
+        const detail = errorText || stderr || stdout;
+        const classified = classifyExit('gemini', detail);
+        fail(classified === 'nonzero_exit' && partialTimeout ? 'timeout' : classified, detail);
+      }
+      if (partialTimeout) fail('timeout', stderr);
+      const response = typeof envelope.response === 'string' ? envelope.response.trim() : '';
+      if (!response) fail('empty_output', stderr);
+      return response;
     }
 
-    const text = (res.stdout ?? '').trim();
-    if (!text) {
-      throw new AgentCliError(
-        'empty_output',
-        'gemini',
-        buildAgentFailureMessage('gemini', 'empty_output', res.stderr),
-        (res.stderr || '').slice(0, 800),
-      );
-    }
+    if (res.code !== 0) fail(classifyExit('gemini', stderr, stdout), stderr || stdout);
+    if (partialTimeout) fail('timeout', stderr);
+    const text = stdout.trim();
+    if (!text) fail('empty_output', stderr);
     return text;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => { /* best-effort cleanup */ });

@@ -7,6 +7,7 @@ import {
 } from './parse';
 import { sanitizeUserVisibleError } from './userVisibleError';
 import { AgentCliError } from './types';
+import { clearEngineHealth } from './engineHealth';
 import { spawnCollect } from './spawnHelper';
 import { agentCommandName } from './commandName';
 import {
@@ -38,6 +39,8 @@ interface LoginProbe {
   subscriptionType?: string;
   authMethod?: string;
   errorCode?: AgentErrorCode;
+  /** 종량 과금 경로 로그인이라는 긍정 증거가 있을 때만 true — 생성 직전 차단(billingGuard)의 근거. */
+  metered?: boolean;
 }
 
 export interface AgentDetectionOptions {
@@ -54,14 +57,22 @@ function advanceDetectionRevision(provider: AgentProvider): number {
   return next;
 }
 
+/** 감지 기록 번호 — 감지를 새로 하거나 캐시를 비울 때마다 바뀐다. 과금 차단이 옛 확인을 믿지 않게 쓴다. */
+export function getAgentDetectionRevision(provider: AgentProvider): number {
+  return detectionRevisions.get(provider) ?? 0;
+}
+
 export function clearAgentDetectionCache(provider?: AgentProvider): void {
   if (provider) {
     statusCache.delete(provider);
     advanceDetectionRevision(provider);
+    // 설치 · 로그인이 바뀌었으니 막힌 엔진 기억도 지운다 — 폴백 체인이 옛 판단으로 건너뛰지 않게.
+    clearEngineHealth(provider);
     return;
   }
 
   statusCache.clear();
+  clearEngineHealth();
   advanceDetectionRevision('codex');
   advanceDetectionRevision('claude');
   advanceDetectionRevision('gemini');
@@ -168,8 +179,9 @@ async function probeCodexLogin(): Promise<LoginProbe> {
     if (anyLogin) {
       return {
         loggedIn: true,
-        detail: 'Codex is using a non-ChatGPT billing route. Sign out and log in with ChatGPT.',
+        detail: 'Codex 가 ChatGPT 구독이 아닌 인증(API 키 등, 종량 과금)으로 로그인돼 있습니다. 로그아웃한 뒤 ChatGPT 계정으로 다시 로그인해 주세요.',
         errorCode: 'subscription_inactive',
+        metered: true,
       };
     }
     return {
@@ -200,6 +212,21 @@ function hasNonSubscriptionAuthSource(status: Record<string, unknown>, raw: stri
     return true;
   }
   return /api.?key.?helper|apps?.?gateway|bedrock|vertex|foundry|pay.?as.?you.?go/i.test(raw);
+}
+
+/**
+ * 종량 과금 경로로 로그인했다는 **긍정 증거**(2026-09-15). 구조화된 필드만 본다 — 원문 전체를 훑으면
+ * 조직 이름 같은 데 든 'vertex' 한 단어로 멀쩡한 구독 사용자의 생성을 막는다. 필드가 없는 옛 CLI 는 단정하지 않는다.
+ * 이 PC 실측(claude 2.1.251 `claude auth status`): authMethod "claude.ai" · apiProvider "firstParty" · subscriptionType "max".
+ */
+function hasMeteredAuthEvidence(status: Record<string, unknown>): boolean {
+  const authMethod = String(status.authMethod ?? '').trim().toLowerCase();
+  const apiProvider = String(status.apiProvider ?? '').trim().toLowerCase();
+  const apiKeySource = String(status.apiKeySource ?? '').trim().toLowerCase();
+  if (authMethod && authMethod !== 'claude.ai' && authMethod !== 'oauth_token') return true;
+  if (apiProvider && apiProvider !== 'firstparty' && apiProvider !== 'first_party') return true;
+  return Boolean(apiKeySource)
+    && /api.?key.?helper|anthropic_api_key|environment|console|gateway|bedrock|vertex|foundry/.test(apiKeySource);
 }
 
 function claudeAuthenticationFailureDetail(errorCode: AgentErrorCode, raw: string): string {
@@ -246,6 +273,17 @@ async function probeClaudeLogin(): Promise<LoginProbe> {
       const authMethod = typeof status.authMethod === 'string' ? status.authMethod : undefined;
 
       if (!loggedIn) return { loggedIn: false, errorCode: 'not_logged_in' };
+      // 과금 경로 증거는 구독 유형보다 먼저 본다 — Console 로그인은 구독 유형이 비어 있을 수 있다.
+      if (hasMeteredAuthEvidence(status)) {
+        return {
+          loggedIn: true,
+          subscriptionType,
+          authMethod,
+          errorCode: 'subscription_inactive',
+          metered: true,
+          detail: 'Claude API 키, Console, 클라우드 또는 게이트웨이 인증이 감지되었습니다. 구독 모드는 Claude.ai 유료 구독 로그인만 사용합니다.',
+        };
+      }
       if (!subscriptionType) {
         return {
           loggedIn: false,
@@ -385,6 +423,7 @@ export async function detectAgent(
       available: false,
       errorCode: login.errorCode,
       detail: login.detail,
+      ...(login.metered ? { meteredAuth: true } : {}),
     }, detectionRevision);
   }
 

@@ -31,6 +31,7 @@ import { EnvironmentManager } from '../../utils/environment-manager';
 import { runWithAnyAgent } from '../../utils/agent-cli/runAny';
 import { createDefaultAgentChain } from '../../utils/agent-cli/defaultChain';
 import { tryExtractJson } from '../../utils/agent-cli/parse';
+import { requireJsonArray } from '../../utils/agent-cli/replyValidators';
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions } from '../../utils/naver-searchad-api';
 import { measureSeat, seatBlogTabUrl } from '../../utils/seat-measure';
 import { localSerpFetch, closeLocalSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
@@ -203,7 +204,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     let reply = '';
     let provider = '';
     try {
-      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000 });
+      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000, validate: requireJsonArray() });
       reply = run.reply; provider = run.provider; agentCalls += 1;
     } catch (error: any) {
       agentFailures.push(String(error?.message || error));
