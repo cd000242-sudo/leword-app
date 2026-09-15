@@ -13,6 +13,7 @@ import { forgeLaneInsights } from './lane-insights-service';
 import { analyzeKeywordDemand } from './keyword-demand-service';
 import { detectAgent } from '../utils/agent-cli/detect';
 import { analyzeRadarViaAgent } from './radar-analysis-service';
+import { createHomefeedHostDeps } from './homefeed/host';
 
 const WORKER_REPO = 'cd000242-sudo/leword-app';
 const WORKER_FILE = 'agent-worker.yml';
@@ -196,6 +197,11 @@ export function startWebBridgeHost(): void {
        * 레이더 평가 — 사이트 토큰이 죽어도 앱 구독으로 이어 간다
        * (사장님 지시 2026-08-23). 재료만 받고 문장은 여기서 만든다.
        */
+      /*
+       * 홈판 신호(2026-09-16 사장님 명령서 STORY RADAR v2.0) — 이 PC 가 쌓은 스냅샷으로 판정하고,
+       * 제목 · 원고 · 이미지는 누를 때만 내 구독 에이전트(이미지는 코덱스 내장 도구)로 만든다. 처음 불릴 때 싣는다.
+       */
+      homefeed: createHomefeedHostDeps(),
       radarAnalyze: analyzeRadarViaAgent,
       radarEvaluate: async ({ items, myTitle, mySummary, provider }) => {
         const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');

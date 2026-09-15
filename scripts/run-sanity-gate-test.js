@@ -447,6 +447,19 @@ const VITEST_SUITES = [
     'src/utils/__tests__/bridge-gap-topics-usage.test.ts',
     // 모바일 서버는 서버 키로 AI 를 부르지 않는다 — 브리핑 검색 이유 추론(Claude · Manus) 제거(2026-09-16)
     'src/utils/__tests__/briefing-reasoner-no-server-ai.test.ts',
+    /*
+     * 홈판 신호(STORY RADAR v2.0, 2026-09-16) — 신호(미측정 전파) · 스토리 게이트 · 창/상태 · 이미지 권리 표기 · 제목 STOP/FLAT/OVER ·
+     * 원고 검사 · 성과 표본 규칙(5 · 20) · 저장소 · 수집기 · 브리지 경로 · 코덱스 내장 이미지 실행기(유료 API 경로 차단)
+     */
+    'src/utils/__tests__/homefeed-text-ledger.test.ts',
+    'src/utils/__tests__/homefeed-signals.test.ts',
+    'src/utils/__tests__/homefeed-story-status.test.ts',
+    'src/utils/__tests__/homefeed-visual-titles-draft.test.ts',
+    'src/utils/__tests__/homefeed-store-collector.test.ts',
+    'src/utils/__tests__/homefeed-bridge-service.test.ts',
+    'src/utils/__tests__/codex-image-runner.test.ts',
+    // 실측 통합 — 이 PC 가 실제로 쌓은 스냅샷(기사 제목 · 주소 · 문서수)으로 스토리를 조립한다. mock 만으로 통과하지 못하게 한다.
+    'src/utils/__tests__/homefeed-real-data.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

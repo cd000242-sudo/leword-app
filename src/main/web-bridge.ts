@@ -21,6 +21,7 @@
 
 import http from 'http';
 import { radarMeasurementKeys, type RadarAnalysisInput } from './radar-analysis-service';
+import { handleHomefeedRoute, HOMEFEED_ROUTE_PREFIX, type HomefeedBridgeDeps } from './homefeed/bridge-routes';
 
 export const WEB_BRIDGE_PORT = 47615;
 
@@ -81,6 +82,11 @@ export interface WebBridgeDeps {
   gapTopics?: (input: { keywords: string[]; provider?: string }) => Promise<unknown>;
   /** 이 앱이 센 엔진 사용량(최근 5시간 · 24시간 호출 수). 서비스가 준 한도(%)가 아니다. */
   agentUsage?: () => Promise<unknown>;
+  /**
+   * 홈판 신호(STORY RADAR v2.0, 2026-09-16) — /v1/bridge/homefeed/*. 판정은 이 PC 앱이 쌓은 스냅샷으로,
+   * 제목 · 원고 · 이미지는 사용자가 누를 때만 내 구독 에이전트로 돈다. 재료(스토리 id · 고른 id · 설정 값)만 받는다.
+   */
+  homefeed?: HomefeedBridgeDeps;
   /**
    * 외부유입 레이더 평가 — 사이트 토큰이 죽어도 앱 구독으로 이어 간다.
    * 재료(후보 목록 + 내 글 요지)만 받고 문장은 앱이 만든다.
@@ -207,6 +213,11 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
     }
 
     try {
+      if (deps.homefeed && String(req.url || '').startsWith(HOMEFEED_ROUTE_PREFIX)) {
+        await handleHomefeedRoute(req, res, deps.homefeed, { readBody, json });
+        return;
+      }
+
       if (req.method === 'GET' && req.url === '/v1/bridge/status') {
         const agents = await deps.getAgentStatuses();
         json(res, 200, { ok: true, app: 'leword', version: deps.appVersion, agents });

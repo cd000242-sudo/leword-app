@@ -23,6 +23,7 @@ import { setupPreemptionBoardHandlers } from './handlers/preemption-board';
 import { setupGoldenLocalHandlers, startGoldenLocalScheduler, stopGoldenLocalScheduler } from './handlers/golden-local';
 import { setupDailyPickHandlers } from './handlers/daily-pick';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
+import { startHomefeedScheduler, stopHomefeedScheduler } from './homefeed/scheduler';
 import { setupTrendImportHandlers } from './handlers/trend-import';
 import { startCiWatchdog, stopCiWatchdog, setupCiWatchdogHandlers } from './handlers/ci-watchdog';
 import { setupSiteBoardHandlers } from './handlers/site-board';
@@ -98,6 +99,7 @@ function stopBackgroundWorkers(): void {
 export function stopMyLaneSchedulers(): void {
   stopSeatWatchScheduler();
   stopRealtimeNicheScheduler();
+  stopHomefeedScheduler();
   stopTopicBriefsScheduler();
   stopGoldenLocalScheduler();
   /*
@@ -201,6 +203,8 @@ export function setupKeywordMasterHandlers() {
   setupDailyPickHandlers();
   // 실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 같은 판정을 이 PC 브라우저로 상한 없이.
   setupRealtimeNicheHandlers();
+  // 홈판 신호(앱 전용, 2026-09-16) — 켜 두면 10분마다 실시간 이슈 스냅샷을 쌓아 스토리 창을 잰다(기본 꺼짐 · 사이트 탭에서 켠다).
+  startHomefeedScheduler();
   // 트렌드 CSV 들이기(앱 전용, 2026-09-10) — 크리에이터 어드바이저 유입 검색어를 재서 빈자리를 고른다.
   setupTrendImportHandlers();
   // 회차 감시견(2026-09-10, 2026-09-12 에 보드 넷으로 확대) —

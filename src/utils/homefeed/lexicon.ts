@@ -1,0 +1,40 @@
+/**
+ * 홈판 신호 표면 사전 — 긴장 유형 · 사건 사실 말 · 과장어 · 루머 · 팬 전용 · 장면 단서.
+ *
+ * 전부 기사 제목 표면에서만 찾는다. 걸린 말과 그 제목(주소)을 근거로 함께 싣고, 걸리지 않은 것은 만들지 않는다.
+ */
+import type { HomefeedTensionType } from './types';
+
+export const TENSION_RULES: ReadonlyArray<{ type: Exclude<HomefeedTensionType, 'number_conflict' | 'scale_mismatch'>; re: RegExp }> = [
+  { type: 'relationship_shift', re: /(열애설|결혼설|이혼설|결혼|이혼|열애|결별|파경|재결합|합류|탈퇴|이적|불화|화해|임신|득남|득녀|교제)/u },
+  { type: 'expectation_break', re: /(알고\s?보니|반전|오히려|뜻밖|의외|예상\s?밖|정작|깜짝|이례적)/u },
+  { type: 'action_reversal', re: /(취소|철회|번복|백지화|보류|연기|중단|재개|뒤집|유턴|돌연)/u },
+  { type: 'identity_contrast', re: /(출신|전직|정체|이었던|였던|전\s?(?:국가대표|아나운서|아이돌|의사|검사|판사|기자))/u },
+  { type: 'past_vs_now', re: /(당시|\d+\s?년\s?만|\d+\s?년\s?전|과거|그때|근황|달라진|변신)/u },
+  { type: 'result_first', re: /(결국|끝내|마침내|드디어|결과는|최종)/u },
+  { type: 'hidden_reason', re: /(이유|비결|까닭|속사정|배경은|왜(?=\s|\?|$))/u },
+];
+
+/** 숫자와 붙으면 숫자 충돌이 되는 대비 말. */
+export const NUMBER_CONTRAST_RE = /(보다|대비|→|만에|뿐|불과|넘어|돌파|반토막|급등|급락|추월|역전|\bvs\b)/iu;
+
+/** 큰 돈 단위 + 일상 사물 = 규모 불일치. */
+export const BIG_MONEY_RE = /\d+(?:[.,]\d+)*\s?(?:조|억|천만)/u;
+export const PRICED_OBJECT_RE = /(억\s?원?짜리|천만\s?원짜리|만\s?원짜리)/u;
+export const OBJECT_WORDS_RE = /(라면|커피|치킨|옷|가방|신발|시계|반지|목걸이|반찬|김밥|떡볶이|빵|티셔츠|케이크|도시락|햄버거|피자|과자|화장품|운동화|패딩|자전거|텀블러)/u;
+
+/** 사건 사실 말 — 정보층(REVEAL DEPTH)의 '사건' 층. 질문 틀(이유 · 비결)은 사실이 아니라 넣지 않는다. */
+export const EVENT_FACT_RE = /(결혼|이혼|열애|결별|파경|재결합|합류|탈퇴|이적|은퇴|복귀|임신|출산|득남|득녀|사망|체포|구속|기소|선고|고소|소송|합의|사과|해명|반박|인정|부인|취소|철회|번복|연기|중단|재개|출시|공개|발표|우승|탈락|확정|폐지|인상|인하|급등|급락)/gu;
+
+/** 제목 과장어 — 근거 없이 쓰면 OVER. */
+export const HYPE_WORDS_RE = /(충격|경악|발칵|난리|대박|역대급|초유|전말|소름|실화냐|미쳤|폭로)/gu;
+
+/** 루머 표지 · 확인 표지. 모든 표본이 루머 표지뿐이고 확인 표지가 하나도 없으면 DROP 위험. */
+export const RUMOR_RE = /((?:열애|결혼|이혼|불화|결별|임신|은퇴|사망|잠적|교체)설|루머|카더라|찌라시|의혹|추측)/u;
+export const CONFIRM_RE = /(공식|확인|인정|발표|밝혀|입장|직접)/u;
+
+/** 팬 전용 말 — 표본 과반이 이것뿐이면 일반 독자가 1초에 못 알아본다. */
+export const FAN_ONLY_RE = /(팬덤|팬미팅|직캠|포토카드|음원\s?차트|컴백\s?티저|응원봉|팬사인회|스밍|총공)/u;
+
+/** 장면 · 실물 단서 — 사진이 호기심을 키우는 제목. */
+export const VISUAL_CUE_RE = /(공개|포착|사진|모습|근황|패션|인테리어|실물|비주얼|자태|현장|영상)/u;
