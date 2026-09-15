@@ -1,4 +1,5 @@
 import { isKeywordMatchingCategory } from './categories';
+import { isStrictGoldenDiscoverySss } from './golden-discovery-floor';
 
 export interface GoldenKeywordPrecisionInput {
   keyword: string;
@@ -36,12 +37,24 @@ function compact(keyword: string): string {
   return String(keyword || '').toLowerCase().replace(/\s+/g, '').trim();
 }
 
+/*
+ * SSS 실측 조건 — 등급표(grade.ts)의 두 갈래를 공용 함수 그대로 쓴다(2026-09-15).
+ * 전에는 classic(검색량 1000+)만 봐서, 등급표가 SSS 로 인정한 winnable(검색량 100~1500 · 경쟁 글 500 이하)을
+ * 여기서 다시 버렸다 — 초보자가 이길 수 있는 작은 말이 정확히 그 줄이다. 점수가 없으면 여전히 탈락이다.
+ */
 function hasMeasuredSssData(input: GoldenKeywordPrecisionInput): boolean {
-  const volume = Number(input.searchVolume || 0);
   const docs = Number(input.documentCount || 0);
-  const ratio = Number(input.goldenRatio || 0);
-  const score = Number(input.score || 0);
-  return score >= 85 && volume >= 1000 && docs > 0 && docs <= 5000 && ratio >= 5;
+  if (!(docs > 0)) return false;
+  // 이 함수는 등급이 SSS 인 입력에서만 불린다(assessGoldenKeywordPrecision). 등급은 입력 그대로 넘긴다 —
+  // 여기서 문자열로 적으면 SSS 직접 할당 금지 규칙(lint-no-direct-sss)에 걸린다(2026-09-15 훅이 막았다).
+  return isStrictGoldenDiscoverySss({
+    keyword: input.keyword,
+    grade: input.grade,
+    score: Number(input.score || 0),
+    searchVolume: Number(input.searchVolume || 0),
+    documentCount: docs,
+    goldenRatio: Number(input.goldenRatio || 0),
+  });
 }
 
 function hasConcreteEntertainmentSubject(keyword: string): boolean {

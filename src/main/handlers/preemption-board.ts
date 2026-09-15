@@ -123,5 +123,33 @@ export function setupPreemptionBoardHandlers(): void {
     });
   }
 
+  /*
+   * 황금키워드 발굴 화면이 사이트 판을 깐다(2026-09-15, 사장님 "상위호환으로 발굴해줘야지").
+   * 결정: 사이트 판 전부 + 앱이 더 찾은 말은 같은 관문 통과분. 행 규칙은 golden-site-merge 한 곳에 있다.
+   * 카테고리를 바꿀 때마다 부르므로 받은 판은 5분 동안 다시 쓴다.
+   */
+  const GOLDEN_BOARD_REUSE_MS = 5 * 60 * 1000;
+  let goldenBoardMemo: { board: any; fromCache: boolean; at: number } | null = null;
+  if (!ipcMain.listenerCount('golden-site-rows')) {
+    ipcMain.handle('golden-site-rows', async (_event, payload?: { category?: string }) => {
+      const now = Date.now();
+      if (!goldenBoardMemo || now - goldenBoardMemo.at > GOLDEN_BOARD_REUSE_MS) {
+        const fetched = await fetchBoard();
+        goldenBoardMemo = fetched.board ? { board: fetched.board, fromCache: fetched.fromCache, at: now } : null;
+      }
+      if (!goldenBoardMemo) return { success: false, error: '사이트 황금 판을 받지 못했습니다 — 인터넷을 확인해 주세요.' };
+      const { buildSiteGoldenRows, SITE_GATE } = await import('../../utils/golden-site-merge');
+      const board = goldenBoardMemo.board;
+      return {
+        success: true,
+        publishedAt: board.publishedAt || null,
+        fromCache: goldenBoardMemo.fromCache,
+        total: Array.isArray(board.rows) ? board.rows.length : 0,
+        rows: buildSiteGoldenRows(board, payload?.category || '', readReseats()),
+        gate: SITE_GATE,
+      };
+    });
+  }
+
   console.log('[PREEMPTION-BOARD] ✅ 선점 보드(앱 전용) 핸들러 등록 완료');
 }

@@ -50,10 +50,23 @@ assert('SSS precision requires measured data gates',
     grade: 'SSS',
     score: 92,
     searchVolume: 900,
+    documentCount: 2000,
+    goldenRatio: 0.45,
+  }),
+  'SSS without classic or winnable metrics still passed');
+
+// 등급표(grade.ts)의 winnable SSS — 검색량 100~1500 · 경쟁 글 500 이하 · 비율 3 이상 · 점수 80 이상(2026-09-15).
+// 전에는 이 검사가 검색량 1000 미만을 전부 버려서, 등급표가 SSS 로 인정한 작은 말을 다시 떨궜다.
+assert('winnable SSS metrics pass the precision gate',
+  isPreciseGoldenKeywordCandidate({
+    keyword: '티빙 정보 유출 피해 확인',
+    grade: 'SSS',
+    score: 92,
+    searchVolume: 900,
     documentCount: 320,
     goldenRatio: 7.5,
   }),
-  'low search volume still passed');
+  'winnable SSS was dropped');
 
 assert('category strict precision blocks mismatched SSS keywords',
   !isPreciseGoldenKeywordCandidate({

@@ -1239,7 +1239,7 @@
             칸·버튼·값은 하나도 안 바꾼다. 배치와 결만 목업에 맞춘다.
           -->
           <span style="font-size:11.5px; color:#64748b;">카테고리</span>
-          <select id="keywordCategory" title="카테고리 — 고르면 집중 발굴, 비우면 전체 탐색" style="padding:7px 10px; border:1px solid rgba(255,255,255,0.09); border-radius:7px; font-size:12.5px; background:#1e293b; color:#e2e8f0; outline:none; max-width:210px;">
+          <select id="keywordCategory" onchange="loadGoldenSiteRows()" title="카테고리 — 고르면 집중 발굴, 비우면 전체 탐색" style="padding:7px 10px; border:1px solid rgba(255,255,255,0.09); border-radius:7px; font-size:12.5px; background:#1e293b; color:#e2e8f0; outline:none; max-width:210px;">
                 <option value="" selected style="background: #ffffff; color: #1e293b; font-weight: 700;">전체 카테고리에서 찾기</option>
                 <optgroup id="keywordProfileCategoryGroup" label="🎯 내 블로그 집중 카테고리" style="background: #ecfeff; color: #0f172a; font-weight: 800;"></optgroup>
                 <optgroup label="📰 뉴스/시사" style="background: #f8fafc; color: #1e293b; font-weight: 700;">
@@ -1352,8 +1352,8 @@
           <!-- 규격은 .golden-cond-row input[type="text"] 한 곳에만 둔다. 인라인으로 또 적으면 클래스를 이겨서, 폭을 줄여도 안 줄어든다(실측: 마인드맵이 계속 두 번째 줄로 내려갔다). -->
           <input id="keywordInput" type="text" placeholder="비워두면 카테고리 전체">
           <span data-golden-segs style="display:flex; border:1px solid rgba(255,255,255,0.09); border-radius:7px; overflow:hidden;">
-            <label data-on style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="10" checked style="display:none;"><span>10</span></label>
-            <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="50" style="display:none;"><span>50</span></label>
+            <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="10" style="display:none;"><span>10</span></label>
+            <label data-on style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="50" checked style="display:none;"><span>50</span></label>
             <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="100" style="display:none;"><span>100</span></label>
             <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="500" style="display:none;"><span>500</span></label>
             <label style="padding:6px 9px; font-size:11.5px; color:#64748b; background:#1e293b; border-right:1px solid rgba(255,255,255,0.055); cursor:pointer;"><input type="radio" name="keywordLimit" value="1000" style="display:none;"><span>1000</span></label>
@@ -1973,7 +1973,7 @@
           // 오늘 쓸 한 편 — 열 때 저장된 회차를 읽는다(고르기는 눌러서).
           today: { load: 'loadDailyPick' },
           realtime: {},
-          golden: {},
+          golden: { load: 'loadGoldenSiteRows' },
           // 오늘의 글감은 모달이 아니라 섹션이다 — 열 때 저장된 판을 불러온다(없으면 사이트 판).
           // 선점 보드는 발행본을 읽는다 — 열 때 받아 온다.
           board: { load: 'loadPreemptionBoard' },
@@ -2388,7 +2388,7 @@
             return;
           }
           const limitRadio = document.querySelector('input[name="keywordLimit"]:checked');
-          const limitValue = limitRadio?.value || '10';
+          const limitValue = limitRadio?.value || '50';
           const customLimit = document.getElementById('customKeywordLimit')?.value;
           let maxCount = null;
           if (limitValue === 'unlimited') {
@@ -3870,7 +3870,7 @@
 
           const source = document.getElementById('keywordSource')?.value || 'naver';
           const limitRadio = document.querySelector('input[name="keywordLimit"]:checked');
-          const limitValue = limitRadio?.value || '10';
+          const limitValue = limitRadio?.value || '50';
           const customLimit = document.getElementById('customKeywordLimit')?.value;
 
           // 개수 제한 계산 (먼저 계산)
@@ -3999,7 +3999,15 @@
             progressStatus.textContent = '준비 중...';
           }
 
-          resultsDiv.innerHTML = `<div class="loading" style="padding: 20px; text-align: center; color: #667eea;">⏳ ${discoveryScopeLabel}에서 황금키워드를 발굴하고 있습니다...</div>`;
+          // 사이트 판은 발굴이 도는 동안에도 보인다 — 새로 찾은 말은 그 아래로 붙는다(2026-09-15).
+          if (typeof window.loadGoldenSiteRows === 'function' && (!window.__goldenSite || window.__goldenSite.category !== category)) {
+            void window.loadGoldenSiteRows();
+          }
+          if (window.__goldenSite && window.__goldenSite.category === category && window.__goldenSite.rows.length > 0) {
+            displayGoldenResults([]);
+          } else {
+            resultsDiv.innerHTML = `<div class="loading" style="padding: 20px; text-align: center; color: #667eea;">⏳ ${discoveryScopeLabel}에서 황금키워드를 발굴하고 있습니다...</div>`;
+          }
           const logsDiv = document.getElementById('progressLogs');
           if (logsDiv) {
             logsDiv.innerHTML = '';
@@ -4089,7 +4097,7 @@
               categoryFirst: !!category,
               requireCategory: false,
               quickPreview,
-              limit: maxCount === null ? 1000 : maxCount // 무제한일 경우 기본 1000개 (백엔드 로직에 따라 조절)
+              limit: maxCount === null ? 0 : maxCount // 무제한은 0 — 발굴 코드는 0 일 때만 무제한으로 돈다(2026-09-15 조사: 1000 을 보내 무제한이 아니었다)
             });
 
             // 리스너 제거
@@ -4122,6 +4130,11 @@
               if (countSpan) {
                 countSpan.textContent = `${discoveryResults.length}개`;
               }
+            } else {
+              // 최종 목록이 비면 흘러온 줄을 남기지 않는다 — 최종 관문을 못 넘은 줄이 '완료' 아래 남아 있었다(2026-09-15 조사).
+              discoveryResults = [];
+              displayGoldenResults([]);
+              if (countSpan) countSpan.textContent = '0개';
             }
 
             // 발굴 완료 상태 처리 (진행률 100%로 설정)
@@ -4261,7 +4274,7 @@
           const cat = document.getElementById('keywordCategory');
           const catLabel = cat && cat.value ? (cat.options[cat.selectedIndex] || {}).text || cat.value : '전체 카테고리';
           const limitEl = document.querySelector('input[name="keywordLimit"]:checked');
-          const limit = limitEl ? (limitEl.value === 'unlimited' ? '무제한' : limitEl.value + '개') : '10개';
+          const limit = limitEl ? (limitEl.value === 'unlimited' ? '무제한' : limitEl.value + '개') : '50개';
           const extra = String((document.getElementById('keywordInput') || {}).value || '').trim();
           const now = new Date();
           const stamp = (now.getMonth() + 1) + '월 ' + now.getDate() + '일 '
@@ -4305,6 +4318,84 @@
           folded.setAttribute('aria-expanded', 'true');
         };
 
+        /*
+         * 사이트 황금 판을 발굴 표에 깐다(2026-09-15, 사장님 "앱에 있는 황금키워드 발굴도 4개밖에 안 나와 … 상위호환으로 발굴해줘야지").
+         * 결정: 사이트 판 전부 + 앱이 더 찾은 말은 사이트와 같은 관문 통과분. 관문은 메인이 이미 걸렀다(golden-site-merge) —
+         * 여기서는 사이트 줄을 앞에 두고 같은 말을 한 번만 싣는다. 자리 칸은 사이트가 잰 사실을 그대로 적고 판정을 새로 만들지 않는다.
+         */
+        window.__goldenSite = { rows: [], publishedAt: null, category: null, total: 0 };
+
+        window.loadGoldenSiteRows = async function loadGoldenSiteRows() {
+          const category = (document.getElementById('keywordCategory') || {}).value || '';
+          try {
+            const res = await window.electronAPI.invoke('golden-site-rows', { category });
+            if (!res || !res.success) return;
+            window.__goldenSite = {
+              rows: Array.isArray(res.rows) ? res.rows : [],
+              publishedAt: res.publishedAt || null,
+              category,
+              total: Number(res.total) || 0,
+            };
+          } catch (error) {
+            console.warn('[GOLDEN] 사이트 판을 못 받았습니다:', (error && error.message) || error);
+            return;
+          }
+          // 발굴 중이 아니면 지금 표를 다시 그린다 — 발굴 전에도 사이트 판이 보여야 한다.
+          const discovering = typeof isDiscovering !== 'undefined' && isDiscovering;
+          if (!discovering) displayGoldenResults(typeof discoveryResults !== 'undefined' && Array.isArray(discoveryResults) ? discoveryResults : []);
+        };
+
+        window.goldenMergeSiteRows = function goldenMergeSiteRows(found) {
+          const site = (window.__goldenSite && Array.isArray(window.__goldenSite.rows)) ? window.__goldenSite.rows : [];
+          const flat = (value) => String(value || '').replace(/\s+/g, '').toLowerCase();
+          const seen = new Set(site.map((row) => flat(row.keyword)));
+          const rest = (Array.isArray(found) ? found : []).filter((row) => {
+            const key = flat(row && row.keyword);
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          return site.concat(rest);
+        };
+
+        window.goldenPublishedLabel = function goldenPublishedLabel(iso) {
+          const at = new Date(iso);
+          if (!isFinite(at.getTime())) return '';
+          return (at.getMonth() + 1) + '월 ' + at.getDate() + '일';
+        };
+
+        window.goldenTitleSuffix = function goldenTitleSuffix(rows) {
+          const list = Array.isArray(rows) ? rows : [];
+          const siteCount = list.filter((row) => row && row.source === 'site-board').length;
+          if (siteCount === 0) return '';
+          const published = window.__goldenSite && window.__goldenSite.publishedAt ? window.goldenPublishedLabel(window.__goldenSite.publishedAt) : '';
+          return ' <span style="font-size:12.5px; font-weight:500; color:#94a3b8;">· 사이트 판 ' + siteCount
+            + (published ? '(' + published + ' 발행)' : '') + ' · 이 PC 발굴 ' + (list.length - siteCount) + '</span>';
+        };
+
+        window.goldenSiteBadge = function goldenSiteBadge(item) {
+          const tier = String(item.siteTierLabel || '').replace(/"/g, '&quot;');
+          return '<span title="사이트 황금 판에 실린 줄' + (tier ? ' — ' + tier : '') + '" '
+            + 'style="display:inline-block; padding:2px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(251,191,36,0.14); color:#fbbf24;">사이트</span>';
+        };
+
+        window.goldenSiteSeatHtml = function goldenSiteSeatHtml(item) {
+          // 이 PC로 다시 잰 자리가 있으면 그 판정을, 없으면 사이트가 잰 사실만 적는다 — 열림·잠김을 지어내지 않는다.
+          if (item.reseat && item.reseat.verdict) {
+            return seatCellHtml({ status: 'ok', verdict: item.reseat.verdict, facing: item.reseat.facing, vacancy: item.reseat.vacancy });
+          }
+          const facts = [
+            item.siteOpenSlot != null ? item.siteOpenSlot + '위 빔' : null,
+            typeof item.siteFacing === 'number' ? '정면 ' + item.siteFacing : null,
+            item.siteAiBriefing ? 'AI브리핑' : null,
+          ].filter(Boolean).join(' · ');
+          const measuredMs = item.siteMeasuredAt ? Date.parse(item.siteMeasuredAt) : NaN;
+          const days = isFinite(measuredMs) ? Math.max(0, Math.floor((Date.now() - measuredMs) / 86400000)) : null;
+          return '<span style="font-size:11px; color:#94a3b8;">사이트가 잼</span>'
+            + (facts ? '<div style="font-size:11px; color:#64748b; margin-top:3px;">' + facts + '</div>' : '')
+            + (days !== null ? '<div style="font-size:10px; color:' + (days >= 3 ? '#f59e0b' : '#64748b') + '; margin-top:2px;">' + (days === 0 ? '오늘' : days + '일 전') + '</div>' : '');
+        };
+
         function displayGoldenResults(results) {
           const resultsDiv = document.getElementById('goldenResults');
 
@@ -4325,6 +4416,9 @@
             resultsDiv.innerHTML = '<div class="loading">발굴된 키워드가 없습니다.</div>';
             return;
           }
+
+          // 사이트 판을 앞에 깐다 — 같은 말은 한 번만(2026-09-15, 사장님 "상위호환으로 발굴해줘야지").
+          results = window.goldenMergeSiteRows(results);
 
           if (!results || results.length === 0) {
             resultsDiv.innerHTML = '<div class="loading">발굴된 키워드가 없습니다.</div>';
@@ -4348,7 +4442,7 @@
 
           // 테이블 형식으로 결과 표시
           let html = `
-        <div style="margin-bottom: 16px; font-size: 18px; font-weight: 700; color: #92400e;">🎯 MDP v2.0 발굴 결과 (${results.length}개)</div>
+        <div style="margin-bottom: 16px; font-size: 18px; font-weight: 700; color: #92400e;">황금키워드 ${results.length}개${window.goldenTitleSuffix(results)}</div>
         <div style="overflow-x: auto;">
           <table style="width: 100%; border-collapse: collapse; background: #0f172a; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px; overflow: hidden; color: #e2e8f0; font-variant-numeric: tabular-nums;">
             <thead>
@@ -4436,9 +4530,9 @@
             const rangeVerdict = typeof window.blogRangeOf === 'function' ? window.blogRangeOf(hasTotalVol ? totalVol : null) : null;
 
             html += `
-          <tr class="golden-row" data-golden-idx="${idx}" data-grade="${gradeValue}" data-blue="${item.isBlueOcean ? '1' : '0'}" data-range="${rangeVerdict || ''}" style="border-bottom: 1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+          <tr class="golden-row" data-golden-idx="${idx}" data-grade="${gradeValue}" data-source="${item.source === 'site-board' ? 'site' : 'app'}"${item.source === 'site-board' && item.reseat && item.reseat.verdict ? ' data-seat="' + item.reseat.verdict + '"' : ''} data-blue="${item.isBlueOcean ? '1' : '0'}" data-range="${rangeVerdict || ''}" style="border-bottom: 1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
-            <td style="padding: 12px 10px; text-align: center;">${gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
+            <td style="padding: 12px 10px; text-align: center;">${item.source === 'site-board' ? window.goldenSiteBadge(item) : gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
               <div style="font-weight: 600; color: #e2e8f0; font-size:14px;">${item.keyword}${typeof window.blogRangeBadge === 'function' ? window.blogRangeBadge(hasTotalVol ? totalVol : null) : ''}${supplementBadge}</div>
               <div style="font-size: 10px; color: #64748b;">${item.intentBadge || ''} ${item.intent || 'Info'}</div>
@@ -4447,7 +4541,7 @@
             <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #e2e8f0;">${totalVolDisplay}</td>
             <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #64748b;">${docCount.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: right; color: ${goldenRatioColor}; font-weight: 800;">${goldenRatioDisplay}</td>
-            <td class="seat-cell" data-seat-kw="${String(item.keyword || '').replace(/"/g, '&quot;')}" style="padding: 12px 10px; text-align: center; font-size: 12px; color: #94a3b8;">—</td>
+            <td class="seat-cell"${item.source === 'site-board' && item.reseat && item.reseat.verdict ? ' data-seat-done="1"' : ''} data-seat-kw="${String(item.keyword || '').replace(/"/g, '&quot;')}" style="padding: 12px 10px; text-align: center; font-size: 12px; color: #94a3b8;">${item.source === 'site-board' ? window.goldenSiteSeatHtml(item) : '—'}</td>
             <td style="padding: 12px 10px; text-align: left; max-width: 200px;">
               <div style="font-size: 11px; color: #64748b; line-height: 1.4; word-break: keep-all;">${verdictPrefix}${goldenReason}</div>
             </td>
@@ -4492,6 +4586,7 @@
           <span><span style="background: #ea580c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">SS</span> ${gradeCounts.SS}개</span>
           <span><span style="background: #22c55e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">S</span> ${gradeCounts.S}개</span>
           <span>🌊 블루오션: ${blueOceanCount}개</span>
+          ${results.some((r) => r && r.source === 'site-board') ? `<span>사이트 판 ${results.filter((r) => r && r.source === 'site-board').length}개</span>` : ''}
           ${supplementCount > 0 ? `<span><span style="background:rgba(99,102,241,0.12); color:#4f46e5; border:1px solid rgba(99,102,241,0.28); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">보충</span> ${supplementCount}개</span>` : ''}
           ${routedShoppingRows.length > 0 ? `<span title="${routedShoppingRows.map((r) => r.keyword).join(', ').replace(/"/g, '&quot;')}">🛒 쇼핑판 키워드 ${routedShoppingRows.length}건은 쇼핑 커넥트 소관으로 제외</span>` : ''}
         </div>

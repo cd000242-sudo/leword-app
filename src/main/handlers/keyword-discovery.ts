@@ -21,6 +21,7 @@ import { callAllSources } from '../../utils/sources/source-registry';
 import { getCachedReport } from '../../utils/sources/health-checker';
 import { getNaverNewsRankingKeywords } from '../../utils/sources/naver-news-ranking';
 import { getCrossCategoryDiscoverySeeds, getDiscoveryCategorySeeds, matchesDiscoveryCategory, resolveDiscoveryCategoryIds } from '../../utils/category-discovery-map';
+import { describeSiteGateDrops, judgeSiteGate } from '../../utils/golden-site-merge';
 import { deterministicRange } from '../../utils/deterministic-random';
 import { createGoldenSssTargetTracker, countSss, getGoldenDiscoveryScanLimit, isQualityGoldenDiscoveryResult, rankGoldenDiscoveryResults, resolveGoldenDiscoveryTarget } from '../../utils/golden-discovery-floor';
 import { buildCategoryFirstGoldenSeedPlan } from '../../utils/category-first-golden-discovery';
@@ -292,6 +293,17 @@ export function setupKeywordDiscoveryHandlers(): void {
       ? 10000
       : resolveGoldenDiscoveryTarget(effectiveLimit, { honorRequestedLimit: quickPreview });
     const progressStartedAt = Date.now();
+    /*
+     * 사이트와 같은 관문(2026-09-15, 사장님 결정 "사이트 판 전부 + 같은 관문 통과분").
+     * 앱이 찾은 줄은 이 관문을 넘어야 표에 싣는다. 사이트 판 행은 화면이 따로 깐다(golden-site-rows).
+     * 뺀 수는 이유별로 세서 끝날 때 진행 줄에 적는다 — 조용히 지우지 않는다.
+     */
+    const siteGateDrops: Record<string, number> = {};
+    const passSiteGate = (row: any): boolean => {
+      const verdict = judgeSiteGate(row);
+      if (!verdict.ok) siteGateDrops[verdict.code] = (siteGateDrops[verdict.code] || 0) + 1;
+      return verdict.ok;
+    };
     const progressTarget = isUnlimited ? 5000 : visibleTarget;
     let lastProgressAt = 0;
     const sendDiscoveryProgress = (
@@ -458,8 +470,14 @@ export function setupKeywordDiscoveryHandlers(): void {
                 liveSeeds: liveCategorySeeds,
               })
               : null;
+            /*
+             * 카테고리도 보강 키워드도 없으면 씨앗이 비어 '황금키워드'라는 말 하나로 발굴했다(2026-09-15 조사).
+             * 그때는 모든 카테고리 씨앗을 고르게 섞어 쓴다 — 카테고리 하나를 고른 것과 같은 재료다.
+             */
             const categorySeeds = categorySeedPlan?.seeds
-              || getDiscoveryCategorySeeds(category, Math.min(420, Math.max(120, preliminaryScanLimit * 2)));
+              || (!category && !String(actualKeyword || '').trim()
+                ? getCrossCategoryDiscoverySeeds([], Math.min(420, Math.max(120, preliminaryScanLimit * 2)))
+                : getDiscoveryCategorySeeds(category, Math.min(420, Math.max(120, preliminaryScanLimit * 2))));
             const categoryIds = categorySeedPlan?.categoryIds || resolveDiscoveryCategoryIds(category);
             const freshIssueSeedRecords = buildFreshIssueGoldenSeeds(externalSignalMapForSeeds, {
               maxBaseSeeds: seedlessQuickPreview
@@ -586,6 +604,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                 competitionRatio: result.goldenRatio, // UI 호환성
               };
 
+              if (!passSiteGate(formattedResult)) continue;
               allKeywords.push(formattedResult as any);
               chunk.push(formattedResult as any);
               totalAdded++;
@@ -744,6 +763,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                     primaryCategoryMatched: false,
                     supplementReason: `${category} 카테고리 SSS 부족분을 전체 카테고리에서 보충`,
                   };
+                  if (!passSiteGate(formattedSupplement)) continue;
                   allKeywords.push(formattedSupplement as any);
                   supplementChunk.push(formattedSupplement as any);
                   totalAdded++;
@@ -884,6 +904,7 @@ export function setupKeywordDiscoveryHandlers(): void {
                   directMeasuredSupplement: true,
                   supplementReason: '실제 검색량/문서수 기준으로 검증된 작성가능 SSS 보강',
                 };
+                if (!passSiteGate(formattedDirect)) continue;
                 allKeywords.push(formattedDirect as any);
                 directChunk.push(formattedDirect as any);
                 totalAdded++;
@@ -994,6 +1015,11 @@ export function setupKeywordDiscoveryHandlers(): void {
               console.warn('[KEYWORD-MASTER] 콘텐츠 브리핑 스킵(발굴은 정상):', (err as Error)?.message || err);
             }
 
+            const siteGateSummary = describeSiteGateDrops(siteGateDrops);
+            if (siteGateSummary) {
+              console.log(`[KEYWORD-MASTER] 사이트 관문에서 뺀 후보: ${siteGateSummary}`);
+              sendDiscoveryProgress(`사이트와 같은 관문에서 뺀 후보 — ${siteGateSummary}`, { phase: 'site-gate' }, true);
+            }
             const finalSssCount = countSss(rankedKeywords as any[]);
             const finalQualityBackfillCount = Math.max(0, rankedKeywords.length - finalSssCount);
             console.log(`[KEYWORD-MASTER] MDP 발굴 완료: 후보 ${totalAdded}개 → 노출 ${rankedKeywords.length}개, SSS ${finalSssCount}개, 품질보충 ${finalQualityBackfillCount}개, 보충 ${crossCategorySupplementCount}개, 실측보강 ${directMeasuredSupplementCount}개`);

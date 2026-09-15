@@ -1569,9 +1569,15 @@ export async function discoverDirectGoldenKeywords(
     }
   }
 
+  /*
+   * PRO 보충은 고른 카테고리로 돈다(2026-09-15 조사: 어떤 카테고리를 골라도 'entertainment' 로 고정돼 있었다).
+   * 카테고리를 안 골랐으면(전체) 한 주제로 채우지 않는다 — 연예로 채운 줄이 '전체'의 결과처럼 보였다.
+   */
+  const proSupplementCategory = resolveDiscoveryCategoryIds(options.category)[0] || '';
   if (
     bulkMode
     && options.includeProTrafficSupplement === true
+    && proSupplementCategory
     && (
       ranked.length < Math.min(limit, 50)
       || countSss(ranked) < Math.min(resolveDirectGoldenBulkSssTarget(limit), 50)
@@ -1581,7 +1587,7 @@ export async function discoverDirectGoldenKeywords(
       const { huntProTrafficKeywords } = await import('./pro-traffic-keyword-hunter');
       const proResult = await huntProTrafficKeywords({
         mode: 'category',
-        category: 'entertainment',
+        category: proSupplementCategory,
         count: Math.max(60, limit - ranked.length + 30),
         forceRefresh: false,
         includeSeasonKeywords: true,

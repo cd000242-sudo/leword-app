@@ -36,12 +36,14 @@ const richFeedIpcBlock = sourceSignals.match(/ipcMain\.handle\('get-rich-golden-
 const richFeedTableBlock = html.match(/function renderRichFeedTable[\s\S]*?window\.rfReportInaccurate/)?.[0] || '';
 const richFeedTopPicksBlock = html.match(/window\.rfRenderTopPicks[\s\S]*?const RF_EXCLUDE_KEY/)?.[0] || '';
 
-assert('keyword analyzer default option is 10',
-  /name="keywordLimit"\s+value="10"\s+checked/.test(html),
-  'keywordLimit checked value is not 10');
+// 기본 개수는 50(2026-09-15) — 10 은 빠른 미리보기로 돌아 황금키워드 발굴이 4개 안팎에서 멈췄다(사장님 지적).
+// 10 은 여전히 고를 수 있고, 고르면 빠른 미리보기로 돈다(아래 quickPreview 단언은 그대로).
+assert('keyword analyzer default option is 50',
+  /name="keywordLimit"\s+value="50"\s+checked/.test(html),
+  'keywordLimit checked value is not 50');
 
-assert('keyword analyzer JS fallback defaults to 10',
-  /const\s+limitValue\s*=\s*limitRadio\?\.value\s*\|\|\s*'10'/.test(html),
+assert('keyword analyzer JS fallback defaults to 50',
+  /const\s+limitValue\s*=\s*limitRadio\?\.value\s*\|\|\s*'50'/.test(html),
   'limitValue fallback is not 10');
 
 

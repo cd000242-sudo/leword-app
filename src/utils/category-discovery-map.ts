@@ -34,10 +34,19 @@ const CATEGORY_ALIASES: Record<string, string[]> = {
   AI: ['ai_tool', 'it'],
   ai: ['ai_tool', 'it'],
   생활: ['life_tips', 'home_life'],
+  /*
+   * 블로그 주제 32종 중 이 표로 안 풀리던 두 주제(2026-09-15). 황금키워드 발굴이 사이트 판 행을 카테고리로 거를 때
+   * 안 풀리면 그 주제 행이 통째로 사라진다. 새 분류를 짓지 않고 이미 있는 말의 id 를 그대로 쓴다:
+   * 일상·생각 = 생활, 육아·결혼 = 육아 + 결혼.
+   */
+  '일상·생각': ['life_tips', 'home_life'],
+  일상생각: ['life_tips', 'home_life'],
   건강: ['health'],
   '건강·의학': ['health', 'hospital'],
   건강의학: ['health', 'hospital'],
   육아: ['parenting', 'baby_products'],
+  '육아·결혼': ['parenting', 'baby_products', 'wedding'],
+  육아결혼: ['parenting', 'baby_products', 'wedding'],
   '육아·생활': ['parenting', 'baby_products', 'home_life', 'life_tips'],
   육아생활: ['parenting', 'baby_products', 'home_life', 'life_tips'],
   '유아·질문': ['parenting', 'baby_products'],

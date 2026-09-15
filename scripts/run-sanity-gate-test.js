@@ -396,6 +396,9 @@ const VITEST_SUITES = [
     'src/utils/__tests__/daily-pick-spread.test.ts',
     'src/utils/__tests__/daily-pick-blog-input.test.ts',
     'src/utils/__tests__/daily-pick-render.test.ts',
+    // 황금키워드 발굴 = 사이트 판 + 같은 관문 통과분(2026-09-15) — 관문 숫자·주제 대응·배선
+    'src/utils/__tests__/golden-site-merge.test.ts',
+    'src/utils/__tests__/golden-site-wiring.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
