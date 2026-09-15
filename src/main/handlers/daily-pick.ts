@@ -8,20 +8,37 @@
  * 초보자에게 600개는 0개와 같다. 모든 판이 "이 키워드가 좋다"고 말하지만
  * "**너에게** 좋다"고는 말하지 않았다.
  *
- * 여기서 새로 만드는 판정은 하나도 없다. 이미 있는 실측을 관문으로 세울 뿐이다:
- *   ① 내 봉투 안인가        blog-class 의 judgeRange (내가 이겨본 문서수·정면)
- *   ② 자리가 지금 열렸나     seat-measure (이 PC 크로미엄, 무제한)
- *   ③ 검색량이 실측됐나      각 판이 이미 검색광고로 잰 값
- *   ④ 글감이 붙어 있나       제목 후보·같이 넣을 말·근거
- *   ⑤ 내가 아직 안 썼나      노출 추적의 tracked 목록
+ * ── 내 블로그에서 찾는다 (2026-09-15) ──
+ * 사장님 "내 블로그 주소랑 지금 현재 내 블로그가 얼마나 최적화되어있는지를 알아야지 오늘 것 고르기에서
+ * 너가 키워드를 찾아줄 수 있지 않니". 전에는 여섯 판 후보를 봉투로 **거르기만** 했는데, 9-14 회차가
+ * 인테리어·DIY 블로그에 'kaist 서울캠퍼스'·'kaist 입학처'를 세웠다(459개 중 450개가 봉투를 통과).
+ * 이제 관문이 이렇다 — 새로 만드는 점수는 없고, 이미 있는 실측을 세울 뿐이다:
+ *   ① 내 블로그 판      30위 안에 붙어 본 말을 씨앗으로 연관어·자동완성에서 새로 찾는다(my-blog-lane)
+ *   ② 겹치는 말만       여섯 판 후보는 내 블로그 어휘와 낱말이 겹치거나 대표 주제가 같은 것만
+ *   ③ 내 크기           검색량이 30위 안에 붙어 본 범위(100~최대) 안인가 — envelope 의 judgeRange
+ *   ④ 이미 쓴 말 빼기    노출 추적 목록 + 내가 이미 순위를 잰 말(= 이미 쓴 글의 말)
+ *   ⑤ 자리가 지금 열렸나  seat-measure (이 PC 크로미엄, 무제한)
  *
  * 그리고 닫힌 고리: 쓰고 나서 발행 주소를 넣으면 노출 추적이 받아 순위를 재고,
- * 이기면 봉투가 커진다 → 내일 추천이 달라진다. 지금 LEWORD 에 없던 화살표가 이것이다.
+ * 붙어 본 말이 늘면 범위가 커진다 → 내일 추천이 달라진다.
  */
 import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { judgeRange, type BlogEnvelope } from '../../utils/blog-class/envelope';
+import { buildNearBand, judgeRange, type BlogEnvelope, type NearBand, type WonRow } from '../../utils/blog-class/envelope';
+import {
+  buildProfile,
+  coreWords,
+  describeBlogState,
+  interleave,
+  nearRows,
+  pickExpansions,
+  sharesVocabulary,
+  shortenSeed,
+  type BlogStateLine,
+  type Expansion,
+  type MyBlogProfile,
+} from '../../utils/blog-class/my-blog-lane';
 import { measureKeywords } from './seat-measure';
 
 export const DAILY_PICK_PROGRESS_CHANNEL = 'daily-pick-progress';
@@ -30,6 +47,18 @@ export const DAILY_PICK_PROGRESS_CHANNEL = 'daily-pick-progress';
 const MEASURE_CAP = 14;
 /** 세워 보일 수. 셋을 넘기면 다시 "고르는 일"이 된다. */
 const SHOW = 3;
+/** 자리 잴 14칸 중 내 블로그 판이 먼저 쓰는 칸. 모자라면 다른 판이 채운다. */
+export const MY_BLOG_FIRST = 10;
+/** 씨앗 수 — 30위 안 기록에서 가까운 순. 씨앗마다 연관어 한 번(+ 짧게 줄여 한 번 더). */
+const MAX_SEEDS = 12;
+/** 씨앗 하나가 연관어로 남기는 새 말 상한 — 연관어 200개짜리 씨앗 하나가 판을 다 채우지 않게. */
+const PER_SEED = 15;
+/** 연관어가 이보다 적게 오면 씨앗을 짧게 줄여 한 번 더 묻는다(시험: '베란다 청소 방법' → 1개). */
+const FEW_SUGGESTIONS = 5;
+/** 자동완성으로도 넓힐 앞 씨앗 수 — 사람이 띄어 치는 모양을 보태는 용도라 적게 쓴다. */
+const AUTOCOMPLETE_SEEDS = 4;
+/** 씨앗 하나가 자동완성으로 더 남기는 말 상한. */
+const AUTOCOMPLETE_PER_SEED = 5;
 
 const U = (...p: string[]) => path.join(app.getPath('userData'), ...p);
 
@@ -40,7 +69,7 @@ function readJson<T>(file: string, fallback: T): T {
 const flat = (v: unknown) => String(v || '').replace(/\s+/g, '').toLowerCase();
 
 /** 어느 판에서 왔는가 — 카드에 그대로 적는다. 근거를 숨기지 않는다. */
-export type PickSource = '오늘의 글감' | '선점 보드' | '추천키워드' | '유튜브' | '실시간 틈새';
+export type PickSource = '내 블로그' | '오늘의 글감' | '선점 보드' | '추천키워드' | '유튜브' | '실시간 틈새';
 
 export interface Candidate {
   keyword: string;
@@ -65,7 +94,7 @@ export interface Picked extends Candidate {
   seatVacancy: number | null;
   seatReason: string;
   measuredAt: string;
-  /** 봉투와 견준 한 줄 — "너는 890개까지 이겨봤다". */
+  /** 내 크기와 견준 한 줄 — "30위 안에 붙어 본 말이 3,610까지 있다". */
   fitReason: string;
   myTopic: boolean;
 }
@@ -82,7 +111,7 @@ function fromBriefs(): Candidate[] {
     source: '오늘의 글감' as PickSource,
     topic: String(b.field || ''),
     searchVolume: num(b.searchVolume),
-    // 글감 판은 문서수를 안 잰다 — 없는 것을 0 으로 바꾸지 않는다(봉투가 정면으로 판단한다).
+    // 글감 판은 문서수를 안 잰다 — 없는 것을 0 으로 바꾸지 않는다.
     documentCount: null,
     facing: num(b.serpFacing),
     vacancy: num(b.serpVacancy),
@@ -172,10 +201,13 @@ function fromNiche(): Candidate[] {
   }));
 }
 
-export function gatherCandidates(): Candidate[] {
-  const all = [...fromBriefs(), ...fromBoard(), ...fromPicks(), ...fromYoutube(), ...fromNiche()]
+/**
+ * 모든 판의 후보를 모은다. extra 는 내 블로그 판이 찾은 말 — 맨 앞에 둔다.
+ * 같은 검색어가 여러 판에 있으면 글감이 붙은 쪽을 남기고, 같으면 먼저 온 쪽(내 블로그)을 남긴다.
+ */
+export function gatherCandidates(extra: readonly Candidate[] = []): Candidate[] {
+  const all = [...extra, ...fromBriefs(), ...fromBoard(), ...fromPicks(), ...fromYoutube(), ...fromNiche()]
     .filter((c) => c.keyword.length >= 2);
-  // 같은 검색어가 여러 판에 있으면 글감이 붙은 쪽을 남긴다 — 바로 쓸 수 있는 것이 낫다.
   const best = new Map<string, Candidate>();
   for (const c of all) {
     const key = flat(c.keyword);
@@ -187,9 +219,9 @@ export function gatherCandidates(): Candidate[] {
 
 /* ────────────────────────────── 관문 ────────────────────────────── */
 
-export function readEnvelope(): BlogEnvelope | null {
-  const record = readJson<any>(U('blog-class', 'latest.json'), null);
-  return (record && record.envelope) || null;
+/** 내 크기 재기 기록(userData/blog-class/latest.json) — 글 목록·순위 기록·사실 카드가 들어 있다. */
+export function readBlogRecord(): any | null {
+  return readJson<any>(U('blog-class', 'latest.json'), null);
 }
 
 /** 내가 이미 쓴 검색어. 노출 추적이 들고 있는 목록 그대로. */
@@ -204,32 +236,69 @@ export interface Gated {
   myTopic: boolean;
 }
 
+export interface GateStats {
+  gated: Gated[];
+  /** 여섯 판 후보 중 내 블로그 어휘와 낱말이 안 겹치고 대표 주제도 달라 뺀 수. */
+  offTopic: number;
+  /** 검색량이 30위 안에 붙어 본 범위 밖이라 뺀 수. */
+  outOfBand: number;
+  /** 내가 이미 순위를 잰 말(= 이미 쓴 글의 말)이라 뺀 수. */
+  alreadyMine: number;
+}
+
 /**
- * 봉투·중복으로 먼저 거른다. 자리는 비싸므로 여기를 통과한 것만 잰다.
- * 봉투가 없으면(첫 페이지에 든 글이 아직 없으면) 봉투 관문을 건너뛴다 —
- * 견줄 게 없는 것을 탈락으로 바꾸지 않는다.
+ * 자리는 비싸므로 여기를 통과한 것만 잰다.
+ *
+ * 블로그를 안 쟀으면(profile 없음) 예전처럼 거르지 않고 판마다 나눠 쓴다 — 견줄 게 없는 것을 탈락으로 바꾸지 않는다.
+ * 블로그를 쟀으면:
+ *   - 여섯 판 후보는 내 블로그 어휘와 낱말이 겹치거나 대표 주제가 같은 것만(9-14 'kaist 입학처'를 막는 자리)
+ *   - 검색량이 30위 안에 붙어 본 범위 밖이면 뺀다
+ *   - 내가 이미 순위를 잰 말은 이미 쓴 글의 말이라 뺀다
+ * 내 블로그 판이 앞 칸(MY_BLOG_FIRST)을 먼저 쓴다 — 이 판만 '너에게' 맞춰 찾은 말이다.
  */
-export function gate(candidates: readonly Candidate[], envelope: BlogEnvelope | null, written: ReadonlySet<string>): Gated[] {
-  const out: Gated[] = [];
+export function gateWithStats(candidates: readonly Candidate[], profile: MyBlogProfile | null, written: ReadonlySet<string>): GateStats {
+  let offTopic = 0;
+  let outOfBand = 0;
+  let alreadyMine = 0;
+  const mine: Gated[] = [];
+  const others: Gated[] = [];
   for (const c of candidates) {
-    if (written.has(flat(c.keyword))) continue;
-    const verdict = judgeRange({ documentCount: c.documentCount, facing: c.facing, topic: c.topic }, envelope);
-    if (verdict.verdict === 'out') continue;
-    out.push({
+    const key = flat(c.keyword);
+    if (written.has(key)) continue;
+    if (profile && profile.ownKeywords.has(key)) {
+      alreadyMine += 1;
+      continue;
+    }
+    const fromMyBlog = c.source === '내 블로그';
+    const sameTopic = Boolean(profile && profile.declaredTopic && c.topic === profile.declaredTopic);
+    if (profile && !fromMyBlog && !sameTopic && !sharesVocabulary(c.keyword, profile.vocabulary)) {
+      offTopic += 1;
+      continue;
+    }
+    const verdict = judgeRange({ searchVolume: c.searchVolume, topic: c.topic }, profile ? profile.band : null);
+    if (verdict.verdict === 'out') {
+      outOfBand += 1;
+      continue;
+    }
+    const gated: Gated = {
       candidate: c,
-      // judgeRange 의 값은 'in' | 'out' | 'unknown' 이다. 'in' 이면 그 이유를 그대로 쓴다.
-      fitReason: envelope
-        ? (verdict.verdict === 'in' ? verdict.reason : verdict.reason)
-        : '아직 이겨본 기록이 없어서 견줄 게 없어요',
-      myTopic: verdict.myTopic,
-    });
+      fitReason: profile ? verdict.reason : '아직 내 블로그를 안 재서 견줄 게 없어요',
+      myTopic: verdict.myTopic || sameTopic,
+    };
+    (fromMyBlog ? mine : others).push(gated);
   }
-  // 판 안에서는 좋은 것 먼저 — 내가 이겨본 주제, 글감이 붙은 것, 검색량 큰 순.
-  out.sort((a, b) =>
+  // 다른 판 안에서는 좋은 것 먼저 — 붙어 본 주제, 글감이 붙은 것, 검색량 큰 순.
+  // 내 블로그 판은 찾은 순서(씨앗마다 번갈아)를 그대로 둔다 — 한 씨앗이 앞자리를 다 먹지 않게 이미 줄세웠다.
+  others.sort((a, b) =>
     (Number(b.myTopic) - Number(a.myTopic))
     || ((b.candidate.titles.length > 0 ? 1 : 0) - (a.candidate.titles.length > 0 ? 1 : 0))
     || ((b.candidate.searchVolume || 0) - (a.candidate.searchVolume || 0)));
-  return spread(out);
+  const gated = [...mine.slice(0, MY_BLOG_FIRST), ...spread(others), ...mine.slice(MY_BLOG_FIRST)];
+  return { gated, offTopic, outOfBand, alreadyMine };
+}
+
+export function gate(candidates: readonly Candidate[], profile: MyBlogProfile | null, written: ReadonlySet<string>): Gated[] {
+  return gateWithStats(candidates, profile, written).gated;
 }
 
 /**
@@ -250,18 +319,132 @@ function spread(rows: readonly Gated[]): Gated[] {
     if (lane) lane.push(g);
     else lanes.set(g.candidate.source, [g]);
   }
-  const queues = [...lanes.values()];
-  const out: Gated[] = [];
-  for (let i = 0; out.length < rows.length; i += 1) {
-    let moved = false;
-    for (const q of queues) {
-      if (i >= q.length) continue;
-      out.push(q[i]);
-      moved = true;
+  return interleave([...lanes.values()]);
+}
+
+/* ────────────────────────── 내 블로그 판 ────────────────────────── */
+
+/** 내 블로그 판이 쓰는 바깥 창구 — 테스트는 가짜를 넣는다. */
+export interface MyBlogDeps {
+  /** 검색광고 연관어 — 검색량이 같이 온다. */
+  suggest(seed: string): Promise<Array<{ keyword: string; searchVolume: number | null }>>;
+  /** 자동완성 — 사람이 띄어 치는 모양. 검색량은 안 온다. */
+  autocomplete(seed: string): Promise<string[]>;
+  /** 검색광고 검색량 — 키는 공백 뺀 소문자. */
+  volumes(keywords: string[]): Promise<Map<string, number | null>>;
+}
+
+/**
+ * 30위 안에 붙어 본 말을 씨앗으로 새 말을 찾는다. 범위가 없으면 찾지 않는다 — 기준 없이 넓히지 않는다.
+ * 창구가 실패해도 판 전체를 죽이지 않는다(그 씨앗만 빈손).
+ */
+export async function findFromMyBlog(
+  rows: readonly WonRow[],
+  profile: MyBlogProfile,
+  deps: MyBlogDeps,
+  onMessage?: (message: string) => void,
+): Promise<{ candidates: Candidate[]; seeds: number }> {
+  const band = profile.band;
+  if (!band) return { candidates: [], seeds: 0 };
+  const say = (message: string) => { if (onMessage) { try { onMessage(message); } catch { /* 듣는 쪽 사정 */ } } };
+  const seeds = nearRows(rows).slice(0, MAX_SEEDS);
+  const seen = new Set(profile.ownKeywords);
+  const lists: Expansion[][] = [];
+
+  for (let i = 0; i < seeds.length; i += 1) {
+    const seed = seeds[i];
+    say(`내 블로그 말에서 찾는 중 ${i + 1}/${seeds.length} · ${seed.keyword}`);
+    let items: Array<{ keyword: string; searchVolume: number | null }> = [];
+    try { items = await deps.suggest(seed.keyword); } catch { items = []; }
+    if (items.length < FEW_SUGGESTIONS) {
+      const short = shortenSeed(seed.keyword);
+      if (short) {
+        try { items = items.concat(await deps.suggest(short)); } catch { /* 이 씨앗은 여기까지 */ }
+      }
     }
-    if (!moved) break;
+    lists.push(pickExpansions(seed, items, band, seen, PER_SEED, '연관어'));
   }
-  return out;
+
+  // 자동완성 — 사람이 띄어 치는 모양을 보탠다. 검색량이 안 오니 모아서 한 번에 잰다.
+  const phrases: Array<{ seedIndex: number; phrase: string }> = [];
+  const autoSeeds = Math.min(AUTOCOMPLETE_SEEDS, seeds.length);
+  for (let i = 0; i < autoSeeds; i += 1) {
+    const seed = seeds[i];
+    let found: string[] = [];
+    try { found = await deps.autocomplete(shortenSeed(seed.keyword) || seed.keyword); } catch { found = []; }
+    const words = coreWords(seed.keyword);
+    for (const phrase of found) {
+      const key = flat(phrase);
+      if (!key || seen.has(key) || !words.some((word) => key.includes(word))) continue;
+      if (phrases.some((p) => flat(p.phrase) === key)) continue;
+      phrases.push({ seedIndex: i, phrase });
+    }
+  }
+  if (phrases.length > 0) {
+    say(`자동완성 말 ${phrases.length}개의 검색량을 재는 중`);
+    let volumes = new Map<string, number | null>();
+    try { volumes = await deps.volumes(phrases.map((p) => p.phrase)); } catch { /* 못 재면 안 쓴다 */ }
+    for (let i = 0; i < autoSeeds; i += 1) {
+      const measured = phrases
+        .filter((p) => p.seedIndex === i)
+        .map((p) => ({ keyword: p.phrase, searchVolume: volumes.get(flat(p.phrase)) ?? null }));
+      if (measured.length === 0) continue;
+      lists[i] = lists[i].concat(pickExpansions(seeds[i], measured, band, seen, AUTOCOMPLETE_PER_SEED, '자동완성'));
+    }
+  }
+
+  const candidates = interleave(lists).map((e): Candidate => ({
+    keyword: e.keyword,
+    source: '내 블로그',
+    topic: profile.declaredTopic || '',
+    searchVolume: e.searchVolume,
+    documentCount: null,
+    facing: null,
+    vacancy: null,
+    titles: [],
+    related: [],
+    why: `내 글이 ${e.seedRank}위였던 '${e.seed}'에서 ${e.via === '연관어' ? '연관어로' : '자동완성으로'} 찾은 말`,
+    facts: [],
+  }));
+  return { candidates, seeds: seeds.length };
+}
+
+/** 앱 설정의 키로 창구를 만든다. 키가 없으면 그 창구는 빈손을 준다(판을 죽이지 않는다). */
+async function realMyBlogDeps(): Promise<MyBlogDeps> {
+  const { EnvironmentManager } = await import('../../utils/environment-manager');
+  const manager: any = typeof (EnvironmentManager as any).getInstance === 'function'
+    ? (EnvironmentManager as any).getInstance() : new (EnvironmentManager as any)();
+  const cfg = manager.getConfig() || {};
+  const ad = {
+    accessLicense: cfg.naverSearchAdAccessLicense || process.env.NAVER_SEARCH_AD_ACCESS_LICENSE || '',
+    secretKey: cfg.naverSearchAdSecretKey || process.env.NAVER_SEARCH_AD_SECRET_KEY || '',
+    customerId: cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '',
+  };
+  const openApi = {
+    clientId: cfg.naverClientId || process.env.NAVER_CLIENT_ID || '',
+    clientSecret: cfg.naverClientSecret || process.env.NAVER_CLIENT_SECRET || '',
+  };
+  const searchad = await import('../../utils/naver-searchad-api');
+  const autocomplete = await import('../../utils/naver-autocomplete');
+  const hasAd = Boolean(ad.accessLicense && ad.secretKey);
+  return {
+    suggest: async (seed) => {
+      if (!hasAd) return [];
+      const items = await searchad.getNaverSearchAdKeywordSuggestions(ad, seed);
+      return (items || []).map((it: any) => ({ keyword: String(it.keyword || ''), searchVolume: searchad.exactSearchAdTotal(it) }));
+    },
+    autocomplete: async (seed) => {
+      if (!openApi.clientId || !openApi.clientSecret) return [];
+      return autocomplete.getNaverAutocompleteKeywords(seed, { ...openApi, skipSearchAdRelated: true });
+    },
+    volumes: async (keywords) => {
+      const out = new Map<string, number | null>();
+      if (!hasAd || keywords.length === 0) return out;
+      const rows = await searchad.getNaverSearchAdKeywordVolume(ad, keywords);
+      for (const row of rows || []) out.set(flat((row as any).keyword), searchad.exactSearchAdTotal(row as any));
+      return out;
+    },
+  };
 }
 
 /* ────────────────────────── 잰 것 중에서 고르기 ────────────────────────── */
@@ -294,12 +477,11 @@ export function seatRank(verdict: string): number {
 
 /**
  * 잰 줄들을 카드 셋과 탈락 목록으로 줄인다.
- * 봉투는 여기서 한 번 더 본다 — 자리를 재고 나서야 진짜 정면 수를 알기 때문이다.
+ * 내 크기는 자리를 재기 전에 이미 걸렀다(검색량 기준이라 자리를 재도 안 바뀐다). 여기서는 잰 판정만 본다.
  */
 export function selectPicks(
   targets: readonly Gated[],
   rows: readonly MeasuredRow[],
-  envelope: BlogEnvelope | null,
   show: number = SHOW,
 ): { picks: Picked[]; rejected: Array<{ keyword: string; source: string; seat: string }>; measured: number } {
   const byKw = new Map(rows.map((r) => [flat(r.keyword), r]));
@@ -317,24 +499,18 @@ export function selectPicks(
       closed.push({ keyword: g.candidate.keyword, source: g.candidate.source, seat: String(row.verdict) });
       continue;
     }
-    const facing = typeof row.facing === 'number' ? row.facing : null;
-    const again = judgeRange({ documentCount: g.candidate.documentCount, facing, topic: g.candidate.topic }, envelope);
-    if (again.verdict === 'out') {
-      closed.push({ keyword: g.candidate.keyword, source: g.candidate.source, seat: '내 범위 밖' });
-      continue;
-    }
     kept.push({
       rank,
       i: kept.length,
       pick: {
         ...g.candidate,
         seat: String(row.verdict),
-        seatFacing: facing,
+        seatFacing: typeof row.facing === 'number' ? row.facing : null,
         seatVacancy: typeof row.vacancy === 'number' ? row.vacancy : null,
         seatReason: row.reason || '',
         measuredAt: row.measuredAt || new Date().toISOString(),
-        fitReason: envelope ? again.reason : g.fitReason,
-        myTopic: again.myTopic,
+        fitReason: g.fitReason,
+        myTopic: g.myTopic,
       },
     });
   }
@@ -348,11 +524,46 @@ export function selectPicks(
   return { picks, rejected: closed.concat(spare), measured };
 }
 
+/** 자리를 잴 후보 중 경쟁 글 수를 모르는 것만 센다 — 카드에 적는 실측(오픈 API, 무료). 새 배열을 준다. */
+async function withDocumentCounts(targets: readonly Gated[], say: (message: string) => void): Promise<Gated[]> {
+  const missing = targets.filter((g) => g.candidate.documentCount === null).length;
+  if (missing === 0) return [...targets];
+  let count: ((keyword: string) => Promise<number | null>) | null = null;
+  try {
+    count = (await import('../../utils/naver-blog-api')).getNaverBlogDocumentCount;
+  } catch {
+    return [...targets];
+  }
+  const out: Gated[] = [];
+  let done = 0;
+  for (const g of targets) {
+    if (g.candidate.documentCount !== null) {
+      out.push(g);
+      continue;
+    }
+    done += 1;
+    say(`경쟁 글 수 세는 중 ${done}/${missing} · ${g.candidate.keyword}`);
+    let measured: number | null = null;
+    try { measured = await count(g.candidate.keyword); } catch { measured = null; }
+    out.push({ ...g, candidate: { ...g.candidate, documentCount: typeof measured === 'number' ? measured : null } });
+  }
+  return out;
+}
+
 /* ────────────────────────────── 한 회차 ────────────────────────────── */
 
 export interface DailyPickResult {
   builtAt: string;
+  /** 봉투 기록(화면의 봉투 상자가 쓴다). 거르는 기준은 band 다. */
   envelope: BlogEnvelope | null;
+  /** 30위 안에 붙어 본 검색량 범위 — 이번 회차가 거른 기준. */
+  band: NearBand | null;
+  /** 지금 내 블로그 — 잰 사실만 문장으로. 블로그를 안 쟀으면 빈 배열. */
+  blogState: BlogStateLine[];
+  /** 내 블로그 판 — 씨앗 수·찾은 말 수. */
+  myBlog: { seeds: number; found: number };
+  /** 관문에서 뺀 수 — 왜 줄었는지 화면이 말할 수 있게. */
+  dropped: { offTopic: number; outOfBand: number; alreadyMine: number };
   gathered: number;
   afterGate: number;
   measured: number;
@@ -369,11 +580,31 @@ export async function runDailyPick(
   onProgress?: (p: { done: number; total: number; keyword: string; message: string }) => void,
 ): Promise<DailyPickResult> {
   const started = Date.now();
-  const envelope = readEnvelope();
+  const say = (message: string, done = 0, total = 0, keyword = '') => {
+    if (!onProgress) return;
+    try { onProgress({ done, total, keyword, message }); } catch { /* 듣는 쪽 사정 */ }
+  };
+  const record = readBlogRecord();
+  const rows: WonRow[] = record && Array.isArray(record.wonRows) ? record.wonRows : [];
+  const profile = buildProfile(record);
+  const band = profile ? profile.band : null;
   const written = readWritten();
-  const candidates = gatherCandidates();
-  const gated = gate(candidates, envelope, written);
-  const targets = gated.slice(0, MEASURE_CAP);
+
+  let myBlog: { candidates: Candidate[]; seeds: number } = { candidates: [], seeds: 0 };
+  let myBlogNote: string | null = null;
+  if (profile && band) {
+    try {
+      myBlog = await findFromMyBlog(rows, profile, await realMyBlogDeps(), (message) => say(message));
+    } catch (error: any) {
+      myBlogNote = `내 블로그 말에서 찾지 못했어요: ${String((error && error.message) || error)}`;
+    }
+  } else if (profile) {
+    myBlogNote = '30위 안에 든 검색어가 아직 없어 내 블로그 말에서는 못 찾았어요 — 표본을 늘려 다시 재 보세요';
+  }
+
+  const candidates = gatherCandidates(myBlog.candidates);
+  const stats = gateWithStats(candidates, profile, written);
+  const targets = await withDocumentCounts(stats.gated.slice(0, MEASURE_CAP), (message) => say(message));
 
   const picks: Picked[] = [];
   const rejected: DailyPickResult['rejected'] = [];
@@ -384,18 +615,13 @@ export async function runDailyPick(
     const batch = await measureKeywords(targets.map((g) => g.candidate.keyword), {
       // 통합검색까지 읽는다 — 안 읽으면 카드답을 열림으로 적는다.
       withStructure: true,
-      onProgress: (p) => {
-        if (!onProgress) return;
-        try {
-          onProgress({
-            done: p.done, total: p.total, keyword: p.keyword,
-            message: `자리 확인 ${p.done}/${p.total} · ${p.keyword}` + (p.verdict ? ` → ${p.verdict}` : ''),
-          });
-        } catch { /* 듣는 쪽 사정 */ }
-      },
+      onProgress: (p) => say(
+        `자리 확인 ${p.done}/${p.total} · ${p.keyword}` + (p.verdict ? ` → ${p.verdict}` : ''),
+        p.done, p.total, p.keyword,
+      ),
     });
     message = batch.message;
-    const chosen = selectPicks(targets, batch.rows as MeasuredRow[], envelope, SHOW);
+    const chosen = selectPicks(targets, batch.rows as MeasuredRow[], SHOW);
     picks.push(...chosen.picks);
     rejected.push(...chosen.rejected);
     measured = chosen.measured;
@@ -403,14 +629,18 @@ export async function runDailyPick(
 
   const result: DailyPickResult = {
     builtAt: new Date().toISOString(),
-    envelope,
+    envelope: (record && record.envelope) || null,
+    band,
+    blogState: describeBlogState(record, band),
+    myBlog: { seeds: myBlog.seeds, found: myBlog.candidates.length },
+    dropped: { offTopic: stats.offTopic, outOfBand: stats.outOfBand, alreadyMine: stats.alreadyMine },
     gathered: candidates.length,
-    afterGate: gated.length,
+    afterGate: stats.gated.length,
     measured,
     picks,
     rejected,
     seconds: Math.round((Date.now() - started) / 1000),
-    message,
+    message: [myBlogNote, message].filter(Boolean).join(' · ') || null,
   };
   try {
     fs.mkdirSync(U('daily-pick'), { recursive: true });
@@ -437,12 +667,18 @@ async function pullPublished(): Promise<void> {
 
 export function setupDailyPickHandlers(): void {
   if (!ipcMain.listenerCount('daily-pick-get')) {
-    ipcMain.handle('daily-pick-get', async () => ({
-      success: true,
-      running,
-      result: readJson<DailyPickResult | null>(U('daily-pick', 'latest.json'), null),
-      envelope: readEnvelope(),
-    }));
+    ipcMain.handle('daily-pick-get', async () => {
+      const record = readBlogRecord();
+      const band = buildNearBand(record && Array.isArray(record.wonRows) ? record.wonRows : []);
+      return {
+        success: true,
+        running,
+        result: readJson<DailyPickResult | null>(U('daily-pick', 'latest.json'), null),
+        envelope: (record && record.envelope) || null,
+        band,
+        blogState: describeBlogState(record, band),
+      };
+    });
   }
 
   if (!ipcMain.listenerCount('daily-pick-run')) {

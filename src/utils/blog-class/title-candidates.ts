@@ -35,6 +35,14 @@ const clean = (title: string): string[] => String(title || '')
   .split(' ')
   .filter(Boolean);
 
+/**
+ * 제목·검색어를 낱말로 — 오늘 쓸 한 편의 '내 블로그 어휘'(my-blog-lane)가 같은 규칙으로 자른다.
+ * 자르는 법이 두 갈래면 순위를 잰 말과 새로 찾은 말의 겹침 판정이 어긋난다.
+ */
+export const titleWords = clean;
+/** 검색어 앞뒤에 올 수 없는 군더더기 — 핵심 낱말에서도 뺀다. */
+export const TITLE_EDGE_STOPS: ReadonlySet<string> = EDGE_STOPS;
+
 /** 한 크기(2어절 또는 3어절)의 후보를 앞에서부터. 걸러 내는 규칙은 두 크기가 같다. */
 function gramsOfSize(words: readonly string[], size: number): string[] {
   const out: string[] = [];

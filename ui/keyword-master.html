@@ -4432,14 +4432,15 @@
             if (!serpBadges) serpBadges = '<span style="color:#cbd5e1; font-size:10px;">클린</span>';
 
             // 거르개가 볼 표식. 자리(data-seat)는 아직 안 잰 상태로 두고, 실측이 끝날 때 그 칸이 채운다.
-            const rangeVerdict = typeof window.blogRangeOf === 'function' ? window.blogRangeOf(docCount, null) : null;
+            // 내 크기는 검색량으로 정한다(2026-09-15) — 30위 안에 붙어 본 말의 검색량 범위와 견준다.
+            const rangeVerdict = typeof window.blogRangeOf === 'function' ? window.blogRangeOf(hasTotalVol ? totalVol : null) : null;
 
             html += `
           <tr class="golden-row" data-golden-idx="${idx}" data-grade="${gradeValue}" data-blue="${item.isBlueOcean ? '1' : '0'}" data-range="${rangeVerdict || ''}" style="border-bottom: 1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
             <td style="padding: 12px 10px; text-align: center;">${gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
-              <div style="font-weight: 600; color: #e2e8f0; font-size:14px;">${item.keyword}${typeof window.blogRangeBadge === 'function' ? window.blogRangeBadge(docCount, null) : ''}${supplementBadge}</div>
+              <div style="font-weight: 600; color: #e2e8f0; font-size:14px;">${item.keyword}${typeof window.blogRangeBadge === 'function' ? window.blogRangeBadge(hasTotalVol ? totalVol : null) : ''}${supplementBadge}</div>
               <div style="font-size: 10px; color: #64748b;">${item.intentBadge || ''} ${item.intent || 'Info'}</div>
             </td>
             <td style="padding: 12px 10px; text-align: center;">${serpBadges}</td>
@@ -8917,20 +8918,9 @@
               if (!tr || !row || !row.verdict) continue;
               tr.setAttribute('data-seat', row.verdict);
               /*
-               * 자리를 재고 나서야 정면 글 수를 안다. 봉투 판정은 문서수만으로 한 번,
-               * 정면 수까지 넣어 한 번 — 두 번째가 더 정확하다. 배지를 그때 갈아 끼운다.
-               * 안 그러면 "내 크기"라고 적힌 줄이 사실은 내가 이겨본 정면 수를 넘는 자리일 수 있다.
+               * 내 크기는 검색량으로 정한다(2026-09-15) — 자리를 재도 검색량은 안 바뀌니 배지를 다시 판정하지 않는다.
+               * 자리(정면 글·빈자리)는 바로 옆 자리 칸과 [자리 열림만] 거르개가 따로 말한다.
                */
-              if (typeof row.facing !== 'number' || typeof window.blogRangeOf !== 'function') continue;
-              const docCell = tr.children[5];
-              const docCount = docCell ? Number(String(docCell.textContent || '').replace(/[^0-9]/g, '')) : NaN;
-              if (!isFinite(docCount)) continue;
-              const verdict = window.blogRangeOf(docCount, row.facing);
-              if (!verdict) continue;
-              tr.setAttribute('data-range', verdict);
-              const kwCell = tr.querySelector('td:nth-child(3) > div');
-              const oldBadge = kwCell ? kwCell.querySelector('span[title*="이겨본"], span[title*="이겼어요"], span[title*="이긴 가장"]') : null;
-              if (oldBadge) oldBadge.outerHTML = window.blogRangeBadge(docCount, row.facing);
             }
             window.updateSeatProgressLabel(container);
             window.goldenApplyFilters(container);
@@ -9108,6 +9098,8 @@
          * 판정 규칙은 메인 프로세스(envelope.ts)와 같은 값을 쓴다. 여기서 새로 만들지 않는다.
          */
         window.__blogEnvelope = null;
+        /* 30위 안에 붙어 본 검색량 범위 — 배지·거르개가 이것으로 견준다(메인 envelope.ts 의 buildNearBand 값을 그대로 받는다). */
+        window.__blogBand = null;
 
         /*
          * 봉투 상자 — 두 화면(자리 실측기 · 오늘 쓸 한 편)이 같은 함수로 그린다.
@@ -9123,6 +9115,13 @@
           const env = record && record.envelope;
           const sum = (record && record.rankSummary) || null;
           window.__blogEnvelope = env || null;
+          const band = (record && record.band) || null;
+          window.__blogBand = band;
+          const bandLine = band
+            ? '<div style="margin-top:9px; font-size:12.5px; color:#cbd5e1;">30위 안에 붙어 본 말 <b style="color:#e2e8f0;">'
+              + Number(band.wonCount + band.nearCount).toLocaleString('ko-KR') + '개</b> · 검색량 <b style="color:#e2e8f0;">'
+              + Number(band.volumeMax).toLocaleString('ko-KR') + '</b>까지 — 오늘 쓸 한 편은 이 범위(검색량 100 이상) 안에서 찾아요.</div>'
+            : '';
           if (!env) {
             if (!sum) return '';
             const ko0 = (n) => Number(n || 0).toLocaleString('ko-KR');
@@ -9158,7 +9157,7 @@
               + '더 보려면 표본을 <b style="color:#e2e8f0;">최근 100개</b>로 올려 재 보세요. 잰 글이 많을수록 이겨본 자리를 찾을 가능성이 커요.'
               + '</div>';
             return '<div style="margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); font-size: 13px; color: #cbd5e1; line-height:1.65;">'
-              + scope + '<br>' + verdict + near + notFound + blocked + next + '</div>';
+              + scope + '<br>' + verdict + near + notFound + blocked + bandLine + next + '</div>';
           }
           const ko = (n) => Number(n).toLocaleString('ko-KR');
           const topics = (env.topics || []).map((t) => t.topic + ' ' + t.count).join(' · ');
@@ -9166,8 +9165,7 @@
             + '<div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-bottom: 8px;">'
             + '검색어 ' + ko(env.measuredCount) + '개에서 내 순위를 재 봤어요. 그중 <span style="color:#22c55e;">' + ko(env.wonCount) + '개</span>가 첫 페이지(10위 안)에 있었어요.</div>'
             + '<div style="display:flex; gap:22px; flex-wrap:wrap; font-size:12.5px; color:#cbd5e1;">'
-            + '<div><span style="display:block; color:#64748b; font-size:11px;">이겨본 가장 큰 자리</span><b style="font-size:15px; color:#e2e8f0;">경쟁 글 ' + ko(env.docMax) + '개</b>'
-            + '<span style="color:#64748b;"> · 보통 ' + ko(env.docP50) + '</span></div>'
+            + (band ? '<div><span style="display:block; color:#64748b; font-size:11px;">30위 안에 붙어 본 말</span><b style="font-size:15px; color:#e2e8f0;">' + ko(band.wonCount + band.nearCount) + '개 · 검색량 ' + ko(band.volumeMax) + '까지</b></div>' : '')
             + '<div><span style="display:block; color:#64748b; font-size:11px;">같은 걸 다룬 글이 있어도</span><b style="font-size:15px; color:#e2e8f0;">' + env.facingMax + '개까지 이겼어요</b></div>'
             + (topics ? '<div><span style="display:block; color:#64748b; font-size:11px;">잘 이기는 이야기</span><b style="font-size:14px; color:#e2e8f0;">' + topics + '</b></div>' : '')
             + '</div></div>';
@@ -9176,32 +9174,37 @@
         const envelopeHtml = (record) => window.blogEnvelopeHtml(record);
 
         /*
-         * 발굴 결과 한 줄을 내 봉투와 견준다. envelope.ts 의 judgeRange 와 같은 규칙이다.
+         * 발굴 결과 한 줄을 내 크기와 견준다. envelope.ts 의 judgeRange 와 같은 규칙이다.
          * 판정(blogRangeOf)과 배지(blogRangeBadge)를 나눈 이유: 거르개도 같은 답을 써야 한다.
          * 화면에 '내 크기'라 적힌 줄과 [내 크기만] 이 남기는 줄이 다르면 그 순간 둘 다 못 믿는다.
+         *
+         * 기준이 문서수 최대치에서 '30위 안에 붙어 본 검색량'으로 바뀌었다(2026-09-15, 사장님 승인) —
+         * 이긴 2건 중 하나가 경쟁 글 169만짜리 넓은 말이라 거의 모든 줄이 '내 크기'가 됐다.
+         * 바닥 100 은 envelope.ts 의 BAND_FLOOR 와 같아야 한다(blog-band-parity 테스트가 잠근다).
          */
-        window.blogRangeOf = function blogRangeOf(documentCount, facing) {
-          const env = window.__blogEnvelope;
-          if (!env) return null;
-          if (documentCount === null || documentCount === undefined || !isFinite(documentCount)) return null;
-          if (documentCount > env.docMax) return 'out';
-          if (typeof facing === 'number' && facing > env.facingMax) return 'out';
+        window.blogRangeOf = function blogRangeOf(searchVolume) {
+          const BAND_FLOOR = 100;
+          const band = window.__blogBand;
+          if (!band) return null;
+          if (searchVolume === null || searchVolume === undefined || !isFinite(searchVolume)) return null;
+          if (searchVolume > band.volumeMax) return 'out';
+          if (searchVolume < BAND_FLOOR) return 'out';
           return 'mine';
         };
 
-        window.blogRangeBadge = function blogRangeBadge(documentCount, facing) {
-          const env = window.__blogEnvelope;
-          const verdict = window.blogRangeOf(documentCount, facing);
+        window.blogRangeBadge = function blogRangeBadge(searchVolume) {
+          const band = window.__blogBand;
+          const verdict = window.blogRangeOf(searchVolume);
           if (!verdict) return '';
           const ko = (n) => Number(n).toLocaleString('ko-KR');
           if (verdict === 'out') {
-            const why = (typeof facing === 'number' && facing > env.facingMax && documentCount <= env.docMax)
-              ? '같은 걸 다룬 글 ' + facing + '개 — 지금까지는 ' + env.facingMax + '개까지 이겼어요'
-              : '경쟁 글 ' + ko(documentCount) + '개 — 지금까지 이긴 가장 큰 것은 ' + ko(env.docMax) + '개예요';
+            const why = searchVolume > band.volumeMax
+              ? '검색량 ' + ko(searchVolume) + ' — 30위 안에 붙어 본 말은 ' + ko(band.volumeMax) + '까지였어요'
+              : '검색량 ' + ko(searchVolume) + ' — 찾는 범위(100 이상)보다 작아요';
             return '<span title="' + why + '" '
               + 'style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(148,163,184,0.15); color:#94a3b8;">범위 밖</span>';
           }
-          return '<span title="경쟁 글 ' + ko(documentCount) + '개 — ' + ko(env.docMax) + '개까지 이겨본 적 있어요" '
+          return '<span title="검색량 ' + ko(searchVolume) + ' — 30위 안에 붙어 본 말이 ' + ko(band.volumeMax) + '까지 있어요" '
             + 'style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:800; background:rgba(34,197,94,0.16); color:#22c55e;">내 크기</span>';
         };
 
@@ -9539,7 +9542,7 @@
          * 그 근거는 전부 실측이다 — 내가 이겨본 문서수·정면(봉투), 방금 잰 자리, 검색광고 검색량.
          * 새 점수를 만들지 않는다. 남의 도구가 못 하는 말은 '너에게' 뿐이다.
          */
-        let dpView = { result: null, envelope: null };
+        let dpView = { result: null, envelope: null, blogState: null };
 
         function dpEsc(text) {
           return String(text == null ? '' : text)
@@ -9633,10 +9636,15 @@
           const rejBox = document.getElementById('dpRejected');
           if (!body || !funnel || !status || !envLine || !rejBox) return;
 
-          const env = dpView.envelope;
-          envLine.innerHTML = env
-            ? '내 크기 — 경쟁 글 <b style="color:#e2e8f0;">' + dpNum(env.docMax) + '개</b>까지, 정면으로 다룬 글 <b style="color:#e2e8f0;">' + env.facingMax + '개</b>까지 이겨봤습니다.'
-            : '<span style="color:#f59e0b;">아직 내 크기를 모릅니다 — 아래에 블로그 주소를 넣고 한 번 재면, 내가 이겨본 크기를 넘는 검색어를 재기 전에 걸러 냅니다.</span>';
+          /*
+           * 지금 내 블로그 — 잰 사실만 문장으로(사장님 2026-09-15 "잰 사실만 문장으로").
+           * 화면이 새로 판정하지 않는다. 문장은 메인(my-blog-lane 의 describeBlogState)이 만들고 여기서는 그대로 적는다.
+           */
+          const state = Array.isArray(dpView.blogState) ? dpView.blogState : [];
+          envLine.innerHTML = state.length > 0
+            ? '<div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:4px;">지금 내 블로그</div>'
+              + state.map((line) => '<div title="' + dpEsc(line.evidence) + '" style="margin:2px 0; color:#cbd5e1; cursor:help;">' + dpEsc(line.text) + '</div>').join('')
+            : '<span style="color:#f59e0b;">아직 내 블로그를 모릅니다 — 아래에 블로그 주소를 넣고 한 번 재면, 내 블로그가 붙어 본 말에서 오늘 쓸 것을 찾습니다.</span>';
           /*
            * 칸은 늘 자리에 둔다.
            *
@@ -9654,8 +9662,11 @@
           }
 
           funnel.style.display = 'flex';
-          funnel.innerHTML = dpStep('여섯 판이 내놓은 것', dpNum(r.gathered) + '개')
-            + dpStep('내 크기로 거른 뒤', dpNum(r.afterGate) + '개', '이미 쓴 것 뺌')
+          const mb = r.myBlog || { seeds: 0, found: 0 };
+          const dropped = r.dropped || { offTopic: 0, outOfBand: 0, alreadyMine: 0 };
+          funnel.innerHTML = dpStep('내 블로그 말에서 찾은 것', dpNum(mb.found) + '개', mb.seeds ? '씨앗 ' + mb.seeds + '개 — 30위 안에 붙어 본 말' : '블로그를 재면 생깁니다')
+            + dpStep('여섯 판까지 모은 것', dpNum(r.gathered) + '개', dropped.offTopic ? '내 블로그와 상관없는 ' + dpNum(dropped.offTopic) + '개 뺌' : '')
+            + dpStep('내 크기로 거른 뒤', dpNum(r.afterGate) + '개', '검색량 범위 밖·이미 쓴 것 뺌')
             + dpStep('자리를 잰 것', dpNum(r.measured) + '개')
             + dpStep('오늘 쓸 것', r.picks.length + '개', '열림 먼저, 모자라면 반열림');
 
@@ -9705,16 +9716,17 @@
               return;
             }
             const env = res.record && res.record.envelope;
-            dpView = { result: dpView.result, envelope: env || null };
+            dpView = { result: dpView.result, envelope: env || null, blogState: dpView.blogState };
             window.renderDailyPick();
             // 무엇을 쟀는지는 자리 실측기와 같은 상자로 그린다 — 두 화면이 다른 말을 하지 않게.
             const box = document.getElementById('dpBlogResult');
             if (box) box.innerHTML = window.blogEnvelopeHtml(res.record);
-            if (prog) {
-              prog.innerHTML = env
-                ? '<span style="color:#22c55e;">내 크기를 알았습니다 — [오늘 것 고르기] 를 다시 누르면 이 크기로 거릅니다.</span>'
-                : '';
-            }
+            /*
+             * 다 재면 곧장 고른다(사장님 2026-09-15 "내 블로그 넣고 크기 재면 오늘 것 고르기가 그걸로 찾아줘야").
+             * 잰 것을 쓰려고 한 번 더 누르게 할 이유가 없다.
+             */
+            if (prog) prog.innerHTML = '<span style="color:#22c55e;">내 블로그를 다 쟀습니다 — 이어서 내 블로그가 붙어 본 말에서 오늘 쓸 것을 찾습니다.</span>';
+            if (typeof window.runDailyPick === 'function') window.runDailyPick();
           } catch (error) {
             if (prog) prog.innerHTML = '<span style="color:#fca5a5;">' + String((error && error.message) || error) + '</span>';
           } finally {
@@ -9727,7 +9739,7 @@
           try {
             const res = await window.electronAPI.invoke('daily-pick-get');
             if (!res || !res.success) return;
-            dpView = { result: res.result, envelope: res.envelope };
+            dpView = { result: res.result, envelope: res.envelope, blogState: res.blogState || null };
             window.renderDailyPick();
           } catch { /* 무시 — 화면은 빈 상태로 둔다 */ }
           // 전에 넣은 주소를 채워 둔다 — 같은 사람이 매번 다시 치게 하지 않는다.
@@ -9757,7 +9769,7 @@
               if (prog) prog.textContent = (res && res.error) || '고르지 못했습니다';
               return;
             }
-            dpView = { result: res.result, envelope: res.result.envelope };
+            dpView = { result: res.result, envelope: res.result.envelope, blogState: res.result.blogState || null };
             window.renderDailyPick();
             if (prog) prog.textContent = '';
           } catch (error) {

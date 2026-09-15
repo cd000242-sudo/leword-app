@@ -24,7 +24,7 @@ import {
 import { describeBlogFacts, type BlogFactsCard } from '../../utils/blog-class/plain-words';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { measureMyRanks } from './blog-class-rank';
-import { buildEnvelope, type BlogEnvelope, type WonRow } from '../../utils/blog-class/envelope';
+import { buildEnvelope, buildNearBand, type BlogEnvelope, type WonRow } from '../../utils/blog-class/envelope';
 
 export const BLOG_CLASS_PROGRESS_CHANNEL = 'blog-class-progress';
 
@@ -211,7 +211,8 @@ export async function measureBlogClass(
 function forRenderer(record: BlogClassRecord | null) {
   if (!record) return null;
   const { posts, ...light } = record;
-  return { ...light, postsAvailable: posts.length };
+  // band — 30위 안에 붙어 본 검색량 범위. 화면의 '내 크기' 배지·거르개가 이 값으로 견준다(2026-09-15).
+  return { ...light, postsAvailable: posts.length, band: buildNearBand(light.wonRows || []) };
 }
 
 export function setupBlogClassHandlers(): void {

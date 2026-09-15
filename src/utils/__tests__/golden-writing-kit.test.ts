@@ -148,8 +148,8 @@ describe('발굴 화면 — 거르개·접기·펼침 배선', () => {
 
   it('봉투 판정이 배지와 거르개에서 한 함수로 나온다', () => {
     expect(html).toContain('window.blogRangeOf = function blogRangeOf');
-    // 배지는 판정을 다시 계산하지 않고 blogRangeOf 를 부른다
-    expect(html).toContain('const verdict = window.blogRangeOf(documentCount, facing);');
+    // 배지는 판정을 다시 계산하지 않고 blogRangeOf 를 부른다 — 기준은 검색량(2026-09-15)
+    expect(html).toContain('const verdict = window.blogRangeOf(searchVolume);');
   });
 
   it('조건 줄이 접히고 다시 펴진다', () => {
@@ -294,39 +294,39 @@ describe('거르개 규칙 실행', () => {
   });
 });
 
-/** 봉투 판정도 화면 코드에서 꺼내 실행한다 — 배지 글자와 거르개가 갈라지면 둘 다 못 믿는다. */
-describe('봉투 판정 실행', () => {
+/** 내 크기 판정도 화면 코드에서 꺼내 실행한다 — 배지 글자와 거르개가 갈라지면 둘 다 못 믿는다. */
+describe('내 크기 판정 실행 — 30위 안에 붙어 본 검색량(2026-09-15)', () => {
   const html = read('ui', 'keyword-master.html');
   const from = html.indexOf('window.blogRangeOf = function blogRangeOf');
   const to = html.indexOf('window.blogRangeBadge = function blogRangeBadge');
   const source = html.slice(from, to);
 
-  const load = (envelope: any) => {
-    const win: any = { __blogEnvelope: envelope };
+  const load = (band: any) => {
+    const win: any = { __blogBand: band };
     new Function('window', source)(win);
-    return win.blogRangeOf as (dc: number | null, facing: number | null) => string | null;
+    return win.blogRangeOf as (volume: number | null) => string | null;
   };
 
-  it('봉투가 없으면 아무 판정도 하지 않는다 — 지어낸 기준으로 "네 크기다"라고 말하지 않는다', () => {
-    expect(load(null)(100, null)).toBe(null);
+  it('범위가 없으면 아무 판정도 하지 않는다 — 지어낸 기준으로 "네 크기다"라고 말하지 않는다', () => {
+    expect(load(null)(500)).toBe(null);
   });
 
-  it('문서수가 이겨본 최대보다 크면 범위 밖', () => {
-    const of = load({ docMax: 890, facingMax: 2 });
-    expect(of(2400, null)).toBe('out');
-    expect(of(890, null)).toBe('mine');
-    expect(of(380, null)).toBe('mine');
+  it('붙어 본 가장 큰 말보다 크면 범위 밖', () => {
+    const of = load({ volumeMax: 3610 });
+    expect(of(9150)).toBe('out');
+    expect(of(3610)).toBe('mine');
+    expect(of(1640)).toBe('mine');
   });
 
-  it('정면 글이 이겨본 최대보다 많으면 문서수가 작아도 범위 밖', () => {
-    const of = load({ docMax: 890, facingMax: 2 });
-    expect(of(310, 3)).toBe('out');
-    expect(of(310, 2)).toBe('mine');
+  it('100 아래 말은 범위 밖 — envelope.ts 의 BAND_FLOOR 와 같은 바닥', () => {
+    const of = load({ volumeMax: 3610 });
+    expect(of(99)).toBe('out');
+    expect(of(100)).toBe('mine');
   });
 
-  it('문서수를 모르면 판정하지 않는다', () => {
-    const of = load({ docMax: 890, facingMax: 2 });
-    expect(of(null, null)).toBe(null);
-    expect(of(NaN, null)).toBe(null);
+  it('검색량을 모르면 판정하지 않는다', () => {
+    const of = load({ volumeMax: 3610 });
+    expect(of(null)).toBe(null);
+    expect(of(NaN)).toBe(null);
   });
 });

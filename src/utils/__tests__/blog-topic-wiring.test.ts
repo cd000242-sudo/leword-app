@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
-import { buildEnvelope, judgeRange, type WonRow } from '../blog-class/envelope';
+import { buildEnvelope, buildNearBand, judgeRange, type WonRow } from '../blog-class/envelope';
 import { isNaverBlogTopic } from '../naver-blog-topics';
 
 /**
@@ -21,6 +21,8 @@ import { isNaverBlogTopic } from '../naver-blog-topics';
  *
  * 그리고 어휘가 맞아야 한다(실측 확인): '인테리어·DIY'·'게임'·'교육·학문'은 32주제에 있고
  * 실시간 틈새 레인이 topic 칸에 넣던 'KAIST'는 없다 — 그건 주제가 아니라 기준 검색어였다.
+ *
+ * (2026-09-15) 판정 기준이 30위 안에 붙어 본 검색량(buildNearBand)으로 바뀌었다. 주제도 그 범위에서 센다.
  */
 const root = path.join(__dirname, '..', '..', '..');
 const read = (...p: string[]) => fs.readFileSync(path.join(root, ...p), 'utf8');
@@ -49,10 +51,10 @@ describe('이긴 행에 주제가 붙는다', () => {
     expect(env.topics).toEqual([{ topic: '인테리어·DIY', count: 2 }]);
   });
 
-  it('같은 주제 후보는 내가 이겨본 주제로 판정된다 — 죽어 있던 자리가 살아난다', () => {
-    const env = buildEnvelope([row({ topic: '인테리어·DIY' })])!;
-    expect(judgeRange({ documentCount: 1277, facing: 0, topic: '인테리어·DIY' }, env).myTopic).toBe(true);
-    expect(judgeRange({ documentCount: 1277, facing: 0, topic: '게임' }, env).myTopic).toBe(false);
+  it('같은 주제 후보는 붙어 본 주제로 판정된다 — 죽어 있던 자리가 살아난다', () => {
+    const band = buildNearBand([row({ topic: '인테리어·DIY' })])!;
+    expect(judgeRange({ searchVolume: 90, topic: '인테리어·DIY' }, band).myTopic).toBe(true);
+    expect(judgeRange({ searchVolume: 90, topic: '게임' }, band).myTopic).toBe(false);
   });
 });
 
@@ -68,7 +70,7 @@ describe('주제 칸에 주제가 아닌 것을 넣지 않는다', () => {
   it('32주제에 없는 말은 주제로 안 센다', () => {
     expect(isNaverBlogTopic('KAIST')).toBe(false);
     expect(isNaverBlogTopic('인테리어·DIY')).toBe(true);
-    const env = buildEnvelope([row({ topic: '인테리어·DIY' })])!;
-    expect(judgeRange({ documentCount: 100, facing: 0, topic: 'KAIST' }, env).myTopic).toBe(false);
+    const band = buildNearBand([row({ topic: '인테리어·DIY' })])!;
+    expect(judgeRange({ searchVolume: 90, topic: 'KAIST' }, band).myTopic).toBe(false);
   });
 });

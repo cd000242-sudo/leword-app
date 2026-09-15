@@ -35,9 +35,14 @@ describe('판정을 두 갈래로 만들지 않는다', () => {
     expect(fn).not.toContain('docMax =');
   });
 
-  it('다 재고 나면 이미 골라 둔 판이 옛 봉투로 고른 것임을 알린다', () => {
+  /*
+   * 다 재면 곧장 고른다(2026-09-15, 사장님 "내 블로그 넣고 크기 재면 오늘 것 고르기가 그걸로 찾아줘야").
+   * 전에는 "[오늘 것 고르기] 를 다시 누르면" 이라고 적고 멈췄다 — 잰 것을 쓰려고 한 번 더 누르게 할 이유가 없다.
+   */
+  it('다 재면 이어서 오늘 것을 고른다 — 한 번 더 누르게 하지 않는다', () => {
     const fn = html.slice(html.indexOf('window.dpMeasureMyBlog'), html.indexOf('window.loadDailyPick'));
-    expect(fn).toContain('다시 누르면');
+    expect(fn).toContain('window.runDailyPick()');
+    expect(fn).not.toContain('다시 누르면');
   });
 
   /*
@@ -61,7 +66,9 @@ describe('판정을 두 갈래로 만들지 않는다', () => {
 
 describe('아는 것을 다시 묻지 않는다', () => {
   it('전에 넣은 주소를 채워 둔다', () => {
-    const load = html.slice(html.indexOf('window.loadDailyPick'), html.indexOf('window.runDailyPick'));
+    // 끝 표식은 loadDailyPick 뒤에서 찾는다 — 크기 재기가 끝나면 window.runDailyPick() 을 부르므로 그 호출이 더 앞에 있다.
+    const start = html.indexOf('window.loadDailyPick');
+    const load = html.slice(start, html.indexOf('window.runDailyPick', start));
     expect(load).toContain("invoke('blog-class-get')");
     expect(load).toContain("input.value = 'blog.naver.com/' + id");
   });
@@ -71,11 +78,31 @@ describe('아는 것을 다시 묻지 않는다', () => {
      * 감췄다가 사장님께 지적받았다(2026-09-11 "오늘 쓸 한편 내블로그 크기 넣는 필드 아직안넣었다니까").
      * 봉투가 이미 있으면 칸을 접고 11px 짜리 [다시 재기] 버튼 하나만 남겼는데,
      * 찾는 사람 눈에는 **필드가 없는 것**이다. 이미 안다고 감추면 안 넣은 것과 같다.
-     * 상태는 바로 위 '내 크기' 줄이 이미 말해 준다 — 칸은 늘 자리에 둔다.
+     * 상태는 바로 위 '지금 내 블로그' 줄이 이미 말해 준다 — 칸은 늘 자리에 둔다.
      */
     expect(html, '접는 코드가 남아 있다').not.toContain('window.dpSyncBlogRow');
     expect(html, '접는 호출이 남아 있다').not.toContain('dpSyncBlogRow(Boolean(env))');
     const screen2 = html.slice(html.indexOf('data-screen="today"'), html.indexOf('id="dpFunnel"'));
     expect(screen2, '칸이 숨겨진 채로 시작한다').not.toMatch(/id="dpBlogRow"[^>]*display:\s*none/);
+  });
+});
+
+describe('지금 내 블로그 — 잰 사실만 문장으로', () => {
+  const render = html.slice(html.indexOf('window.renderDailyPick = function'), html.indexOf('window.dpMeasureMyBlog'));
+
+  it('상태 줄은 메인이 만든 문장을 그대로 적는다 — 화면이 점수를 만들지 않는다', () => {
+    expect(render).toContain('dpView.blogState');
+    expect(render).not.toContain('env.docMax');
+    for (const banned of ['점수', '지수', '최적화율']) expect(render).not.toContain(banned);
+  });
+
+  it('불러올 때·고른 뒤 모두 상태 문장을 받는다', () => {
+    expect(html).toContain('blogState: res.blogState || null');
+    expect(html).toContain('blogState: res.result.blogState || null');
+  });
+
+  it('깔때기가 내 블로그에서 찾은 수와 뺀 이유를 말한다', () => {
+    expect(render).toContain('내 블로그 말에서 찾은 것');
+    expect(render).toContain('dropped.offTopic');
   });
 });

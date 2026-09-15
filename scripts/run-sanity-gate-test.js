@@ -380,6 +380,22 @@ const VITEST_SUITES = [
     'src/utils/__tests__/demand-shape-datalab-failure-log.test.ts',
     // 구독 CLI 설치가 네트워크에 매달려 회차를 잃지 않게 — 받기·설치에 시간 제한(2026-09-15)
     'src/utils/__tests__/subscription-setup-bounded.test.ts',
+    /*
+     * 오늘 쓸 한 편이 내 블로그에서 찾는다(2026-09-15) — 검색량 범위 판정·내 블로그 판·겹침 거르기·
+     * 두 화면(오늘 쓸 한 편·황금 발굴)의 같은 기준. 게이트 밖에 있던 봉투·오늘 쓸 한 편 테스트도 올린다.
+     */
+    'src/utils/__tests__/my-blog-lane.test.ts',
+    'src/utils/__tests__/daily-pick-my-blog.test.ts',
+    'src/utils/__tests__/blog-band-parity.test.ts',
+    'src/utils/__tests__/blog-class-envelope.test.ts',
+    'src/utils/__tests__/blog-envelope-docmax-zero.test.ts',
+    'src/utils/__tests__/blog-envelope-denominator.test.ts',
+    'src/utils/__tests__/blog-topic-wiring.test.ts',
+    'src/utils/__tests__/blog-class-report.test.ts',
+    'src/utils/__tests__/daily-pick-seat-tier.test.ts',
+    'src/utils/__tests__/daily-pick-spread.test.ts',
+    'src/utils/__tests__/daily-pick-blog-input.test.ts',
+    'src/utils/__tests__/daily-pick-render.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
