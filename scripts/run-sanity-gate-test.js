@@ -434,6 +434,12 @@ const VITEST_SUITES = [
     // 데스크톱 AI 호출은 구독 에이전트 전용(2026-09-15) — callAI · gemini-chat · 보강 · 화면 배선
     'src/utils/__tests__/ai-client-desktop-agent-only.test.ts',
     'src/utils/__tests__/agent-only-wiring.test.ts',
+    // 완전 초보의 설치 · 로그인(2026-09-15) — 코덱스 공식 설치기 · 감지 재시도 · 진행 조회 · 중복 방지 · 한국어 로그인 창
+    'src/utils/__tests__/agent-install-beginner.test.ts',
+    'src/utils/__tests__/agent-install-progress-wiring.test.ts',
+    'src/utils/__tests__/agy-auth-korean-guide.test.ts',
+    // 처음 설정 마법사 · AI 엔진 연동 창 · 키워드 수요 분석 안내 · 첫 실행 권유(2026-09-15)
+    'src/utils/__tests__/agent-setup-wizard-wiring.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

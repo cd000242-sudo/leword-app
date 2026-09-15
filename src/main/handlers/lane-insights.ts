@@ -11,7 +11,7 @@ export function setupLaneInsightsHandlers(): void {
   /*
    * 키워드 분석기의 두뇌 — "왜 많이 검색하나" + "무엇을 이어서 검색하나".
    * 규칙 확장(rich-feed-drilldown)과 달리 사용자 **본인 구독**이 개입한다.
-   * 구독이 하나도 없으면 agent.error='no_agent' 로 돌려주고, 화면이 설치를 권한다.
+   * 엔진이 하나도 답하지 못하면 agent.available=false 와 실패 이유(agent.error)를 돌려주고, 화면이 실측 결과 위에 연결 안내(처음 설정 마법사)를 붙인다.
    */
   ipcMain.handle('analyze-keyword-demand', async (_event, payload: { keyword?: string; light?: boolean } | string) => {
     const keyword = String(typeof payload === 'string' ? payload : payload?.keyword || '').trim();

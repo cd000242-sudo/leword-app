@@ -30,6 +30,33 @@ export function agyNativeInstallCommand(platform: NodeJS.Platform = process.plat
   };
 }
 
+/**
+ * OpenAI 공식 코덱스 설치기 — Node · npm · 관리자 권한 불필요(2026-09-15, 사장님 "CLI 설치 안 된 완전 초보들은 설치부터 완벽하게").
+ * 코덱스는 npm 한 길뿐이라 npm 준비가 백신 · 회사망에 막히는 컴에서 끝이었다. 공식 README 의 Windows 설치기를 먼저 쓴다.
+ * 스크립트 원문 확인(실행하지 않고 내려받아 읽음): CODEX_NON_INTERACTIVE=1 이면 묻지 않고, 실행 파일은
+ * %LOCALAPPDATA%\Programs\OpenAI\Codex\bin 에 두고 사용자 PATH 에 더한다. 받는 곳은 releases.openai.com, 실패하면 github.com.
+ * Windows 밖은 설치 주소를 교차 확인하지 못해 예전 npm 길만 쓴다(null).
+ */
+export function codexNativeInstallCommand(platform: NodeJS.Platform = process.platform): NativeInstallCommand | null {
+  if (platform !== 'win32') return null;
+  return {
+    command: 'powershell.exe',
+    args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
+      "$env:CODEX_NON_INTERACTIVE = '1'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://chatgpt.com/codex/install.ps1 | iex"],
+    label: 'OpenAI 공식 코덱스 설치',
+  };
+}
+
+/**
+ * 회사망 · 백신이 막을 때 허용을 요청할 **실제로 내려받는 주소**(공식 설치 스크립트 원문 기준, 2026-09-15).
+ * 예전 안내는 제미나이를 'antigravity.google' 로만 적었는데 실제 파일은 *.run.app 에서 받는다 — 틀린 주소를 IT 에 알려 주게 된다.
+ */
+export const NATIVE_INSTALL_HOSTS: Readonly<Record<'claude' | 'codex' | 'gemini', string>> = Object.freeze({
+  claude: 'claude.ai · downloads.claude.ai',
+  codex: 'chatgpt.com · releases.openai.com · github.com',
+  gemini: 'antigravity.google · antigravity-cli-auto-updater-974169037036.us-central1.run.app',
+});
+
 export interface NativeInstallCommand {
   command: string;
   args: string[];

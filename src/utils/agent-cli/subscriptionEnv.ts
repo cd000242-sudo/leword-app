@@ -7,7 +7,7 @@
 // deliberately never written into the system PATH. withAgentRuntimePath() prepends it, which
 // is what lets detect/login/generate find them; the inherited PATH still follows, so a CLI the
 // user installed globally themselves keeps resolving exactly as before.
-import { getAgyInstallDirs, getClaudeNativeInstallDirs, getGrokInstallDirs, withAgentRuntimePath, withPathEntries } from './agentRuntime';
+import { getAgyInstallDirs, getClaudeNativeInstallDirs, getCodexNativeInstallDirs, getGrokInstallDirs, withAgentRuntimePath, withPathEntries } from './agentRuntime';
 
 const SHARED_SUBSCRIPTION_ENV_KEYS = new Set([
   'PATH',
@@ -135,7 +135,10 @@ export function buildClaudeSubscriptionEnv(
 export function buildCodexSubscriptionEnv(
   source: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  return withAgentRuntimePath(pickSubscriptionEnv(source, CODEX_SUBSCRIPTION_ENV_KEYS));
+  // 앱 프리픽스(npm 설치)가 맨 앞, 그다음 공식 설치기 폴더 — 어느 쪽으로 깔렸든 앱 재시작 없이 보인다(claude 와 같은 방식).
+  return withAgentRuntimePath(
+    withPathEntries(pickSubscriptionEnv(source, CODEX_SUBSCRIPTION_ENV_KEYS), getCodexNativeInstallDirs(source)),
+  );
 }
 
 export function buildGrokSubscriptionEnv(

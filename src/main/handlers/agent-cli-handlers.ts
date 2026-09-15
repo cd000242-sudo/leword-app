@@ -23,6 +23,7 @@ import { runCodex } from '../../utils/agent-cli/codexRunner';
 import { runGemini } from '../../utils/agent-cli/geminiRunner';
 import { runGrok } from '../../utils/agent-cli/grokRunner';
 import { AgentInstallError, installAgent, loginAgent, logoutAgent, type AgentLoginHooks } from '../../utils/agent-cli/installer';
+import type { InstallStep } from '../../utils/agent-cli/nativeInstaller';
 
 const PROVIDERS: readonly AgentProvider[] = ['claude', 'codex', 'gemini', 'grok'];
 
@@ -47,6 +48,15 @@ interface LoginSessionState {
 }
 
 const loginSessions = new Map<AgentProvider, LoginSessionState>();
+
+/** 진행 중인 설치 — 같은 엔진을 두 번 누르면 새로 깔지 않고 이것을 기다린다. 단계는 진행 조회 IPC 가 돌려준다. */
+interface InstallJob {
+  steps: readonly InstallStep[];
+  running: boolean;
+  promise: Promise<Record<string, unknown>>;
+}
+
+const installJobs = new Map<AgentProvider, InstallJob>();
 
 export function setupAgentCliHandlers(): void {
   ipcMain.handle('agent-cli-status', async (_event, payload?: { forceRefresh?: boolean }) => {
@@ -84,25 +94,43 @@ export function setupAgentCliHandlers(): void {
   });
 
   /*
-   * 자동 설치 — 앱 소유 프리픽스(userData/agent-runtime)에 npm 글로벌 설치.
-   * 진행 콜백이 없는 API 라(installer 원설계) "설치 중" 단일 상태로 감싼다.
+   * 자동 설치 — 공식 설치기(claude · codex · agy) → 안 되면 앱 소유 프리픽스(userData/agent-runtime)에 npm.
+   * 2026-09-15(사장님 "CLI 설치 안 된 완전 초보들은 설치부터 완벽하게"): 단계를 실시간으로 조회하게 하고
+   * (agent-cli-install-progress), 같은 엔진을 두 번 누르면 설치기를 또 띄우지 않고 진행 중인 설치를 기다린다.
    * 최대 5분. 성공 기준은 설치 후 detect 재검증까지 통과한 것(installer 내부).
    */
   ipcMain.handle('agent-cli-install', async (_event, payload: { provider?: string }) => {
     const provider = payload?.provider;
     if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
-    const started = Date.now();
-    try {
-      const result = await installAgent(provider);
-      clearAgentDetectionCache(provider);
-      // method·steps 를 그대로 넘긴다 — 렌더러가 단계별로 보여 주고 "로그 복사"에 쓴다(사장님 2026-09-09).
-      return { success: true, provider, version: result.version || '', method: result.method, steps: result.steps, elapsedMs: Date.now() - started };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      const steps = error instanceof AgentInstallError ? error.steps : [];
-      console.error(`[AGENT-CLI] ${provider} 설치 실패:`, message, steps);
-      return { success: false, provider, error: message, steps, elapsedMs: Date.now() - started };
-    }
+    const running = installJobs.get(provider);
+    if (running?.running) return running.promise;
+    const job: InstallJob = { steps: [], running: true, promise: Promise.resolve({}) };
+    installJobs.set(provider, job);
+    job.promise = (async () => {
+      const started = Date.now();
+      try {
+        const result = await installAgent(provider, { onStep: (steps) => { job.steps = steps; } });
+        clearAgentDetectionCache(provider);
+        // method·steps 를 그대로 넘긴다 — 렌더러가 단계별로 보여 주고 "로그 복사"에 쓴다(사장님 2026-09-09).
+        return { success: true, provider, version: result.version || '', method: result.method, steps: result.steps, elapsedMs: Date.now() - started };
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        const steps = error instanceof AgentInstallError ? error.steps : job.steps;
+        console.error(`[AGENT-CLI] ${provider} 설치 실패:`, message, steps);
+        return { success: false, provider, error: message, steps, elapsedMs: Date.now() - started };
+      } finally {
+        job.running = false;
+      }
+    })();
+    return job.promise;
+  });
+
+  /** 설치 진행 조회 — 렌더러가 설치를 기다리는 동안 1초마다 부른다. */
+  ipcMain.handle('agent-cli-install-progress', (_event, payload: { provider?: string }) => {
+    const provider = payload?.provider;
+    if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
+    const job = installJobs.get(provider);
+    return { success: true, provider, running: Boolean(job?.running), steps: job ? job.steps : [] };
   });
 
   ipcMain.handle('agent-cli-login-start', async (_event, payload: { provider?: string; switchAccount?: boolean }) => {

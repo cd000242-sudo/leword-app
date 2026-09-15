@@ -110,6 +110,20 @@ export function getClaudeNativeInstallDirs(env: NodeJS.ProcessEnv = process.env)
   return home ? [join(home, '.local', 'bin')] : [];
 }
 
+/**
+ * 코덱스 공식 설치기(Windows)가 두는 곳 — %LOCALAPPDATA%\Programs\OpenAI\Codex\bin(CODEX_INSTALL_DIR 로 바꿀 수 있다).
+ * 설치기는 사용자 PATH 레지스트리에만 더해 켜져 있는 앱은 못 본다 — agy · claude 와 같은 이유로 직접 PATH 앞에 얹는다.
+ * 설치 스크립트 원문 확인(2026-09-15). Windows 밖은 공식 설치기를 쓰지 않는다.
+ */
+export function getCodexNativeInstallDirs(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+): readonly string[] {
+  if (platform !== 'win32') return [];
+  if (env.CODEX_INSTALL_DIR && isAbsolute(env.CODEX_INSTALL_DIR)) return [env.CODEX_INSTALL_DIR];
+  return env.LOCALAPPDATA ? [join(env.LOCALAPPDATA, 'Programs', 'OpenAI', 'Codex', 'bin')] : [];
+}
+
 function pathKeyOf(env: NodeJS.ProcessEnv): string {
   return Object.keys(env).find((key) => key.toUpperCase() === 'PATH') ?? 'PATH';
 }

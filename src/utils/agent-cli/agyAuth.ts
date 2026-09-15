@@ -16,12 +16,14 @@ export function agyAuthTerminalCommand(
   env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform = process.platform,
 ): { command: string; args: string[] } {
+  // 초보 사용자가 직접 보는 창이라 한국어로 안내한다(2026-09-15, 사장님 "설치부터 완벽하게"). 작은따옴표는 쓰지 않는다.
   const message = action === 'logout'
-    ? 'Gemini account change: enter /logout in the CLI. LEWORD will detect completion.'
-    : 'Complete Google sign-in in this window. LEWORD will detect completion.';
+    ? '계정을 바꾸려면 이 창에 /logout 을 입력해 주세요. 연결 해제는 LEWORD 가 알아서 확인합니다.'
+    : '이 창에서 구글 계정 로그인을 끝내 주세요. 로그인되면 LEWORD 가 알아서 연결하고 이 창을 닫습니다.';
   if (platform === 'win32') {
     // Both scripts are encoded so Unicode paths and quotes never reach command-line parsing.
-    const ps = `Set-Location -LiteralPath '${cwd.replace(/'/g, "''")}'; Write-Host '${message}'; & agy`;
+    // 콘솔 출력 인코딩을 UTF-8 로 맞춰야 한글 안내가 깨지지 않는다.
+    const ps = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Set-Location -LiteralPath '${cwd.replace(/'/g, "''")}'; Write-Host '${message}'; & agy`;
     const encoded = Buffer.from(ps, 'utf16le').toString('base64');
     const launch = `$authProcess = Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile', '-EncodedCommand', '${encoded}') -WindowStyle Normal -Wait -PassThru; exit $authProcess.ExitCode`;
     return {

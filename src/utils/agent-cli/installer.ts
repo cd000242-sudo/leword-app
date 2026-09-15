@@ -24,7 +24,7 @@ import {
 } from './subscriptionEnv';
 import { resolveNpmInvocation } from './npmInvocation';
 import { buildNpmInstallEnv } from './subscriptionEnv';
-import { agyNativeInstallCommand, describeNativeInstallFailure, nativeInstallCommand, type InstallStep } from './nativeInstaller';
+import { agyNativeInstallCommand, codexNativeInstallCommand, describeNativeInstallFailure, NATIVE_INSTALL_HOSTS, nativeInstallCommand, type InstallStep } from './nativeInstaller';
 import { AgentCliError, type AgentCliStatus, type AgentProvider } from './types';
 import { requireAgentProvider } from './validation';
 import { sanitizeUserVisibleError } from './userVisibleError';
@@ -162,58 +162,85 @@ export class AgentInstallError extends AgentCliError {
   }
 }
 
+export interface InstallAgentOptions {
+  /** 단계가 바뀔 때마다 지금까지의 단계 목록을 받는다 — 화면이 설치 진행을 실시간으로 그린다. */
+  readonly onStep?: (steps: readonly InstallStep[]) => void;
+  /** 설치 직후 감지 재시도 간격(ms). 테스트는 0 을 준다. */
+  readonly verifyRetryDelayMs?: number;
+}
+
+/** 설치 직후 감지를 몇 번 해 볼지 — 처음 실행되는 큰 실행 파일을 백신이 검사하는 동안 감지(8초 제한)가 실패한다. */
+const VERIFY_ATTEMPTS = 3;
+const VERIFY_RETRY_DELAY_MS = 4_000;
+
 /**
- * Claude 는 **네이티브 설치기**를 먼저 쓴다(사장님 2026-09-09 "되는 컴이 있는 반면 안 되는 컴도 있다").
- * npm 부트스트랩(registry.npmjs.org 에서 npm 내려받기)이 백신·회사망에 막히던 컴에서도, 공식 스크립트는
- * claude.ai 에서 단일 실행 파일만 받아 사용자 폴더에 놓는다 — Node·npm·관리자 권한 전부 불필요.
- * 실패하면 예전 npm 길로 폴백한다. 어느 길이든 마지막은 detect 재검증이다.
+ * 공식 설치기를 먼저 쓴다 — claude · agy 는 2026-09-09, 코덱스(Windows)는 2026-09-15(사장님 "CLI 설치 안 된 완전 초보들은
+ * 설치부터 완벽하게"). npm 준비(registry.npmjs.org 에서 npm 내려받기)가 백신 · 회사망에 막히던 컴에서도 공식 스크립트는
+ * 각 회사 서버에서 단일 실행 파일만 받아 사용자 폴더에 놓는다 — Node · npm · 관리자 권한 전부 불필요.
+ * claude · 코덱스는 실패하면 예전 npm 길로 넘어가고, agy 는 npm 판이 폐지돼(개인 계정 차단) 공식 설치기뿐이다.
+ * 어느 길이든 마지막은 감지 재검증이고, 단계는 onStep 으로 실시간 전달한다.
  */
-export async function installAgent(provider: AgentProvider): Promise<InstallAgentResult> {
+export async function installAgent(provider: AgentProvider, options: InstallAgentOptions = {}): Promise<InstallAgentResult> {
   provider = requireAgentProvider(provider);
   const steps: InstallStep[] = [];
+  const report = (step: InstallStep): void => {
+    steps.push(step);
+    try { options.onStep?.(steps.map((item) => ({ ...item }))); } catch { /* 화면 갱신 실패가 설치를 막지 않는다 */ }
+  };
+  const retryDelayMs = options.verifyRetryDelayMs ?? VERIFY_RETRY_DELAY_MS;
   const verify = async (method: InstallAgentResult['method']): Promise<InstallAgentResult | null> => {
     const { clearAgentDetectionCache, detectAgent } = await import('./detect');
-    clearAgentDetectionCache(provider);
-    const status = await detectAgent(provider, { forceRefresh: true });
-    if (status.installed) {
-      steps.push({ name: 'CLI 감지', status: 'ok', detail: status.version ? `v${status.version}` : undefined });
-      return { version: status.version, method, steps };
+    for (let attempt = 1; attempt <= VERIFY_ATTEMPTS; attempt += 1) {
+      clearAgentDetectionCache(provider);
+      const status = await detectAgent(provider, { forceRefresh: true });
+      if (status.installed) {
+        report({ name: 'CLI 감지', status: 'ok', detail: status.version ? `v${status.version}` : undefined });
+        return { version: status.version, method, steps };
+      }
+      if (attempt < VERIFY_ATTEMPTS) await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
-    steps.push({ name: 'CLI 감지', status: 'failed', detail: '설치는 끝났다는데 실행 파일을 못 찾음' });
+    report({ name: 'CLI 감지', status: 'failed', detail: `설치는 끝났는데 실행 파일을 ${VERIFY_ATTEMPTS}번 다 찾지 못함 — 백신이 새 실행 파일을 검사 중일 수 있음` });
     return null;
   };
 
-  if (provider === 'claude' || provider === 'gemini') {
-    const cmd = provider === 'gemini' ? agyNativeInstallCommand() : nativeInstallCommand();
+  const native = provider === 'claude' ? nativeInstallCommand()
+    : provider === 'gemini' ? agyNativeInstallCommand()
+      : provider === 'codex' ? codexNativeInstallCommand()
+        : null;
+  if (native) {
     try {
-      const res = await spawnCollect({ command: cmd.command, args: cmd.args, provider, timeoutMs: INSTALL_TIMEOUT_MS, env: buildNpmInstallEnv() });
+      const res = await spawnCollect({ command: native.command, args: native.args, provider, timeoutMs: INSTALL_TIMEOUT_MS, env: buildNpmInstallEnv() });
       if (res.code === 0) {
-        steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'ok' });
+        report({ name: `공식 설치기(${native.label})`, status: 'ok' });
         const verified = await verify('native');
         if (verified) return verified;
       } else {
-        steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'failed', detail: describeNativeInstallFailure(res.code, res.stdout, res.stderr, provider === 'gemini' ? 'antigravity.google' : 'claude.ai') });
+        const hosts = NATIVE_INSTALL_HOSTS[provider as 'claude' | 'codex' | 'gemini'];
+        report({ name: `공식 설치기(${native.label})`, status: 'failed', detail: describeNativeInstallFailure(res.code, res.stdout, res.stderr, hosts) });
       }
     } catch (err) {
-      steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'failed', detail: sanitizeUserVisibleError((err as Error)?.message || String(err)).slice(0, 200) });
+      report({ name: `공식 설치기(${native.label})`, status: 'failed', detail: sanitizeUserVisibleError((err as Error)?.message || String(err)).slice(0, 200) });
     }
     if (provider === 'gemini') {
       throw new AgentInstallError(new AgentCliError('not_installed', provider,
-        'Gemini CLI(agy)를 설치하지 못했습니다. 설치 진단을 확인한 뒤 다시 시도해 주세요.'), steps);
+        `제미나이(Antigravity · agy)를 설치하지 못했습니다. 아래 단계 진단을 확인해 주세요. 회사망 · 백신이 막는다면 ${NATIVE_INSTALL_HOSTS.gemini} 접속 허용을 요청해 주세요.`), steps);
     }
   } else {
-    steps.push({ name: '네이티브 설치', status: 'skipped', detail: `${provider} 는 npm 으로만 설치` });
+    report({ name: '공식 설치기', status: 'skipped', detail: `${provider} 는 이 운영체제에서 npm 으로 설치` });
   }
 
   try {
     const result = await installViaNpm(provider, steps);
-    steps.push({ name: 'npm 설치(앱 전용 공간)', status: 'ok' });
+    report({ name: 'npm 설치(앱 전용 공간)', status: 'ok' });
     const verified = await verify('npm');
     if (verified) return { ...verified, version: verified.version || result.version };
-    throw new AgentCliError('not_installed', provider, '설치는 끝났지만 CLI를 아직 찾지 못했습니다. 앱을 재시작한 뒤 다시 시도해주세요.');
+    throw new AgentCliError('not_installed', provider, '설치는 끝났지만 실행 파일을 아직 찾지 못했습니다. 백신 검사가 끝나지 않았을 수 있습니다 — 1분 뒤 [다시 감지]를 눌러 주세요.');
   } catch (err) {
     const base = err instanceof AgentCliError ? err : new AgentCliError('nonzero_exit', provider, String((err as Error)?.message || err));
-    if (!steps.some((s) => s.name.startsWith('npm 설치'))) steps.push({ name: 'npm 설치(앱 전용 공간)', status: 'failed', detail: base.message });
+    if (!steps.some((step) => step.name.startsWith('npm 설치'))) {
+      // 예전에는 "아래 상세 메시지를 확인하세요"라고만 하고 상세를 화면에 싣지 않았다 — 상세를 단계에 함께 싣는다.
+      report({ name: 'npm 설치(앱 전용 공간)', status: 'failed', detail: [base.message, base.detail].filter(Boolean).join(' · ').slice(0, 400) });
+    }
     throw new AgentInstallError(base, steps);
   }
 }
@@ -419,14 +446,14 @@ export async function logoutAgent(provider: AgentProvider, hooks: AgentLoginHook
     throw new AgentCliError(
       'not_installed',
       provider,
-      `${provider} CLI logout postcondition could not be verified because the CLI is unavailable.`,
+      `${provider} 실행 파일을 찾지 못해 로그아웃을 확인하지 못했습니다. 설치 상태를 다시 감지해 주세요.`,
     );
   }
   if (status.loggedIn) {
     throw new AgentCliError(
       'nonzero_exit',
       provider,
-      `${provider} logout command completed, but the previous account is still connected.`,
+      `${provider} 로그아웃 명령은 끝났지만 이전 계정이 아직 연결돼 있습니다. 잠시 뒤 다시 시도해 주세요.`,
       status.detail,
     );
   }
