@@ -415,6 +415,8 @@ const VITEST_SUITES = [
     // API HUB 키만 있는 사용자도 이 PC 판(2026-09-15) — 문서수 HUB 경로 · 키 검사 배선
     'src/utils/__tests__/naver-blog-hub-only.test.ts',
     'src/utils/__tests__/hub-only-keys-wiring.test.ts',
+    // 실용 말은 쇼핑 구획이 3번째 이후면 쇼핑 쪽으로 넘기지 않는다(2026-09-15) — 레인 판정 SSoT(사이트 배치 · 이 PC 판 · 발굴)
+    'src/utils/__tests__/platform-lane.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

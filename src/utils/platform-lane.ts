@@ -11,6 +11,7 @@
  *   쇼핑 증거 3종(어느 하나면 충분): ① SERP 에 쇼핑 구획 등장(naver-serp-structure)
  *   ② 쇼핑 카드 상품명 2개 이상(serp-meaning; 1개는 소음일 수 있어 안 자른다)
  *   ③ 스마트블록 쇼핑 상위 3위(smartblock-parser 의 shoppingDominant, MDP 경로).
+ *   단, 검색자가 쓴 말이 정보 · 비교 · 거래인데 쇼핑 구획이 3번째 이후면 ①을 증거로 안 친다(2026-09-15).
  *   광고 수(adCount)·브랜드명 추측으로는 자르지 않는다 — '을왕리 펜션'(광고 10건)은
  *   전형적 블로그 소재이고, 브랜드 판별은 '몬스테라 무름병' 같은 신생 개념어를 오폭한다.
  *   2026-08-17 월요일 실회차 28행으로 캘리브레이션했다.
@@ -22,6 +23,8 @@
  *
  * 순수 함수 · 외부 호출 없음 · Math.random 없음.
  */
+
+import { classifySearchIntent } from './keyword-intent';
 
 export type PlatformLane = 'shopping' | 'content';
 
@@ -63,9 +66,31 @@ export interface PlatformLaneVerdict {
 /** 의도 불명일 때 애드센스 적합을 인정할 CPC 하한(원). 실측 분포로 보정 예정. */
 const ADSENSE_CPC_FLOOR = 300;
 
+/** 실용 말이 이 순번부터 쇼핑 구획을 만나면 상품판으로 보지 않는다. */
+const PRACTICAL_LATE_SHOPPING_FROM = 3;
+
+/**
+ * 실용 말의 늦은 쇼핑 구획(2026-09-15, 사장님 "실용 말은 3번째 이후 쇼핑이면 안 넘기기").
+ *
+ * 쇼핑 구획 증거가 위치를 안 봐서 '파비플로라 효능'(6번째) · '육우 한우 차이'(8번째)처럼 검색자가 정보 · 비교 · 거래를
+ * 묻는데 화면 아래쪽에 쇼핑이 붙은 말까지 상품판으로 넘어갔다. 실측(2026-09-15): 이 PC 인테리어·DIY 회차 쇼핑 쪽 72줄 중
+ * 실용 말 7개 · 사이트 판 144줄 중 4개였고, 그중 9개가 3번째 이후였다. 다시 잰 구획에서 상품명 카드는 전부 0건이었다.
+ *
+ * 실용 말은 **검색자가 쓴 말**(keyword-intent 어휘 판정 — 선점 후보 표본의 실용 말과 같은 기준)로만 본다.
+ * input.intentLabel 은 배치가 구획으로 다시 정한 값이라('분류 안 됨' + 쇼핑 구획 → '구매 검토') 그걸 보면 상품명까지 풀린다.
+ * 상품명 카드 2건 · 스마트블록 쇼핑 증거는 그대로 둔다.
+ */
+function latePracticalShopping(input: PlatformLaneInput): { position: number; intentLabel: string } | null {
+  if (!Array.isArray(input.serpSections)) return null;
+  const position = input.serpSections.indexOf('쇼핑') + 1;
+  if (position < PRACTICAL_LATE_SHOPPING_FROM) return null;
+  const lexical = classifySearchIntent(input.keyword);
+  return lexical.intent === 'unknown' ? null : { position, intentLabel: lexical.intentLabel };
+}
+
 function judgeShoppingEvidence(input: PlatformLaneInput): string[] {
   const reasons: string[] = [];
-  if (Array.isArray(input.serpSections) && input.serpSections.includes('쇼핑')) {
+  if (Array.isArray(input.serpSections) && input.serpSections.includes('쇼핑') && !latePracticalShopping(input)) {
     const position = input.serpSections.indexOf('쇼핑') + 1;
     reasons.push(`SERP ${position}번째 구획이 쇼핑 — 검색 화면이 상품판이다`);
   }
@@ -136,9 +161,12 @@ export function judgePlatformLane(input: PlatformLaneInput): PlatformLaneVerdict
   const measuredAnything = Array.isArray(input.serpSections)
     || Array.isArray(input.productNames)
     || typeof input.shoppingDominant === 'boolean';
-  const laneReasons = measuredAnything
-    ? ['쇼핑 실측 증거 없음 — 콘텐츠 키워드로 본다']
-    : ['쇼핑 신호 미측정 — 못 본 것을 자르지 않는다'];
+  const late = latePracticalShopping(input);
+  const laneReasons = late
+    ? [`SERP ${late.position}번째 구획에야 쇼핑 — '${late.intentLabel}' 검색어라 상품판으로 보지 않는다`]
+    : measuredAnything
+      ? ['쇼핑 실측 증거 없음 — 콘텐츠 키워드로 본다']
+      : ['쇼핑 신호 미측정 — 못 본 것을 자르지 않는다'];
 
   const adsense = judgeAdsenseFit(input);
   return {

@@ -164,3 +164,84 @@ describe('애드센스 적합 — 광고 실측', () => {
         expect(verdict.adsenseFit).toBeNull();
     });
 });
+
+/*
+ * 실용 말의 늦은 쇼핑 구획(2026-09-15, 사장님 "실용 말은 3번째 이후 쇼핑이면 안 넘기기").
+ * 쇼핑 구획 증거가 위치를 안 봐서, 검색자가 정보 · 비교 · 거래를 묻는데 화면 아래쪽에 쇼핑이 붙은 말까지
+ * 상품판으로 넘어갔다(이 PC 인테리어·DIY 회차 5개 · 사이트 판 4개). 구획 배열은 2026-09-15 이 PC 크로미엄 실측 그대로다.
+ * 상품명 카드 2건 · 스마트블록 쇼핑 증거는 위 테스트(슬로벨라 혈압약 가격 · 무선청소기 추천)가 그대로 지킨다.
+ */
+describe('실용 말 — 쇼핑 구획이 3번째 이후면 쇼핑 레인으로 넘기지 않는다', () => {
+    it('정보 의도 + 쇼핑 6번째면 콘텐츠: 파비플로라 효능', () => {
+        const verdict = judgePlatformLane({
+            keyword: '파비플로라 효능',
+            serpSections: ['파워링크', '인기글', '지식iN', '인플루언서', 'AI추천', '쇼핑', '이미지', '지식스니펫', '카페', '웹사이트', '뉴스', '동영상'],
+            productNames: [],
+            intentLabel: '정보',
+        });
+        expect(verdict.lane).toBe('content');
+        expect(verdict.laneReasons.join(' ')).toContain('6번째');
+        expect(verdict.laneReasons.join(' ')).toContain('정보');
+        expect(verdict.laneReasons.join(' ')).not.toContain('상품판이다');
+        expect(verdict.adsenseFit).toBe(true);
+    });
+
+    it('비교 의도 + 쇼핑 8번째(맨 끝)면 콘텐츠: 육우 한우 차이', () => {
+        const verdict = judgePlatformLane({
+            keyword: '육우 한우 차이',
+            serpSections: ['AI브리핑', '웹사이트', '파워링크', '지식스니펫', '카페', '인플루언서', '인기글', '쇼핑'],
+            productNames: [],
+            intentLabel: '구매 검토',
+        });
+        expect(verdict.lane).toBe('content');
+        expect(verdict.laneReasons.join(' ')).toContain('8번째');
+    });
+
+    it('경계 — 거래 의도 + 쇼핑 3번째도 콘텐츠: 26년 건고추 가격 1근', () => {
+        const verdict = judgePlatformLane({
+            keyword: '26년 건고추 가격 1근',
+            serpSections: ['파워링크', '웹사이트', '쇼핑', '지식스니펫', '인플루언서', '인기글', '카페', '동영상', '이미지'],
+            productNames: [],
+            intentLabel: '거래',
+        });
+        expect(verdict.lane).toBe('content');
+        expect(verdict.adsenseFit).toBe(false);
+    });
+
+    it('이번 실측의 나머지 실용 말 5개도 전부 콘텐츠', () => {
+        const measured: Array<[string, string[]]> = [
+            ['LED전등교체방법 셀프', ['파워링크', 'AI브리핑', '지식스니펫', '인기글', '카페', '웹사이트', '쇼핑', '이미지', '인플루언서', '지식iN']],
+            ['슬로벨라 효능', ['파워링크', '웹사이트', '카페', '인기글', '지식스니펫', '지식iN', '쇼핑', '이미지']],
+            ['기안84 그림 가격', ['웹사이트', '파워링크', '지식스니펫', '카페', '인기글', '이미지', '쇼핑']],
+            ['네오메타 청소기 가격', ['파워링크', 'AI브리핑', '웹사이트', '인기글', '쇼핑', '지식스니펫', '인플루언서']],
+            ['야간문 야관문 효능', ['파워링크', 'AI브리핑', 'AI추천', '인플루언서', '인기글', '지식스니펫', '웹사이트', '쇼핑', '이미지', '지식iN']],
+        ];
+        for (const [keyword, serpSections] of measured) {
+            expect(judgePlatformLane({ keyword, serpSections, productNames: [] }).lane, keyword).toBe('content');
+        }
+    });
+
+    it('실용 말이라도 쇼핑이 2번째면 그대로 쇼핑: 위프 탈취제 내돈내산 · 사돈 추석 선물 추천', () => {
+        const measured: Array<[string, string[]]> = [
+            ['위프 탈취제 내돈내산', ['파워링크', '쇼핑', '지식스니펫', '카페', '인기글', '웹사이트']],
+            ['사돈 추석 선물 추천', ['파워링크', '쇼핑', '지식스니펫', '인플루언서', '인기글', '카페', '웹사이트']],
+        ];
+        for (const [keyword, serpSections] of measured) {
+            const verdict = judgePlatformLane({ keyword, serpSections, productNames: [], intentLabel: '구매 검토' });
+            expect(verdict.lane, keyword).toBe('shopping');
+            expect(verdict.laneReasons.join(' ')).toContain('2번째 구획이 쇼핑');
+        }
+    });
+
+    it('어휘로 분류 안 되는 말은 구획으로 다시 정한 라벨이 와도 그대로 쇼핑: 다이소 벽지 얼룩 제거', () => {
+        // 배치는 '분류 안 됨' + 쇼핑 구획을 '구매 검토'로 다시 정해 넘긴다 — 그 라벨을 보면 상품명까지 풀린다.
+        const verdict = judgePlatformLane({
+            keyword: '다이소 벽지 얼룩 제거',
+            serpSections: ['파워링크', 'AI브리핑', '카페', '인기글', '웹사이트', '쇼핑', '지식스니펫', '지식iN', '인플루언서'],
+            productNames: [],
+            intentLabel: '구매 검토',
+        });
+        expect(verdict.lane).toBe('shopping');
+        expect(verdict.laneReasons.join(' ')).toContain('6번째 구획이 쇼핑');
+    });
+});
