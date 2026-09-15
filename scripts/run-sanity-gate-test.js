@@ -440,6 +440,8 @@ const VITEST_SUITES = [
     'src/utils/__tests__/agy-auth-korean-guide.test.ts',
     // 처음 설정 마법사 · AI 엔진 연동 창 · 키워드 수요 분석 안내 · 첫 실행 권유(2026-09-15)
     'src/utils/__tests__/agent-setup-wizard-wiring.test.ts',
+    // 앱은 클로드 구독 토큰을 사이트로 넘기지 않는다 — 사이트 AI 는 브리지 전용(2026-09-16)
+    'src/utils/__tests__/bridge-no-subscription-token.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

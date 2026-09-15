@@ -125,20 +125,6 @@ export interface WebBridgeDeps {
    * 나중에 오른 글은 언제부터 올랐는지가 보여야 이유를 찾을 수 있다.
    */
   adsensePageRpm?: (input: { pageUrl: string; days: number; currencyCode: string }) => Promise<unknown>;
-  /**
-   * 클로드 구독 자격을 사이트에 넘긴다(사장님 지시 2026-08-22
-   * "앱만 켜놓고 연동시키고 나서 사이트도 같이 연동시키면 끝나는 거 아니야?").
-   *
-   * 맞다 — 단 클로드만 된다. 클로드 CLI 는 자격을 sk-ant 토큰으로 들고 있어
-   * 사이트 서버가 그대로 쓸 수 있다. 코덱스·제미나이·그록은 각 서비스의
-   * 로그인 세션이라 서버가 쓸 토큰으로 바꿀 방법이 없다(실측: ~/.codex/auth.json
-   * 은 ChatGPT OAuth, ~/.grok/auth.json 은 x.ai 세션 키, 제미나이는 자격 파일이
-   * 아예 없다). 그 셋은 앱을 켜 두고 앱 경유로 쓰는 것이 유일한 길이다.
-   *
-   * 토큰이 나가는 경로라 Origin 허용목록(leaderspro.kr 계열)이 방어선이다 —
-   * 그 검사는 이 파일 위쪽 공통 경로에서 이미 끝난다.
-   */
-  claudeCredentials?: () => Promise<unknown>;
   /** 앱 설정의 API 키 묶음(사이트 '내 API 키' 필드명으로) — 같은 기기 사이트만 받는다. */
   apiKeys?: () => Promise<unknown>;
   /**
@@ -317,15 +303,10 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
         return;
       }
 
-      if (deps.claudeCredentials && req.method === 'POST' && req.url === '/v1/bridge/claude-credentials') {
-        json(res, 200, { ok: true, result: await deps.claudeCredentials() });
-        return;
-      }
-
       /*
        * 앱에 저장된 API 키(네이버 오픈·API HUB·검색광고·유튜브)를 사이트로 — 사장님 2026-09-09
        * "앱에서 에이전트 연동이 되면 나머지도 자연스럽게 연동되어야. 앱에서든 사이트에서든 하나처럼".
-       * 클로드 자격과 같은 방어선(같은 기기 127.0.0.1 + Origin 허용목록)이다. 사이트는 받은 키를 자기
+       * 방어선은 같은 기기 127.0.0.1 + Origin 허용목록이다. 사이트는 받은 키를 자기
        * 브라우저 저장소에 넣고 계정 동기화(keySync)로 다른 기기까지 옮긴다.
        */
       if (deps.apiKeys && req.method === 'POST' && req.url === '/v1/bridge/api-keys') {

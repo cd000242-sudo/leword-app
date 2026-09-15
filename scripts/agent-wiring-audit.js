@@ -96,38 +96,28 @@ async function auditBridge() {
 }
 
 /**
- * ①-B 앱이 사이트 연동까지 대신 해 줄 수 있나.
+ * ①-B 앱이 클로드 구독 토큰을 사이트로 넘기지 않는가.
  *
- * 사장님 지시 2026-08-22: "앱만 켜놓고 연동시키고 나서 사이트도 같이
- * 연동시키면 끝나는 거 아니야?" — 클로드는 그게 된다. CLI 가 자격을
- * sk-ant 토큰으로 들고 있어 사이트 서버가 그대로 쓴다.
- * 토큰 값은 절대 찍지 않는다 — 있는지·구독 유형만 확인한다.
+ * 2026-09-16 사장님 결정 "브리지 전용으로 정리": 구독 토큰을 사이트 · 워커가 들고 쓰면 약관 위반 소지가 있어
+ * 앱은 토큰을 넘기지 않고, 사이트 AI 는 앱 브리지 경로로만 돈다. 이 경로가 살아 있으면 구버전 앱이다.
+ * 토큰 값은 절대 찍지 않는다.
  */
 async function auditHandoff() {
-  console.log('\n①-B 앱 → 사이트 자동 연동(클로드)');
+  console.log('\n①-B 앱 → 사이트 토큰 전달이 막혀 있나(클로드)');
   const probe = await ask('/v1/bridge/claude-credentials', {
     method: 'POST', headers: { 'content-type': 'application/json' },
   }, 15_000);
   if (probe.status === 404) {
-    fail('자동연동', '앱에 claude-credentials 경로가 없습니다 — 앱이 구버전입니다(빌드 후 재시작 필요).');
-    console.log('   ❌ 경로 없음(404) — 앱을 껐다 켜야 새 코드가 뜹니다');
+    console.log('   ✅ 경로 없음(404) — 앱이 구독 토큰을 넘기지 않습니다');
     return;
   }
-  const result = probe.body && probe.body.result;
-  if (probe.status === 200 && probe.body && probe.body.ok && result && result.ok) {
-    console.log(`   ✅ 넘길 수 있음 · 구독 "${result.subscriptionType || '(없음)'}" · 등급 "${result.rateLimitTier || '(없음)'}"`);
-    if (!String(result.subscriptionType || '').trim()) {
-      warn('자동연동', '자격은 있는데 구독 유형이 비어 있습니다.');
-    }
-  } else if (result && result.reason === 'not-logged-in') {
-    warn('자동연동', '앱에 클로드 로그인이 없습니다 — 앱에서 클로드 로그인부터 하세요.');
-    console.log('   ⚠️  클로드 로그인 없음');
-  } else {
-    fail('자동연동', '자격 전달 경로가 응답하지 않습니다.', probe.error || `HTTP ${probe.status}`);
-    console.log('   ❌ 응답 이상:', probe.error || probe.status);
+  if (probe.status === 200) {
+    fail('토큰전달', '앱이 아직 클로드 구독 토큰을 넘기는 경로를 엽니다 — 구버전 앱입니다(업데이트 후 재시작 필요).');
+    console.log('   ❌ 경로 살아 있음(200) — 토큰 값은 찍지 않았습니다');
+    return;
   }
-  console.log('   ※ 코덱스·제미나이·그록은 넘길 수 없다(각 서비스 로그인 세션이라');
-  console.log('     서버가 쓸 토큰으로 바꿀 방법이 없다) — 앱을 켜 두고 앱 경유로 쓴다.');
+  warn('토큰전달', '토큰 전달 경로를 확인하지 못했습니다.', probe.error || `HTTP ${probe.status}`);
+  console.log('   ⚠️  응답 이상:', probe.error || probe.status);
 }
 
 /** ② 진짜 도는가 — 상태가 available 이라고 말하는 것과 실행되는 것은 다른 사실이다. */

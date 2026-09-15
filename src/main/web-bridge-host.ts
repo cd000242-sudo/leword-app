@@ -135,39 +135,9 @@ export function startWebBridgeHost(): void {
         return { answer: String(run.reply || '').trim(), provider: run.provider };
       },
       /*
-       * 클로드 구독 자격을 사이트에 넘긴다 — 사장님이 물은 그대로다:
-       * "앱만 켜놓고 연동시키고 나서 사이트도 같이 연동시키면 끝나는 거 아니야?"
-       *
-       * 클로드 CLI 는 로그인 자격을 sk-ant 토큰(+갱신 토큰)으로 들고 있어
-       * 사이트 서버가 그대로 쓸 수 있다. 그래서 이 한 번으로 사이트는 **앱 없이도**
-       * 전부 돈다 — 유튜브 글감·레이더·글 진단까지.
-       * 구독 유형과 요금제 등급도 같은 파일에 실측값으로 있다(지어내지 않는다).
-       *
-       * 다시 발급받지 않는다(claude setup-token 은 승인 창을 띄운다). 이미 로그인해
-       * 둔 자격을 그대로 건넨다. 없으면 없다고 말한다.
+       * 클로드 구독 자격(토큰 · 갱신 토큰)은 사이트로 넘기지 않는다(2026-09-16 사장님 결정 "브리지 전용으로 정리").
+       * 구독 토큰을 사이트 · 워커가 들고 쓰면 약관 위반 소지가 있어, 사이트 AI 는 아래 브리지 경로로 이 PC 의 앱에서만 돈다.
        */
-      claudeCredentials: async () => {
-        try {
-          const { readFile } = await import('node:fs/promises');
-          const { homedir } = await import('node:os');
-          const { join } = await import('node:path');
-          const raw = await readFile(join(homedir(), '.claude', '.credentials.json'), 'utf8');
-          const oauth = JSON.parse(raw)?.claudeAiOauth;
-          const token = String(oauth?.accessToken || '');
-          if (!token) return { ok: false, reason: 'not-logged-in' };
-          return {
-            ok: true,
-            token,
-            refresh: String(oauth?.refreshToken || ''),
-            expiresAt: Number(oauth?.expiresAt || 0) || 0,
-            subscriptionType: String(oauth?.subscriptionType || ''),
-            rateLimitTier: String(oauth?.rateLimitTier || ''),
-          };
-        } catch {
-          // 파일이 없거나 못 읽으면 로그인 전이다 — 화면이 로그인부터 안내한다.
-          return { ok: false, reason: 'not-logged-in' };
-        }
-      },
       /*
        * 글감 추론 — 사이트의 유튜브 글감·레이더 카드가 이 경로로 넘어온다.
        * 문장은 앱이 만든다(post-ideas-prompt.ts). 브리지는 재료만 받는다.
