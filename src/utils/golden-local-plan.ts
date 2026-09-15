@@ -216,7 +216,7 @@ export function judgeStageExit(key: GoldenLocalStageKey, code: number | null, la
   if (key === 'candidates' && /자격증명이 필요/.test(lastError)) {
     return {
       next: 'stop-fail',
-      message: '네이버 검색광고 키와 오픈 API(Client ID) 키가 있어야 이 PC 에서 찾을 수 있습니다 — 환경설정에서 넣어 주세요.',
+      message: '네이버 검색광고 키와 오픈 API 키(API HUB 또는 옛 Client ID)가 있어야 이 PC 에서 찾을 수 있습니다 — 환경설정에서 넣어 주세요.',
     };
   }
   if (code === null) return { next: 'stop-fail', message: `${label} 단계가 끝나지 못하고 멈췄습니다.${lastError ? ` ${lastError}` : ''}` };

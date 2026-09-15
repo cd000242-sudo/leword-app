@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { naverApiFetch } from './naver-api-hub';
+import { isApiHubConfigured, naverApiFetch } from './naver-api-hub';
 
 const NAVER_BLOG_OPENAPI_RATE_LIMIT_BACKOFF_MS = 2_500;
 const NAVER_BLOG_OPENAPI_MIN_REQUEST_INTERVAL_MS = 250;
@@ -832,7 +832,12 @@ async function fetchNaverBlogDocumentCount(
         };
       })();
     
-    const hasConfiguredCredential = getNaverBlogOpenApiCredentials(fallbackConfig).length > 0;
+    /*
+     * API HUB 키만 있어도 잰다(2026-09-15). 2026-06-25 이후 새로 발급한 사용자는 HUB 키뿐이다.
+     * 호출은 naverApiFetch 가 HUB 주소 · 헤더로 바꿔 보내므로 옛 키가 없어도 된다.
+     */
+    const hubConfigured = isApiHubConfigured();
+    const hasConfiguredCredential = getNaverBlogOpenApiCredentials(fallbackConfig).length > 0 || hubConfigured;
     const quotaBlocked = isNaverBlogOpenApiQuotaBlocked(fallbackConfig);
     console.log(`[NAVER-BLOG-API] document count lookup: "${keyword}" (${hasConfiguredCredential ? 'queued' : 'no-key'})`);
     if (!hasConfiguredCredential || quotaBlocked) {
@@ -867,13 +872,16 @@ async function fetchNaverBlogDocumentCount(
       // Re-select inside the serialized slot. A preceding request may have
       // placed the previously selected credential into quota cooldown.
       const activeCredential = selectNaverBlogOpenApiCredential(fallbackConfig);
-      if (!activeCredential) return null;
+      // 옛 키를 못 골라도 HUB 키가 있으면 보낸다 — naverApiFetch 가 HUB 헤더를 붙인다. 할당량 쿨다운 중이면 쉰다.
+      if (!activeCredential && !(hubConfigured && !isNaverBlogOpenApiQuotaBlocked(fallbackConfig))) return null;
       const response = await naverApiFetch(apiUrl, {
         method: 'GET',
-        headers: {
-          'X-Naver-Client-Id': activeCredential.clientId,
-          'X-Naver-Client-Secret': activeCredential.clientSecret
-        },
+        headers: activeCredential
+          ? {
+            'X-Naver-Client-Id': activeCredential.clientId,
+            'X-Naver-Client-Secret': activeCredential.clientSecret
+          }
+          : {},
         signal: controller.signal,
       });
       console.log(`[NAVER-BLOG-API] 응답 상태: ${response.status} ${response.statusText}`);

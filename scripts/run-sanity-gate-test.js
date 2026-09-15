@@ -412,6 +412,9 @@ const VITEST_SUITES = [
     // 쇼핑 쪽으로 넘긴 말을 발굴 화면에 따로(2026-09-15) — 모으기 규칙 · 메인 응답 · 화면 구획
     'src/utils/__tests__/golden-shopping-rows.test.ts',
     'src/utils/__tests__/golden-shopping-wiring.test.ts',
+    // API HUB 키만 있는 사용자도 이 PC 판(2026-09-15) — 문서수 HUB 경로 · 키 검사 배선
+    'src/utils/__tests__/naver-blog-hub-only.test.ts',
+    'src/utils/__tests__/hub-only-keys-wiring.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

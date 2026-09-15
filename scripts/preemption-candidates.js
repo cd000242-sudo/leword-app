@@ -148,7 +148,9 @@ async function main() {
     customerId: config.naverSearchAdCustomerId,
   };
   const openApi = { clientId: config.naverClientId, clientSecret: config.naverClientSecret };
-  if (!searchAd.accessLicense || !openApi.clientId) {
+  // API HUB 키만 있는 사용자도 돈다(2026-09-15) — 문서수 · 데이터랩 호출은 naverApiFetch 가 HUB 로 바꿔 보낸다.
+  const { isApiHubConfigured } = require('../src/utils/naver-api-hub');
+  if (!searchAd.accessLicense || (!openApi.clientId && !isApiHubConfigured())) {
     console.error('네이버 검색광고·오픈 API 자격증명이 필요합니다.');
     process.exit(2);
   }

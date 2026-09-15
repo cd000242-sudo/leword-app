@@ -33,6 +33,7 @@ import {
 import { startGoldenLocalRun, type GoldenLocalRunHandle } from '../../utils/golden-local-runner';
 import { mergeShoppingStore, normalizeShoppingEntries, type ShoppingLaneEntry } from '../../utils/golden-shopping-rows';
 import { shouldSkipBackground } from '../../utils/hunt-progress-flag';
+import { isApiHubConfigured } from '../../utils/naver-api-hub';
 import { isWatchDue } from '../../utils/seat-watch';
 import { isSeatWatchRunning } from './seat-watch';
 
@@ -41,7 +42,7 @@ const CHECK_EVERY_MS = 10 * 60 * 1000;
 /** 첫 확인은 자리 감시(켜지고 1분 반)보다 늦게 — 둘 다 차례면 자리 감시가 먼저 돈다. */
 const FIRST_CHECK_MS = 3 * 60 * 1000;
 const SEED_DB_TIMEOUT_MS = 60 * 1000;
-const KEYS_MISSING = '네이버 검색광고 키와 오픈 API(Client ID) 키가 있어야 이 PC 에서 찾을 수 있습니다 — 환경설정에서 넣어 주세요.';
+const KEYS_MISSING = '네이버 검색광고 키와 오픈 API 키(API HUB 또는 옛 Client ID)가 있어야 이 PC 에서 찾을 수 있습니다 — 환경설정에서 넣어 주세요.';
 
 const DIR = () => path.join(app.getPath('userData'), 'golden-local');
 const SEED_DB = () => path.join(DIR(), 'seed-db.json');
@@ -182,7 +183,8 @@ function notify(title: string, body: string): void {
 function hasKeys(): boolean {
   try {
     const config = EnvironmentManager.getInstance().getConfig();
-    return Boolean(config.naverSearchAdAccessLicense && config.naverClientId);
+    // API HUB 키만 있어도 된다(2026-09-15) — 문서수 · 데이터랩은 naverApiFetch 가 HUB 로 보낸다.
+    return Boolean(config.naverSearchAdAccessLicense && (config.naverClientId || isApiHubConfigured()));
   } catch {
     return false;
   }

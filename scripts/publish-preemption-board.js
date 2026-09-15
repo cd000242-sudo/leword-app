@@ -631,10 +631,22 @@ async function main() {
    * demandSeriesCheckedAt 을 남겨 30일은 다시 안 묻는다.
    * 키가 없으면 건너뛴다(회차를 죽이지 않는다). 예산은 회차당 --seriesBudget(기본 60).
    */
+  /*
+   * 키는 환경변수 → 앱 설정(config.json) 순으로 찾고, API HUB 키만 있어도 잰다(2026-09-15).
+   * 앱 이 PC 판에서는 환경변수가 비어 있어 옛 키가 있는 사용자도 이 단계를 건너뛰었다.
+   */
+  const seriesConfig = (() => {
+    try {
+      return require('../src/utils/environment-manager').EnvironmentManager.getInstance().getConfig();
+    } catch {
+      return {};
+    }
+  })();
   const openApi = {
-    clientId: process.env.NAVER_CLIENT_ID || '',
-    clientSecret: process.env.NAVER_CLIENT_SECRET || '',
+    clientId: process.env.NAVER_CLIENT_ID || seriesConfig.naverClientId || '',
+    clientSecret: process.env.NAVER_CLIENT_SECRET || seriesConfig.naverClientSecret || '',
   };
+  const seriesHubConfigured = require('../src/utils/naver-api-hub').isApiHubConfigured();
   const seriesBudget = Number(arg('seriesBudget')) || 60;
   const RECHECK_MS = 30 * 24 * 3600 * 1000;
   const hasSeries = (row) => Array.isArray(row.demandSeries) && row.demandSeries.length > 0;
@@ -643,7 +655,7 @@ async function main() {
     return Number.isFinite(at) && Date.now() - at < RECHECK_MS;
   };
   const lacking = merged.rows.filter((row) => !hasSeries(row) && !recentlyChecked(row));
-  if (openApi.clientId && openApi.clientSecret && lacking.length > 0) {
+  if (((openApi.clientId && openApi.clientSecret) || seriesHubConfigured) && lacking.length > 0) {
     let filled = 0;
     let failed = 0;
     const filledBy = new Map();
@@ -680,7 +692,7 @@ async function main() {
       + `${lacking.length > seriesBudget ? ` · 예산 ${seriesBudget} 초과 ${lacking.length - seriesBudget}행은 다음 회차` : ''}`,
     );
   } else if (lacking.length > 0) {
-    console.log(`  시계열 보강  건너뜀 — NAVER_CLIENT_ID/SECRET 없음 (${lacking.length}행 미측정)`);
+    console.log(`  시계열 보강  건너뜀 — 오픈 API 키(옛 키 또는 API HUB) 없음 (${lacking.length}행 미측정)`);
   }
 
   merged.rows = orderForPublish(merged.rows, { now: new Date(), tierRank });
