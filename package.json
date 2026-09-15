@@ -146,7 +146,14 @@
       "dist/**/*",
       "ui/**/*",
       "assets/**/*",
-      "package.json"
+      "package.json",
+      "scripts/app-script-shim.js",
+      "scripts/preemption-candidates.js",
+      "scripts/candidate-shards.js",
+      "scripts/load-project-env.js",
+      "scripts/trim-candidates.js",
+      "scripts/preemption-board-batch.js",
+      "scripts/publish-preemption-board.js"
     ],
     "extraResources": [
       {

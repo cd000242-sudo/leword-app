@@ -401,6 +401,12 @@ const VITEST_SUITES = [
     'src/utils/__tests__/golden-site-wiring.test.ts',
     // 지난 연도가 붙은 말은 빼지 않고 배지만(2026-09-15) — 판정과 세 화면 배선
     'src/utils/__tests__/past-year-badge.test.ts',
+    // 황금키워드 이 PC 판(2026-09-15, 2단계) — 사이트 스크립트를 앱에서 그대로: 계획표 · 연결 파일 · 실행기 · 판 합치기 · 배선
+    'src/utils/__tests__/golden-local-plan.test.ts',
+    'src/utils/__tests__/app-script-shim.test.ts',
+    'src/utils/__tests__/golden-local-runner.test.ts',
+    'src/utils/__tests__/golden-local-merge.test.ts',
+    'src/utils/__tests__/golden-local-wiring.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

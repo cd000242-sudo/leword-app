@@ -20,6 +20,7 @@ import { setupBlogClassHandlers } from './handlers/blog-class';
 import { setupGoldenWritingKitHandlers } from './handlers/golden-writing-kit';
 import { setupTopicBriefsLocalHandlers, startTopicBriefsScheduler, stopTopicBriefsScheduler } from './handlers/topic-briefs-local';
 import { setupPreemptionBoardHandlers } from './handlers/preemption-board';
+import { setupGoldenLocalHandlers, startGoldenLocalScheduler, stopGoldenLocalScheduler } from './handlers/golden-local';
 import { setupDailyPickHandlers } from './handlers/daily-pick';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
 import { setupTrendImportHandlers } from './handlers/trend-import';
@@ -98,6 +99,7 @@ export function stopMyLaneSchedulers(): void {
   stopSeatWatchScheduler();
   stopRealtimeNicheScheduler();
   stopTopicBriefsScheduler();
+  stopGoldenLocalScheduler();
   /*
    * 회차 감시견도 여기에 둔다. 이건 **빠진 회차를 깨우라고 만든 안전장치**인데
    * 성능 우선 모드에 같이 꺼져 있었다 — 안전장치를 안전장치 스위치로 끈 꼴이다.
@@ -192,6 +194,9 @@ export function setupKeywordMasterHandlers() {
   startTopicBriefsScheduler();
   // 선점 보드(앱 전용, 2026-09-10) — 발행본을 읽고 자리는 이 PC 로 지금 다시 잰다.
   setupPreemptionBoardHandlers();
+  // 황금키워드 이 PC 판(앱 전용, 2026-09-15) — 사이트 발굴 스크립트를 그대로 이 PC 에서. 고른 주제는 바로, 전체 주제는 새벽 차례로.
+  setupGoldenLocalHandlers();
+  startGoldenLocalScheduler();
   // 오늘 쓸 한 편(앱 전용, 2026-09-11) — 여섯 판 600여 후보를 봉투·자리로 걸러 셋으로.
   setupDailyPickHandlers();
   // 실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 같은 판정을 이 PC 브라우저로 상한 없이.

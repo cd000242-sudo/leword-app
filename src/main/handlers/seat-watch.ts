@@ -65,6 +65,11 @@ function notify(title: string, body: string): void {
 
 let running = false;
 
+/** 황금키워드 새벽 찾기(golden-local)가 기다리는 신호 — 같은 새벽에 크로미엄을 둘 띄우지 않는다. */
+export function isSeatWatchRunning(): boolean {
+  return running;
+}
+
 /** 감시 목록 전체를 한 번 잰다. 변화가 있으면 알린다. 수동(지금 재기)·자동(새벽) 공용. */
 export async function runSeatWatch(reason: 'manual' | 'scheduled', onProgress?: (p: unknown) => void): Promise<{
   success: boolean; measured: number; blocked: number; changes: { keyword: string; message: string }[]; error?: string;

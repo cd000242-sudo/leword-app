@@ -1378,6 +1378,22 @@
           <select id="keywordSource" style="display:none;"><option value="naver" selected>네이버</option></select>
         </div>
 
+        <!--
+          이 PC 판(2026-09-15, 사장님 "상위호환으로 발굴해줘야지" — 결정 "사이트 스크립트를 그대로 앱에서").
+          고른 카테고리의 블로그 주제(최대 3개)를 사이트와 같은 네 단계로 이 PC 에서 찾는다. 전체 주제는 새벽 5시 이후 3주제씩 차례로.
+          걸릴 시간은 적지 않는다(추정치 금지) — 지금 단계와 지난 시간만 적는다.
+        -->
+        <div id="goldenLocalPanel" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px 12px; border-radius:10px; background:#0f172a; border:1px solid rgba(45,212,191,0.2); margin-bottom:12px; font-size:12px; color:#94a3b8;">
+          <span style="padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; background:rgba(45,212,191,0.14); color:#5eead4; white-space:nowrap;">이 PC 판</span>
+          <span id="goldenLocalInfo" style="flex:1 1 240px; min-width:0; line-height:1.5;">카테고리를 고르면 사이트와 같은 방법으로 이 PC 에서 더 찾습니다.</span>
+          <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; white-space:nowrap;" title="앱이 켜져 있으면 새벽 5시 이후 하루 한 번, 네이버 블로그 32주제를 3주제씩 차례로 찾습니다">
+            <input type="checkbox" id="goldenLocalAuto" onchange="goldenLocalToggleAuto(this.checked)"> 새벽 자동
+          </label>
+          <button type="button" id="goldenLocalRunBtn" onclick="goldenLocalRun()" style="padding:7px 13px; border:0; border-radius:7px; font-size:12.5px; font-weight:600; background:#0d9488; color:#fff; cursor:pointer; white-space:nowrap;">이 PC 에서 찾기</button>
+          <button type="button" id="goldenLocalStopBtn" onclick="goldenLocalAbort()" style="display:none; padding:7px 13px; border:0; border-radius:7px; font-size:12.5px; font-weight:600; background:#ef4444; color:#fff; cursor:pointer; white-space:nowrap;">멈추기</button>
+          <div id="goldenLocalProgress" style="display:none; flex-basis:100%; font-size:11.5px; color:#cbd5e1; line-height:1.5;"></div>
+        </div>
+
         <!-- 진행 상태 -->
           <div id="discoveryStatus"
             style="display: none; margin: 16px 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; font-size: 14px; color: #ffffff;">
@@ -4347,6 +4363,9 @@
 
         window.loadGoldenSiteRows = async function loadGoldenSiteRows() {
           const category = (document.getElementById('keywordCategory') || {}).value || '';
+          // 이 PC 판 패널도 같은 카테고리로 다시 그린다(2026-09-15).
+          if (window.__goldenLocal) window.__goldenLocal.error = '';
+          if (typeof window.goldenLocalRefresh === 'function') void window.goldenLocalRefresh();
           try {
             const res = await window.electronAPI.invoke('golden-site-rows', { category });
             if (!res || !res.success) return;
@@ -4355,6 +4374,8 @@
               publishedAt: res.publishedAt || null,
               category,
               total: Number(res.total) || 0,
+              localPublishedAt: res.localPublishedAt || null,
+              localTotal: Number(res.localTotal) || 0,
             };
           } catch (error) {
             console.warn('[GOLDEN] 사이트 판을 못 받았습니다:', (error && error.message) || error);
@@ -4387,14 +4408,22 @@
         window.goldenTitleSuffix = function goldenTitleSuffix(rows) {
           const list = Array.isArray(rows) ? rows : [];
           const siteCount = list.filter((row) => row && row.source === 'site-board').length;
-          if (siteCount === 0) return '';
+          const pcBoardCount = list.filter((row) => row && row.source === 'app-board').length;
+          if (siteCount + pcBoardCount === 0) return '';
           const published = window.__goldenSite && window.__goldenSite.publishedAt ? window.goldenPublishedLabel(window.__goldenSite.publishedAt) : '';
           return ' <span style="font-size:12.5px; font-weight:500; color:#94a3b8;">· 사이트 판 ' + siteCount
-            + (published ? '(' + published + ' 발행)' : '') + ' · 이 PC 발굴 ' + (list.length - siteCount) + '</span>';
+            + (published ? '(' + published + ' 발행)' : '')
+            + (pcBoardCount > 0 ? ' · 이 PC 판 ' + pcBoardCount : '')
+            + ' · 이 PC 발굴 ' + (list.length - siteCount - pcBoardCount) + '</span>';
         };
 
         window.goldenSiteBadge = function goldenSiteBadge(item) {
           const tier = String(item.siteTierLabel || '').replace(/"/g, '&quot;');
+          if (item.source === 'app-board') {
+            // 이 PC 판(2026-09-15) — 사이트와 같은 스크립트로 이 PC 에서 찾고 잰 줄
+            return '<span title="이 PC 판에 실린 줄 — 사이트와 같은 방법으로 이 PC 에서 찾고 잰 것' + (tier ? ' — ' + tier : '') + '" '
+              + 'style="display:inline-block; padding:2px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(45,212,191,0.14); color:#5eead4;">이 PC</span>';
+          }
           return '<span title="사이트 황금 판에 실린 줄' + (tier ? ' — ' + tier : '') + '" '
             + 'style="display:inline-block; padding:2px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(251,191,36,0.14); color:#fbbf24;">사이트</span>';
         };
@@ -4411,9 +4440,176 @@
           ].filter(Boolean).join(' · ');
           const measuredMs = item.siteMeasuredAt ? Date.parse(item.siteMeasuredAt) : NaN;
           const days = isFinite(measuredMs) ? Math.max(0, Math.floor((Date.now() - measuredMs) / 86400000)) : null;
-          return '<span style="font-size:11px; color:#94a3b8;">사이트가 잼</span>'
+          return '<span style="font-size:11px; color:#94a3b8;">' + (item.source === 'app-board' ? '이 PC 가 잼' : '사이트가 잼') + '</span>'
             + (facts ? '<div style="font-size:11px; color:#64748b; margin-top:3px;">' + facts + '</div>' : '')
             + (days !== null ? '<div style="font-size:10px; color:' + (days >= 3 ? '#f59e0b' : '#64748b') + '; margin-top:2px;">' + (days === 0 ? '오늘' : days + '일 전') + '</div>' : '');
+        };
+
+        /*
+         * 이 PC 판 패널(2026-09-15, 상위호환 2단계) — 메인 golden-local 이 사이트 발굴 스크립트 네 단계를 자식 프로세스로 돌린다.
+         * 화면은 상태를 읽어 그리기만 한다. 걸릴 시간은 적지 않는다(추정치 금지) — 지금 단계 · 지난 시간 · 마지막 줄만.
+         * 끝나면 사이트 판 행을 다시 받는다 — 메인이 이 PC 판을 합쳐 준다(golden-site-rows).
+         */
+        window.goldenIsBoardRow = function goldenIsBoardRow(item) {
+          return Boolean(item) && (item.source === 'site-board' || item.source === 'app-board');
+        };
+
+        window.__goldenLocal = { status: null, topics: [], running: null, stage: '', line: '', error: '', off: null, ticker: null };
+
+        function goldenLocalEsc(value) {
+          return String(value == null ? '' : value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
+
+        function goldenLocalElapsed(startedAt) {
+          const ms = Date.now() - Date.parse(startedAt || '');
+          if (!isFinite(ms) || ms < 0) return '';
+          const minutes = Math.floor(ms / 60000);
+          const seconds = Math.floor((ms % 60000) / 1000);
+          return minutes > 0 ? minutes + '분 ' + seconds + '초' : seconds + '초';
+        }
+
+        function goldenLocalWhen(iso) {
+          const at = new Date(iso || '');
+          if (!isFinite(at.getTime())) return '';
+          return (at.getMonth() + 1) + '/' + at.getDate() + ' ' + String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0');
+        }
+
+        window.goldenLocalRender = function goldenLocalRender() {
+          const info = document.getElementById('goldenLocalInfo');
+          const progress = document.getElementById('goldenLocalProgress');
+          const runBtn = document.getElementById('goldenLocalRunBtn');
+          const stopBtn = document.getElementById('goldenLocalStopBtn');
+          const auto = document.getElementById('goldenLocalAuto');
+          if (!info || !progress || !runBtn || !stopBtn) return;
+          const state = window.__goldenLocal;
+          const status = state.status || {};
+          const running = state.running;
+          if (auto) auto.checked = status.auto !== false;
+          runBtn.style.display = running ? 'none' : '';
+          stopBtn.style.display = running ? '' : 'none';
+          if (running) {
+            info.innerHTML = '<b style="color:#e2e8f0;">' + goldenLocalEsc((running.topics || []).join(' · ')) + '</b> 찾는 중'
+              + (running.reason === 'scheduled' ? ' <span style="color:#64748b;">(새벽 차례)</span>' : '');
+            const elapsed = goldenLocalElapsed(running.startedAt);
+            progress.style.display = '';
+            progress.textContent = [state.stage || running.stage || '준비', elapsed ? '지난 시간 ' + elapsed : '', state.line].filter(Boolean).join(' · ');
+            return;
+          }
+          const category = (document.getElementById('keywordCategory') || {}).value || '';
+          const topics = Array.isArray(state.topics) ? state.topics : [];
+          const max = Number(status.topicMax) || 3;
+          const parts = [];
+          if (state.error) {
+            parts.push('<span style="color:#f87171;">' + goldenLocalEsc(state.error) + '</span>');
+          } else if (!category) {
+            parts.push('카테고리를 고르면 그 주제를 사이트와 같은 방법으로 이 PC 에서 더 찾습니다.');
+          } else if (topics.length === 0) {
+            parts.push("'" + goldenLocalEsc(category) + "' 와 맞는 네이버 블로그 주제가 없습니다.");
+          } else {
+            parts.push('찾을 주제: <b style="color:#e2e8f0;">' + goldenLocalEsc(topics.slice(0, max).join(' · ')) + '</b>'
+              + (topics.length > max ? ' <span style="color:#64748b;">· 나머지 ' + (topics.length - max) + '개는 새벽 차례</span>' : ''));
+          }
+          if (status.board && status.board.rows > 0) parts.push('이 PC 판 ' + status.board.rows + '행');
+          const last = status.lastRun;
+          if (last && last.at) {
+            const outcome = last.aborted ? '멈춤' : (last.message || (last.ok ? '끝' : '실패'));
+            parts.push('<span style="color:#64748b;">마지막 ' + goldenLocalWhen(last.at) + ' · ' + goldenLocalEsc((last.topics || []).join(' · ')) + ' — ' + goldenLocalEsc(outcome) + '</span>');
+          }
+          info.innerHTML = parts.join(' · ');
+          runBtn.disabled = !category || topics.length === 0;
+          runBtn.style.opacity = runBtn.disabled ? '0.5' : '1';
+          progress.style.display = 'none';
+          progress.textContent = '';
+        };
+
+        function goldenLocalTicker(on) {
+          const state = window.__goldenLocal;
+          if (on && !state.ticker) state.ticker = setInterval(window.goldenLocalRender, 1000);
+          if (!on && state.ticker) { clearInterval(state.ticker); state.ticker = null; }
+        }
+
+        function goldenLocalSubscribe() {
+          const state = window.__goldenLocal;
+          if (state.off || !window.electronAPI || typeof window.electronAPI.on !== 'function') return;
+          try {
+            state.off = window.electronAPI.on('golden-local-progress', (p) => {
+              if (!p || !p.type) return;
+              if (p.type === 'run-start') {
+                state.running = { topics: p.topics || [], reason: p.reason, startedAt: p.at, stage: '' };
+                state.stage = '준비';
+                state.line = '';
+                state.error = '';
+                goldenLocalTicker(true);
+              } else if (p.type === 'seed-db') {
+                state.line = p.ok ? '씨앗 창고 ' + Number(p.seeds || 0).toLocaleString('ko-KR') + '개' : (p.message || '씨앗 창고 없이 찾습니다');
+              } else if (p.type === 'stage-start') {
+                state.stage = (Number(p.index) + 1) + '/' + p.count + ' ' + p.label;
+                state.line = '';
+              } else if (p.type === 'line' && p.line) {
+                state.line = (p.line.kind === 'warn' ? '주의: ' : '') + p.line.text;
+              } else if (p.type === 'run-end') {
+                state.running = null;
+                state.stage = '';
+                state.line = '';
+                goldenLocalTicker(false);
+                // 이 PC 판이 바뀌었을 수 있다 — 사이트 판 행을 다시 받으면 패널도 같이 다시 읽는다.
+                if (typeof window.loadGoldenSiteRows === 'function') void window.loadGoldenSiteRows();
+                else void window.goldenLocalRefresh();
+                return;
+              }
+              window.goldenLocalRender();
+            });
+          } catch { /* 구독이 막혀도 상태는 다시 읽으면 보인다 */ }
+        }
+
+        window.goldenLocalRefresh = async function goldenLocalRefresh() {
+          if (!document.getElementById('goldenLocalPanel') || !window.electronAPI) return;
+          goldenLocalSubscribe();
+          const state = window.__goldenLocal;
+          const category = (document.getElementById('keywordCategory') || {}).value || '';
+          try {
+            const [status, topics] = await Promise.all([
+              window.electronAPI.invoke('golden-local-status'),
+              window.electronAPI.invoke('golden-local-topics', { category }),
+            ]);
+            if (status && status.success) {
+              state.status = status;
+              state.running = status.running || null;
+            }
+            state.topics = topics && Array.isArray(topics.topics) ? topics.topics : [];
+          } catch (error) {
+            console.warn('[GOLDEN-LOCAL] 상태를 못 읽었습니다:', (error && error.message) || error);
+          }
+          goldenLocalTicker(Boolean(state.running));
+          window.goldenLocalRender();
+        };
+
+        window.goldenLocalRun = async function goldenLocalRun() {
+          const state = window.__goldenLocal;
+          const category = (document.getElementById('keywordCategory') || {}).value || '';
+          const runBtn = document.getElementById('goldenLocalRunBtn');
+          if (runBtn) runBtn.disabled = true;
+          goldenLocalSubscribe();
+          try {
+            const res = await window.electronAPI.invoke('golden-local-run', { category });
+            state.error = res && res.success ? '' : ((res && res.error) || '시작하지 못했습니다');
+          } catch (error) {
+            state.error = '시작하지 못했습니다 — ' + ((error && error.message) || error);
+          }
+          await window.goldenLocalRefresh();
+        };
+
+        window.goldenLocalAbort = async function goldenLocalAbort() {
+          const stopBtn = document.getElementById('goldenLocalStopBtn');
+          if (stopBtn) stopBtn.disabled = true;
+          try { await window.electronAPI.invoke('golden-local-abort'); } catch { /* 이미 끝났을 수 있다 */ }
+          if (stopBtn) stopBtn.disabled = false;
+          await window.goldenLocalRefresh();
+        };
+
+        window.goldenLocalToggleAuto = async function goldenLocalToggleAuto(on) {
+          try { await window.electronAPI.invoke('golden-local-auto', { on: !!on }); } catch { /* 다음에 다시 읽는다 */ }
+          await window.goldenLocalRefresh();
         };
 
         function displayGoldenResults(results) {
@@ -4550,9 +4746,9 @@
             const rangeVerdict = typeof window.blogRangeOf === 'function' ? window.blogRangeOf(hasTotalVol ? totalVol : null) : null;
 
             html += `
-          <tr class="golden-row" data-golden-idx="${idx}" data-grade="${gradeValue}" data-source="${item.source === 'site-board' ? 'site' : 'app'}"${item.source === 'site-board' && item.reseat && item.reseat.verdict ? ' data-seat="' + item.reseat.verdict + '"' : ''} data-blue="${item.isBlueOcean ? '1' : '0'}" data-range="${rangeVerdict || ''}" style="border-bottom: 1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
+          <tr class="golden-row" data-golden-idx="${idx}" data-grade="${gradeValue}" data-source="${item.source === 'site-board' ? 'site' : item.source === 'app-board' ? 'pc-board' : 'app'}"${window.goldenIsBoardRow(item) && item.reseat && item.reseat.verdict ? ' data-seat="' + item.reseat.verdict + '"' : ''} data-blue="${item.isBlueOcean ? '1' : '0'}" data-range="${rangeVerdict || ''}" style="border-bottom: 1px solid rgba(255,255,255,0.06);" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='transparent'">
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
-            <td style="padding: 12px 10px; text-align: center;">${item.source === 'site-board' ? window.goldenSiteBadge(item) : gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
+            <td style="padding: 12px 10px; text-align: center;">${window.goldenIsBoardRow(item) ? window.goldenSiteBadge(item) : gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
               <div style="font-weight: 600; color: #e2e8f0; font-size:14px;">${item.keyword}${typeof window.blogRangeBadge === 'function' ? window.blogRangeBadge(hasTotalVol ? totalVol : null) : ''}${supplementBadge}${typeof window.lewordPastYearBadge === 'function' ? window.lewordPastYearBadge(item.keyword) : ''}</div>
               <div style="font-size: 10px; color: #64748b;">${item.intentBadge || ''} ${item.intent || 'Info'}</div>
@@ -4561,7 +4757,7 @@
             <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #e2e8f0;">${totalVolDisplay}</td>
             <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #64748b;">${docCount.toLocaleString()}</td>
             <td style="padding: 12px 10px; text-align: right; color: ${goldenRatioColor}; font-weight: 800;">${goldenRatioDisplay}</td>
-            <td class="seat-cell"${item.source === 'site-board' && item.reseat && item.reseat.verdict ? ' data-seat-done="1"' : ''} data-seat-kw="${String(item.keyword || '').replace(/"/g, '&quot;')}" style="padding: 12px 10px; text-align: center; font-size: 12px; color: #94a3b8;">${item.source === 'site-board' ? window.goldenSiteSeatHtml(item) : '—'}</td>
+            <td class="seat-cell"${window.goldenIsBoardRow(item) && item.reseat && item.reseat.verdict ? ' data-seat-done="1"' : ''} data-seat-kw="${String(item.keyword || '').replace(/"/g, '&quot;')}" style="padding: 12px 10px; text-align: center; font-size: 12px; color: #94a3b8;">${window.goldenIsBoardRow(item) ? window.goldenSiteSeatHtml(item) : '—'}</td>
             <td style="padding: 12px 10px; text-align: left; max-width: 200px;">
               <div style="font-size: 11px; color: #64748b; line-height: 1.4; word-break: keep-all;">${verdictPrefix}${goldenReason}</div>
             </td>
@@ -4607,6 +4803,7 @@
           <span><span style="background: #22c55e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 800;">S</span> ${gradeCounts.S}개</span>
           <span>🌊 블루오션: ${blueOceanCount}개</span>
           ${results.some((r) => r && r.source === 'site-board') ? `<span>사이트 판 ${results.filter((r) => r && r.source === 'site-board').length}개</span>` : ''}
+          ${results.some((r) => r && r.source === 'app-board') ? `<span>이 PC 판 ${results.filter((r) => r && r.source === 'app-board').length}개</span>` : ''}
           ${supplementCount > 0 ? `<span><span style="background:rgba(99,102,241,0.12); color:#4f46e5; border:1px solid rgba(99,102,241,0.28); padding:2px 6px; border-radius:4px; font-size:10px; font-weight:800;">보충</span> ${supplementCount}개</span>` : ''}
           ${routedShoppingRows.length > 0 ? `<span title="${routedShoppingRows.map((r) => r.keyword).join(', ').replace(/"/g, '&quot;')}">🛒 쇼핑판 키워드 ${routedShoppingRows.length}건은 쇼핑 커넥트 소관으로 제외</span>` : ''}
         </div>

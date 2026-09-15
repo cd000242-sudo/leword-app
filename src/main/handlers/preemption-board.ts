@@ -17,6 +17,7 @@ import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { measureKeywords } from './seat-measure';
+import { readGoldenLocalBoard } from './golden-local';
 
 export const PREEMPTION_PROGRESS_CHANNEL = 'preemption-board-progress';
 
@@ -137,15 +138,27 @@ export function setupPreemptionBoardHandlers(): void {
         const fetched = await fetchBoard();
         goldenBoardMemo = fetched.board ? { board: fetched.board, fromCache: fetched.fromCache, at: now } : null;
       }
-      if (!goldenBoardMemo) return { success: false, error: '사이트 황금 판을 받지 못했습니다 — 인터넷을 확인해 주세요.' };
-      const { buildSiteGoldenRows, SITE_GATE } = await import('../../utils/golden-site-merge');
-      const board = goldenBoardMemo.board;
+      /*
+       * 이 PC 판(2026-09-15, 2단계) — 앱이 사이트와 같은 스크립트로 이 PC 에서 찾아 쌓은 판(golden-local).
+       * 같은 말이 양쪽에 있으면 더 최근에 잰 쪽을 남긴다. 사이트 판을 못 받아도 이 PC 판은 보인다.
+       */
+      const localBoard = readGoldenLocalBoard();
+      if (!goldenBoardMemo && !localBoard) return { success: false, error: '사이트 황금 판을 받지 못했습니다 — 인터넷을 확인해 주세요.' };
+      const { buildSiteGoldenRows, mergeGoldenBoardRows, SITE_GATE } = await import('../../utils/golden-site-merge');
+      const category = payload?.category || '';
+      const reseats = readReseats();
+      const board = goldenBoardMemo ? goldenBoardMemo.board : null;
+      const siteRows = buildSiteGoldenRows(board, category, reseats);
+      const localRows = buildSiteGoldenRows(localBoard, category, reseats, 'app-board');
       return {
         success: true,
-        publishedAt: board.publishedAt || null,
-        fromCache: goldenBoardMemo.fromCache,
-        total: Array.isArray(board.rows) ? board.rows.length : 0,
-        rows: buildSiteGoldenRows(board, payload?.category || '', readReseats()),
+        publishedAt: board ? board.publishedAt || null : null,
+        fromCache: goldenBoardMemo ? goldenBoardMemo.fromCache : true,
+        total: board && Array.isArray(board.rows) ? board.rows.length : 0,
+        siteError: board ? null : '사이트 황금 판을 받지 못해 이 PC 판만 보입니다.',
+        localPublishedAt: localBoard ? localBoard.publishedAt || null : null,
+        localTotal: localBoard ? localBoard.rows.length : 0,
+        rows: mergeGoldenBoardRows(siteRows, localRows),
         gate: SITE_GATE,
       };
     });

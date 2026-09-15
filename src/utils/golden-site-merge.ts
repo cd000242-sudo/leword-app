@@ -136,10 +136,18 @@ export interface SiteReseat {
   measuredAt: string;
 }
 
+/** 행이 온 판 — 사이트 판(회차가 잰 것) · 이 PC 판(앱이 같은 스크립트로 이 PC 에서 잰 것, 2026-09-15). */
+export type GoldenBoardSource = 'site-board' | 'app-board';
+
+const BOARD_NAME: Readonly<Record<GoldenBoardSource, string>> = Object.freeze({
+  'site-board': '사이트 판',
+  'app-board': '이 PC 판',
+});
+
 /** 발굴 표가 그리는 사이트 행. 발굴 엔진 행과 같은 칸 이름을 쓰고, 사이트가 잰 값은 site* 칸에 따로 둔다. */
 export interface SiteGoldenRow {
   keyword: string;
-  source: 'site-board';
+  source: GoldenBoardSource;
   topic: string;
   searchVolume: number | null;
   documentCount: number | null;
@@ -162,7 +170,11 @@ export interface SiteGoldenRow {
 }
 
 /** 사이트 행 하나를 발굴 표 모양으로. 검색어가 비면 null. 못 잰 칸은 null 로 둔다(0 으로 채우지 않는다). */
-export function siteRowToGoldenRow(row: any, reseat: SiteReseat | null = null): SiteGoldenRow | null {
+export function siteRowToGoldenRow(
+  row: any,
+  reseat: SiteReseat | null = null,
+  source: GoldenBoardSource = 'site-board',
+): SiteGoldenRow | null {
   const keyword = String((row && row.keyword) || '').trim();
   if (!keyword) return null;
   const volume = finite(row.searchVolume) ? row.searchVolume : null;
@@ -175,7 +187,7 @@ export function siteRowToGoldenRow(row: any, reseat: SiteReseat | null = null): 
   const timing = row.timingGroup ? String(row.timingGroup) : null;
   return {
     keyword,
-    source: 'site-board',
+    source,
     topic: String(row.topic || ''),
     searchVolume: volume,
     documentCount: documents,
@@ -193,7 +205,7 @@ export function siteRowToGoldenRow(row: any, reseat: SiteReseat | null = null): 
     adsenseFit: typeof row.adsenseFit === 'boolean' ? row.adsenseFit : null,
     adsenseReason: String(row.adsenseReason || ''),
     intent: String(row.intentLabel || ''),
-    goldenReason: ['사이트 판', tierLabel, timing].filter(Boolean).join(' · '),
+    goldenReason: [BOARD_NAME[source], tierLabel, timing].filter(Boolean).join(' · '),
     platformLane: 'content',
   };
 }
@@ -208,6 +220,7 @@ export function buildSiteGoldenRows(
   board: SiteBoardLike | null,
   category: string | null | undefined,
   reseats: Readonly<Record<string, SiteReseat>> = {},
+  source: GoldenBoardSource = 'site-board',
 ): SiteGoldenRow[] {
   const rows = board && Array.isArray(board.rows) ? board.rows : [];
   const out: SiteGoldenRow[] = [];
@@ -218,10 +231,41 @@ export function buildSiteGoldenRows(
     if (!key || seen.has(key)) continue;
     // 다시 잰 자리의 키는 선점 보드 핸들러와 같게 공백만 뺀다.
     const reseat = reseats[String(row.keyword).replace(/\s+/g, '')] || null;
-    const converted = siteRowToGoldenRow(row, reseat);
+    const converted = siteRowToGoldenRow(row, reseat, source);
     if (!converted) continue;
     seen.add(key);
     out.push(converted);
   }
   return out;
+}
+
+function measuredMs(row: SiteGoldenRow): number {
+  const at = row.siteMeasuredAt ? Date.parse(row.siteMeasuredAt) : Number.NaN;
+  return Number.isFinite(at) ? at : Number.NEGATIVE_INFINITY;
+}
+
+/**
+ * 사이트 판과 이 PC 판을 합친다(2026-09-15, 상위호환 2단계).
+ * 같은 말(공백 차이 포함)이 양쪽에 있으면 더 최근에 잰 쪽을 남긴다. 잰 시각이 같거나 둘 다 모르면 사이트 판을 남긴다.
+ * 자리는 사이트 판 순서 그대로이고, 이 PC 판에만 있는 말은 뒤에 잇는다.
+ */
+export function mergeGoldenBoardRows(
+  siteRows: readonly SiteGoldenRow[],
+  localRows: readonly SiteGoldenRow[],
+): SiteGoldenRow[] {
+  const localByKey = new Map<string, SiteGoldenRow>();
+  for (const row of localRows) {
+    const key = compactKey(row.keyword);
+    if (key && !localByKey.has(key)) localByKey.set(key, row);
+  }
+  const taken = new Set<string>();
+  const merged = siteRows.map((row) => {
+    const key = compactKey(row.keyword);
+    const local = localByKey.get(key);
+    if (!local) return row;
+    taken.add(key);
+    return measuredMs(local) > measuredMs(row) ? local : row;
+  });
+  const localOnly = [...localByKey.entries()].filter(([key]) => !taken.has(key)).map(([, row]) => row);
+  return [...merged, ...localOnly];
 }
