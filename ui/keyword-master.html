@@ -4492,6 +4492,7 @@
               + (running.reason === 'scheduled' ? ' <span style="color:#64748b;">(새벽 차례)</span>' : '');
             const elapsed = goldenLocalElapsed(running.startedAt);
             progress.style.display = '';
+            progress.style.color = '#cbd5e1';
             progress.textContent = [state.stage || running.stage || '준비', elapsed ? '지난 시간 ' + elapsed : '', state.line].filter(Boolean).join(' · ');
             return;
           }
@@ -4512,14 +4513,19 @@
           if (status.board && status.board.rows > 0) parts.push('이 PC 판 ' + status.board.rows + '행');
           const last = status.lastRun;
           if (last && last.at) {
-            const outcome = last.aborted ? '멈춤' : (last.message || (last.ok ? '끝' : '실패'));
+            // 고른 주제에 실린 행을 따로 적는다 — 딸린 말은 다른 주제로 실려 전체 행과 다르다(연기 시험: 인테리어·DIY 0행 · 전체 3행).
+            const picked = typeof last.pickedRows === 'number' ? '고른 주제 ' + last.pickedRows + '행' : '끝';
+            const outcome = last.aborted ? '멈춤' : (last.message || (last.ok ? picked : '실패'));
             parts.push('<span style="color:#64748b;">마지막 ' + goldenLocalWhen(last.at) + ' · ' + goldenLocalEsc((last.topics || []).join(' · ')) + ' — ' + goldenLocalEsc(outcome) + '</span>');
           }
           info.innerHTML = parts.join(' · ');
           runBtn.disabled = !category || topics.length === 0;
           runBtn.style.opacity = runBtn.disabled ? '0.5' : '1';
-          progress.style.display = 'none';
-          progress.textContent = '';
+          // 마지막 회차가 왜 이만큼인지 — 스크립트가 센 숫자 그대로(후보 · 자리 재기 · 발행 규칙).
+          const summaries = last && Array.isArray(last.summaries) ? last.summaries.filter(Boolean) : [];
+          progress.style.display = summaries.length > 0 && !state.error ? '' : 'none';
+          progress.style.color = '#64748b';
+          progress.textContent = summaries.join(' / ');
         };
 
         function goldenLocalTicker(on) {

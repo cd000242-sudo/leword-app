@@ -60,7 +60,15 @@ interface LastRun {
   ok: boolean;
   aborted: boolean;
   message: string;
+  /** 이 PC 판 전체 행 */
   rows: number | null;
+  /**
+   * 이번에 고른 주제에 실린 행 — 전체와 따로 센다. 딸린 말은 다른 주제로 실린다.
+   * 연기 시험(2026-09-15): 인테리어·DIY 회차가 전체 3행 · 고른 주제 0행이었는데 화면에는 "끝"만 보였다.
+   */
+  pickedRows: number | null;
+  /** 후보 · 자리 재기 · 발행 규칙 요약 줄(스크립트가 센 숫자 그대로) — 왜 이만큼인지 화면이 적는다 */
+  summaries: string[];
   tail: string[];
 }
 
@@ -184,9 +192,13 @@ export function isGoldenLocalRunning(): boolean {
   return running !== null;
 }
 
-function boardRows(): number | null {
+/** 이 PC 판 행 수. 주제를 주면 그 주제에 실린 행만 센다. */
+function boardRows(topics?: readonly string[]): number | null {
   const board = readGoldenLocalBoard();
-  return board ? board.rows.length : null;
+  if (!board) return null;
+  if (!topics) return board.rows.length;
+  const wanted = new Set(topics);
+  return board.rows.filter((row) => wanted.has(String(row && row.topic))).length;
 }
 
 /** 네 단계를 한 번 돈다. 고른 주제(수동)·새벽 차례 공용. 끝나면 state.json 에 남기고 화면에 알린다. */
@@ -194,12 +206,21 @@ async function runGoldenLocal(topics: string[], reason: RunReason): Promise<Last
   const self: Running = { startedAt: new Date().toISOString(), topics, reason, stage: null, abortRequested: false, handle: null };
   running = self;
   broadcast({ type: 'run-start', topics, reason, at: self.startedAt });
+  let summaries: string[] = [];
   const finish = (result: Pick<LastRun, 'ok' | 'aborted' | 'message' | 'tail'>): LastRun => {
-    const lastRun: LastRun = { at: new Date().toISOString(), reason, topics, rows: boardRows(), ...result };
+    const lastRun: LastRun = {
+      at: new Date().toISOString(),
+      reason,
+      topics,
+      rows: boardRows(),
+      pickedRows: boardRows(topics),
+      summaries,
+      ...result,
+    };
     saveState({ lastRun });
     broadcast({ type: 'run-end', ...lastRun });
     const outcome = lastRun.ok ? '끝' : lastRun.aborted ? '멈춤' : '실패';
-    console.log(`[GOLDEN-LOCAL] ${reason} ${topics.join(',')} — ${outcome} · 이 PC 판 ${lastRun.rows ?? 0}행 ${lastRun.message}`);
+    console.log(`[GOLDEN-LOCAL] ${reason} ${topics.join(',')} — ${outcome} · 고른 주제 ${lastRun.pickedRows ?? 0}행 · 이 PC 판 ${lastRun.rows ?? 0}행 ${lastRun.message}`);
     return lastRun;
   };
   try {
@@ -232,6 +253,10 @@ async function runGoldenLocal(topics: string[], reason: RunReason): Promise<Last
       },
       onEvent: (event) => {
         if (event.type === 'stage-start') self.stage = event.label;
+        // 후보 · 자리 재기 · 발행 규칙 요약만 남긴다(다듬기 요약은 숫자가 거의 그대로라 뺀다).
+        if (event.type === 'line' && event.line.kind === 'summary' && event.line.stage !== 'trim') {
+          summaries = [...summaries, event.line.text].slice(-4);
+        }
         broadcast({ ...event });
       },
     });
@@ -270,7 +295,7 @@ function nightlyTick(): void {
       if (lastRun.aborted) return;
       saveState({ nightly: { ...readState().nightly, cursor: pick.nextCursor } });
       const body = lastRun.ok
-        ? `${pick.topics.join(' · ')} — 이 PC 판 ${lastRun.rows ?? 0}행`
+        ? `${pick.topics.join(' · ')} — 이번 주제 ${lastRun.pickedRows ?? 0}행 · 이 PC 판 전체 ${lastRun.rows ?? 0}행`
         : `${pick.topics.join(' · ')} — ${lastRun.message}`;
       notify('황금키워드 새벽 찾기', body);
     });

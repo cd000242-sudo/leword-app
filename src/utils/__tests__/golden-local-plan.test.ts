@@ -208,6 +208,14 @@ describe('진행 줄 읽기', () => {
     expect(readStageLine('batch', '로컬 페치 — 페이지 190장 · 차단 0회 (브라이트데이터 0콜)')).toMatchObject({ kind: 'note' });
     expect(readStageLine('batch', '보드 저장: C:\\user data\\golden-local\\work\\board.json (12행 · 완주)')).toMatchObject({ kind: 'saved', count: 12 });
     expect(readStageLine('publish', '발행: C:\\user data\\golden-local\\published.json')).toMatchObject({ kind: 'saved', text: '이 PC 판에 실었습니다' });
+    // 연기 시험(2026-09-15) 실제 발행 줄 — 자리 통과 14행이 3행으로 준 이유를 화면에 남긴다. 0 인 사유는 뺀다.
+    expect(readStageLine('publish', '  게이트      14 → 3행 (자리없음 0 · 폐지레인 2 · 죽은검색어 6 · 저볼륨<500 0 · 1페이지 자리 없음 5, 겹칠 수 있음)'))
+      .toMatchObject({ kind: 'summary', count: 3, text: '발행 규칙 14행 → 3행 (주제 없는 행 2 · 죽은 검색어 6 · 1페이지 자리 없음 5 · 겹칠 수 있음)' });
+    expect(readStageLine('publish', '게이트      9 → 7행 (자리없음 0 · 폐지레인 0 · 죽은검색어 1 · 저볼륨<500 1 · 1페이지 자리 없음 0, 겹칠 수 있음)')?.text)
+      .toBe('발행 규칙 9행 → 7행 (죽은 검색어 1 · 검색량 500 미만 1 · 겹칠 수 있음)');
+    const publishSource = read('scripts/publish-preemption-board.js');
+    expect(publishSource).toContain('`  게이트      ${beforeGate} → ${merged.rows.length}행`');
+    expect(publishSource).toContain('` (자리없음 ${noSlot} · 폐지레인 ${offLane} · 죽은검색어 ${deadReasons.size} · 저볼륨<${minVolume} ${lowVolume} · 1페이지 자리 없음 ${noSeat}, 겹칠 수 있음)`');
   });
 
   it('모듈 로그 · 비밀값 줄 · 모르는 줄은 넘기지 않는다', () => {

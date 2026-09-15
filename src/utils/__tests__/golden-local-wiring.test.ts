@@ -120,4 +120,13 @@ describe('발굴 화면의 이 PC 판 패널', () => {
     expect(helpers).toContain('이 PC 가 잼');
     expect(helpers).toContain('사이트가 잼');
   });
+
+  it('마지막 회차는 고른 주제 행과 스크립트가 센 요약 숫자를 그대로 적는다 — "끝"만 적지 않는다', () => {
+    // 연기 시험(2026-09-15): 인테리어·DIY 회차가 자리 통과 14행 → 발행 3행 · 고른 주제 0행이었는데 패널에는 "끝"만 보였다.
+    const handler = read('src/main/handlers/golden-local.ts');
+    expect(handler).toContain('pickedRows: boardRows(topics)');
+    expect(handler).toMatch(/event\.line\.kind === 'summary' && event\.line\.stage !== 'trim'/);
+    expect(script).toContain("'고른 주제 ' + last.pickedRows + '행'");
+    expect(script).toContain('last.summaries.filter(Boolean)');
+  });
 });

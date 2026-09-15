@@ -310,7 +310,34 @@ export function readStageLine(stage: GoldenLocalStageKey, raw: string): GoldenLo
   }
   if (/^발행: /.test(line)) return make('saved', '이 PC 판에 실었습니다');
   if (/^선점 적기\s+\d+행/.test(line)) return make('note', line.replace(/\s{2,}/g, ' '));
+  const gate = line.match(/^게이트\s+(\d+) → (\d+)행 \((.*)\)$/);
+  if (gate) return make('summary', `발행 규칙 ${gate[1]}행 → ${gate[2]}행${describeGateDrops(gate[3])}`, { count: Number(gate[2]) });
   return null;
+}
+
+/**
+ * 발행 게이트 사유를 사용자 말로 옮긴다. 0 인 사유는 뺀다. 한 행이 여러 사유에 걸릴 수 있다(스크립트 원문 "겹칠 수 있음").
+ * 연기 시험(2026-09-15): 인테리어·DIY 회차가 자리 통과 14행 → 발행 3행이었는데 화면에는 "끝"만 보였다.
+ */
+const GATE_DROP_LABEL: Readonly<Record<string, string>> = Object.freeze({
+  자리없음: '빈자리 없음',
+  폐지레인: '주제 없는 행',
+  죽은검색어: '죽은 검색어',
+  '1페이지 자리 없음': '1페이지 자리 없음',
+});
+
+function describeGateDrops(detail: string): string {
+  const parts = String(detail || '').replace(/,\s*겹칠 수 있음\s*$/, '').split(' · ');
+  const named = parts.flatMap((part) => {
+    const matched = part.trim().match(/^(.+?)\s+(\d+)$/);
+    if (!matched || Number(matched[2]) === 0) return [];
+    const label = matched[1].startsWith('저볼륨<')
+      ? `검색량 ${matched[1].slice('저볼륨<'.length)} 미만`
+      : (GATE_DROP_LABEL[matched[1]] || matched[1]);
+    return [`${label} ${matched[2]}`];
+  });
+  if (named.length === 0) return '';
+  return ` (${named.join(' · ')}${named.length > 1 ? ' · 겹칠 수 있음' : ''})`;
 }
 
 export interface SeedDbCheck {
