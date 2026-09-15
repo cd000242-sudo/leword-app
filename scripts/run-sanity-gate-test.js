@@ -399,6 +399,8 @@ const VITEST_SUITES = [
     // 황금키워드 발굴 = 사이트 판 + 같은 관문 통과분(2026-09-15) — 관문 숫자·주제 대응·배선
     'src/utils/__tests__/golden-site-merge.test.ts',
     'src/utils/__tests__/golden-site-wiring.test.ts',
+    // 지난 연도가 붙은 말은 빼지 않고 배지만(2026-09-15) — 판정과 세 화면 배선
+    'src/utils/__tests__/past-year-badge.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

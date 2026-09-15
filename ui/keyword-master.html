@@ -4319,6 +4319,26 @@
         };
 
         /*
+         * 지난 연도가 붙은 말 표시(2026-09-15, 사장님 "지금 2026년인데 키워드에 2025가 있네?" → "그대로 두고 표시만").
+         * 실측 검색어라 빼지 않는다. 키워드 안의 네 자리 연도가 올해보다 이르면 배지만 붙인다.
+         * 올해는 한국 시간으로 센다 — 1월 1일 새벽에 작년으로 세지 않게. 황금 발굴·선점 보드·오늘 쓸 한 편이 같은 함수를 쓴다.
+         */
+        window.lewordPastYearOf = function lewordPastYearOf(keyword, nowMs) {
+          const thisYear = new Date((typeof nowMs === 'number' ? nowMs : Date.now()) + 9 * 3600 * 1000).getUTCFullYear();
+          const tokens = String(keyword || '').match(/(^|[^0-9])(20[0-9]{2})(?=[^0-9]|$)/g) || [];
+          const past = tokens.map((token) => Number(token.replace(/[^0-9]/g, ''))).filter((year) => year < thisYear);
+          return past.length > 0 ? Math.max.apply(null, past) : null;
+        };
+
+        window.lewordPastYearBadge = function lewordPastYearBadge(keyword) {
+          const year = window.lewordPastYearOf(keyword);
+          if (!year) return '';
+          const thisYear = new Date(Date.now() + 9 * 3600 * 1000).getUTCFullYear();
+          return '<span title="키워드에 ' + year + '년이 들어 있습니다. 사람들이 실제로 친 말이지만 ' + thisYear + '년 글 제목에 그대로 쓰면 지난 연도 글이 됩니다." '
+            + 'style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(245,158,11,0.14); color:#f59e0b;">지난 연도</span>';
+        };
+
+        /*
          * 사이트 황금 판을 발굴 표에 깐다(2026-09-15, 사장님 "앱에 있는 황금키워드 발굴도 4개밖에 안 나와 … 상위호환으로 발굴해줘야지").
          * 결정: 사이트 판 전부 + 앱이 더 찾은 말은 사이트와 같은 관문 통과분. 관문은 메인이 이미 걸렀다(golden-site-merge) —
          * 여기서는 사이트 줄을 앞에 두고 같은 말을 한 번만 싣는다. 자리 칸은 사이트가 잰 사실을 그대로 적고 판정을 새로 만들지 않는다.
@@ -4534,7 +4554,7 @@
             <td style="padding: 12px 10px; font-weight: 700; color: #94a3b8; font-size:12px;">${idx + 1}</td>
             <td style="padding: 12px 10px; text-align: center;">${item.source === 'site-board' ? window.goldenSiteBadge(item) : gradeValue ? '<span style="font-family: ui-monospace, Consolas, monospace; font-size: 12px; font-weight: 600; letter-spacing: .04em; color: ' + (gradeValue === 'SSS' ? '#fbbf24' : '#cbd5e1') + ';">' + gradeValue + '</span>' : ''}</td>
             <td style="padding: 12px 10px;">
-              <div style="font-weight: 600; color: #e2e8f0; font-size:14px;">${item.keyword}${typeof window.blogRangeBadge === 'function' ? window.blogRangeBadge(hasTotalVol ? totalVol : null) : ''}${supplementBadge}</div>
+              <div style="font-weight: 600; color: #e2e8f0; font-size:14px;">${item.keyword}${typeof window.blogRangeBadge === 'function' ? window.blogRangeBadge(hasTotalVol ? totalVol : null) : ''}${supplementBadge}${typeof window.lewordPastYearBadge === 'function' ? window.lewordPastYearBadge(item.keyword) : ''}</div>
               <div style="font-size: 10px; color: #64748b;">${item.intentBadge || ''} ${item.intent || 'Info'}</div>
             </td>
             <td style="padding: 12px 10px; text-align: center;">${serpBadges}</td>
@@ -9687,6 +9707,7 @@
             + '<div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-bottom:8px;">'
             + '<span style="font-family: ui-monospace, Consolas, monospace; font-size:12px; color:#fbbf24;">' + (idx + 1) + '</span>'
             + '<span style="font-size:18px; font-weight:700; color:#fff; word-break:keep-all;">' + dpEsc(p.keyword) + '</span>'
+            + (typeof window.lewordPastYearBadge === 'function' ? window.lewordPastYearBadge(p.keyword) : '')
             + '<span style="padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; background:' + seatTone.chip + '; color:' + seatTone.chipInk + ';">자리 ' + dpEsc(p.seat || '') + '</span>'
             + (p.myTopic ? '<span style="padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(34,197,94,0.16); color:#22c55e;">내가 이겨본 주제</span>' : '')
             + '<span style="margin-left:auto; font-size:11px; color:#64748b;">' + dpEsc(p.source) + '</span>'
@@ -9977,6 +9998,7 @@
             + ' style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0; cursor:pointer;" onclick="togglePbRow(' + idx + ')">'
             + '<td style="padding:9px 10px;">'
             + '<div style="font-weight:600; word-break:keep-all;">' + pbEsc(row.keyword)
+            + (typeof window.lewordPastYearBadge === 'function' ? window.lewordPastYearBadge(row.keyword) : '')
             + (seat.mine ? '<span style="margin-left:6px; padding:1px 6px; border-radius:999px; font-size:9.5px; font-weight:800; background:rgba(34,197,94,0.16); color:#22c55e;">방금 잼</span>' : '')
             + '</div>'
             + '<div style="font-size:10.5px; color:#64748b; margin-top:2px;">' + pbEsc(row.topic || '') + (row.intentLabel ? ' · ' + pbEsc(row.intentLabel) : '') + '</div>'
