@@ -8057,20 +8057,6 @@
           }
         }
 
-        // 🔒 Anthropic 키 표시/숨김 토글
-        window.toggleAnthropicKeyVisibility = function toggleAnthropicKeyVisibility() {
-          const input = document.getElementById('keywordAnthropicApiKey');
-          const btn = document.getElementById('anthropicKeyToggleBtn');
-          if (!input) return;
-          if (input.type === 'password') {
-            input.type = 'text';
-            if (btn) btn.innerHTML = '🙈';
-          } else {
-            input.type = 'password';
-            if (btn) btn.innerHTML = '👁️';
-          }
-        };
-
         // 🔒 Manus 키 표시/숨김 토글
         window.toggleManusKeyVisibility = function toggleManusKeyVisibility() {
           const input = document.getElementById('keywordManusApiKey');
@@ -8082,40 +8068,6 @@
           } else {
             input.type = 'password';
             if (btn) btn.innerHTML = '👁️';
-          }
-        };
-
-        // 🤖 Anthropic Claude API 키 검증
-        window.verifyAnthropicKey = async function verifyAnthropicKey() {
-          const input = document.getElementById('keywordAnthropicApiKey');
-          const result = document.getElementById('anthropicVerifyResult');
-          const btn = document.getElementById('verifyAnthropicBtn');
-          if (!input || !result || !btn) return;
-          const apiKey = input.value.trim();
-          if (!apiKey) {
-            result.innerHTML = '<span style="color:#fca5a5;">❌ 키를 입력하세요</span>';
-            return;
-          }
-          if (!apiKey.startsWith('sk-ant-')) {
-            result.innerHTML = '<span style="color:#fca5a5;">❌ 키 형식 오류 (sk-ant-... 이어야 함)</span>';
-            return;
-          }
-          btn.disabled = true;
-          const oldText = btn.innerHTML;
-          btn.innerHTML = '⏳ 검증 중...';
-          result.innerHTML = '<span style="color:#fbbf24;">⏳ Claude API 호출 중...</span>';
-          try {
-            const resp = await window.electronAPI.invoke('verify-anthropic-key', { apiKey });
-            if (resp?.ok) {
-              result.innerHTML = '<span style="color:#22c55e;">✅ Claude API 키 검증 성공 — 사용 가능</span>';
-            } else {
-              result.innerHTML = `<span style="color:#fca5a5;">❌ 검증 실패: ${resp?.error || '알 수 없는 오류'}</span>`;
-            }
-          } catch (err) {
-            result.innerHTML = `<span style="color:#fca5a5;">❌ 호출 실패: ${err?.message || err}</span>`;
-          } finally {
-            btn.disabled = false;
-            btn.innerHTML = oldText;
           }
         };
 
@@ -11928,19 +11880,8 @@
         // 🤖 네이버 AI 메이트 키워드 찾기
         // ============================================================
         async function openNaverHomeHunterModal() {
-          // AI 모드 사전 점검 — Claude 모드인데 키 없으면 자동 auto 모드 권유
-          try {
-            const aiMode = await window.electronAPI.invoke('get-ai-mode');
-            if (aiMode?.success && aiMode.mode === 'claude' && !aiMode.hasClaudeKey) {
-              const ok = confirm('🚨 AI 모드가 "Claude"로 설정됐지만 Anthropic API 키가 없습니다.\n\n자동 모드로 전환하시겠습니까?\n(자동 = 키 있으면 Claude, 없으면 룰 기반)');
-              if (ok) {
-                await window.electronAPI.invoke('save-keyword-settings', { aiInferenceMode: 'auto' });
-              } else {
-                alert('⚠️ Claude 모드 + 키 없음 상태에서는 헌팅이 즉시 실패합니다. 환경설정에서 키를 입력하거나 모드를 변경하세요.');
-                return;
-              }
-            }
-          } catch (e) { /* IPC 실패 무시 */ }
+          // AI 는 구독 에이전트로만 돈다(2026-09-15) — 예전의 "Claude 모드인데 Anthropic 키 없음" 확인창은 뺐다.
+          // 에이전트가 모두 막히면 제목은 규칙으로 만들어진다.
 
           lockBodyScroll();
           const existing = document.getElementById('naverHomeHunterModal');

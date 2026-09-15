@@ -50,7 +50,7 @@ export interface BlogDraftTaskState {
     startedAt: number;
     finishedAt?: number;
     elapsedMs?: number;
-    provider?: 'manus' | 'claude' | 'rule';
+    provider?: 'manus' | 'claude' | 'codex' | 'gemini' | 'grok' | 'rule';
     draft?: string;
     error?: string;
 }
@@ -165,18 +165,18 @@ async function runDraft(requestId: string, p: BlogDraftPayload): Promise<void> {
             state.provider = 'manus';
             state.draft = draft;
         } else {
-            // 폴백: Claude (callAI auto 모드)
+            // 폴백: callAI — 앱에서는 구독 에이전트 체인(Claude Code → Codex → 제미나이 → Grok)
             const { text, source } = await callAI(prompt, {
                 maxTokens: 2048,
                 temperature: 0.8,
             });
-            state.provider = source === 'claude' ? 'claude' : 'rule';
+            state.provider = source === 'rule-fallback' ? 'rule' : source;
             state.draft = text;
         }
         state.status = 'completed';
     } catch (e: any) {
         if (e instanceof RuleFallbackRequired) {
-            state.error = `AI 키 미설정 — 환경설정에서 Manus 또는 Anthropic 키 등록 필요`;
+            state.error = 'AI 엔진(구독 에이전트)을 쓸 수 없습니다 — 설정의 AI 엔진 연동에서 연결하거나 Manus 키를 등록해 주세요';
         } else {
             state.error = e?.message || '본문 초안 생성 실패';
         }

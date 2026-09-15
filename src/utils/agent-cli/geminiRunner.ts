@@ -33,8 +33,13 @@ import { agentCommandName } from './commandName';
 import { AgentCliError, type AgentErrorCode } from './types';
 import { buildAgentFailureMessage } from './failureMessage';
 
-/** Let agy report its own timeout before spawnCollect SIGKILLs it. */
-const PRINT_TIMEOUT_MARGIN_MS = 5_000;
+/**
+ * Let agy report its own timeout before spawnCollect kills it. Measured 2026-09-15 (agy 1.2.3): agy exits 5.7–6.9s
+ * AFTER its print timeout. With the old 5s margin the app killed it first, so a used-up quota surfaced as "timeout"
+ * instead of the RESOURCE_EXHAUSTED envelope and the engine was never parked (every call burned the full timeout).
+ * Re-measured with 15s: exit at 36.9s for a 45s call, ERROR envelope received, quota parked for 86h50m.
+ */
+const PRINT_TIMEOUT_MARGIN_MS = 15_000;
 const MIN_PRINT_TIMEOUT_SEC = 30;
 /** agy 가 print-timeout 에 걸려 미완성 답을 돌려줄 때 표준에러에 남기는 문구(2026-09-15 실측). */
 const PARTIAL_TIMEOUT_PATTERN = /print timeout after .*returning partial output/i;

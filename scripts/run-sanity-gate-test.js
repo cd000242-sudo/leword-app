@@ -431,6 +431,9 @@ const VITEST_SUITES = [
     'src/utils/__tests__/lane-insights-fallback.test.ts',
     'src/utils/__tests__/claude-failure-detail.test.ts',
     'src/utils/__tests__/agy-detect-failure.test.ts',
+    // 데스크톱 AI 호출은 구독 에이전트 전용(2026-09-15) — callAI · gemini-chat · 보강 · 화면 배선
+    'src/utils/__tests__/ai-client-desktop-agent-only.test.ts',
+    'src/utils/__tests__/agent-only-wiring.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

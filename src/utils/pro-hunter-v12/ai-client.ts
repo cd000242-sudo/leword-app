@@ -1,6 +1,11 @@
 /**
  * 🤖 AI 통합 클라이언트 — Claude 추론 / 룰 기반 / 자동 전환
  *
+ * 데스크톱 앱(2026-09-15, 사장님 "api 키는 안 쓰지 않니? 에이전트만 사용하도록 할 건데"): API 키를 쓰지 않고
+ * 구독 에이전트 체인(Claude Code → Codex → 제미나이(agy) → Grok)만 쓴다. 에이전트가 전부 실패하면 예전처럼
+ * RuleFallbackRequired 를 던져 호출한 쪽이 규칙 결과로 이어 간다. 아래 Anthropic API 경로는 앱 밖(모바일 서버 ·
+ * 스크립트)에서만 탄다 — 서버의 pro-blueprint 가 draft-generator 로 이 함수를 부른다.
+ *
  * 모드:
  *   - 'claude': 무조건 Claude 호출 (키 없으면 throw)
  *   - 'rule':   AI 호출 안 함, 룰 기반 fallback 강제 (다른 자동화 도구와 호환)
@@ -16,6 +21,8 @@ const CLAUDE_MODEL = 'claude-sonnet-4-6';
 // v2.43.50: 529 overloaded 대응 — 재시도 3회 + exponential backoff
 const MAX_RETRIES = 3;
 const TIMEOUT_MS = 30000;
+/** 데스크톱 앱의 에이전트 호출 제한 — 에이전트 CLI 는 API 보다 느리다(2026-09-15 실측 4~60초). */
+const AGENT_TIMEOUT_MS = 120_000;
 
 export interface AIInvocationOptions {
     maxTokens?: number;
@@ -25,7 +32,8 @@ export interface AIInvocationOptions {
 
 export interface AIInvocationResult {
     text: string;
-    source: 'claude' | 'rule-fallback';
+    /** 답한 곳 — 데스크톱은 답한 에이전트 이름, 앱 밖은 'claude'(API). */
+    source: 'claude' | 'codex' | 'gemini' | 'grok' | 'rule-fallback';
 }
 
 export class RuleFallbackRequired extends Error {
@@ -62,6 +70,33 @@ export async function canUseAI(): Promise<boolean> {
 }
 
 /**
+ * 데스크톱 앱 안에서 도는지. LEWORD_AI_AGENT_ONLY=1 은 테스트 · 도구용 강제 스위치다.
+ * ELECTRON_RUN_AS_NODE 자식 프로세스(이 PC 판 발굴 스크립트 등)는 앱이 아니라 스크립트로 본다.
+ */
+export function runsInDesktopApp(): boolean {
+    if (process.env.LEWORD_AI_AGENT_ONLY === '1') return true;
+    return Boolean(process.versions.electron) && process.env.ELECTRON_RUN_AS_NODE !== '1';
+}
+
+/**
+ * 구독 에이전트 체인으로 부른다. 에이전트 모듈은 electron 을 불러오므로, 모바일 서버가 이 파일을 읽어도
+ * 터지지 않게 여기서만 늦게 불러온다. maxTokens · temperature 는 에이전트 CLI 에 넘길 방법이 없어 쓰지 않는다.
+ */
+async function callAgentChain(prompt: string, options: AIInvocationOptions): Promise<AIInvocationResult> {
+    const { runWithAnyAgent } = await import('../agent-cli/runAny');
+    const { createDefaultAgentChain } = await import('../agent-cli/defaultChain');
+    const fullPrompt = options.system ? `${options.system}\n\n${prompt}` : prompt;
+    try {
+        const run = await runWithAnyAgent(fullPrompt, createDefaultAgentChain(), { timeoutMs: AGENT_TIMEOUT_MS });
+        return { text: run.reply.trim(), source: run.provider };
+    } catch (err: any) {
+        // 조용히 삼키지 않는다 — 규칙 결과로 이어 가되 왜 그런지 로그에 남긴다.
+        console.warn('[ai-client] 구독 에이전트 전부 실패 → 룰 fallback:', err?.message || err);
+        throw new RuleFallbackRequired(`구독 에이전트 전부 실패 (${err?.message || 'unknown'})`);
+    }
+}
+
+/**
  * 통합 AI 호출 — 모드에 따라 Claude / 룰 fallback 결정
  *
  * 호출 측은:
@@ -83,6 +118,8 @@ export async function callAI(
     if (mode === 'rule') {
         throw new RuleFallbackRequired('mode=rule (사용자 설정)');
     }
+    // 데스크톱 앱은 API 키를 쓰지 않는다 — 저장된 Anthropic 키가 있어도 구독 에이전트 체인만 탄다.
+    if (runsInDesktopApp()) return callAgentChain(prompt, options);
     if (!hasClaudeKey) {
         if (mode === 'claude') throw new Error('Claude 모드인데 ANTHROPIC_API_KEY 미설정');
         throw new RuleFallbackRequired('Claude 키 미설정 (auto 모드)');
@@ -135,24 +172,4 @@ export async function callAI(
     throw new RuleFallbackRequired(`Claude 호출 실패 → 룰 fallback (${lastErr?.message || 'unknown'})`);
 }
 
-/**
- * 키 검증용 — 짧은 ping 호출
- */
-export async function verifyClaudeKey(apiKey: string): Promise<{ ok: boolean; error?: string }> {
-    if (!apiKey || !apiKey.startsWith('sk-ant-')) {
-        return { ok: false, error: 'Anthropic 키 형식 오류 (sk-ant-... 이어야 함)' };
-    }
-    try {
-        const Anthropic = (await import('@anthropic-ai/sdk')).default;
-        const client = new Anthropic({ apiKey, timeout: 10000 });
-        const resp = await client.messages.create({
-            model: CLAUDE_MODEL,
-            max_tokens: 16,
-            messages: [{ role: 'user', content: 'ping' }],
-        });
-        return { ok: !!resp.id };
-    } catch (err: any) {
-        const status = err?.status || err?.response?.status;
-        return { ok: false, error: status ? `HTTP ${status}: ${err?.message}` : (err?.message || 'unknown') };
-    }
-}
+// 키 검증 함수(verifyClaudeKey)는 지웠다(2026-09-15) — 데스크톱 앱이 API 키를 쓰지 않아 검증할 키가 없다.

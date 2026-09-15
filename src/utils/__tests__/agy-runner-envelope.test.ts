@@ -24,13 +24,22 @@ beforeEach(() => {
 });
 
 describe('agy 는 JSON 봉투로 부른다', () => {
-  it('출력 형식 json 과 print-timeout(호출 제한 − 5초)을 넘긴다', async () => {
+  it('출력 형식 json 과 print-timeout(호출 제한 − 15초)을 넘긴다', async () => {
     spawn.mockResolvedValue({ code: 0, stdout: JSON.stringify({ status: 'SUCCESS', response: '{"ok":true}' }), stderr: '' });
     await runGemini('프롬프트', { timeoutMs: 60_000 });
     const { args, stdin } = spawn.mock.calls[0][0] as { args: string[]; stdin: string };
     expect(args.join(' ')).toContain('--output-format json');
-    expect(args.join(' ')).toContain('--print-timeout 55s');
+    expect(args.join(' ')).toContain('--print-timeout 45s');
     expect(stdin).toBe('프롬프트');
+  });
+
+  it('한도 봉투를 받을 여유를 둔다 — agy 는 자기 시간 초과 뒤 5.7~6.9초 지나 끝난다(실측)', async () => {
+    // 여유가 5초이던 때는 앱이 먼저 끊어 한도 초과가 '시간 초과'로 바뀌었고, 막힌 엔진 기억이 걸리지 않았다.
+    spawn.mockResolvedValue({ code: 0, stdout: JSON.stringify({ status: 'SUCCESS', response: '답' }), stderr: '' });
+    await runGemini('프롬프트', { timeoutMs: 45_000 });
+    const { args, timeoutMs } = spawn.mock.calls[0][0] as { args: string[]; timeoutMs: number };
+    expect(args.join(' ')).toContain('--print-timeout 30s');
+    expect(timeoutMs).toBe(45_000);
   });
 
   it('봉투의 response 를 답으로 돌려준다', async () => {

@@ -563,13 +563,8 @@ export function startEnrichment<T extends { keyword: string; manusInsight?: Manu
       keyMissing = true;
       keyMissingMsg = 'Manus API 키 미설정 — 환경설정에서 Manus 키 입력 필요';
     }
-  } else if (provider === 'claude') {
-    const env = EnvironmentManager.getInstance().getConfig();
-    if (!env.anthropicApiKey) {
-      keyMissing = true;
-      keyMissingMsg = 'Claude (Anthropic) API 키 미설정 — 환경설정에서 키 입력 필요';
-    }
   }
+  // provider 'claude' 는 Anthropic API 키를 요구하지 않는다 — 앱의 callAI 가 구독 에이전트 체인으로 돈다(2026-09-15).
 
   if (keyMissing) {
     taskRegistry.set(requestId, {
@@ -685,10 +680,10 @@ async function runEnrichmentBackground<T extends { keyword: string; manusInsight
       assistantTexts = [run.reply];
       if (t) t.manusStatus = `parsing (${run.provider})`;
     } else {
-      // Claude 단발 호출 — Manus 대비 50~100배 저렴, 단 실시간 웹 데이터 X
-      console.log(`[CLAUDE] [${requestId}] callAI 호출 — 단발 (5~15초 예상)`);
+      // callAI — 앱에서는 구독 에이전트 체인(Claude Code → Codex → 제미나이 → Grok)으로 돈다. 실시간 웹 데이터는 없다.
+      console.log(`[AGENT] [${requestId}] callAI 호출 — 구독 에이전트`);
       const t = taskRegistry.get(requestId);
-      if (t) t.manusStatus = 'calling Claude';
+      if (t) t.manusStatus = 'calling agent';
       const result = await callAI(prompt, {
         maxTokens: 4096,
         temperature: 0.4,

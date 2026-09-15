@@ -6,7 +6,6 @@ import axios from 'axios';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { crawlNewsSnippets } from '../../utils/keyword-competition/naver-search-crawler';
 import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-api';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { withSmartRetry, withCacheAndRetry, naverApiCall, parallelProcess, apiHealthCheck, clearCache } from '../../utils/api-reliability';
 import * as licenseManager from '../../utils/licenseManager';
 
@@ -1454,70 +1453,36 @@ export function setupConfigUtilityHandlers(): void {
     }
   });
 
-  // 🤖 AI 챗봇 - Claude 우선 + Gemini legacy (IPC 핸들러)
-  ipcMain.handle('gemini-chat', async (_event, args: { apiKey: string; message: string; history: any[]; modelName?: string }) => {
-    console.log('[KEYWORD-MASTER] AI 채팅 요청 수신:', args?.modelName);
+  /*
+   * 🤖 AI 채팅 — 구독 에이전트 체인만 쓴다(2026-09-15, 사장님 "api 키는 안 쓰지 않니? 에이전트만 사용하도록 할 건데").
+   * 예전에는 전달받은 API 키로 Anthropic · Google SDK 를 불렀다(종량 과금). apiKey · modelName 은 옛 호출 호환으로 받기만 한다.
+   * Anthropic 키 검증 IPC(verify-anthropic-key)는 쓰는 화면이 없고 API 키 경로 자체를 없앴으므로 함께 지웠다.
+   */
+  ipcMain.handle('gemini-chat', async (_event, args: { apiKey?: string; message: string; history?: any[]; modelName?: string }) => {
     try {
-      // 🔥 v2.42.21: Claude 기본 (사용자 요청). modelName prefix로 provider 자동 라우팅.
-      const { apiKey, message, history, modelName = 'claude-sonnet-4-6' } = args;
-      if (!apiKey) throw new Error('API 키가 필요합니다');
-
-      // Claude 경로
-      if (modelName.startsWith('claude-')) {
-        const Anthropic = (await import('@anthropic-ai/sdk')).default;
-        const client = new Anthropic({ apiKey });
-        // history (Gemini 형식 {role, parts}) → Claude 형식 {role, content}
-        const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-        for (const h of (history || [])) {
-          const role: 'user' | 'assistant' = (h?.role === 'model' || h?.role === 'assistant') ? 'assistant' : 'user';
-          let content = '';
-          if (typeof h?.parts === 'string') content = h.parts;
-          else if (Array.isArray(h?.parts)) content = h.parts.map((p: any) => typeof p === 'string' ? p : (p?.text || '')).join('\n');
-          else if (typeof h?.content === 'string') content = h.content;
-          else content = String(h?.parts || h?.content || '');
-          if (content.trim()) messages.push({ role, content });
-        }
-        messages.push({ role: 'user', content: message });
-        const resp = await client.messages.create({
-          model: modelName,
-          max_tokens: 4096,
-          messages,
-        });
-        const text = (resp.content as any[])
-          .filter((b: any) => b.type === 'text')
-          .map((b: any) => b.text)
-          .join('\n').trim();
-        return text || '(빈 응답)';
+      const message = String(args?.message || '').trim();
+      if (!message) throw new Error('메시지가 비어 있습니다');
+      const turns: string[] = [];
+      for (const h of (args?.history || [])) {
+        const speaker = (h?.role === 'model' || h?.role === 'assistant') ? '답변' : '질문';
+        let content = '';
+        if (typeof h?.parts === 'string') content = h.parts;
+        else if (Array.isArray(h?.parts)) content = h.parts.map((p: any) => typeof p === 'string' ? p : (p?.text || '')).join('\n');
+        else if (typeof h?.content === 'string') content = h.content;
+        if (content.trim()) turns.push(`${speaker}: ${content.trim()}`);
       }
-
-      // Gemini 경로 (legacy 호환)
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: modelName });
-      const chat = model.startChat({
-        history: history,
-        generationConfig: { maxOutputTokens: 2048 },
-      });
-      const result = await chat.sendMessage(message);
-      const response = await result.response;
-      return response.text();
+      const prompt = turns.length > 0
+        ? `아래 대화를 이어서 마지막 질문에 답하라.\n\n${turns.join('\n\n')}\n\n질문: ${message}`
+        : message;
+      const { runWithAnyAgent } = await import('../../utils/agent-cli/runAny');
+      const { createDefaultAgentChain } = await import('../../utils/agent-cli/defaultChain');
+      const run = await runWithAnyAgent(prompt, createDefaultAgentChain(), { timeoutMs: 120_000 });
+      return run.reply.trim() || '(빈 응답)';
     } catch (error: any) {
       console.error('[KEYWORD-MASTER] AI 채팅 실패:', error);
       throw error;
     }
   });
-
-  // 🤖 Anthropic Claude 키 검증
-  if (!ipcMain.listenerCount('verify-anthropic-key')) {
-    ipcMain.handle('verify-anthropic-key', async (_event, args: { apiKey: string }) => {
-      try {
-        const { verifyClaudeKey } = await import('../../utils/pro-hunter-v12/ai-client');
-        return await verifyClaudeKey(args.apiKey);
-      } catch (err: any) {
-        return { ok: false, error: err?.message || 'unknown' };
-      }
-    });
-    console.log('[KEYWORD-MASTER] ✅ verify-anthropic-key 핸들러 등록 완료');
-  }
 
   // AI 모드 + 키 가용성 조회
   if (!ipcMain.listenerCount('get-ai-mode')) {
