@@ -4484,7 +4484,7 @@
           const state = window.__goldenLocal;
           const status = state.status || {};
           const running = state.running;
-          if (auto) auto.checked = status.auto !== false;
+          if (auto) auto.checked = status.auto === true;
           runBtn.style.display = running ? 'none' : '';
           stopBtn.style.display = running ? '' : 'none';
           if (running) {

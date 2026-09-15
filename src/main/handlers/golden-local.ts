@@ -125,7 +125,11 @@ function saveState(patch: Partial<LocalState>): void {
   }
 }
 
-const autoEnabled = (): boolean => readJson<{ auto?: boolean }>(PREFS(), {}).auto !== false;
+/**
+ * 새벽 자동은 사용자가 켜야 돈다(2026-09-15 사장님 "후보 구성 고친 뒤 배포").
+ * 연기 시험에서 인테리어·DIY 가 35분 돌고 고른 주제 0행이었다 — 후보 구성을 고치고 실측하기 전에는 모든 PC 에서 저절로 돌리지 않는다.
+ */
+const autoEnabled = (): boolean => readJson<{ auto?: boolean }>(PREFS(), {}).auto === true;
 
 /** 이 PC 판 — 발행 스크립트가 쓴 파일. 발굴 화면(golden-site-rows)이 사이트 판과 합친다. */
 export function readGoldenLocalBoard(): { publishedAt?: string | null; rows: any[] } | null {

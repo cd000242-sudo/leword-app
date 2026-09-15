@@ -129,4 +129,11 @@ describe('발굴 화면의 이 PC 판 패널', () => {
     expect(script).toContain("'고른 주제 ' + last.pickedRows + '행'");
     expect(script).toContain('last.summaries.filter(Boolean)');
   });
+
+  it('새벽 자동은 사용자가 켜야 돈다 — 후보 구성을 고치고 실측하기 전에는 기본 꺼짐', () => {
+    // 사장님 결정(2026-09-15) "후보 구성 고친 뒤 배포" — 그 사이 다른 배포가 나가도 모든 PC 에서 저절로 돌지 않게.
+    expect(read('src/main/handlers/golden-local.ts')).toContain('readJson<{ auto?: boolean }>(PREFS(), {}).auto === true');
+    expect(script).toContain('auto.checked = status.auto === true');
+    expect(script).not.toContain('status.auto !== false');
+  });
 });
