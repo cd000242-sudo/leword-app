@@ -128,7 +128,6 @@ jobs:
             NAVER_SEARCH_AD_ACCESS_LICENSE=${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE != '' }}
             NAVER_SEARCH_AD_SECRET_KEY=${{ secrets.NAVER_SEARCH_AD_SECRET_KEY != '' }}
             SITE_REPO_SSH_KEY=${{ secrets.SITE_REPO_SSH_KEY != '' }}
-          HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
           HAS_BRIGHTDATA: ${{ secrets.BRIGHTDATA_TOKEN != '' }}
         run: |
           missing=0
@@ -143,24 +142,14 @@ jobs:
             echo '회차를 돌리기 전에 멈춘다. 저장소 Settings → Secrets 에서 채울 것.'
             exit 1
           fi
-          if [ "$HAS_CLAUDE" != 'true' ]; then
-            echo '::warning::CLAUDE_CODE_OAUTH_TOKEN 없음 — 이슈 추론·황금 보강 없이 실측 재료만으로 간다(얕은 회차).'
-          fi
           if [ "$HAS_BRIGHTDATA" != 'true' ]; then
             echo '::warning::BRIGHTDATA_TOKEN 없음 — 자리(블로그탭 상위 10)를 못 재니 이번 회차 틈새는 0 이고 대기 행은 발행되지 않는다.'
           fi
           echo '필수 시크릿 확인됨.'
 
       # 구독 에이전트 CLI. API 키가 아니라 사장님 구독 토큰으로 돈다 — 건당 비용이 없다.
-      - name: 구독 에이전트 CLI 설치
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: |
-          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
-            echo '구독 토큰 없음 — CLI 설치를 건너뛴다.'
-            exit 0
-          fi
-          npm install -g @anthropic-ai/claude-code
+      - name: 구독 CLI 폴백 준비
+        uses: ./.github/actions/setup-subscription-agents
 
       - name: 실검 틈새 회차
         env:

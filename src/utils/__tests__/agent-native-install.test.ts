@@ -2,9 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { describeNativeInstallFailure, formatInstallDiagnostics, nativeInstallCommand } from '../agent-cli/nativeInstaller';
 import { getClaudeNativeInstallDirs } from '../agent-cli/agentRuntime';
 import { buildClaudeSubscriptionEnv } from '../agent-cli/subscriptionEnv';
+import { resolveWindowsSpawnTarget } from '../agent-cli/spawnHelper';
+import { join } from 'path';
 
 /** Claude Code 네이티브 설치(Node 불필요) — 사장님 2026-09-09 "안 되는 컴도 있다". */
 describe('nativeInstallCommand', () => {
+    it.runIf(process.platform === 'win32')('확장자가 있는 Windows 설치·로그인 실행 파일도 실제 PATH에서 찾는다', () => {
+        const system32 = join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+        expect(resolveWindowsSpawnTarget('cmd.exe', { PATH: system32 })?.command.toLowerCase())
+            .toBe(join(system32, 'cmd.exe').toLowerCase());
+        const powershell = join(system32, 'WindowsPowerShell', 'v1.0');
+        expect(resolveWindowsSpawnTarget('powershell.exe', { PATH: powershell })?.command.toLowerCase())
+            .toBe(join(powershell, 'powershell.exe').toLowerCase());
+    });
     it('윈도우는 PowerShell 로 공식 install.ps1, 그 밖은 sh 로 install.sh — 셸 문자열이 아니라 spawn 인자다', () => {
         const win = nativeInstallCommand('win32');
         expect(win.command).toBe('powershell.exe');

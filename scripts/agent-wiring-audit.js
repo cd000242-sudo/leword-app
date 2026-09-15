@@ -149,7 +149,10 @@ async function auditRun(agents) {
     const took = Math.round((Date.now() - started) / 1000);
     const answer = result.body && result.body.result && result.body.result.answer;
     if (result.status === 200 && result.body && result.body.ok && String(answer || '').trim()) {
-      console.log(`   ✅ ${engine.padEnd(7)} ${took}초 · ${String(answer).replace(/\s+/g, ' ').slice(0, 40)}`);
+      const actual = result.body.result.provider;
+      const route = actual && actual !== engine ? `${engine} → ${actual} (폴백)` : engine;
+      console.log(`   ✅ ${route.padEnd(7)} ${took}초 · ${String(answer).replace(/\s+/g, ' ').slice(0, 40)}`);
+      if (actual && actual !== engine) warn('실행', `${engine} 직접 호출 대신 ${actual} 폴백이 응답했습니다.`);
     } else {
       const why = (result.body && result.body.error) || result.error || `HTTP ${result.status}`;
       fail('실행', `${engine}: 상태는 available 인데 실제 추론이 실패했습니다.`, String(why).slice(0, 160));

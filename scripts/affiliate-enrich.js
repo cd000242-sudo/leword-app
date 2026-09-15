@@ -21,8 +21,7 @@ const { toFactCards, kstToday } = require('../src/utils/topic-briefs');
 const { buildKeywordBriefPrompt, validateKeywordBrief } = require('../src/utils/keyword-brief');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
-const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
-const { runCodex } = require('../src/utils/agent-cli/codexRunner');
+const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 
@@ -32,10 +31,7 @@ const arg = (name, fallback = '') => {
 };
 const has = (name) => process.argv.includes(`--${name}`);
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-const AGENT_CHAIN = [
-  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'opus' }) },
-  { provider: 'codex', run: runCodex },
-];
+const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
 
 /** 자리 판정 순위 — 열림이 제일 좋다. */
 const VERDICT_RANK = { '열림': 0, '반열림': 1, '자료없음': 2, '잠김': 3, '카드답': 4 };

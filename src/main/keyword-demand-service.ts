@@ -19,12 +19,8 @@
 import { EnvironmentManager } from '../utils/environment-manager';
 import { getNaverAutocompleteKeywords, probeNaverAutocompleteSuggestions } from '../utils/naver-autocomplete';
 import { getNaverSearchAdKeywordVolume } from '../utils/naver-searchad-api';
-import { runClaude } from '../utils/agent-cli/claudeRunner';
-import { runCodex } from '../utils/agent-cli/codexRunner';
-import { runGemini } from '../utils/agent-cli/geminiRunner';
-import { runGrok } from '../utils/agent-cli/grokRunner';
+import { createDefaultAgentChain } from '../utils/agent-cli/defaultChain';
 import { runWithAnyAgent } from '../utils/agent-cli/runAny';
-import { detectAgent } from '../utils/agent-cli/detect';
 import { tryExtractJson } from '../utils/agent-cli/parse';
 import {
   buildDemandEvidence,
@@ -98,17 +94,6 @@ async function measureVolumes(
   return volumes;
 }
 
-/** 감지된 첫 구독 CLI. 없으면 null — 규칙 결과만 돌려준다. */
-async function pickAgent(): Promise<'claude' | 'codex' | 'gemini' | 'grok' | null> {
-  for (const provider of ['claude', 'codex', 'gemini', 'grok'] as const) {
-    try {
-      const status = await detectAgent(provider);
-      if (status.available) return provider;
-    } catch { /* 감지 실패는 미설치와 같게 다룬다 */ }
-  }
-  return null;
-}
-
 function buildPrompt(keyword: string, expansions: string[], volumeLines: string[]): string {
   return [
     '너는 네이버 검색 데이터 분석가다. 아래는 우리가 **실제로 측정한** 값이다.',
@@ -178,20 +163,9 @@ export async function analyzeKeywordDemand(
   let reasons: DemandReason[] = [];
   let monetize: MonetizationVerdict | null = null;
 
-  const provider = await pickAgent();
-  if (!provider) {
-    agent.error = 'no_agent';
-  } else if (light) {
+  if (light) {
     // ── 경량(연쇄용): AI 1콜로 이유 + 수익 결론만 ─────────────────────
-    agent.available = true;
-    const LIGHT_RUNNERS = [
-      { provider: 'claude' as const, run: runClaude },
-      { provider: 'codex' as const, run: runCodex },
-      { provider: 'gemini' as const, run: runGemini },
-      { provider: 'grok' as const, run: runGrok },
-    ];
-    const startAt = LIGHT_RUNNERS.findIndex((r) => r.provider === provider);
-    const lightChain = [...LIGHT_RUNNERS.slice(startAt), ...LIGHT_RUNNERS.slice(0, startAt)];
+    const lightChain = createDefaultAgentChain();
     try {
       const lines = expansions.slice(0, 10)
         .map((e) => `${e.keyword}${e.searchVolume ? ` (월 ${e.searchVolume})` : ''}`);
@@ -208,6 +182,7 @@ export async function analyzeKeywordDemand(
         '',
         'JSON 만: {"reasons":[{"text":"...","basis":"검색량"}],"verdict":"good|bad|mixed","points":[{"text":"..."}],"angle":"..."}',
       ].join('\n'), lightChain, { timeoutMs: AI_TIMEOUT_MS });
+      agent.available = true;
       agent.provider = run.provider;
       const parsed = tryExtractJson(run.reply) as {
         reasons?: DemandReason[]; verdict?: string; points?: DemandReason[]; angle?: string;
@@ -230,19 +205,11 @@ export async function analyzeKeywordDemand(
       agent.error = error instanceof Error ? error.message : String(error);
     }
   } else {
-    agent.available = true;
     /*
-     * 감지된 첫 공급자부터 시작해 나머지를 예비로 잇는다 — 넷 중 무엇으로
+     * 공통 순서로 모든 구독 공급자를 예비로 잇는다 — 넷 중 무엇으로
      * 시작하든 하나가 죽으면 다음으로 넘어간다(그록 포함, 2026-08-18).
      */
-    const ALL_RUNNERS = [
-      { provider: 'claude' as const, run: runClaude },
-      { provider: 'codex' as const, run: runCodex },
-      { provider: 'gemini' as const, run: runGemini },
-      { provider: 'grok' as const, run: runGrok },
-    ];
-    const startIndex = ALL_RUNNERS.findIndex((r) => r.provider === provider);
-    const chain = [...ALL_RUNNERS.slice(startIndex), ...ALL_RUNNERS.slice(0, startIndex)];
+    const chain = createDefaultAgentChain();
     try {
       const volumeLines = [...volumes.entries()].slice(0, 8).map(([k, v]) => `${k} ${v}`);
       const run = await runWithAnyAgent(
@@ -250,6 +217,7 @@ export async function analyzeKeywordDemand(
         chain,
         { timeoutMs: AI_TIMEOUT_MS },
       );
+      agent.available = true;
       agent.provider = run.provider;
       const parsed = tryExtractJson(run.reply) as { reasons?: DemandReason[]; expansions?: string[] } | null;
 

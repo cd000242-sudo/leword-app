@@ -37,10 +37,7 @@ import { sanitizePolicyKeywords } from './policy-keyword-sanitizer';
 import { isNounPhraseToken } from './keyword-shape';
 import { getTechIssueKeywords } from './tech-issue-keywords';
 import { classifyKeyword } from './category-classifier';
-import { runClaude } from './agent-cli/claudeRunner';
-import { runCodex } from './agent-cli/codexRunner';
-import { runGemini } from './agent-cli/geminiRunner';
-import { runGrok } from './agent-cli/grokRunner';
+import { createDefaultAgentChain } from './agent-cli/defaultChain';
 import { runWithAnyAgent } from './agent-cli/runAny';
 import { tryExtractJson } from './agent-cli/parse';
 import { collectIssueContexts, type IssueContext, type IssueContextSources } from './issue-context';
@@ -397,13 +394,6 @@ export function assembleIssueCandidates(
 
 type AgentRunners = Parameters<typeof runWithAnyAgent>[1];
 
-const AGENT_RUNNERS: AgentRunners = [
-  { provider: 'claude' as const, run: runClaude },
-  { provider: 'codex' as const, run: runCodex },
-  { provider: 'gemini' as const, run: runGemini },
-  { provider: 'grok' as const, run: runGrok },
-];
-
 /**
  * 배치(CI)용 후보 생성기 — 클로드 모델만 고정하고 나머지 폴백은 그대로다.
  *
@@ -414,12 +404,7 @@ const AGENT_RUNNERS: AgentRunners = [
 export function createAgentCandidateGenerator(
   options: { claudeModel?: string } = {},
 ): (issues: string[], perIssue: number) => Promise<Map<string, string[]>> {
-  const runners: AgentRunners = options.claudeModel
-    ? [
-      { provider: 'claude' as const, run: (p, o) => runClaude(p, { ...(o || {}), model: options.claudeModel }) },
-      ...AGENT_RUNNERS.slice(1),
-    ]
-    : AGENT_RUNNERS;
+  const runners: AgentRunners = createDefaultAgentChain({ claudeModel: options.claudeModel });
   return (issues, perIssue) => generateCandidatesWith(runners, issues, perIssue);
 }
 

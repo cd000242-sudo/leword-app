@@ -1,0 +1,88 @@
+diff --git a/worker.js b/worker.js
+index d94c9d8a..8e9f567a 100644
+--- a/worker.js
++++ b/worker.js
+@@ -2627,7 +2627,7 @@ async function communityPostTitle(input) {
+ async function radarAnalyzeUrl(keys, env, input) {
+   const url = str(input.url);
+   if (!/^https?:\/\//.test(url)) return { ok: false, error: 'bad-input', message: '글 주소를 넣어 주세요.' };
+-  if (!hasAnyEngine(keys)) return { ok: false, error: 'needs-keys', message: '내 API 키 탭에서 엔진 하나만 연동하면 레이더가 돕니다.' };
++  if (str(input.aiVia) !== 'app' && !hasAnyEngine(keys)) return { ok: false, error: 'needs-keys', message: '내 API 키 탭에서 엔진 하나만 연동하면 레이더가 돕니다.' };
+ 
+   let page;
+   try {
+@@ -2698,16 +2698,29 @@ async function radarAnalyzeUrl(keys, env, input) {
+     '"coreKeywords":[],"shortQueries":[],"queries":[],"moneyAngle":""}',
+   ].filter(Boolean).join('\n');
+ 
++  if (str(input.aiVia) === 'app') {
++    return { ok: true, prompt, url, page: { title: page.title, metaDescription: page.metaDescription } };
++  }
+   const run = await llmText(keys, prompt, 1800);
+   if (!run.ok) {
+     return { ok: false, error: 'analyze-failed', message: String(run.detail).slice(0, 200), renewed: run.renewed || undefined, claudeTokenDead: run.tokenDead || undefined };
+   }
+-  const parsed = radarParseJson(run.text);
+-  if (!parsed || !Array.isArray(parsed.queries)) {
+-    return { ok: false, error: 'analyze-parse', message: 'AI 응답 형식이 어긋났습니다 — 다시 눌러 주세요.', renewed: run.renewed || undefined };
++  const result = await radarParseAnalysis(keys, env, { aiText: run.text, url, page });
++  return { ...result, renewed: run.renewed || undefined };
++}
++
++/** 서버/앱 추론의 정형·실측은 한 경로로 처리한다. 앱 자격증명은 받지 않는다. */
++async function radarParseAnalysis(keys, env, input) {
++  const url = str(input.url).slice(0, 2000);
++  const page = { title: str(input.page?.title).slice(0, 300), metaDescription: str(input.page?.metaDescription).slice(0, 600) };
++  const parsed = radarParseJson(str(input.aiText).slice(0, 32000));
++  const list = value => Array.isArray(value) ? value : [];
++  const queries = [...new Set(list(parsed?.queries).map(q => str(q).slice(0, 60)).filter(Boolean))].slice(0, RADAR_CONFIG.maxQueries);
++  if (!/^https?:\/\//.test(url) || !parsed || !queries.length) {
++    return { ok: false, error: 'analyze-parse', message: 'AI 응답 형식이 어긋났습니다 — 다시 눌러 주세요.' };
+   }
+ 
+-  const coreKeywords = (parsed.coreKeywords || []).map((k) => str(k).slice(0, 40)).filter(Boolean).slice(0, 6);
++  const coreKeywords = list(parsed.coreKeywords).map((k) => str(k).slice(0, 40)).filter(Boolean).slice(0, 6);
+   const creds = credentials(keys, env);
+   // 검색량 실측 — 있는 부품(searchAdRequest) 재사용. 못 재면 null 로 둔다.
+   let volumes = [];
+@@ -2763,20 +2776,19 @@ async function radarAnalyzeUrl(keys, env, input) {
+       title: page.title,
+       metaDescription: page.metaDescription,
+       coreKeywords: volumes,
+-      intents: (parsed.painPoints || parsed.intents || []).map((i) => str(i).slice(0, 160)).filter(Boolean).slice(0, 4),
++      intents: list(parsed.painPoints || parsed.intents).map((i) => str(i).slice(0, 160)).filter(Boolean).slice(0, 4),
+       /** 글 해부 — 화면이 "이 글이 무엇을 답하는가"를 그대로 보여준다. */
+-      answers: (parsed.answers || []).slice(0, 4).map((row) => ({
++      answers: list(parsed.answers).slice(0, 4).map((row) => ({
+         q: str(row && row.q).slice(0, 120),
+         a: str(row && row.a).slice(0, 200),
+       })).filter((row) => row.q),
+       audience: str(parsed.audience).slice(0, 200),
+-      notCovered: (parsed.notCovered || []).map((i) => str(i).slice(0, 160)).filter(Boolean).slice(0, 3),
++      notCovered: list(parsed.notCovered).map((i) => str(i).slice(0, 160)).filter(Boolean).slice(0, 3),
+       /** 커뮤니티용 짧은 말 — 긴 문장은 판을 좁힌 구글 검색에서 0건이 된다(실측). */
+-      shortQueries: [...new Set((parsed.shortQueries || []).map((q) => str(q).slice(0, 30)).filter(Boolean))].slice(0, 6),
++      shortQueries: [...new Set(list(parsed.shortQueries).map((q) => str(q).slice(0, 30)).filter(Boolean))].slice(0, 6),
+       moneyAngle: str(parsed.moneyAngle).slice(0, 200),
+-      queries: [...new Set(parsed.queries.map((q) => str(q).slice(0, 60)).filter(Boolean))].slice(0, RADAR_CONFIG.maxQueries),
++      queries,
+     },
+-    renewed: run.renewed || undefined,
+   };
+ }
+ 
+@@ -4664,6 +4676,14 @@ export default {
+       }
+     }
+ 
++    if (action === 'radar-analyze-parse') {
++      try {
++        return json(await radarParseAnalysis(body.keys || {}, env, body));
++      } catch (error) {
++        return json({ ok: false, error: 'internal', message: String(error && error.message || error).slice(0, 160) }, 500);
++      }
++    }
++
+     if (action === 'radar-search') {
+       try {
+         return json(await radarSearch(body.keys || {}, env, body));

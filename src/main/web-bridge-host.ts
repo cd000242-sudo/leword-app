@@ -12,6 +12,7 @@ import { startWebBridge } from './web-bridge';
 import { forgeLaneInsights } from './lane-insights-service';
 import { analyzeKeywordDemand } from './keyword-demand-service';
 import { detectAgent } from '../utils/agent-cli/detect';
+import { analyzeRadarViaAgent } from './radar-analysis-service';
 
 const WORKER_REPO = 'cd000242-sudo/leword-app';
 const WORKER_FILE = 'agent-worker.yml';
@@ -108,10 +109,7 @@ export function startWebBridgeHost(): void {
        */
       kinAnswer: async ({ title, body, withLink, blogUrl, provider }) => {
         const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
-        const { runClaude } = await import('../utils/agent-cli/claudeRunner');
-        const { runCodex } = await import('../utils/agent-cli/codexRunner');
-        const { runGemini } = await import('../utils/agent-cli/geminiRunner');
-        const { runGrok } = await import('../utils/agent-cli/grokRunner');
+        const { createDefaultAgentChain } = await import('../utils/agent-cli/defaultChain');
         const prompt = [
           '너는 네이버 지식인에서 답변을 다는 평범한 사람이다. 아래 질문에 답해라.',
           '',
@@ -131,18 +129,9 @@ export function startWebBridgeHost(): void {
           '',
           '답변 본문만 출력해라 — 따옴표·머리말 없이.',
         ].join('\n');
-        /*
-         * 사용자가 고른 엔진 하나만 쓴다(사장님 확정 2026-08-20 "선택해서 연동하고
-         * 쓰는 건데 폴백은 그다음 문제"). 고르지 않았을 때만 순서대로 시도한다.
-         */
-        const chain = [
-          { provider: 'claude' as const, run: runClaude },
-          { provider: 'codex' as const, run: runCodex },
-          { provider: 'gemini' as const, run: runGemini },
-          { provider: 'grok' as const, run: runGrok },
-        ];
-        const picked = provider ? chain.filter((item) => item.provider === provider) : chain;
-        const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 90_000 });
+        // 선택한 엔진을 먼저 쓰고, 실패하면 공통 순서로 나머지를 시도한다.
+        const chain = createDefaultAgentChain({ preferredProvider: provider });
+        const run = await runWithAnyAgent(prompt, chain, { timeoutMs: 90_000 });
         return { answer: String(run.reply || '').trim(), provider: run.provider };
       },
       /*
@@ -182,27 +171,17 @@ export function startWebBridgeHost(): void {
       /*
        * 글감 추론 — 사이트의 유튜브 글감·레이더 카드가 이 경로로 넘어온다.
        * 문장은 앱이 만든다(post-ideas-prompt.ts). 브리지는 재료만 받는다.
-       * 사용자가 고른 엔진 하나만 쓰고, 안 골랐을 때만 순서대로 시도한다 —
-       * 지식인 답변과 같은 규칙이다(사장님 확정 2026-08-20).
+       * 선택한 엔진을 먼저 쓰고 실패하면 공통 순서로 나머지를 시도한다.
        */
       postIdeas: async ({ kind, keyword, context, title, body, provider }) => {
         const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
-        const { runClaude } = await import('../utils/agent-cli/claudeRunner');
-        const { runCodex } = await import('../utils/agent-cli/codexRunner');
-        const { runGemini } = await import('../utils/agent-cli/geminiRunner');
-        const { runGrok } = await import('../utils/agent-cli/grokRunner');
+        const { createDefaultAgentChain } = await import('../utils/agent-cli/defaultChain');
         const { buildPostIdeasPrompt, parsePostIdeas } = await import('../utils/post-ideas-prompt');
         const prompt = buildPostIdeasPrompt(kind === 'kin'
           ? { kind: 'kin', title, body }
           : { kind: 'keyword', keyword, context });
-        const chain = [
-          { provider: 'claude' as const, run: runClaude },
-          { provider: 'codex' as const, run: runCodex },
-          { provider: 'gemini' as const, run: runGemini },
-          { provider: 'grok' as const, run: runGrok },
-        ];
-        const picked = provider ? chain.filter((item) => item.provider === provider) : chain;
-        const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 120_000 });
+        const chain = createDefaultAgentChain({ preferredProvider: provider });
+        const run = await runWithAnyAgent(prompt, chain, { timeoutMs: 120_000 });
         const ideas = parsePostIdeas(String(run.reply || ''));
         return { ideas, provider: run.provider };
       },
@@ -210,22 +189,14 @@ export function startWebBridgeHost(): void {
        * 레이더 평가 — 사이트 토큰이 죽어도 앱 구독으로 이어 간다
        * (사장님 지시 2026-08-23). 재료만 받고 문장은 여기서 만든다.
        */
+      radarAnalyze: analyzeRadarViaAgent,
       radarEvaluate: async ({ items, myTitle, mySummary, provider }) => {
         const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
-        const { runClaude } = await import('../utils/agent-cli/claudeRunner');
-        const { runCodex } = await import('../utils/agent-cli/codexRunner');
-        const { runGemini } = await import('../utils/agent-cli/geminiRunner');
-        const { runGrok } = await import('../utils/agent-cli/grokRunner');
+        const { createDefaultAgentChain } = await import('../utils/agent-cli/defaultChain');
         const { buildRadarEvaluatePrompt, parseRadarVerdicts } = await import('../utils/radar-evaluate-prompt');
         const prompt = buildRadarEvaluatePrompt({ items, myTitle, mySummary });
-        const chain = [
-          { provider: 'claude' as const, run: runClaude },
-          { provider: 'codex' as const, run: runCodex },
-          { provider: 'gemini' as const, run: runGemini },
-          { provider: 'grok' as const, run: runGrok },
-        ];
-        const picked = provider ? chain.filter((item) => item.provider === provider) : chain;
-        const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 150_000 });
+        const chain = createDefaultAgentChain({ preferredProvider: provider });
+        const run = await runWithAnyAgent(prompt, chain, { timeoutMs: 150_000 });
         return { evaluations: parseRadarVerdicts(String(run.reply || '')), provider: run.provider };
       },
       /*
@@ -242,10 +213,7 @@ export function startWebBridgeHost(): void {
        */
       postAnalyze: async (input) => {
         const { runWithAnyAgent } = await import('../utils/agent-cli/runAny');
-        const { runClaude } = await import('../utils/agent-cli/claudeRunner');
-        const { runCodex } = await import('../utils/agent-cli/codexRunner');
-        const { runGemini } = await import('../utils/agent-cli/geminiRunner');
-        const { runGrok } = await import('../utils/agent-cli/grokRunner');
+        const { createDefaultAgentChain } = await import('../utils/agent-cli/defaultChain');
         const WORKER = 'https://leword-keyword-api.leword.workers.dev/';
         const post = async (payload: Record<string, unknown>) => {
           const response = await fetch(WORKER, {
@@ -274,14 +242,8 @@ export function startWebBridgeHost(): void {
           // 실측이 실패하면 진단할 재료가 없다 — 지어내지 않고 이유를 그대로 올린다.
           return { error: String(measured.message || '실측을 받지 못했습니다.'), checklist: measured.checklist || null };
         }
-        const chain = [
-          { provider: 'claude' as const, run: runClaude },
-          { provider: 'codex' as const, run: runCodex },
-          { provider: 'gemini' as const, run: runGemini },
-          { provider: 'grok' as const, run: runGrok },
-        ];
-        const picked = input.provider ? chain.filter((item) => item.provider === input.provider) : chain;
-        const run = await runWithAnyAgent(prompt, picked.length > 0 ? picked : chain, { timeoutMs: 180_000 });
+        const chain = createDefaultAgentChain({ preferredProvider: input.provider });
+        const run = await runWithAnyAgent(prompt, chain, { timeoutMs: 180_000 });
         const shaped = await post({
           action: 'post-audit-parse',
           aiText: String(run.reply || ''),
@@ -446,14 +408,6 @@ export function startWebBridgeHost(): void {
          * 있습니다"만 뜨고 계정이 안 바뀌었다(사장님 실측 2026-08-20).
          * 다른 플랜의 계정으로 갈아타려면 기존 자격증명을 먼저 지워야 한다.
          */
-        if (switchAccount) {
-          try {
-            await logoutAgent(target);
-          } catch (error) {
-            // 로그아웃이 실패해도 로그인은 시도한다 — 이미 안 돼 있을 수도 있다.
-            console.warn('[WEB-BRIDGE] 계정 바꾸기 로그아웃 실패(로그인은 계속):', error);
-          }
-        }
         /*
          * 미설치면 설치부터 한다(사장님 요구 2026-08-20 "버튼 한 번에 자동
          * 설치"). installAgent 는 앱에 이미 있었고 배선만 없었다. npm 설치가
@@ -464,9 +418,13 @@ export function startWebBridgeHost(): void {
         const detected = await detectAgent(target, { forceRefresh: true }).catch(() => null);
         if (!detected?.installed) installing = true;
         let opened = false;
+        let terminalGuide = '';
+        const onTerminalRequired = (message: string) => { opened = true; terminalGuide = message; };
         const finished = (async () => {
           if (installing) await installAgent(target);
+          if (switchAccount) await logoutAgent(target, { onTerminalRequired });
           return loginAgent(target, {
+          onTerminalRequired,
           onLoginUrl: (url) => {
             if (!isAllowedAgentLoginUrl(target, url)) return;
             opened = true;
@@ -491,7 +449,7 @@ export function startWebBridgeHost(): void {
         }
         if (raced.done && raced.error) return { state: 'failed', message: raced.error.slice(0, 200) };
         if (installing) return { state: 'installing' };
-        return { state: opened ? 'browser-opened' : 'starting' };
+        return { state: opened ? 'browser-opened' : 'starting', ...(terminalGuide ? { message: terminalGuide } : {}) };
       },
       adminWorker: {
         status: workerStatus,

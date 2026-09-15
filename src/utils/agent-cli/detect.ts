@@ -6,6 +6,7 @@ import {
   tryExtractJson,
 } from './parse';
 import { sanitizeUserVisibleError } from './userVisibleError';
+import { AgentCliError } from './types';
 import { spawnCollect } from './spawnHelper';
 import { agentCommandName } from './commandName';
 import {
@@ -327,10 +328,10 @@ async function probeAgyLogin(): Promise<LoginProbe> {
     return {
       loggedIn: false,
       detail: out ? sanitizeUserVisibleError(out) : undefined,
-      errorCode: 'not_logged_in',
+      errorCode: classifyExit('gemini', res.stderr, res.stdout),
     };
-  } catch {
-    return { loggedIn: false, errorCode: 'not_logged_in' };
+  } catch (error) {
+    return { loggedIn: false, errorCode: error instanceof AgentCliError ? error.code : 'spawn_failed' };
   }
 }
 

@@ -25,10 +25,7 @@
 require('ts-node/register/transpile-only');
 
 const fs = require('fs');
-const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
-const { runCodex } = require('../src/utils/agent-cli/codexRunner');
-const { runGemini } = require('../src/utils/agent-cli/geminiRunner');
-const { runGrok } = require('../src/utils/agent-cli/grokRunner');
+const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 
@@ -36,12 +33,7 @@ const { tryExtractJson } = require('../src/utils/agent-cli/parse');
  * 배치 전용 모델 고정 — 기본 모델(페이블5, 최상위 티어)을 매시간 제목 짓기에
  * 태우면 사장님이 직접 쓸 한도가 줄어든다. 소네트로 충분한 일이다.
  */
-const AGENT_CHAIN = [
-  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'opus' }) },
-  { provider: 'codex', run: runCodex },
-  { provider: 'gemini', run: runGemini },
-  { provider: 'grok', run: runGrok },
-];
+const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
 
 const AI_TIMEOUT_MS = 120_000;
 /** 창고 유효기간. 실시간 검색어는 하루면 대부분 갈린다. */
@@ -286,6 +278,9 @@ async function main() {
     }
   }
 
+  if (rows.length > 0 && made.length === 0) {
+    throw new Error('새로 생성한 유효 제목이 0건입니다. 기존 제목 창고를 유지합니다.');
+  }
   const titles = [...kept, ...made];
   fs.writeFileSync(outPath, JSON.stringify({
     generatedAt: stamp,

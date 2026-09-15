@@ -13,6 +13,23 @@
 export const CLAUDE_NATIVE_INSTALL_URL_WINDOWS = 'https://claude.ai/install.ps1';
 export const CLAUDE_NATIVE_INSTALL_URL_UNIX = 'https://claude.ai/install.sh';
 
+/** Google official installer. Windows accepts setup flags; install.sh only accepts --dir/--help. */
+export function agyNativeInstallCommand(platform: NodeJS.Platform = process.platform): NativeInstallCommand {
+  if (platform === 'win32') {
+    return {
+      command: 'powershell.exe',
+      args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
+        "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; & ([scriptblock]::Create((irm https://antigravity.google/cli/install.ps1))) --skip-aliases --skip-path"],
+      label: 'Google 공식 agy 설치',
+    };
+  }
+  return {
+    command: 'bash',
+    args: ['-o', 'pipefail', '-c', 'curl -fsSL https://antigravity.google/cli/install.sh | bash'],
+    label: 'Google 공식 agy 설치',
+  };
+}
+
 export interface NativeInstallCommand {
   command: string;
   args: string[];
@@ -47,13 +64,13 @@ export interface InstallStep {
 }
 
 /** 설치 스크립트 출력에서 사람이 읽을 원인 한 줄을 뽑는다 — 초보자에게 보여 줄 문장이다. */
-export function describeNativeInstallFailure(code: number | null, stdout: string, stderr: string): string {
+export function describeNativeInstallFailure(code: number | null, stdout: string, stderr: string, host = 'claude.ai'): string {
   const out = `${stderr || ''}\n${stdout || ''}`;
   if (/is not recognized|not found|ENOENT|No such file/i.test(out) && /powershell|curl|sh\b/i.test(out)) {
     return '설치 도구(PowerShell 또는 curl)를 찾지 못했습니다. 윈도우 업데이트 후 다시 시도해주세요.';
   }
   if (/Could not resolve|getaddrinfo|ENOTFOUND|ETIMEDOUT|timed out|Unable to connect|remote name could not be resolved|SSL|TLS|certificate/i.test(out)) {
-    return '인터넷으로 claude.ai 에서 설치 파일을 받지 못했습니다. 백신·방화벽·회사 네트워크가 막고 있는지 확인한 뒤 다시 시도해주세요.';
+    return `인터넷으로 ${host} 에서 설치 파일을 받지 못했습니다. 백신·방화벽·회사 네트워크가 막고 있는지 확인한 뒤 다시 시도해주세요.`;
   }
   if (/Access is denied|EPERM|EACCES|permission denied|액세스가 거부/i.test(out)) {
     return '설치 폴더에 쓰지 못했습니다(권한). 백신·보안 프로그램이 사용자 폴더 쓰기를 막고 있는지 확인해주세요.';

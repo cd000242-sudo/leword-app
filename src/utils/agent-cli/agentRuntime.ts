@@ -78,11 +78,12 @@ export function ensureNodeShim(): string {
  * installed". Naming the known directory here lets the app find agy the moment it is installed,
  * with no logout or app restart.
  *
- * Windows only: the POSIX installer's target has not been verified, and R5 forbids encoding
- * unmeasured paths. On other platforms the inherited PATH remains the only source.
+ * macOS/Linux: Google's install.sh and installation docs specify ~/.local/bin/agy.
  */
 export function getAgyInstallDirs(): readonly string[] {
-  if (process.platform !== 'win32') return [];
+  if (process.platform !== 'win32') {
+    return process.env.HOME ? [join(process.env.HOME, '.local', 'bin')] : [];
+  }
   const localAppData = process.env.LOCALAPPDATA;
   return localAppData ? [join(localAppData, 'agy', 'bin')] : [];
 }

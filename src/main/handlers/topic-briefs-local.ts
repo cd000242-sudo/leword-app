@@ -29,8 +29,7 @@ import {
 import { naverApiFetch } from '../../utils/naver-api-hub';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { runWithAnyAgent } from '../../utils/agent-cli/runAny';
-import { runClaude } from '../../utils/agent-cli/claudeRunner';
-import { runCodex } from '../../utils/agent-cli/codexRunner';
+import { createDefaultAgentChain } from '../../utils/agent-cli/defaultChain';
 import { tryExtractJson } from '../../utils/agent-cli/parse';
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions } from '../../utils/naver-searchad-api';
 import { measureSeat, seatBlogTabUrl } from '../../utils/seat-measure';
@@ -49,10 +48,7 @@ const AUTO_HOURS = 3;
 /** 사이트에 실린 판. 앱이 아직 한 번도 안 돌았을 때 곧바로 보여 줄 것. */
 const PUBLISHED = 'https://leaderspro.kr/data/topic-briefs.json';
 
-const AGENT_CHAIN = [
-  { provider: 'claude', run: (p: string, o?: any) => runClaude(p, { ...(o || {}), model: 'opus' }) },
-  { provider: 'codex', run: runCodex },
-];
+const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
 
 const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 
@@ -193,6 +189,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   // ── 2) 글감 — 사장님 구독 CLI 가 카드 **안에서만** 고른다
   const all: TopicBrief[] = [];
   const droppedAll: Array<{ field: string; title: string; reason: string }> = [];
+  const agentFailures: string[] = [];
   let agentCalls = 0;
   for (let i = 0; i < BRIEF_FIELDS.length; i += 1) {
     if (abortRequested) break;
@@ -206,9 +203,10 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     let reply = '';
     let provider = '';
     try {
-      const run = await runWithAnyAgent(prompt, AGENT_CHAIN as any, { timeoutMs: 240_000 });
+      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000 });
       reply = run.reply; provider = run.provider; agentCalls += 1;
     } catch (error: any) {
+      agentFailures.push(String(error?.message || error));
       report({ step: '글감', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — 에이전트 실패: ${String(error?.message || error).slice(0, 60)}` });
       continue;
     }
@@ -220,6 +218,10 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
       ...repeated.map((b) => ({ field, title: b.title, reason: '앞 회차와 같은 검색어' })),
     );
     report({ step: '글감', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — ${provider} 로 글감 ${kept.length}개 (떨어짐 ${dropped.length + repeated.length})` });
+  }
+
+  if (all.length === 0) {
+    throw new Error(`게시할 글감이 0건입니다. 기존 저장본을 유지합니다. ${agentFailures[0] || (abortRequested ? '사용자 취소' : '근거 부족 또는 검증·중복 제거 후 후보 없음')}`);
   }
 
   // ── 3) 검색량 실측

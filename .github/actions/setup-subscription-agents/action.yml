@@ -1,0 +1,8 @@
+name: Subscription agent fallback
+description: Prepare Claude, Codex and Gemini CLI without requiring a Claude-only credential.
+runs:
+  using: composite
+  steps:
+    - name: Install available subscription CLIs
+      shell: bash
+      run: bash scripts/setup-subscription-agents.sh

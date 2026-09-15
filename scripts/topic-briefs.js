@@ -21,8 +21,7 @@ const {
 } = require('../src/utils/topic-briefs');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
-const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
-const { runCodex } = require('../src/utils/agent-cli/codexRunner');
+const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
@@ -33,10 +32,7 @@ const arg = (name, fallback = '') => {
 };
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
-const AGENT_CHAIN = [
-  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'opus' }) },
-  { provider: 'codex', run: runCodex },
-];
+const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
 
 async function main() {
   const outPath = path.resolve(arg('out', 'topic-briefs.json'));
@@ -84,10 +80,10 @@ async function main() {
    * 그래서 회차마다 예약을 여러 번 걸고, 먼저 도는 하나만 일하고 나머지는 여기서 곧장 나간다.
    * 비용이 드는 단계(뉴스·에이전트·검색광고·자리 실측) 앞이라 헛돈이 안 나간다.
    */
-  if (arg('skipIfSlotDone') === 'true' && priorRounds.some((r) => r.slot === slot)) {
+  if (arg('skipIfSlotDone') === 'true' && priorRounds.some((r) => r.slot === slot && r.briefs.length > 0)) {
     const done = priorRounds.find((r) => r.slot === slot);
     console.log(`${slot} 회차는 오늘 이미 실렸다(${done.builtAt} · 글감 ${done.briefs.length}). 아무것도 하지 않고 나간다.`);
-    process.exit(0);
+    return;
   }
 
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
@@ -131,6 +127,7 @@ async function main() {
   // 2) 에이전트 — 카드 안에서만 글감
   const all = [];
   const droppedAll = [];
+  const agentFailures = [];
   let agentCalls = 0;
   for (const { field } of BRIEF_FIELDS) {
     const facts = fieldFacts.get(field) || [];
@@ -143,7 +140,9 @@ async function main() {
       const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000 });
       reply = run.reply; provider = run.provider; agentCalls += 1;
     } catch (error) {
-      console.log(`  ${field}: 에이전트 실패 — ${String((error && error.message) || error).slice(0, 80)}`);
+      const message = String((error && error.message) || error);
+      agentFailures.push(`${field}: ${message}`);
+      console.log(`  ${field}: 에이전트 실패 — ${message}`);
       continue;
     }
     const parsed = tryExtractJson(reply);
@@ -152,6 +151,10 @@ async function main() {
     all.push(...kept);
     droppedAll.push(...dropped.map((d) => ({ field, ...d })), ...repeated.map((b) => ({ field, title: b.title, reason: '앞 회차와 같은 검색어' })));
     console.log(`  ${field.padEnd(14)} ${provider} → 글감 ${kept.length} · 떨어짐 ${dropped.length + repeated.length}${dropped.length + repeated.length ? ` (${[...dropped.map((d) => d.reason), ...repeated.map(() => '앞 회차 중복')].join(' / ')})` : ''}`);
+  }
+
+  if (all.length === 0) {
+    throw new Error(`게시할 글감이 0건입니다. 기존 게시본을 유지하고 회차를 실패 처리합니다. ${agentFailures[0] || '근거 부족 또는 검증·중복 제거 후 후보 없음'}`);
   }
 
   // 3) 검색량 실측 — 후보 검색어 전부 재서 가장 큰 것을 핵심 검색어로(null = '< 10' 실측)
@@ -178,7 +181,8 @@ async function main() {
   } else if (all.length > 0) {
     console.log('  검색광고 키 없음 — 검색량은 null 로 둔다');
   }
-  all.length = 0; all.push(...carrySeats(measuredBriefs, priorRounds)); // 앞 회차가 잰 자리는 그대로(BD 절약)
+  const seatedBriefs = carrySeats(measuredBriefs, priorRounds);
+  all.length = 0; all.push(...seatedBriefs); // 검색량 미측정 시 measuredBriefs === all 이어도 후보를 잃지 않는다.
 
   // 4) 자리 실측 — 아직 안 잰 것만, 검색량 큰 순으로 상한까지
   if (serpMode !== 'none' && all.some((b) => b.serpFacing == null)) {

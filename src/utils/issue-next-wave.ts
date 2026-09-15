@@ -18,10 +18,7 @@
  * 떨어진 문장은 null 이다 — 규칙 문장으로 채우지 않는다(추정치 노출 금지와 같은 결).
  */
 
-import { runClaude } from './agent-cli/claudeRunner';
-import { runCodex } from './agent-cli/codexRunner';
-import { runGemini } from './agent-cli/geminiRunner';
-import { runGrok } from './agent-cli/grokRunner';
+import { createDefaultAgentChain } from './agent-cli/defaultChain';
 import { runWithAnyAgent, type AgentAttempt } from './agent-cli/runAny';
 import { tryExtractJson } from './agent-cli/parse';
 import { filterIssueKeywords, ISSUE_MEASURABLE_MAX_TOKENS, type IssueContext } from './issue-context';
@@ -50,13 +47,6 @@ const NEXT_WAVE_MAX = 5;
 const AGENT_TIMEOUT_MS = 180_000;
 /** 이슈어만 되풀이하는 상투어 — 이 어절들은 근거로 세지 않는다. */
 const FILLER_RE = /^(실검|실시간|검색어|검색|급증|급상승|상위|진입|화제|관심|이슈|논란|소식|때문|관련|검색량|몰린다|몰림)$/;
-
-const AGENT_RUNNERS: readonly AgentAttempt[] = [
-  { provider: 'claude', run: runClaude },
-  { provider: 'codex', run: runCodex },
-  { provider: 'gemini', run: runGemini },
-  { provider: 'grok', run: runGrok },
-];
 
 function compactKey(text: unknown): string {
   return String(text ?? '').replace(/\s+/g, '').toLowerCase();
@@ -232,11 +222,6 @@ export async function analyzeIssuesWith(
 export function createAgentIssueAnalyzer(
   options: { claudeModel?: string; onError?: (message: string) => void } = {},
 ): IssueAnalyzer {
-  const runners: readonly AgentAttempt[] = options.claudeModel
-    ? [
-      { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: options.claudeModel }) },
-      ...AGENT_RUNNERS.slice(1),
-    ]
-    : AGENT_RUNNERS;
+  const runners: readonly AgentAttempt[] = createDefaultAgentChain({ claudeModel: options.claudeModel });
   return (contexts, perIssue) => analyzeIssuesWith(runners, contexts, perIssue, { onError: options.onError });
 }

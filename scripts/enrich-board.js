@@ -31,10 +31,7 @@ const { probeNaverAutocompleteSuggestions } = require('../src/utils/naver-autoco
 const { pickSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
 const { sharesToken } = require('../src/utils/title-forge/board-titles');
 const { forgeTitles } = require('../src/utils/title-forge/forge');
-const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
-const { runCodex } = require('../src/utils/agent-cli/codexRunner');
-const { runGemini } = require('../src/utils/agent-cli/geminiRunner');
-const { runGrok } = require('../src/utils/agent-cli/grokRunner');
+const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 
@@ -51,12 +48,7 @@ const { tryExtractJson } = require('../src/utils/agent-cli/parse');
  */
 const BATCH_CLAUDE_MODEL = 'opus';
 
-const AGENT_CHAIN = [
-  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: BATCH_CLAUDE_MODEL }) },
-  { provider: 'codex', run: runCodex },
-  { provider: 'gemini', run: runGemini },
-  { provider: 'grok', run: runGrok },
-];
+const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: BATCH_CLAUDE_MODEL });
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));

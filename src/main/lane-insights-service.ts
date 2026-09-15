@@ -18,12 +18,9 @@ import { getNaverAutocompleteKeywords, probeNaverAutocompleteSuggestions } from 
 import { pickProblemSubKeywords, type SubKeyword } from '../utils/title-forge/subkeyword-forge';
 import { sharesToken } from '../utils/title-forge/board-titles';
 import { forgeTitles, type ForgedTitles } from '../utils/title-forge/forge';
-import { detectAgent } from '../utils/agent-cli/detect';
 import { tryExtractJson } from '../utils/agent-cli/parse';
-import { runClaude } from '../utils/agent-cli/claudeRunner';
-import { runCodex } from '../utils/agent-cli/codexRunner';
-import { runGemini } from '../utils/agent-cli/geminiRunner';
-import { runGrok } from '../utils/agent-cli/grokRunner';
+import { createDefaultAgentChain } from '../utils/agent-cli/defaultChain';
+import { runWithAnyAgent } from '../utils/agent-cli/runAny';
 import type { AgentProvider } from '../utils/agent-cli/types';
 
 /** 검색량을 실측할 확장 상한 — 검색광고 쿼터를 아낀다(5개 묶음 3회). */
@@ -75,26 +72,15 @@ async function measureVolumes(searchAd: SearchAdConfig, keywords: string[]): Pro
   return volumes;
 }
 
-/** 감지된 첫 구독 CLI. 없으면 null — 규칙 결과로만 간다. */
-async function pickAvailableAgent(): Promise<AgentProvider | null> {
-  for (const provider of ['claude', 'codex', 'gemini', 'grok'] as const) {
-    try {
-      const status = await detectAgent(provider);
-      if (status.available) return provider;
-    } catch { /* 감지 실패는 미설치와 같게 다룬다 */ }
-  }
-  return null;
-}
 
 /**
  * 구독 CLI 에 문제해결형 파생을 제안받는다. 반환은 **미검증 후보**다 —
  * 호출자가 반드시 실존 검증을 통과시켜야 화면에 나갈 수 있다.
  */
 async function proposeAiSubKeywords(
-  provider: AgentProvider,
   mainKeyword: string,
   knownKeywords: ReadonlySet<string>,
-): Promise<string[]> {
+): Promise<{ provider: AgentProvider; proposals: string[] }> {
   /*
    * 첫 실측(2026-08-17, '민증사진 규칙')의 교훈: "자연스러운 검색어"라고만 하면
    * "안 지키면 반려되나요" 같은 질문 문장을 낸다 — 전부 검색량 0으로 전량 탈락.
@@ -112,20 +98,17 @@ async function proposeAiSubKeywords(
     '- JSON 문자열 배열로만 출력: ["검색어1", "검색어2", ...]',
   ].join('\n');
 
-  const runner = provider === 'claude' ? runClaude
-    : provider === 'codex' ? runCodex
-      : provider === 'grok' ? runGrok
-        : runGemini;
-  const reply = await runner(prompt, { timeoutMs: AI_TIMEOUT_MS });
-  const parsed = tryExtractJson(reply);
-  if (!Array.isArray(parsed)) return [];
-  return parsed
+  const run = await runWithAnyAgent(prompt, createDefaultAgentChain(), { timeoutMs: AI_TIMEOUT_MS });
+  const parsed = tryExtractJson(run.reply);
+  if (!Array.isArray(parsed)) return { provider: run.provider, proposals: [] };
+  const proposals = parsed
     .filter((item): item is string => typeof item === 'string')
     .map((item) => item.trim())
     .filter((item) => item.length >= 4 && item.replace(/\s+/g, '').length <= 15 && item !== mainKeyword)
     .filter((item) => sharesToken(item, mainKeyword))
     .filter((item) => !knownKeywords.has(item))
     .slice(0, AI_PROPOSAL_CAP);
+  return { provider: run.provider, proposals };
 }
 
 export async function forgeLaneInsights(rawKeyword: string): Promise<LaneInsightsResult> {
@@ -162,49 +145,46 @@ export async function forgeLaneInsights(rawKeyword: string): Promise<LaneInsight
   // ── ② 두뇌 개입: 서브가 모자라면 구독 CLI 제안 → 실존 결재 ────────
   const ai = { used: false, provider: '' as string, proposed: 0, verified: 0 };
   if (subs.length < 3 && searchAd) {
-    const provider = await pickAvailableAgent();
-    if (provider) {
-      try {
-        const known = new Set(candidates);
-        const proposals = await proposeAiSubKeywords(provider, keyword, known);
-        ai.used = true;
-        ai.provider = provider;
-        ai.proposed = proposals.length;
-        if (proposals.length > 0) {
-          /*
-           * AI 제안은 실존 증명을 통과해야만 합류한다 — 지어낸 검색어가
-           * 화면에 나가는 순간 이 도구의 신뢰가 무너진다. 2단 검증:
-           *   1차: 검색광고 검색량 > 0 (강한 증거 + 수치 획득)
-           *   2차: 검색량이 "<10"(0 으로 뭉개짐)인 롱테일은 자동완성
-           *        프로브(무료)로 — 네이버가 그 문구를 되돌려주면 실사용 검색이다.
-           */
-          const aiVolumes = await measureVolumes(searchAd, proposals);
-          const verified: Array<{ keyword: string; searchVolume: number | null; source: string }> = [];
-          for (const k of proposals) {
-            const volume = aiVolumes.get(k.replace(/\s+/g, '')) || 0;
-            if (volume > 0) {
-              verified.push({ keyword: k, searchVolume: volume, source: 'ai-verified' });
-              continue;
+    try {
+      const known = new Set(candidates);
+      const { provider, proposals } = await proposeAiSubKeywords(keyword, known);
+      ai.used = true;
+      ai.provider = provider;
+      ai.proposed = proposals.length;
+      if (proposals.length > 0) {
+        /*
+         * AI 제안은 실존 증명을 통과해야만 합류한다 — 지어낸 검색어가
+         * 화면에 나가는 순간 이 도구의 신뢰가 무너진다. 2단 검증:
+         *   1차: 검색광고 검색량 > 0 (강한 증거 + 수치 획득)
+         *   2차: 검색량이 "<10"(0 으로 뭉개짐)인 롱테일은 자동완성
+         *        프로브(무료)로 — 네이버가 그 문구를 되돌려주면 실사용 검색이다.
+         */
+        const aiVolumes = await measureVolumes(searchAd, proposals);
+        const verified: Array<{ keyword: string; searchVolume: number | null; source: string }> = [];
+        for (const k of proposals) {
+          const volume = aiVolumes.get(k.replace(/\s+/g, '')) || 0;
+          if (volume > 0) {
+            verified.push({ keyword: k, searchVolume: volume, source: 'ai-verified' });
+            continue;
+          }
+          try {
+            const probe = await probeNaverAutocompleteSuggestions(k);
+            const compact = k.replace(/\s+/g, '').toLowerCase();
+            const echoed = probe.ok && probe.suggestions.some(
+              (s) => s.replace(/\s+/g, '').toLowerCase().includes(compact),
+            );
+            if (echoed) {
+              verified.push({ keyword: k, searchVolume: null, source: 'ai-verified' });
             }
-            try {
-              const probe = await probeNaverAutocompleteSuggestions(k);
-              const compact = k.replace(/\s+/g, '').toLowerCase();
-              const echoed = probe.ok && probe.suggestions.some(
-                (s) => s.replace(/\s+/g, '').toLowerCase().includes(compact),
-              );
-              if (echoed) {
-                verified.push({ keyword: k, searchVolume: null, source: 'ai-verified' });
-              }
-            } catch { /* 프로브 실패 = 미검증 = 탈락 */ }
-          }
-          ai.verified = verified.length;
-          if (verified.length > 0) {
-            subs = pickProblemSubKeywords(keyword, [...derived, ...verified]);
-          }
+          } catch { /* 프로브 실패 = 미검증 = 탈락 */ }
         }
-      } catch (error) {
-        console.error('[LANE-INSIGHTS] AI 제안 실패(규칙 결과로 계속):', error);
+        ai.verified = verified.length;
+        if (verified.length > 0) {
+          subs = pickProblemSubKeywords(keyword, [...derived, ...verified]);
+        }
       }
+    } catch (error) {
+      console.error('[LANE-INSIGHTS] AI 제안 실패(규칙 결과로 계속):', error);
     }
   }
 

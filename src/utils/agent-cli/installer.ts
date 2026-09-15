@@ -24,7 +24,7 @@ import {
 } from './subscriptionEnv';
 import { resolveNpmInvocation } from './npmInvocation';
 import { buildNpmInstallEnv } from './subscriptionEnv';
-import { describeNativeInstallFailure, nativeInstallCommand, type InstallStep } from './nativeInstaller';
+import { agyNativeInstallCommand, describeNativeInstallFailure, nativeInstallCommand, type InstallStep } from './nativeInstaller';
 import { AgentCliError, type AgentCliStatus, type AgentProvider } from './types';
 import { requireAgentProvider } from './validation';
 import { sanitizeUserVisibleError } from './userVisibleError';
@@ -123,6 +123,8 @@ const LOGIN_TIMEOUT_MS = 300_000;
 export interface AgentLoginHooks {
   /** Main-process-only URL handoff. Never log it or send it to the renderer. */
   readonly onLoginUrl?: (url: string) => void;
+  /** Plain instructions for providers whose official authentication requires a terminal. */
+  readonly onTerminalRequired?: (message: string) => void;
   readonly onSessionReady?: (controls: AgentLoginSessionControls) => void;
   readonly onCodeRequired?: (attempt: number) => void;
   readonly onSessionClosed?: () => void;
@@ -181,8 +183,8 @@ export async function installAgent(provider: AgentProvider): Promise<InstallAgen
     return null;
   };
 
-  if (provider === 'claude') {
-    const cmd = nativeInstallCommand();
+  if (provider === 'claude' || provider === 'gemini') {
+    const cmd = provider === 'gemini' ? agyNativeInstallCommand() : nativeInstallCommand();
     try {
       const res = await spawnCollect({ command: cmd.command, args: cmd.args, provider, timeoutMs: INSTALL_TIMEOUT_MS, env: buildNpmInstallEnv() });
       if (res.code === 0) {
@@ -190,10 +192,14 @@ export async function installAgent(provider: AgentProvider): Promise<InstallAgen
         const verified = await verify('native');
         if (verified) return verified;
       } else {
-        steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'failed', detail: describeNativeInstallFailure(res.code, res.stdout, res.stderr) });
+        steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'failed', detail: describeNativeInstallFailure(res.code, res.stdout, res.stderr, provider === 'gemini' ? 'antigravity.google' : 'claude.ai') });
       }
     } catch (err) {
       steps.push({ name: `네이티브 설치(${cmd.label})`, status: 'failed', detail: sanitizeUserVisibleError((err as Error)?.message || String(err)).slice(0, 200) });
+    }
+    if (provider === 'gemini') {
+      throw new AgentInstallError(new AgentCliError('not_installed', provider,
+        'Gemini CLI(agy)를 설치하지 못했습니다. 설치 진단을 확인한 뒤 다시 시도해 주세요.'), steps);
     }
   } else {
     steps.push({ name: '네이티브 설치', status: 'skipped', detail: `${provider} 는 npm 으로만 설치` });
@@ -282,13 +288,10 @@ async function installViaNpm(provider: AgentProvider, _steps: InstallStep[]): Pr
 
 /**
  * Login command per provider (subscription OAuth, opens the browser).
- * gemini-cli has no dedicated `login` subcommand: a bare invocation prompts for an auth
- * method and opens the Google OAuth browser flow on first run (same interactive-session
- * shape as codex/claude login, which this service already drives via startSpawnSession).
+ * Gemini's interactive agy flow is handled separately by runAgyAuth.
  */
 function loginCommand(provider: AgentProvider): { command: string; args: string[] } {
   if (provider === 'codex') return { command: 'codex', args: ['login'] };
-  if (provider === 'gemini') return { command: 'gemini', args: [] };
   // --device-code: 브라우저를 CLI 가 직접 못 여는 환경에서도 URL+코드를 찍어 준다
   // (grok 1.0.4 실측 — 로그아웃 오류 메시지가 이 플래그를 직접 안내한다).
   // 우리 로그인 세션은 그 URL 을 앱이 열고 코드를 보여주는 흐름이라 이쪽이 맞다.
@@ -313,12 +316,9 @@ export async function loginAgent(
       loginAction: 'already_authenticated' as const,
     });
   }
-  // [v2.11.140] Gemini: select oauth-personal (Login with Google) via settings.json before
-  // the login spawn. Without it the CLI errors "Please set an Auth method"; forcing GCA env
-  // instead selected the Code Assist tier that returns IneligibleTierError for individuals.
   if (provider === 'gemini') {
-    const { ensureGeminiOAuthPersonalConfig } = await import('./geminiAuthConfig');
-    await ensureGeminiOAuthPersonalConfig();
+    const { runAgyAuth } = await import('./agyAuth');
+    return runAgyAuth('login', hooks);
   }
   const { command, args } = loginCommand(provider);
   const observeLoginUrl = createAgentLoginUrlObserver(provider, (url) => {
@@ -327,21 +327,9 @@ export async function loginAgent(
   const observeCodePrompt = createAgentLoginCodePromptObserver((attempt) => {
     try { hooks.onCodeRequired?.(attempt); } catch { /* renderer progress is best-effort */ }
   });
-  // [v2.11.140] Gemini(GCA)는 브라우저 열기 전 "Do you want to continue? [Y/n]"으로 확인을
-  // 받는데, 파이프 spawn(비-TTY)에는 사용자가 답할 터미널이 없다. 확인 프롬프트를 감지하면
-  // 자동으로 "Y"를 stdin에 써서 gemini가 OAuth 브라우저를 열도록 한다. (gemini 전용)
-  let geminiConfirmSent = false;
-  let sessionWriteLine: ((value: string) => Promise<unknown>) | undefined;
-  const observeGeminiBrowserConfirm = (chunk: string): void => {
-    if (provider !== 'gemini' || geminiConfirmSent) return;
-    if (!/do you want to continue|\[y\/n\]|authentication page in your browser/i.test(chunk)) return;
-    geminiConfirmSent = true;
-    try { void sessionWriteLine?.('Y'); } catch { /* stdin write is best-effort */ }
-  };
   const observeLoginOutput = (chunk: string): void => {
     observeLoginUrl(chunk);
     observeCodePrompt(chunk);
-    observeGeminiBrowserConfirm(chunk);
   };
   const session = startSpawnSession({
     command,
@@ -352,7 +340,6 @@ export async function loginAgent(
     onStdoutChunk: observeLoginOutput,
     onStderrChunk: observeLoginOutput,
   });
-  sessionWriteLine = session.writeLine;
   try {
     hooks.onSessionReady?.(Object.freeze({
       writeLine: session.writeLine,
@@ -389,33 +376,23 @@ export async function loginAgent(
   return Object.freeze({ ...status, loginAction: 'authenticated' as const });
 }
 
-/** Logout command per provider (clears stored subscription auth). gemini has no CLI subcommand. */
-function logoutCommand(provider: AgentProvider): { command: string; args: string[] } | undefined {
+/** Logout command for providers with a non-interactive logout command. */
+function logoutCommand(provider: AgentProvider): { command: string; args: string[] } {
   if (provider === 'codex') return { command: 'codex', args: ['logout'] };
-  if (provider === 'gemini') return undefined;
   if (provider === 'grok') return { command: 'grok', args: ['logout'] };
   return { command: 'claude', args: ['auth', 'logout'] };
-}
-
-/**
- * gemini-cli has no `logout` subcommand; the OAuth credential file it writes is the same
- * artifact probeGeminiLogin() reads, so removing it is the symmetric logout action.
- */
-async function logoutGeminiCredentialFile(): Promise<void> {
-  const { unlink } = await import('fs/promises');
-  const { homedir } = await import('os');
-  const { join } = await import('path');
-  await unlink(join(homedir(), '.gemini', 'oauth_creds.json')).catch((err: NodeJS.ErrnoException) => {
-    if (err?.code !== 'ENOENT') throw err;
-  });
 }
 
 /**
  * Clear the stored subscription credentials so a different account can sign in.
  * @throws AgentCliError if logout fails.
  */
-export async function logoutAgent(provider: AgentProvider): Promise<AgentCliStatus> {
+export async function logoutAgent(provider: AgentProvider, hooks: AgentLoginHooks = {}): Promise<AgentCliStatus> {
   provider = requireAgentProvider(provider);
+  if (provider === 'gemini') {
+    const { runAgyAuth } = await import('./agyAuth');
+    return runAgyAuth('logout', hooks);
+  }
   const command = logoutCommand(provider);
   if (command) {
     const res = await spawnCollect({
@@ -432,17 +409,6 @@ export async function logoutAgent(provider: AgentProvider): Promise<AgentCliStat
         provider,
         `${provider} 로그아웃에 실패했습니다. 터미널에서 직접 실행이 필요할 수 있습니다 (codex logout / claude auth logout).`,
         sanitizeUserVisibleError(res.stderr || res.stdout || ''),
-      );
-    }
-  } else {
-    try {
-      await logoutGeminiCredentialFile();
-    } catch (err) {
-      throw new AgentCliError(
-        'nonzero_exit',
-        provider,
-        `${provider} 로그아웃에 실패했습니다. 홈 폴더의 .gemini/oauth_creds.json 파일을 직접 삭제해주세요.`,
-        sanitizeUserVisibleError((err as Error)?.message || ''),
       );
     }
   }

@@ -19,8 +19,7 @@ import {
   ProTrafficKeyword,
 } from '../pro-traffic-keyword-hunter';
 import { callAI } from '../pro-hunter-v12/ai-client';
-import { runClaude } from '../agent-cli/claudeRunner';
-import { runCodex } from '../agent-cli/codexRunner';
+import { createDefaultAgentChain } from '../agent-cli/defaultChain';
 import { runWithAnyAgent } from '../agent-cli/runAny';
 
 const MANUS_API_BASE = 'https://api.manus.ai/v2';
@@ -679,13 +678,10 @@ async function runEnrichmentBackground<T extends { keyword: string; manusInsight
       task.rawDataKeys = pollResult.rawKeys;
       console.log(`[MANUS] [${requestId}] 응답 수신 — assistant_messages=${assistantTexts.length}, json 첨부=${jsonAttachments.length}`);
     } else if (provider === 'agent') {
-      // 구독 CLI — 건당 비용 0. 클로드코드가 막히면 코덱스로 넘어간다(runWithAnyAgent).
+      // 구독 CLI — 건당 비용 0. Claude → Codex → Gemini 순서로 넘어간다(runWithAnyAgent).
       const t = taskRegistry.get(requestId);
       if (t) t.manusStatus = 'calling agent';
-      const run = await runWithAnyAgent(prompt, [
-        { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'opus' }) },
-        { provider: 'codex', run: runCodex },
-      ], { timeoutMs: 240_000 });
+      const run = await runWithAnyAgent(prompt, createDefaultAgentChain({ claudeModel: 'opus' }), { timeoutMs: 240_000 });
       assistantTexts = [run.reply];
       if (t) t.manusStatus = `parsing (${run.provider})`;
     } else {

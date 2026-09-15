@@ -69,11 +69,17 @@ export async function runClaude(prompt: string, opts: ClaudeRunOptions = {}): Pr
 
     if (res.code !== 0) {
       const code = classifyExit('claude', res.stderr, res.stdout);
+      let detail = res.stderr || res.stdout;
+      // 오류 봉투의 앞부분(사용량·세션 메타데이터) 때문에 실제 한도/인증 안내가 잘리지 않게 한다.
+      try {
+        const envelope = JSON.parse(res.stdout);
+        if (typeof envelope.result === 'string' && envelope.result.trim()) detail = envelope.result;
+      } catch { /* JSON 봉투가 없는 프로세스 오류는 원래 진단을 사용한다. */ }
       throw new AgentCliError(
         code,
         'claude',
-        buildAgentFailureMessage('claude', code, res.stderr || res.stdout),
-        (res.stderr || res.stdout || '').slice(0, 800),
+        buildAgentFailureMessage('claude', code, detail),
+        (detail || '').slice(0, 800),
       );
     }
 

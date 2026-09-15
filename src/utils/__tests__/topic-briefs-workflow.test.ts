@@ -42,7 +42,7 @@ describe('오늘의 글감 워크플로', () => {
 
     it('시크릿 확인이 글감 뽑기보다 먼저 오고, 클로드 CLI 를 설치한다', () => {
         expect(workflow.indexOf('필수 시크릿 확인')).toBeLessThan(workflow.indexOf('scripts/topic-briefs.js'));
-        expect(workflow).toContain('npm install -g @anthropic-ai/claude-code');
+        expect(workflow).toContain('uses: ./.github/actions/setup-subscription-agents');
     });
 
     it('스크립트가 실재하고, 사이트의 다른 정적 보드와 같은 폴더에 싣는다', () => {

@@ -1,11 +1,10 @@
 name: AI 에이전트 작업자
 
 # 사이트는 서버가 없다(Vultr 폐지) — 에이전트 작업자는 GitHub Actions 가 맡는다.
-# Claude Code 를 **구독 OAuth 토큰**(claude setup-token 으로 발급)으로 돌린다.
-# API 종량 과금이 아니라 사장님 구독(MAX) 안에서 도는 실행이다.
+# Claude → Codex → Gemini 공통 실행기로 구독 로그인을 사용한다.
 #
 # 수동 테스트: Actions 탭 → "AI 에이전트 작업자" → Run workflow (mode=test).
-# 응답이 로그에 찍히면 연동이 산 것이다.
+# 실제 생성에 성공한 제공자·시도 순서가 로그에 찍힌다. 오류 응답은 실패 처리한다.
 #
 # 사전 준비(1회): 사장님 PC 터미널에서 `claude setup-token` 실행 → 나온 토큰을
 #   gh secret set CLAUDE_CODE_OAUTH_TOKEN -R cd000242-sudo/leword-app
@@ -15,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'test(연동 테스트) | enrich(회차 보강 — 준비 중)'
+        description: 'test(폴백 연동 테스트) | enrich(회차 보강)'
         default: 'test'
       prompt:
         description: 'test 모드에서 보낼 프롬프트(비우면 기본 문장)'
@@ -32,68 +31,20 @@ jobs:
         with:
           node-version: 20
 
-      # 토큰 없이는 CLI 설치조차 낭비다 — 먼저 확인하고 안내를 남긴다.
-      - name: 구독 토큰 확인
-        env:
-          HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
-        run: |
-          if [ "$HAS_TOKEN" != 'true' ]; then
-            echo '::error::CLAUDE_CODE_OAUTH_TOKEN 시크릿이 없습니다.'
-            echo '사장님 PC 에서: claude setup-token 실행 → 토큰을 시크릿으로 등록:'
-            echo '  gh secret set CLAUDE_CODE_OAUTH_TOKEN -R cd000242-sudo/leword-app'
-            exit 1
-          fi
-          echo '구독 토큰 확인됨.'
+      - name: 구독 CLI 폴백 준비
+        uses: ./.github/actions/setup-subscription-agents
 
-      - name: Claude Code 설치
-        run: npm install -g @anthropic-ai/claude-code
-
-      - name: 연동 테스트 (구독 세션 실왕복)
+      - name: 실제 폴백 연결 확인
         if: ${{ inputs.mode == 'test' }}
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        run: |
-          PROMPT="${{ inputs.prompt }}"
-          if [ -z "$PROMPT" ]; then
-            PROMPT='다음 단어를 그대로 한 번만 출력해라: 연동확인'
-          fi
-          echo "프롬프트: $PROMPT"
-          # -p 헤드리스 + default 모드. plan 모드는 계획만 답하고 산출물을 안 낸다(실측 함정).
-          REPLY=$(printf '%s' "$PROMPT" | claude -p --output-format json --permission-mode default --disallowedTools '*' 2>/dev/null | head -c 4000)
-          echo "원본 응답 봉투: $REPLY"
-          RESULT=$(printf '%s' "$REPLY" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.result||'');}catch{console.log('');}})")
-          if [ -z "$RESULT" ]; then
-            echo '::error::응답을 받지 못했습니다 — 토큰 만료 또는 요금제 한도를 확인하세요.'
-            exit 1
-          fi
-          echo "✅ 에이전트 응답: $RESULT"
-
-      # 위 단계는 CLI 를 **직접** 부른다. 실제 보강은 앱 래퍼(runClaude)를 타는데,
-      # 그 래퍼는 하위 프로세스 환경을 허용 목록으로 걸러서 종량 과금 API 키가
-      # 새지 않게 한다. 2026-08-18 회차는 그 목록에 구독 토큰 이름이 빠져 있어
-      # 30회 호출이 전부 not_logged_in 으로 죽었다 — 직접 호출만 테스트하면
-      # 이 구멍이 안 보인다. 그래서 래퍼 경로를 따로 못 박는다.
-      - name: 래퍼 경로 확인 (보강이 실제로 타는 길)
-        if: ${{ inputs.mode == 'test' }}
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          AGENT_TEST_PROMPT: ${{ inputs.prompt }}
         run: |
           for i in 1 2 3; do
             timeout 600 npm ci && break
-            echo "npm ci 재시도 $i/3"
+            if [ "$i" -eq 3 ]; then exit 1; fi
           done
-          node -r ts-node/register/transpile-only -e "
-            const { runClaude } = require('./src/utils/agent-cli/claudeRunner');
-            runClaude('다음 단어를 그대로 한 번만 출력해라: 래퍼확인', { timeoutMs: 90000 })
-              .then((reply) => {
-                console.log('✅ 래퍼 응답:', String(reply).slice(0, 200));
-                process.exit(0);
-              })
-              .catch((error) => {
-                console.error('::error::래퍼 경로 실패 —', error && error.message);
-                process.exit(1);
-              });
-          "
+          node scripts/test-agent-chain.js
 
       # 회차 보강 — 발행된 보드를 다시 보강해 재발행한다(어드민 버튼용).
       # 정기 회차는 preemption-board.yml 안에서 발행 전에 자동 보강되므로,

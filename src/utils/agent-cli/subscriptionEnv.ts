@@ -29,6 +29,8 @@ const SHARED_SUBSCRIPTION_ENV_KEYS = new Set([
   'PROGRAMFILES',
   'PROGRAMFILES(X86)',
   'PROGRAMW6432',
+  'PROCESSOR_ARCHITECTURE',
+  'PROCESSOR_ARCHITEW6432',
   'XDG_CONFIG_HOME',
   'XDG_DATA_HOME',
   'XDG_CACHE_HOME',
@@ -75,6 +77,12 @@ const CODEX_SUBSCRIPTION_ENV_KEYS = new Set([
 // user's OAuth-backed subscription (Antigravity/Gemini CLI login).
 const GEMINI_SUBSCRIPTION_ENV_KEYS = new Set([
   ...SHARED_SUBSCRIPTION_ENV_KEYS,
+  // Linux native keyring and the official interactive login terminal.
+  'DBUS_SESSION_BUS_ADDRESS',
+  'XDG_RUNTIME_DIR',
+  'DISPLAY',
+  'WAYLAND_DISPLAY',
+  'XAUTHORITY',
 ]);
 
 // Allowlist-only: XAI_API_KEY is deliberately absent — with it set, `grok` silently

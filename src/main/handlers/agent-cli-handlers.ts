@@ -21,7 +21,8 @@ import type { AgentProvider, AgentCliStatus } from '../../utils/agent-cli/types'
 import { runClaude } from '../../utils/agent-cli/claudeRunner';
 import { runCodex } from '../../utils/agent-cli/codexRunner';
 import { runGemini } from '../../utils/agent-cli/geminiRunner';
-import { AgentInstallError, installAgent, loginAgent, logoutAgent } from '../../utils/agent-cli/installer';
+import { runGrok } from '../../utils/agent-cli/grokRunner';
+import { AgentInstallError, installAgent, loginAgent, logoutAgent, type AgentLoginHooks } from '../../utils/agent-cli/installer';
 
 const PROVIDERS: readonly AgentProvider[] = ['claude', 'codex', 'gemini', 'grok'];
 
@@ -40,6 +41,7 @@ interface LoginSessionState {
   /** 완료 시의 최종 상태. */
   status?: AgentCliStatus;
   error?: string;
+  guide?: string;
   writeLine?: (value: string) => Promise<'accepted' | 'busy' | 'closed'>;
   cancel?: () => void;
 }
@@ -120,19 +122,10 @@ export function setupAgentCliHandlers(): void {
      * 그냥 다시 로그인시키면 CLI 가 "이미 로그인돼 있습니다"로 끝나므로
      * 기존 자격을 먼저 지워야 한다(2026-08-20 실측).
      */
-    if (payload?.switchAccount) {
-      try {
-        await logoutAgent(provider);
-      } catch (error) {
-        // 로그아웃이 실패해도 로그인은 시도한다 — 이미 안 돼 있을 수도 있다.
-        console.warn('[AGENT-CLI] 계정 바꾸기 로그아웃 실패(로그인은 계속):', error);
-      }
-    }
-
     const state: LoginSessionState = { stage: 'starting' };
     loginSessions.set(provider, state);
 
-    void loginAgent(provider, {
+    const hooks: AgentLoginHooks = {
       onLoginUrl: (url) => {
         state.stage = 'waiting_browser';
         // OAuth URL 은 메인에서만 연다(loginUrl.ts 지시). 렌더러로 보내지 않는다.
@@ -142,6 +135,10 @@ export function setupAgentCliHandlers(): void {
         state.writeLine = controls.writeLine;
         state.cancel = controls.cancel;
       },
+      onTerminalRequired: (message) => {
+        state.stage = 'waiting_browser';
+        state.guide = message;
+      },
       onCodeRequired: (attempt) => {
         state.stage = 'code_required';
         state.attempt = attempt;
@@ -149,7 +146,12 @@ export function setupAgentCliHandlers(): void {
       onSessionClosed: () => {
         if (state.stage !== 'done' && state.stage !== 'failed') state.stage = 'starting';
       },
-    }).then((status) => {
+    };
+    void (async () => {
+      if (payload?.switchAccount) await logoutAgent(provider, hooks);
+      state.guide = undefined;
+      return loginAgent(provider, hooks);
+    })().then((status) => {
       state.stage = 'done';
       state.status = status;
       clearAgentDetectionCache(provider);
@@ -172,7 +174,7 @@ export function setupAgentCliHandlers(): void {
       stage: state.stage,
       attempt: state.attempt ?? null,
       loginAction: state.status?.loginAction ?? null,
-      detail: state.status?.detail || '',
+      detail: state.guide || state.status?.detail || '',
       error: state.error || '',
     };
   });
@@ -205,7 +207,7 @@ export function setupAgentCliHandlers(): void {
     }
     const started = Date.now();
     try {
-      const runner = provider === 'claude' ? runClaude : provider === 'codex' ? runCodex : runGemini;
+      const runner = { claude: runClaude, codex: runCodex, gemini: runGemini, grok: runGrok }[provider];
       const reply = await runner(TEST_PROMPT, { timeoutMs: TEST_TIMEOUT_MS });
       return {
         success: true,
@@ -227,7 +229,11 @@ export function setupAgentCliHandlers(): void {
   ipcMain.handle('agent-cli-login', async (_event, payload: { provider?: string }) => {
     const provider = payload?.provider;
     if (!isProvider(provider)) return { success: false, error: '알 수 없는 프로바이더입니다.' };
-    const command = provider === 'codex' ? 'codex login' : provider === 'gemini' ? 'agy login' : 'claude';
+    if (provider === 'gemini') {
+      void loginAgent(provider).catch((error) => console.error('[AGENT-CLI] Gemini 로그인 실패:', error));
+      return { success: true, provider, guide: '열린 Gemini 창에서 로그인 완료 후 [다시 감지]를 누르세요.' };
+    }
+    const command = provider === 'codex' ? 'codex login' : provider === 'grok' ? 'grok login --device-code' : 'claude';
     try {
       if (process.platform === 'win32') {
         spawn('cmd', ['/c', 'start', `${provider} 로그인`, 'cmd', '/k', command], {

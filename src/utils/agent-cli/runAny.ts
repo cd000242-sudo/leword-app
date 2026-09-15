@@ -9,10 +9,12 @@
  * 호출이 전부 죽어 제안 0건으로 끝났다. 같은 일을 하는 두 경로가 다른 배선을
  * 쓰면, 한쪽에서 고친 것이 다른 쪽에 반영되지 않는다.
  *
- * 실패를 조용히 삼키지 않는다. 전부 실패하면 마지막 사유를 들고 던진다 —
+ * 실패를 조용히 삼키지 않는다. 전부 실패하면 제공자별 사유를 모아 던진다 —
  * 빈 배열을 돌려주면 "AI 가 아무 제안도 안 했다"로 오독되어, 배선이 끊긴
  * 것을 품질 문제로 착각하게 된다(실제로 그렇게 한 회차를 잃었다).
  */
+
+import { sanitizeUserVisibleError } from './userVisibleError';
 
 export type AgentProviderName = 'claude' | 'codex' | 'gemini' | 'grok';
 
@@ -28,6 +30,13 @@ export interface AgentRunResult {
   tried: AgentProviderName[];
   /** 실패한 제공자별 사유. 성공한 제공자는 들어 있지 않다. */
   failures: Record<string, string>;
+}
+
+export class AllAgentsFailedError extends Error {
+  constructor(readonly tried: AgentProviderName[], readonly failures: Record<string, string>) {
+    super(`구독 CLI 전부 실패: ${tried.map((provider) => `${provider}: ${failures[provider]}`).join(' → ') || 'no_agent_configured'}`);
+    this.name = 'AllAgentsFailedError';
+  }
 }
 
 /**
@@ -54,7 +63,6 @@ export async function runWithAnyAgent(
 ): Promise<AgentRunResult> {
   const tried: AgentProviderName[] = [];
   const failures: Record<string, string> = {};
-  let lastError = 'no_agent_configured';
 
   for (const attempt of attempts) {
     tried.push(attempt.provider);
@@ -65,16 +73,14 @@ export async function runWithAnyAgent(
         await recordRun(attempt.provider, true);
         return { reply, provider: attempt.provider, tried, failures };
       }
-      lastError = 'empty_reply';
-      failures[attempt.provider] = lastError;
+      failures[attempt.provider] = 'empty_reply';
       await recordRun(attempt.provider, false);
     } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      failures[attempt.provider] = lastError;
+      failures[attempt.provider] = sanitizeUserVisibleError(error);
       // 실패도 적는다 — 한도에 부딪힌 것도 사용이다.
       await recordRun(attempt.provider, false);
     }
   }
 
-  throw new Error(`구독 CLI 전부 실패 (${tried.join(' → ')}): ${lastError}`);
+  throw new AllAgentsFailedError(tried, failures);
 }

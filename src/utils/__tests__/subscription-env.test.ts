@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildClaudeSubscriptionEnv,
   buildCodexSubscriptionEnv,
+  buildGeminiSubscriptionEnv,
+  buildNpmInstallEnv,
 } from '../agent-cli/subscriptionEnv';
 
 /**
@@ -18,6 +20,13 @@ import {
  */
 
 describe('구독 자격은 통과시킨다', () => {
+  it('Gemini 네이티브 설치와 Linux 키링에 필요한 OS 값은 보존하되 API 키는 제외한다', () => {
+    expect(buildNpmInstallEnv({ PROCESSOR_ARCHITECTURE: 'AMD64' }).PROCESSOR_ARCHITECTURE).toBe('AMD64');
+    const env = buildGeminiSubscriptionEnv({ DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus', DISPLAY: ':0', GEMINI_API_KEY: 'private-api-key' });
+    expect(env.DBUS_SESSION_BUS_ADDRESS).toBe('unix:path=/run/user/1000/bus');
+    expect(env.DISPLAY).toBe(':0');
+    expect(env.GEMINI_API_KEY).toBeUndefined();
+  });
   it('클로드 구독 OAuth 토큰이 전달된다', () => {
     const env = buildClaudeSubscriptionEnv({
       PATH: '/usr/bin',

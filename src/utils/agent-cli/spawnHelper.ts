@@ -229,11 +229,14 @@ export function resolveWindowsSpawnTarget(
     .split(delimiter)
     .map((entry) => entry.trim().replace(/^"|"$/g, ''))
     .filter((entry) => entry.length > 0 && isSafeWindowsPathEntry(entry));
+  const extension = extname(command).toLowerCase();
   for (const entry of pathEntries) {
-    const executable = resolveExistingInsideDirectory(entry, `${command}.exe`);
+    const executable = extension === '.cmd' ? undefined
+      : resolveExistingInsideDirectory(entry, extension === '.exe' ? command : `${command}.exe`);
     if (executable) return { command: executable, prefixArgs: [] };
 
-    const shim = resolveExistingInsideDirectory(entry, `${command}.cmd`);
+    const shim = extension === '.exe' ? undefined
+      : resolveExistingInsideDirectory(entry, extension === '.cmd' ? command : `${command}.cmd`);
     if (!shim) continue;
     const resolved = resolveNpmCmdShim(shim);
     if (resolved) return resolved;

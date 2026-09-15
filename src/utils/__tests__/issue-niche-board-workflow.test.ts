@@ -59,7 +59,7 @@ describe('실검 틈새 보드 워크플로', () => {
     for (const key of ['NAVER_SEARCH_AD_ACCESS_LICENSE', 'NAVER_SEARCH_AD_SECRET_KEY', 'NAVER_SEARCH_AD_CUSTOMER_ID']) {
       expect(hunt).toContain(`${key}: \${{ secrets.${key} }}`);
     }
-    const check = workflow.slice(stepIndex('필수 시크릿 확인'), stepIndex('구독 에이전트 CLI 설치'));
+    const check = workflow.slice(stepIndex('필수 시크릿 확인'), stepIndex('구독 CLI 폴백 준비'));
     expect(check).toContain("NAVER_SEARCH_AD_ACCESS_LICENSE=${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE != '' }}");
   });
 
@@ -74,13 +74,13 @@ describe('실검 틈새 보드 워크플로', () => {
 
   it('AI 는 API 키가 아니라 구독 토큰(claude CLI)이다', () => {
     expect(workflow).toMatch(/CLAUDE_CODE_OAUTH_TOKEN:\s*\$\{\{\s*secrets\.CLAUDE_CODE_OAUTH_TOKEN\s*\}\}/);
-    expect(workflow).toContain('npm install -g @anthropic-ai/claude-code');
+    expect(workflow).toContain('uses: ./.github/actions/setup-subscription-agents');
     expect(/ANTHROPIC_API_KEY|OPENAI_API_KEY|GEMINI_API_KEY/.test(workflow)).toBe(false);
   });
 
-  it('CLI 설치는 토큰이 있을 때만 한다', () => {
-    const install = workflow.slice(stepIndex('구독 에이전트 CLI 설치'), stepIndex('실검 틈새 회차'));
-    expect(install).toMatch(/if \[ -z "\$CLAUDE_CODE_OAUTH_TOKEN" \]/);
+  it('Claude 토큰이 없어도 다른 CLI 폴백을 준비한다', () => {
+    const install = workflow.slice(stepIndex('구독 CLI 폴백 준비'), stepIndex('실검 틈새 회차'));
+    expect(install).not.toContain('if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]');
   });
 
   it('시크릿 확인이 회차보다 앞에 있고, 회차 스텝이 시크릿을 받는다', () => {

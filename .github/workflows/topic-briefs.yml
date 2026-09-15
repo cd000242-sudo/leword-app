@@ -91,7 +91,6 @@ jobs:
           REQUIRED: |
             NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID != '' }}
             NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET != '' }}
-            CLAUDE_CODE_OAUTH_TOKEN=${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
             BRIGHTDATA_TOKEN=${{ secrets.BRIGHTDATA_TOKEN != '' }}
             SITE_REPO_SSH_KEY=${{ secrets.SITE_REPO_SSH_KEY != '' }}
         run: |
@@ -102,6 +101,9 @@ jobs:
           done <<< "$REQUIRED"
           [ "$missing" -eq 1 ] && exit 1
           echo '필수 시크릿 확인됨.'
+
+      - name: 구독 CLI 폴백 준비
+        uses: ./.github/actions/setup-subscription-agents
 
       # 장부(data/brightdata-quota-briefs.json)를 읽어야 하므로 글감 뽑기보다 먼저 받는다.
       - name: 사이트 레포 체크아웃
@@ -162,7 +164,6 @@ jobs:
           SKIP_IF_DONE: ${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }}
         run: |
           mkdir -p site/data
-          npm install -g @anthropic-ai/claude-code
           # skipIfSlotDone: 이 회차가 오늘 이미 실렸으면 곧장 나간다(예약을 회차마다 세 번 걸어 둔 까닭).
           # 수동 실행(workflow_dispatch)은 다시 돌리려는 뜻이므로 건너뛰지 않는다.
           # --schedule: 어느 예약이 발동했는지. 이게 없으면 스크립트가 시계로 회차를 정하는데,

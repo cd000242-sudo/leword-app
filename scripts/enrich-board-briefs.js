@@ -17,8 +17,7 @@ const { toFactCards, kstToday } = require('../src/utils/topic-briefs');
 const { buildKeywordBriefPrompt, validateKeywordBrief } = require('../src/utils/keyword-brief');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
-const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
-const { runCodex } = require('../src/utils/agent-cli/codexRunner');
+const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 
@@ -27,10 +26,7 @@ const arg = (name, fallback = '') => {
   return found ? found.slice(name.length + 3) : fallback;
 };
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-const AGENT_CHAIN = [
-  { provider: 'claude', run: (p, o) => runClaude(p, { ...(o || {}), model: 'opus' }) },
-  { provider: 'codex', run: runCodex },
-];
+const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
 
 async function main() {
   const inPath = path.resolve(arg('in', 'board.json'));

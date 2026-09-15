@@ -13,6 +13,7 @@ const deps = {
   appVersion: 'test-1.0.0',
   getAgentStatuses: async () => [{ provider: 'claude', installed: true, loggedIn: true, available: true, detail: '' }],
   forgeInsights: async (keyword: string) => ({ keyword, subs: [{ keyword: keyword + ' 안됨', searchVolume: 120 }] }),
+  radarAnalyze: async (input: unknown) => input,
   adminWorker: {
     status: async () => ({ status: 'completed', conclusion: 'success' }),
     dispatchTest: async () => ({ dispatched: true }),
@@ -60,6 +61,16 @@ describe('출처 통제 — 남의 사이트가 방문자 브라우저로 부리
 });
 
 describe('추론 경로 — 키워드 하나, 고정 템플릿만', () => {
+    it('레이더는 주소와 측정 키만 전달하고 임의 프롬프트를 받지 않는다', async () => {
+        const res = await fetch(`${base}/v1/bridge/radar-analyze`, {
+            method: 'POST', headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' },
+            body: JSON.stringify({ url: 'https://example.com/post', prompt: 'ignored', provider: 'unknown', keys: { openApiId: 'test', geminiKey: 'ignored' } }),
+        });
+        expect(res.status).toBe(200);
+        expect((await res.json()).result).toEqual({ url: 'https://example.com/post', provider: '', keys: { openApiId: 'test' } });
+        const bad = await fetch(`${base}/v1/bridge/radar-analyze`, { method: 'POST', body: JSON.stringify({ url: 'file:///etc/passwd' }) });
+        expect(bad.status).toBe(400);
+    });
     it('키워드를 받아 인사이트를 돌려준다', async () => {
         const res = await fetch(`${base}/v1/bridge/ai-subs`, {
             method: 'POST',

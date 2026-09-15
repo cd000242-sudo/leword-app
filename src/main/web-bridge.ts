@@ -20,6 +20,7 @@
  */
 
 import http from 'http';
+import { radarMeasurementKeys, type RadarAnalysisInput } from './radar-analysis-service';
 
 export const WEB_BRIDGE_PORT = 47615;
 
@@ -38,6 +39,7 @@ const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
 const MAX_BODY_BYTES = 32768;
 
 export interface WebBridgeDeps {
+  radarAnalyze?: (input: RadarAnalysisInput) => Promise<unknown>;
   appVersion: string;
   /** 3사 CLI 상태(설치·로그인·가용) — detectAgent 묶음. */
   getAgentStatuses: () => Promise<unknown>;
@@ -339,6 +341,23 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
        * 여기서 받는 것은 후보 목록(제목·판·주소)과 내 글 요지뿐이고,
        * 프롬프트 조립은 앱이 한다.
        */
+      if (deps.radarAnalyze && req.method === 'POST' && req.url === '/v1/bridge/radar-analyze') {
+        let input: RadarAnalysisInput;
+        try {
+          const parsed = JSON.parse((await readBody(req)) || '{}');
+          const url = String(parsed?.url || '').trim();
+          const target = new URL(url);
+          if (!['http:', 'https:'].includes(target.protocol) || target.username || target.password || url.length > 2000) throw new Error('invalid URL');
+          const wanted = String(parsed?.provider || '');
+          input = { url, keys: radarMeasurementKeys(parsed?.keys), provider: ['claude', 'codex', 'gemini', 'grok'].includes(wanted) ? wanted : '' };
+        } catch {
+          json(res, 400, { ok: false, error: '올바른 글 주소와 JSON 본문을 입력해 주세요.' });
+          return;
+        }
+        json(res, 200, { ok: true, result: await deps.radarAnalyze(input) });
+        return;
+      }
+
       if (deps.radarEvaluate && req.method === 'POST' && req.url === '/v1/bridge/radar-evaluate') {
         let items: Array<{ title: string; source: string; link: string }> = [];
         let myTitle = '';

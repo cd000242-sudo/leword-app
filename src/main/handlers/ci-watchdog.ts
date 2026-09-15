@@ -89,8 +89,11 @@ export const BOARDS: readonly WatchedBoard[] = [
     lastBuiltAt: (data) => {
       const rounds = (data as { rounds?: unknown[] } | null)?.rounds;
       if (!Array.isArray(rounds)) return null;
-      const times = rounds.map((r) => at((r as Record<string, unknown>)?.builtAt)).filter((x): x is number => x !== null);
-      return times.length ? Math.max(...times) : null;
+      const validRounds = rounds.filter((r) => Array.isArray((r as { briefs?: unknown[] })?.briefs)
+        && (r as { briefs: unknown[] }).briefs.length > 0);
+      const times = validRounds.map((r) => at((r as Record<string, unknown>)?.builtAt)).filter((x): x is number => x !== null);
+      // 파일 조회는 성공했지만 회차가 전부 비었으면 '미발행'이다. null(조회 불가)과 구분한다.
+      return times.length ? Math.max(...times) : rounds.length ? 0 : null;
     },
   },
   {

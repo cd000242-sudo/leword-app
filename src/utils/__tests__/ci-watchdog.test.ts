@@ -150,9 +150,9 @@ describe('회차 목록을 가진 보드는 마지막 회차 시각으로 본다
   it('회차 이름이 아니라 시각으로 판단한다 — 늦게 돈 저녁이 아침으로 적히던 사고가 있었다', async () => {
     const payload = {
       rounds: [
-        { slot: '아침', builtAt: new Date(kst(9, 12, 7, 50)).toISOString() },
+        { slot: '아침', builtAt: new Date(kst(9, 12, 7, 50)).toISOString(), briefs: [{}] },
         // 이름이 '아침'으로 잘못 적혀 있어도 시각이 저녁이면 저녁 회차가 채워진 것이다
-        { slot: '아침', builtAt: new Date(kst(9, 12, 19, 10)).toISOString() },
+        { slot: '아침', builtAt: new Date(kst(9, 12, 19, 10)).toISOString(), briefs: [{}] },
       ],
     };
     const ok = (async () => ({ ok: true, json: async () => payload })) as unknown as typeof fetch;
@@ -163,11 +163,19 @@ describe('회차 목록을 가진 보드는 마지막 회차 시각으로 본다
   });
 
   it('아침만 실렸으면 오후 회차는 비어 있다', async () => {
-    const payload = { rounds: [{ slot: '아침', builtAt: new Date(kst(9, 12, 7, 50)).toISOString() }] };
+    const payload = { rounds: [{ slot: '아침', builtAt: new Date(kst(9, 12, 7, 50)).toISOString(), briefs: [{}] }] };
     const ok = (async () => ({ ok: true, json: async () => payload })) as unknown as typeof fetch;
     const last = await lastBuiltAtOf(briefs, ok);
     const afternoon = dueRound(briefs, kst(9, 12, 14, 0))!;
     expect(roundFilled(last, afternoon.dueAtMs)).toBe(false);
+  });
+
+  it('갱신 시각이 최신이어도 글감 0건인 회차는 미발행이다', () => {
+    const empty = { slot: '오후', builtAt: new Date(kst(9, 12, 14)).toISOString(), briefs: [] };
+    expect(briefs.lastBuiltAt({ rounds: [empty] })).toBe(0);
+    expect(roundFilled(briefs.lastBuiltAt({ rounds: [empty] }), kst(9, 12, 10, 23))).toBe(false);
+    const morning = { slot: '아침', builtAt: new Date(kst(9, 12, 7)).toISOString(), briefs: [{}] };
+    expect(briefs.lastBuiltAt({ rounds: [morning, empty] })).toBe(kst(9, 12, 7));
   });
 });
 /*

@@ -24,14 +24,8 @@ function buildPrompt(items) {
 async function defaultRunAI(prompt) {
   require('ts-node/register/transpile-only');
   const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
-  const { runClaude } = require('../src/utils/agent-cli/claudeRunner');
-  const { runCodex } = require('../src/utils/agent-cli/codexRunner');
-  const { runGemini } = require('../src/utils/agent-cli/geminiRunner');
-  const { runGrok } = require('../src/utils/agent-cli/grokRunner');
-  return runWithAnyAgent(prompt, [
-    {provider:'claude',run:(p,o)=>runClaude(p,{...(o||{}),model:'opus'})},
-    {provider:'codex',run:runCodex},{provider:'gemini',run:runGemini},{provider:'grok',run:runGrok},
-  ],{timeoutMs:120000});
+  const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
+  return runWithAnyAgent(prompt, createDefaultAgentChain({ claudeModel: 'opus' }), {timeoutMs:120000});
 }
 async function attachAiTitles(items, {label='',log=console.log,runAI=defaultRunAI}={}) {
   const { verifiedProductEvidence, validateEvidenceTitle } = await import('./affiliate-recommendation.mjs');

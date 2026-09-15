@@ -4777,7 +4777,7 @@
                 }
               } else {
                 if (!slot.querySelector('[data-agent-code]')) {
-                  slot.innerHTML = '<span style="color:#64748b;">🌐 브라우저에서 승인해 주세요 — 승인되면 자동으로 완료됩니다… (' + Math.round((Date.now() - startedAt) / 1000) + '초)</span>';
+                  slot.innerHTML = '<span style="color:#64748b;">' + laneEsc(state.detail || '🌐 브라우저에서 승인해 주세요 — 승인되면 자동으로 완료됩니다…') + ' (' + Math.round((Date.now() - startedAt) / 1000) + '초)</span>';
                 }
               }
             }
@@ -15120,4 +15120,3 @@
 
 
 </html>
-
