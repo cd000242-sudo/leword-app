@@ -3,7 +3,7 @@
  "snapshots": [
   {
    "schemaVersion": "homefeed-snapshot-v1",
-   "capturedAt": "2026-09-15T22:20:13.886Z",
+   "capturedAt": "2026-09-15T23:22:05.958Z",
    "collectorVersion": "homefeed-collector-1",
    "intervalMinutes": 10,
    "sources": [
@@ -52,1263 +52,13 @@
     {
      "name": "og-image",
      "ok": true,
-     "count": 30,
+     "count": 23,
      "error": null
     }
    ],
    "issues": [
     {
-     "issueKey": "서울시내버스타결",
-     "keyword": "서울 시내버스 타결",
-     "category": "work",
-     "ranks": {
-      "signal.bz": 1,
-      "nate": 1,
-      "google": null,
-      "daum": 8
-     },
-     "newsTotal": 3755,
-     "blogDocCount": 4586,
-     "samples": [
-      {
-       "title": "서울 시내버스 노사 극적 타결…16일 첫차부터 정상 운행",
-       "url": "https://www.g-enews.com/view.php?ud=202609160706415808112616b072_1",
-       "press": "g-enews.com",
-       "publishedAt": "2026-09-15T22:10:00.000Z",
-       "image": "https://nimage.g-enews.com/phpwas/restmb_allidxmake.php?idx=5&simg=2026091607075009751112616b0722112125164.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "시내버스 파업, 서울 교통 대란 예고... 대체 교통수단 총동원",
-       "url": "https://www.gokorea.kr/news/articleView.html?idxno=878546",
-       "press": "gokorea.kr",
-       "publishedAt": "2026-09-15T22:10:00.000Z",
-       "image": "https://cdn.gokorea.kr/news/thumbnail/202609/878546_155756_912_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "오늘 서울 시내버스 정상운행…노사 협상 12시간 만에 극적 타결",
-       "url": "https://n.news.naver.com/mnews/article/057/0001969187?sid=102",
-       "press": "mbn.co.kr",
-       "publishedAt": "2026-09-15T22:09:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/057/2026/09/16/20260916070411_20_605_1429154_1080_7_20260916070909463.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 버스 파업 철회…통상임금은 연말 대법원으로",
-       "url": "http://www.smedaily.co.kr/news/articleView.html?idxno=363264",
-       "press": "smedaily.co.kr",
-       "publishedAt": "2026-09-15T22:06:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "9월 16일 굿모닝 MBN 주요뉴스",
-       "url": "https://n.news.naver.com/mnews/article/057/0001969186?sid=102",
-       "press": "mbn.co.kr",
-       "publishedAt": "2026-09-15T22:04:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "[천지일보 이슈종합] 서울 시내버스 파업·李대통령 기자회견·'조지아...",
-       "url": "https://www.newscj.com/news/articleView.html?idxno=3433037",
-       "press": "newscj.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
-    },
-    {
-     "issueKey": "엄지성해트트릭첫승리",
-     "keyword": "엄지성 해트트릭 첫 승리",
-     "category": "sports",
-     "ranks": {
-      "signal.bz": 2,
-      "nate": 2,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 261,
-     "blogDocCount": 296,
-     "samples": [
-      {
-       "title": "아시안게임 한국 남자축구, 카타르 4-1 완파",
-       "url": "https://www.etoday.co.kr/news/view/2625978",
-       "press": "etoday.co.kr",
-       "publishedAt": "2026-09-15T22:10:00.000Z",
-       "image": "https://img.etoday.co.kr/pto_db/2026/09/20260916070829_2388689_1000_703.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[천지일보 이슈종합] 서울 시내버스 파업·李대통령 기자회견·'조지아...",
-       "url": "https://www.newscj.com/news/articleView.html?idxno=3433037",
-       "press": "newscj.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": "https://cdn.newscj.com/news/thumbnail/202609/3433037_3549595_5228_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "첫 경기 ‘해트트릭’으로 ‘와일드카드’ 존재감…엄지성 “경기력보...",
-       "url": "https://m.sports.naver.com/kfootball/article/468/0001266675",
-       "press": "sportsseoul.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/468/2026/09/16/0001266675_001_20260916070218891.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'무실점 승리 가능했는데'...카타르전처럼 실점하면 金 어림없다[AG 스틸...",
-       "url": "https://sports.hankooki.com/news/articleView.html?idxno=6939751",
-       "press": "sports.hankooki.com",
-       "publishedAt": "2026-09-15T22:00:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "이승원 빠지자 흔들, 완승 흐름에 '1실점' 얼룩 남긴 이민성호… 수비 ...",
-       "url": "https://m.sports.naver.com/kfootball/article/436/0000113376",
-       "press": "footballist.co.kr",
-       "publishedAt": "2026-09-15T22:00:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "엄지성 해트트릭으로 남자축구가 카타르를 4-1 완파하며 대회 첫 승을 거뒀다."
-    },
-    {
-     "issueKey": "조지아한국인구금소송",
-     "keyword": "조지아 한국인 구금 소송",
-     "category": "policy",
-     "ranks": {
-      "signal.bz": 3,
-      "nate": null,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 448,
-     "blogDocCount": 873,
-     "samples": [
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/079/2026/09/16/0004189792_001_20260916070119207.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금사태' 한국인 300여명, 트럼프 정부에 법적대응",
-       "url": "https://n.news.naver.com/mnews/article/437/0000511280?sid=104",
-       "press": "news.jtbc.co.kr",
-       "publishedAt": "2026-09-15T21:46:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/437/2026/09/16/0000511280_001_20260916064712506.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "‘조지아 구금’ 한국인 300여명, 美 정부 상대 소송 건다",
-       "url": "https://n.news.naver.com/mnews/article/119/0003133116?sid=104",
-       "press": "dailian.co.kr",
-       "publishedAt": "2026-09-15T21:46:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/119/2026/09/16/0003133116_001_20260916064616533.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "'美 조지아 구금' 한인 노동자들, 트럼프 행정부에 손배청구",
-       "url": "https://n.news.naver.com/mnews/article/215/0001266095?sid=104",
-       "press": "wowtv.co.kr",
-       "publishedAt": "2026-09-15T21:23:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금' 한국인 300명, 美 정부에 법적 대응 시작",
-       "url": "https://n.news.naver.com/mnews/article/422/0000906565?sid=104",
-       "press": "yonhapnewstv.co.kr",
-       "publishedAt": "2026-09-15T21:22:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금' 한국인 300명, 미 정부에 '손배청구' 시작",
-       "url": "https://n.news.naver.com/mnews/article/055/0001388578?sid=104",
-       "press": "news.sbs.co.kr",
-       "publishedAt": "2026-09-15T21:21:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
-    }
-   ]
-  },
-  {
-   "schemaVersion": "homefeed-snapshot-v1",
-   "capturedAt": "2026-09-15T22:30:13.894Z",
-   "collectorVersion": "homefeed-collector-1",
-   "intervalMinutes": 10,
-   "sources": [
-    {
-     "name": "signal.bz",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "nate",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "google",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "daum",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "site-issue-board",
-     "ok": true,
-     "count": 35,
-     "error": null
-    },
-    {
-     "name": "naver-news",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "naver-blog",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "og-image",
-     "ok": true,
-     "count": 30,
-     "error": null
-    }
-   ],
-   "issues": [
-    {
-     "issueKey": "서울시내버스타결",
-     "keyword": "서울 시내버스 타결",
-     "category": "work",
-     "ranks": {
-      "signal.bz": 1,
-      "nate": 1,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 3765,
-     "blogDocCount": 4592,
-     "samples": [
-      {
-       "title": "[이시각헤드라인] 9월 16일 라이브투데이",
-       "url": "https://n.news.naver.com/mnews/article/422/0000906570?sid=102",
-       "press": "yonhapnewstv.co.kr",
-       "publishedAt": "2026-09-15T22:28:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/422/2026/09/16/1438468_1789510715_20260916072817447.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "파업 2시간여 전 극적 타결…서울 시내버스 출근길 대란 피했다",
-       "url": "https://www.wikitree.co.kr/articles/1159800",
-       "press": "wikitree.co.kr",
-       "publishedAt": "2026-09-15T22:28:00.000Z",
-       "image": "https://cdnweb01.wikitree.co.kr/webdata/editor/202609/16/202609160726214772.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 시내버스 노사 협상 '극적 타결'…\"첫차부터 정상 운행\"",
-       "url": "https://www.jnilbo.com/news/articleView.html?idxno=90000065870",
-       "press": "jnilbo.com",
-       "publishedAt": "2026-09-15T22:26:00.000Z",
-       "image": "https://cdn.jnilbo.com/news/photo/202609/90000065870_587138_2335.png",
-       "origin": "naver-news"
-      },
-      {
-       "title": "오세훈 \"버스 파업 철회 환영…파업 예고 되풀이 안돼\"",
-       "url": "https://n.news.naver.com/mnews/article/014/0005576416?sid=102",
-       "press": "fnnews.com",
-       "publishedAt": "2026-09-15T22:24:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 시내버스 운행 중단 대란 피했다...노사, 임금 3.2% 인상 합의",
-       "url": "https://www.livebiz.today/news/articleView.html?idxno=204901",
-       "press": "livebiz.today",
-       "publishedAt": "2026-09-15T22:22:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 버스노사 임금 3.2% 인상 합의...파업 예고 철회",
-       "url": "https://www.m-economynews.com/news/article.html?no=70760",
-       "press": "m-economynews.com",
-       "publishedAt": "2026-09-15T22:22:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
-    },
-    {
-     "issueKey": "엄지성해트트릭첫승리",
-     "keyword": "엄지성 해트트릭 첫 승리",
-     "category": "sports",
-     "ranks": {
-      "signal.bz": 2,
-      "nate": 2,
-      "google": null,
-      "daum": 10
-     },
-     "newsTotal": 261,
-     "blogDocCount": 297,
-     "samples": [
-      {
-       "title": "아시안게임 한국 남자축구, 카타르 4-1 완파",
-       "url": "https://www.etoday.co.kr/news/view/2625978",
-       "press": "etoday.co.kr",
-       "publishedAt": "2026-09-15T22:10:00.000Z",
-       "image": "https://img.etoday.co.kr/pto_db/2026/09/20260916070829_2388689_1000_703.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[천지일보 이슈종합] 서울 시내버스 파업·李대통령 기자회견·'조지아...",
-       "url": "https://www.newscj.com/news/articleView.html?idxno=3433037",
-       "press": "newscj.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": "https://cdn.newscj.com/news/thumbnail/202609/3433037_3549595_5228_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "첫 경기 ‘해트트릭’으로 ‘와일드카드’ 존재감…엄지성 “경기력보...",
-       "url": "https://m.sports.naver.com/kfootball/article/468/0001266675",
-       "press": "sportsseoul.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/468/2026/09/16/0001266675_001_20260916070218891.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'무실점 승리 가능했는데'...카타르전처럼 실점하면 金 어림없다[AG 스틸...",
-       "url": "https://sports.hankooki.com/news/articleView.html?idxno=6939751",
-       "press": "sports.hankooki.com",
-       "publishedAt": "2026-09-15T22:00:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "이승원 빠지자 흔들, 완승 흐름에 '1실점' 얼룩 남긴 이민성호… 수비 ...",
-       "url": "https://m.sports.naver.com/kfootball/article/436/0000113376",
-       "press": "footballist.co.kr",
-       "publishedAt": "2026-09-15T22:00:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "엄지성 해트트릭으로 남자축구가 카타르를 4-1 완파하며 대회 첫 승을 거뒀다."
-    },
-    {
-     "issueKey": "조지아한국인구금소송",
-     "keyword": "조지아 한국인 구금 소송",
-     "category": "policy",
-     "ranks": {
-      "signal.bz": 3,
-      "nate": null,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 449,
-     "blogDocCount": 873,
-     "samples": [
-      {
-       "title": "현대차·LG 공장 구금 한국인 300명, 미 정부 상대 행정청구",
-       "url": "https://www.autodaily.co.kr/news/articleView.html?idxno=600476",
-       "press": "autodaily.co.kr",
-       "publishedAt": "2026-09-15T22:20:00.000Z",
-       "image": "https://cdn.autodaily.co.kr/news/photo/202609/600476_200834_1422.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/079/2026/09/16/0004189792_001_20260916070119207.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금사태' 한국인 300여명, 트럼프 정부에 법적대응",
-       "url": "https://n.news.naver.com/mnews/article/437/0000511280?sid=104",
-       "press": "news.jtbc.co.kr",
-       "publishedAt": "2026-09-15T21:46:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/437/2026/09/16/0000511280_001_20260916064712506.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "‘조지아 구금’ 한국인 300여명, 美 정부 상대 소송 건다",
-       "url": "https://n.news.naver.com/mnews/article/119/0003133116?sid=104",
-       "press": "dailian.co.kr",
-       "publishedAt": "2026-09-15T21:46:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'美 조지아 구금' 한인 노동자들, 트럼프 행정부에 손배청구",
-       "url": "https://n.news.naver.com/mnews/article/215/0001266095?sid=104",
-       "press": "wowtv.co.kr",
-       "publishedAt": "2026-09-15T21:23:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금' 한국인 300명, 美 정부에 법적 대응 시작",
-       "url": "https://n.news.naver.com/mnews/article/422/0000906565?sid=104",
-       "press": "yonhapnewstv.co.kr",
-       "publishedAt": "2026-09-15T21:22:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
-    }
-   ]
-  },
-  {
-   "schemaVersion": "homefeed-snapshot-v1",
-   "capturedAt": "2026-09-15T22:40:13.888Z",
-   "collectorVersion": "homefeed-collector-1",
-   "intervalMinutes": 10,
-   "sources": [
-    {
-     "name": "signal.bz",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "nate",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "google",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "daum",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "site-issue-board",
-     "ok": true,
-     "count": 35,
-     "error": null
-    },
-    {
-     "name": "naver-news",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "naver-blog",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "og-image",
-     "ok": true,
-     "count": 30,
-     "error": null
-    }
-   ],
-   "issues": [
-    {
-     "issueKey": "서울시내버스타결",
-     "keyword": "서울 시내버스 임금 인상 타결",
-     "category": "work",
-     "ranks": {
-      "signal.bz": 1,
-      "nate": 1,
-      "google": null,
-      "daum": 9
-     },
-     "newsTotal": 2086,
-     "blogDocCount": 2480,
-     "samples": [
-      {
-       "title": "서울 시내버스 파업 철회...임금 3.2% 인상 합의",
-       "url": "https://www.gukjenews.com/news/articleView.html?idxno=3696530",
-       "press": "gukjenews.com",
-       "publishedAt": "2026-09-15T22:32:00.000Z",
-       "image": "https://cdn.gukjenews.com/news/thumbnail/202609/3696530_3868310_3128_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "오세훈 \"버스 파업 철회 환영…일방적 파업 예고 되풀이 안돼\"",
-       "url": "https://www.ajunews.com/view/20260916072647194",
-       "press": "ajunews.com",
-       "publishedAt": "2026-09-15T22:30:00.000Z",
-       "image": "https://image.ajunews.com/content/image/2026/09/16/20260916072745959126.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[연합뉴스 이 시각 헤드라인] - 07:30",
-       "url": "https://n.news.naver.com/mnews/article/001/0016313388?sid=103",
-       "press": "yna.co.kr",
-       "publishedAt": "2026-09-15T22:30:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/001/2026/09/16/PYH2026091600230001300_P4_20260916073014397.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "파업 2시간여 전 극적 타결…서울 시내버스 출근길 대란 피했다",
-       "url": "https://www.wikitree.co.kr/articles/1159800",
-       "press": "wikitree.co.kr",
-       "publishedAt": "2026-09-15T22:28:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 시내버스 노사 협상 '극적 타결'…\"첫차부터 정상 운행\"",
-       "url": "https://www.jnilbo.com/news/articleView.html?idxno=90000065870",
-       "press": "jnilbo.com",
-       "publishedAt": "2026-09-15T22:26:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 버스노사 임금 3.2% 인상 합의...파업 예고 철회",
-       "url": "https://www.m-economynews.com/news/article.html?no=70760",
-       "press": "m-economynews.com",
-       "publishedAt": "2026-09-15T22:22:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
-    },
-    {
-     "issueKey": "엄지성해트트릭첫승리",
-     "keyword": "엄지성 해트트릭 카타르 격파!",
-     "category": "sports",
-     "ranks": {
-      "signal.bz": 2,
-      "nate": 2,
-      "google": null,
-      "daum": 2
-     },
-     "newsTotal": 5,
-     "blogDocCount": 18,
-     "samples": [
-      {
-       "title": "[천지일보 이슈종합] 서울 시내버스 파업·李대통령 기자회견·'조지아...",
-       "url": "https://www.newscj.com/news/articleView.html?idxno=3433037",
-       "press": "newscj.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": "https://cdn.newscj.com/news/thumbnail/202609/3433037_3549595_5228_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/079/2026/09/16/0004189792_001_20260916070119207.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[뉴스1 PICK] '엄지성 해트트릭' 이민성호, 카타르 4-1 격파",
-       "url": "https://n.news.naver.com/mnews/article/421/0009172434?sid=104",
-       "press": "news1.kr",
-       "publishedAt": "2026-09-15T12:52:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/421/2026/09/15/0009172434_001_20260915215309561.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[카타르전 리뷰]'손흥민 빙의' 엄지성 미쳤다! 골골골 전반 해트트릭 원...",
-       "url": "https://m.sports.naver.com/kfootball/article/076/0004446456",
-       "press": "sportschosun.com",
-       "publishedAt": "2026-09-15T12:25:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "손흥민 새 역사 기념식에도…붉은악마 떠나 적막감 감돈 상암벌(종합)",
-       "url": "https://m.sports.naver.com/kfootball/article/003/0013534597",
-       "press": "newsis.com",
-       "publishedAt": "2025-10-14T13:09:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "엄지성 전반 해트트릭…한국, 카타르 4-1 완파",
-       "url": "https://n.news.naver.com/mnews/article/015/0005332729?sid=104",
-       "press": "hankyung.com",
-       "publishedAt": "2026-09-15T12:39:00.000Z",
-       "image": null,
-       "origin": "site-issue-board"
-      }
-     ],
-     "boardWhy": "엄지성 해트트릭으로 남자축구가 카타르를 4-1 완파하며 대회 첫 승을 거뒀다."
-    },
-    {
-     "issueKey": "조지아한국인구금소송",
-     "keyword": "조지아 한국인 구금 소송",
-     "category": "policy",
-     "ranks": {
-      "signal.bz": 3,
-      "nate": null,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 450,
-     "blogDocCount": 874,
-     "samples": [
-      {
-       "title": "‘조지아 구금’ 한국인 300명, 트럼프 행정부에 손해배상 청구 시작",
-       "url": "https://n.news.naver.com/mnews/article/029/0003048241?sid=102",
-       "press": "dt.co.kr",
-       "publishedAt": "2026-09-15T22:29:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/029/2026/09/16/0003048241_001_20260916073011840.png?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "현대차·LG 공장 구금 한국인 300명, 미 정부 상대 행정청구",
-       "url": "https://www.autodaily.co.kr/news/articleView.html?idxno=600476",
-       "press": "autodaily.co.kr",
-       "publishedAt": "2026-09-15T22:20:00.000Z",
-       "image": "https://cdn.autodaily.co.kr/news/photo/202609/600476_200834_1422.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/079/2026/09/16/0004189792_001_20260916070119207.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "‘조지아 구금’ 한국인 300여명, 美 정부 상대 소송 건다",
-       "url": "https://n.news.naver.com/mnews/article/119/0003133116?sid=104",
-       "press": "dailian.co.kr",
-       "publishedAt": "2026-09-15T21:46:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금사태' 한국인 300여명, 트럼프 정부에 법적대응",
-       "url": "https://n.news.naver.com/mnews/article/437/0000511280?sid=104",
-       "press": "news.jtbc.co.kr",
-       "publishedAt": "2026-09-15T21:46:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'美 조지아 구금' 한인 노동자들, 트럼프 행정부에 손배청구",
-       "url": "https://n.news.naver.com/mnews/article/215/0001266095?sid=104",
-       "press": "wowtv.co.kr",
-       "publishedAt": "2026-09-15T21:23:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
-    }
-   ]
-  },
-  {
-   "schemaVersion": "homefeed-snapshot-v1",
-   "capturedAt": "2026-09-15T22:50:13.899Z",
-   "collectorVersion": "homefeed-collector-1",
-   "intervalMinutes": 10,
-   "sources": [
-    {
-     "name": "signal.bz",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "nate",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "google",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "daum",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "site-issue-board",
-     "ok": true,
-     "count": 35,
-     "error": null
-    },
-    {
-     "name": "naver-news",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "naver-blog",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "og-image",
-     "ok": true,
-     "count": 30,
-     "error": null
-    }
-   ],
-   "issues": [
-    {
-     "issueKey": "서울시내버스타결",
-     "keyword": "서울 시내버스 임금 인상 타결",
-     "category": "work",
-     "ranks": {
-      "signal.bz": 1,
-      "nate": 1,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 2092,
-     "blogDocCount": 2487,
-     "samples": [
-      {
-       "title": "[이슈 직썰] 서울버스 총파업 철회…임금 3.2% 올렸지만 뇌관은 여전",
-       "url": "https://www.ziksir.com/news/articleView.html?idxno=146566",
-       "press": "ziksir.com",
-       "publishedAt": "2026-09-15T22:48:00.000Z",
-       "image": "https://cdn.ziksir.com/news/thumbnail/202609/146566_166173_4326_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "'출근길 대란' 코앞서 피했다…서울 시내버스 정상 운행",
-       "url": "https://n.news.naver.com/mnews/article/437/0000511284?sid=102",
-       "press": "news.jtbc.co.kr",
-       "publishedAt": "2026-09-15T22:46:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/437/2026/09/16/0000511284_001_20260916074711143.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "경기도민 출근길 '안도의 한숨'…서울 시내버스 파업 철회",
-       "url": "https://n.news.naver.com/mnews/article/421/0009172679?sid=102",
-       "press": "news1.kr",
-       "publishedAt": "2026-09-15T22:44:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/421/2026/09/16/0009172679_001_20260916074525206.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "\"버스 안 오면 걸어\"... 새벽 3시 50분 무사히 출발한 8641번 첫차",
-       "url": "https://n.news.naver.com/mnews/article/047/0002529093?sid=102",
-       "press": "ohmynews.com",
-       "publishedAt": "2026-09-15T22:41:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "시내버스 노사 극적 타결…'통상 임금'은 숙제로",
-       "url": "https://n.news.naver.com/mnews/article/422/0000906572?sid=102",
-       "press": "yonhapnewstv.co.kr",
-       "publishedAt": "2026-09-15T22:38:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 시내버스 평시와 같이 정상운행... 노사 협상 타결",
-       "url": "https://www.tournews21.com/news/articleView.html?idxno=143654",
-       "press": "tournews21.com",
-       "publishedAt": "2026-09-15T22:36:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
-    },
-    {
-     "issueKey": "엄지성해트트릭첫승리",
-     "keyword": "엄지성 해트트릭 카타르 격파!",
-     "category": "sports",
-     "ranks": {
-      "signal.bz": 2,
-      "nate": 2,
-      "google": null,
-      "daum": 3
-     },
-     "newsTotal": 5,
-     "blogDocCount": 18,
-     "samples": [
-      {
-       "title": "[천지일보 이슈종합] 서울 시내버스 파업·李대통령 기자회견·'조지아...",
-       "url": "https://www.newscj.com/news/articleView.html?idxno=3433037",
-       "press": "newscj.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": "https://cdn.newscj.com/news/thumbnail/202609/3433037_3549595_5228_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/079/2026/09/16/0004189792_001_20260916070119207.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[뉴스1 PICK] '엄지성 해트트릭' 이민성호, 카타르 4-1 격파",
-       "url": "https://n.news.naver.com/mnews/article/421/0009172434?sid=104",
-       "press": "news1.kr",
-       "publishedAt": "2026-09-15T12:52:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/421/2026/09/15/0009172434_001_20260915215309561.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[카타르전 리뷰]'손흥민 빙의' 엄지성 미쳤다! 골골골 전반 해트트릭 원...",
-       "url": "https://m.sports.naver.com/kfootball/article/076/0004446456",
-       "press": "sportschosun.com",
-       "publishedAt": "2026-09-15T12:25:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "손흥민 새 역사 기념식에도…붉은악마 떠나 적막감 감돈 상암벌(종합)",
-       "url": "https://m.sports.naver.com/kfootball/article/003/0013534597",
-       "press": "newsis.com",
-       "publishedAt": "2025-10-14T13:09:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "엄지성 전반 해트트릭…한국, 카타르 4-1 완파",
-       "url": "https://n.news.naver.com/mnews/article/015/0005332729?sid=104",
-       "press": "hankyung.com",
-       "publishedAt": "2026-09-15T12:39:00.000Z",
-       "image": null,
-       "origin": "site-issue-board"
-      }
-     ],
-     "boardWhy": "엄지성 해트트릭으로 남자축구가 카타르를 4-1 완파하며 대회 첫 승을 거뒀다."
-    },
-    {
-     "issueKey": "조지아한국인구금소송",
-     "keyword": "조지아 한국인 구금 소송",
-     "category": "policy",
-     "ranks": {
-      "signal.bz": 3,
-      "nate": null,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 450,
-     "blogDocCount": 877,
-     "samples": [
-      {
-       "title": "‘조지아 구금’ 한국인 300명, 트럼프 행정부에 손해배상 청구 시작",
-       "url": "https://n.news.naver.com/mnews/article/029/0003048241?sid=102",
-       "press": "dt.co.kr",
-       "publishedAt": "2026-09-15T22:29:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/029/2026/09/16/0003048241_001_20260916073011840.png?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "현대차·LG 공장 구금 한국인 300명, 미 정부 상대 행정청구",
-       "url": "https://www.autodaily.co.kr/news/articleView.html?idxno=600476",
-       "press": "autodaily.co.kr",
-       "publishedAt": "2026-09-15T22:20:00.000Z",
-       "image": "https://cdn.autodaily.co.kr/news/photo/202609/600476_200834_1422.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/079/2026/09/16/0004189792_001_20260916070119207.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "‘조지아 구금’ 한국인 300여명, 美 정부 상대 소송 건다",
-       "url": "https://n.news.naver.com/mnews/article/119/0003133116?sid=104",
-       "press": "dailian.co.kr",
-       "publishedAt": "2026-09-15T21:46:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금사태' 한국인 300여명, 트럼프 정부에 법적대응",
-       "url": "https://n.news.naver.com/mnews/article/437/0000511280?sid=104",
-       "press": "news.jtbc.co.kr",
-       "publishedAt": "2026-09-15T21:46:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "'美 조지아 구금' 한인 노동자들, 트럼프 행정부에 손배청구",
-       "url": "https://n.news.naver.com/mnews/article/215/0001266095?sid=104",
-       "press": "wowtv.co.kr",
-       "publishedAt": "2026-09-15T21:23:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
-    }
-   ]
-  },
-  {
-   "schemaVersion": "homefeed-snapshot-v1",
-   "capturedAt": "2026-09-15T23:00:13.897Z",
-   "collectorVersion": "homefeed-collector-1",
-   "intervalMinutes": 10,
-   "sources": [
-    {
-     "name": "signal.bz",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "nate",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "google",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "daum",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "site-issue-board",
-     "ok": true,
-     "count": 35,
-     "error": null
-    },
-    {
-     "name": "naver-news",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "naver-blog",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "og-image",
-     "ok": true,
-     "count": 29,
-     "error": "대표이미지 없음"
-    }
-   ],
-   "issues": [
-    {
-     "issueKey": "서울시내버스타결",
-     "keyword": "서울 시내버스 임금 인상 타결",
-     "category": "work",
-     "ranks": {
-      "signal.bz": 1,
-      "nate": 1,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 2092,
-     "blogDocCount": 2499,
-     "samples": [
-      {
-       "title": "[이슈 직썰] 서울버스 총파업 철회…임금 3.2% 올렸지만 뇌관은 여전",
-       "url": "https://www.ziksir.com/news/articleView.html?idxno=146566",
-       "press": "ziksir.com",
-       "publishedAt": "2026-09-15T22:48:00.000Z",
-       "image": "https://cdn.ziksir.com/news/thumbnail/202609/146566_166173_4326_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "'출근길 대란' 코앞서 피했다…서울 시내버스 정상 운행",
-       "url": "https://n.news.naver.com/mnews/article/437/0000511284?sid=102",
-       "press": "news.jtbc.co.kr",
-       "publishedAt": "2026-09-15T22:46:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/437/2026/09/16/0000511284_001_20260916074711143.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "경기도민 출근길 '안도의 한숨'…서울 시내버스 파업 철회",
-       "url": "https://n.news.naver.com/mnews/article/421/0009172679?sid=102",
-       "press": "news1.kr",
-       "publishedAt": "2026-09-15T22:44:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/421/2026/09/16/0009172679_001_20260916074525206.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "\"버스 안 오면 걸어\"... 새벽 3시 50분 무사히 출발한 8641번 첫차",
-       "url": "https://n.news.naver.com/mnews/article/047/0002529093?sid=102",
-       "press": "ohmynews.com",
-       "publishedAt": "2026-09-15T22:41:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "시내버스 노사 극적 타결…'통상 임금'은 숙제로",
-       "url": "https://n.news.naver.com/mnews/article/422/0000906572?sid=102",
-       "press": "yonhapnewstv.co.kr",
-       "publishedAt": "2026-09-15T22:38:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 시내버스 평시와 같이 정상운행... 노사 협상 타결",
-       "url": "https://www.tournews21.com/news/articleView.html?idxno=143654",
-       "press": "tournews21.com",
-       "publishedAt": "2026-09-15T22:36:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
-    },
-    {
-     "issueKey": "엄지성해트트릭첫승리",
-     "keyword": "엄지성 해트트릭 카타르 격파!",
-     "category": "sports",
-     "ranks": {
-      "signal.bz": 2,
-      "nate": 2,
-      "google": null,
-      "daum": 3
-     },
-     "newsTotal": 5,
-     "blogDocCount": 18,
-     "samples": [
-      {
-       "title": "[천지일보 이슈종합] 서울 시내버스 파업·李대통령 기자회견·'조지아...",
-       "url": "https://www.newscj.com/news/articleView.html?idxno=3433037",
-       "press": "newscj.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": "https://cdn.newscj.com/news/thumbnail/202609/3433037_3549595_5228_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/079/2026/09/16/0004189792_001_20260916070119207.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[뉴스1 PICK] '엄지성 해트트릭' 이민성호, 카타르 4-1 격파",
-       "url": "https://n.news.naver.com/mnews/article/421/0009172434?sid=104",
-       "press": "news1.kr",
-       "publishedAt": "2026-09-15T12:52:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/421/2026/09/15/0009172434_001_20260915215309561.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[카타르전 리뷰]'손흥민 빙의' 엄지성 미쳤다! 골골골 전반 해트트릭 원...",
-       "url": "https://m.sports.naver.com/kfootball/article/076/0004446456",
-       "press": "sportschosun.com",
-       "publishedAt": "2026-09-15T12:25:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "손흥민 새 역사 기념식에도…붉은악마 떠나 적막감 감돈 상암벌(종합)",
-       "url": "https://m.sports.naver.com/kfootball/article/003/0013534597",
-       "press": "newsis.com",
-       "publishedAt": "2025-10-14T13:09:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "엄지성 전반 해트트릭…한국, 카타르 4-1 완파",
-       "url": "https://n.news.naver.com/mnews/article/015/0005332729?sid=104",
-       "press": "hankyung.com",
-       "publishedAt": "2026-09-15T12:39:00.000Z",
-       "image": null,
-       "origin": "site-issue-board"
-      }
-     ],
-     "boardWhy": "엄지성 해트트릭으로 남자축구가 카타르를 4-1 완파하며 대회 첫 승을 거뒀다."
-    },
-    {
-     "issueKey": "조지아한국인구금소송",
-     "keyword": "조지아 한국인 구금 소송",
-     "category": "policy",
-     "ranks": {
-      "signal.bz": 3,
-      "nate": null,
-      "google": null,
-      "daum": null
-     },
-     "newsTotal": 454,
-     "blogDocCount": 879,
-     "samples": [
-      {
-       "title": "‘조지아 구금’ 소송 맡은 한인 변호사…“미국 정부 잘못 기록으로 남...",
-       "url": "https://n.news.naver.com/mnews/article/028/0002823273?sid=104",
-       "press": "hani.co.kr",
-       "publishedAt": "2026-09-15T22:56:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/028/2026/09/16/0002823273_001_20260916075609700.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금' 한국인 300여 명, 트럼프 행정부에 배상 청구 시작",
-       "url": "https://n.news.naver.com/mnews/article/057/0001969201?sid=104",
-       "press": "mbn.co.kr",
-       "publishedAt": "2026-09-15T22:46:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/057/2026/09/16/20260916074309_20_605_1429162_1080_7_20260916074609828.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
-       "url": "https://n.news.naver.com/mnews/article/310/0000140035?sid=104",
-       "press": "womennews.co.kr",
-       "publishedAt": "2026-09-15T22:41:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/310/2026/09/16/0000140035_001_20260916074111968.png?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "트럼프, 또 이란전 청구서…국제유가 4개월 만 최고치",
-       "url": "https://n.news.naver.com/mnews/article/422/0000906573?sid=104",
-       "press": "yonhapnewstv.co.kr",
-       "publishedAt": "2026-09-15T22:39:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "‘조지아 구금’ 한국인 300명, 트럼프 행정부에 손해배상 청구 시작",
-       "url": "https://n.news.naver.com/mnews/article/029/0003048241?sid=102",
-       "press": "dt.co.kr",
-       "publishedAt": "2026-09-15T22:29:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "현대차·LG 공장 구금 한국인 300명, 미 정부 상대 행정청구",
-       "url": "https://www.autodaily.co.kr/news/articleView.html?idxno=600476",
-       "press": "autodaily.co.kr",
-       "publishedAt": "2026-09-15T22:20:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      }
-     ],
-     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
-    }
-   ]
-  },
-  {
-   "schemaVersion": "homefeed-snapshot-v1",
-   "capturedAt": "2026-09-15T23:10:13.889Z",
-   "collectorVersion": "homefeed-collector-1",
-   "intervalMinutes": 10,
-   "sources": [
-    {
-     "name": "signal.bz",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "nate",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "google",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "daum",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "site-issue-board",
-     "ok": true,
-     "count": 35,
-     "error": null
-    },
-    {
-     "name": "naver-news",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "naver-blog",
-     "ok": true,
-     "count": 10,
-     "error": null
-    },
-    {
-     "name": "og-image",
-     "ok": true,
-     "count": 30,
-     "error": null
-    }
-   ],
-   "issues": [
-    {
-     "issueKey": "서울시내버스타결",
+     "issueKey": "서울시내버스협상타결",
      "keyword": "서울 시내버스 협상 타결",
      "category": "work",
      "ranks": {
@@ -1317,15 +67,23 @@
       "google": null,
       "daum": null
      },
-     "newsTotal": 3516,
-     "blogDocCount": 4016,
+     "newsTotal": 3522,
+     "blogDocCount": 4034,
      "samples": [
       {
-       "title": "서울 시내버스 노사 극적 타결…16일 첫차부터 정상 운행",
-       "url": "http://www.issuenbiz.com/news/articleView.html?idxno=79800",
-       "press": "issuenbiz.com",
-       "publishedAt": "2026-09-15T23:00:00.000Z",
-       "image": "https://cdn.issuenbiz.com/news/thumbnail/202609/79800_80452_5928_v150.jpg",
+       "title": "오세훈, 서울 버스 노사 협상 타결에 \"전면 파업부터 예고하는 행태 반...",
+       "url": "https://n.news.naver.com/mnews/article/119/0003133134?sid=102",
+       "press": "dailian.co.kr",
+       "publishedAt": "2026-09-15T23:12:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/119/2026/09/16/0003133134_001_20260916081217165.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'파업 피했다' 서울 시내버스 노사, 임금 3.% 인상 합의 [뉴시스Pic]",
+       "url": "https://n.news.naver.com/mnews/article/003/0014193005?sid=102",
+       "press": "newsis.com",
+       "publishedAt": "2026-09-15T23:09:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/003/2026/09/16/NISI20260916_0021439393_web_20260916022739_20260916081115430.jpg?type&#x3D;w800",
        "origin": "naver-news"
       },
       {
@@ -1337,11 +95,19 @@
        "origin": "naver-news"
       },
       {
+       "title": "서울 시내버스 노사 극적 타결…16일 첫차부터 정상 운행",
+       "url": "http://www.issuenbiz.com/news/articleView.html?idxno=79800",
+       "press": "issuenbiz.com",
+       "publishedAt": "2026-09-15T23:00:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
        "title": "'새벽 극적 타결' 서울 버스노사 임금 3.2% 인상 합의(종합)",
        "url": "https://n.news.naver.com/mnews/article/050/0000110988?sid=101",
        "press": "magazine.hankyung.com",
        "publishedAt": "2026-09-15T22:59:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/050/2026/09/16/0000110988_001_20260916075911911.jpg?type&#x3D;w800",
+       "image": null,
        "origin": "naver-news"
       },
       {
@@ -1351,89 +117,9 @@
        "publishedAt": "2026-09-15T22:58:00.000Z",
        "image": null,
        "origin": "naver-news"
-      },
-      {
-       "title": "서울 시내버스 노사협상 타결…출근길 정상운행",
-       "url": "https://www.public25.com/news/articleView.html?idxno=54843",
-       "press": "public25.com",
-       "publishedAt": "2026-09-15T22:56:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "서울 버스노사 임금 3.2% 인상 합의…\"파업 예고 철회.정상운행\"",
-       "url": "https://www.ngonews.kr/news/articleView.html?idxno=238322",
-       "press": "ngonews.kr",
-       "publishedAt": "2026-09-15T22:54:00.000Z",
-       "image": null,
-       "origin": "naver-news"
       }
      ],
      "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
-    },
-    {
-     "issueKey": "엄지성해트트릭첫승리",
-     "keyword": "엄지성 해트트릭! 카타르 격파",
-     "category": "sports",
-     "ranks": {
-      "signal.bz": 2,
-      "nate": 3,
-      "google": null,
-      "daum": 3
-     },
-     "newsTotal": 5,
-     "blogDocCount": 18,
-     "samples": [
-      {
-       "title": "[천지일보 이슈종합] 서울 시내버스 파업·李대통령 기자회견·'조지아...",
-       "url": "https://www.newscj.com/news/articleView.html?idxno=3433037",
-       "press": "newscj.com",
-       "publishedAt": "2026-09-15T22:02:00.000Z",
-       "image": "https://cdn.newscj.com/news/thumbnail/202609/3433037_3549595_5228_v150.jpg",
-       "origin": "naver-news"
-      },
-      {
-       "title": "증인도, 참고인도 없었다…'맹탕'으로 끝난 김승원 청문회[오늘아침]",
-       "url": "https://n.news.naver.com/mnews/article/079/0004189792?sid=100",
-       "press": "nocutnews.co.kr",
-       "publishedAt": "2026-09-15T22:01:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/079/2026/09/16/0004189792_001_20260916070119207.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[뉴스1 PICK] '엄지성 해트트릭' 이민성호, 카타르 4-1 격파",
-       "url": "https://n.news.naver.com/mnews/article/421/0009172434?sid=104",
-       "press": "news1.kr",
-       "publishedAt": "2026-09-15T12:52:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/421/2026/09/15/0009172434_001_20260915215309561.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "[카타르전 리뷰]'손흥민 빙의' 엄지성 미쳤다! 골골골 전반 해트트릭 원...",
-       "url": "https://m.sports.naver.com/kfootball/article/076/0004446456",
-       "press": "sportschosun.com",
-       "publishedAt": "2026-09-15T12:25:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "손흥민 새 역사 기념식에도…붉은악마 떠나 적막감 감돈 상암벌(종합)",
-       "url": "https://m.sports.naver.com/kfootball/article/003/0013534597",
-       "press": "newsis.com",
-       "publishedAt": "2025-10-14T13:09:00.000Z",
-       "image": null,
-       "origin": "naver-news"
-      },
-      {
-       "title": "엄지성 전반 해트트릭…한국, 카타르 4-1 완파",
-       "url": "https://n.news.naver.com/mnews/article/015/0005332729?sid=104",
-       "press": "hankyung.com",
-       "publishedAt": "2026-09-15T12:39:00.000Z",
-       "image": null,
-       "origin": "site-issue-board"
-      }
-     ],
-     "boardWhy": "엄지성 해트트릭으로 남자축구가 카타르를 4-1 완파하며 대회 첫 승을 거뒀다."
     },
     {
      "issueKey": "조지아한국인구금소송",
@@ -1445,15 +131,31 @@
       "google": null,
       "daum": null
      },
-     "newsTotal": 454,
-     "blogDocCount": 880,
+     "newsTotal": 456,
+     "blogDocCount": 882,
      "samples": [
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
+       "url": "https://www.ngonews.kr/news/articleView.html?idxno=238328",
+       "press": "ngonews.kr",
+       "publishedAt": "2026-09-15T23:16:00.000Z",
+       "image": "https://cdn.ngonews.kr/news/photo/202609/238328_242923_1016.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 노동자, 트럼프 행정부 상대 법적 대응 착수",
+       "url": "https://n.news.naver.com/mnews/article/022/0004159398?sid=104",
+       "press": "segye.com",
+       "publishedAt": "2026-09-15T23:14:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/022/2026/09/16/20260916502777_20260916081410338.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
       {
        "title": "‘조지아 구금’ 소송 맡은 한인 변호사…“미국 정부 잘못 기록으로 남...",
        "url": "https://n.news.naver.com/mnews/article/028/0002823273?sid=104",
        "press": "hani.co.kr",
        "publishedAt": "2026-09-15T22:56:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/028/2026/09/16/0002823273_001_20260916075609700.jpg?type&#x3D;w800",
+       "image": "https://imgnews.pstatic.net/image/028/2026/09/16/0002823273_001_20260916082209966.jpg?type&#x3D;w800",
        "origin": "naver-news"
       },
       {
@@ -1461,22 +163,6 @@
        "url": "https://n.news.naver.com/mnews/article/057/0001969201?sid=104",
        "press": "mbn.co.kr",
        "publishedAt": "2026-09-15T22:46:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/057/2026/09/16/20260916074309_20_605_1429162_1080_7_20260916074609828.jpg?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
-       "url": "https://n.news.naver.com/mnews/article/310/0000140035?sid=104",
-       "press": "womennews.co.kr",
-       "publishedAt": "2026-09-15T22:41:00.000Z",
-       "image": "https://imgnews.pstatic.net/image/310/2026/09/16/0000140035_001_20260916074111968.png?type&#x3D;w800",
-       "origin": "naver-news"
-      },
-      {
-       "title": "트럼프, 또 이란전 청구서…국제유가 4개월 만 최고치",
-       "url": "https://n.news.naver.com/mnews/article/422/0000906573?sid=104",
-       "press": "yonhapnewstv.co.kr",
-       "publishedAt": "2026-09-15T22:39:00.000Z",
        "image": null,
        "origin": "naver-news"
       },
@@ -1498,37 +184,1321 @@
       }
      ],
      "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
+    },
+    {
+     "issueKey": "acle한국팀경기결과",
+     "keyword": "ACLE 한국팀 경기결과",
+     "category": "sports",
+     "ranks": {
+      "signal.bz": 9,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 7,
+     "blogDocCount": 1109,
+     "samples": [
+      {
+       "title": "[현장목소리] 中 청두 서정원 감독 \"오랜만에 ACLE, 한국팀 만나 더욱 설...",
+       "url": "https://m.sports.naver.com/kfootball/article/139/0002233011",
+       "press": "sportalkorea.com",
+       "publishedAt": "2025-09-17T12:46:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/139/2025/09/17/0002233011_001_20250917215907757.jpg",
+       "origin": "site-issue-board"
+      }
+     ],
+     "boardWhy": "ACLE서 한국팀이 J리그와 피지컬·레벨 격차를 절감하며 16강에 올랐다."
+    }
+   ]
+  },
+  {
+   "schemaVersion": "homefeed-snapshot-v1",
+   "capturedAt": "2026-09-15T23:32:05.962Z",
+   "collectorVersion": "homefeed-collector-1",
+   "intervalMinutes": 10,
+   "sources": [
+    {
+     "name": "signal.bz",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "nate",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "google",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "daum",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "site-issue-board",
+     "ok": true,
+     "count": 35,
+     "error": null
+    },
+    {
+     "name": "naver-news",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "naver-blog",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "og-image",
+     "ok": true,
+     "count": 22,
+     "error": null
+    }
+   ],
+   "issues": [
+    {
+     "issueKey": "서울시내버스협상타결",
+     "keyword": "서울 시내버스 협상 타결",
+     "category": "work",
+     "ranks": {
+      "signal.bz": 1,
+      "nate": 1,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 3522,
+     "blogDocCount": 4054,
+     "samples": [
+      {
+       "title": "오세훈, 서울 버스 노사 협상 타결에 \"전면 파업부터 예고하는 행태 반...",
+       "url": "https://n.news.naver.com/mnews/article/119/0003133134?sid=102",
+       "press": "dailian.co.kr",
+       "publishedAt": "2026-09-15T23:12:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/119/2026/09/16/0003133134_001_20260916081217165.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'파업 피했다' 서울 시내버스 노사, 임금 3.% 인상 합의 [뉴시스Pic]",
+       "url": "https://n.news.naver.com/mnews/article/003/0014193005?sid=102",
+       "press": "newsis.com",
+       "publishedAt": "2026-09-15T23:09:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/003/2026/09/16/NISI20260916_0021439393_web_20260916022739_20260916081115430.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 노사, 극적 타결로 파업 모면…통상임금은 숙제",
+       "url": "https://www.pointe.co.kr/news/articleView.html?idxno=84794",
+       "press": "pointe.co.kr",
+       "publishedAt": "2026-09-15T23:00:00.000Z",
+       "image": "https://cdn.pointe.co.kr/news/photo/202609/84794_114904_5944.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 노사 극적 타결…16일 첫차부터 정상 운행",
+       "url": "http://www.issuenbiz.com/news/articleView.html?idxno=79800",
+       "press": "issuenbiz.com",
+       "publishedAt": "2026-09-15T23:00:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "'새벽 극적 타결' 서울 버스노사 임금 3.2% 인상 합의(종합)",
+       "url": "https://n.news.naver.com/mnews/article/050/0000110988?sid=101",
+       "press": "magazine.hankyung.com",
+       "publishedAt": "2026-09-15T22:59:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 노사 임금 3.2% 인상 합의...노조, 파업 철회",
+       "url": "https://www.delighti.co.kr/news/articleView.html?idxno=121922",
+       "press": "delighti.co.kr",
+       "publishedAt": "2026-09-15T22:58:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
+    },
+    {
+     "issueKey": "조지아한국인구금소송",
+     "keyword": "조지아 한국인 구금 소송",
+     "category": "policy",
+     "ranks": {
+      "signal.bz": 3,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 456,
+     "blogDocCount": 883,
+     "samples": [
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
+       "url": "https://www.ngonews.kr/news/articleView.html?idxno=238328",
+       "press": "ngonews.kr",
+       "publishedAt": "2026-09-15T23:16:00.000Z",
+       "image": "https://cdn.ngonews.kr/news/photo/202609/238328_242923_1016.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 노동자, 트럼프 행정부 상대 법적 대응 착수",
+       "url": "https://n.news.naver.com/mnews/article/022/0004159398?sid=104",
+       "press": "segye.com",
+       "publishedAt": "2026-09-15T23:14:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/022/2026/09/16/20260916502777_20260916081410338.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 소송 맡은 한인 변호사…“미국 정부 잘못 기록으로 남...",
+       "url": "https://n.news.naver.com/mnews/article/028/0002823273?sid=104",
+       "press": "hani.co.kr",
+       "publishedAt": "2026-09-15T22:56:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/028/2026/09/16/0002823273_001_20260916082209966.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300여 명, 트럼프 행정부에 배상 청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/057/0001969201?sid=104",
+       "press": "mbn.co.kr",
+       "publishedAt": "2026-09-15T22:46:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 한국인 300명, 트럼프 행정부에 손해배상 청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/029/0003048241?sid=102",
+       "press": "dt.co.kr",
+       "publishedAt": "2026-09-15T22:29:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "현대차·LG 공장 구금 한국인 300명, 미 정부 상대 행정청구",
+       "url": "https://www.autodaily.co.kr/news/articleView.html?idxno=600476",
+       "press": "autodaily.co.kr",
+       "publishedAt": "2026-09-15T22:20:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
+    },
+    {
+     "issueKey": "acle한국팀경기결과",
+     "keyword": "ACLE 한국팀 경기결과",
+     "category": "sports",
+     "ranks": {
+      "signal.bz": 9,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 7,
+     "blogDocCount": 1109,
+     "samples": [
+      {
+       "title": "[현장목소리] 中 청두 서정원 감독 \"오랜만에 ACLE, 한국팀 만나 더욱 설...",
+       "url": "https://m.sports.naver.com/kfootball/article/139/0002233011",
+       "press": "sportalkorea.com",
+       "publishedAt": "2025-09-17T12:46:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/139/2025/09/17/0002233011_001_20250917215907757.jpg",
+       "origin": "site-issue-board"
+      }
+     ],
+     "boardWhy": "ACLE서 한국팀이 J리그와 피지컬·레벨 격차를 절감하며 16강에 올랐다."
+    }
+   ]
+  },
+  {
+   "schemaVersion": "homefeed-snapshot-v1",
+   "capturedAt": "2026-09-15T23:42:05.956Z",
+   "collectorVersion": "homefeed-collector-1",
+   "intervalMinutes": 10,
+   "sources": [
+    {
+     "name": "signal.bz",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "nate",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "google",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "daum",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "site-issue-board",
+     "ok": true,
+     "count": 35,
+     "error": null
+    },
+    {
+     "name": "naver-news",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "naver-blog",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "og-image",
+     "ok": true,
+     "count": 17,
+     "error": null
+    }
+   ],
+   "issues": [
+    {
+     "issueKey": "서울시내버스협상타결",
+     "keyword": "서울 시내버스 파업 철회",
+     "category": "work",
+     "ranks": {
+      "signal.bz": 1,
+      "nate": 1,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 1707,
+     "blogDocCount": 2369,
+     "samples": [
+      {
+       "title": "서울 시내버스 노사 임단협 타결...임금 3.2% 인상·파업 철회",
+       "url": "https://www.joongangenews.com/news/articleView.html?idxno=548394",
+       "press": "joongangenews.com",
+       "publishedAt": "2026-09-15T23:40:00.000Z",
+       "image": "https://cdn.joongangenews.com/news/photo/202609/548394_354874_3826.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 노사 막판 합의···임금 3.2% 인상",
+       "url": "https://www.smartbizn.com/news/articleView.html?idxno=153971",
+       "press": "smartbizn.com",
+       "publishedAt": "2026-09-15T23:40:00.000Z",
+       "image": "https://cdn.smartbizn.com/news/photo/202609/153971_260455_5014.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "오세훈 서울시장 , 파업 철회 환영…\"파업부터 예고하는 행태 되풀이 안...",
+       "url": "https://n.news.naver.com/mnews/article/018/0006370120?sid=102",
+       "press": "edaily.co.kr",
+       "publishedAt": "2026-09-15T23:36:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/018/2026/09/16/0006370120_001_20260916083616960.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "오세훈 “시내버스 파업 철회 환영…갈등 가능성은 아직 남아”",
+       "url": "https://n.news.naver.com/mnews/article/016/0002697874?sid=102",
+       "press": "biz.heraldcorp.com",
+       "publishedAt": "2026-09-15T23:35:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 파업 극적 철회, '출근길 대란' 피해",
+       "url": "https://n.news.naver.com/mnews/article/421/0009172743?sid=102",
+       "press": "news1.kr",
+       "publishedAt": "2026-09-15T23:31:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 파업 극적 철회",
+       "url": "https://n.news.naver.com/mnews/article/421/0009172742?sid=102",
+       "press": "news1.kr",
+       "publishedAt": "2026-09-15T23:31:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
+    },
+    {
+     "issueKey": "조지아한국인구금소송",
+     "keyword": "조지아 한국인 구금 소송",
+     "category": "policy",
+     "ranks": {
+      "signal.bz": 3,
+      "nate": null,
+      "google": 2,
+      "daum": null
+     },
+     "newsTotal": 458,
+     "blogDocCount": 884,
+     "samples": [
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
+       "url": "https://www.ngonews.kr/news/articleView.html?idxno=238328",
+       "press": "ngonews.kr",
+       "publishedAt": "2026-09-15T23:16:00.000Z",
+       "image": "https://cdn.ngonews.kr/news/photo/202609/238328_242923_1016.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 노동자, 트럼프 행정부 상대 법적 대응 착수",
+       "url": "https://n.news.naver.com/mnews/article/022/0004159398?sid=104",
+       "press": "segye.com",
+       "publishedAt": "2026-09-15T23:14:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/022/2026/09/16/20260916502777_20260916081410338.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 소송 맡은 한인 변호사 “미국 정부 잘못, 기록으로 남...",
+       "url": "https://n.news.naver.com/mnews/article/028/0002823273?sid=104",
+       "press": "hani.co.kr",
+       "publishedAt": "2026-09-15T22:56:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/028/2026/09/16/0002823273_001_20260916082209966.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300여 명, 트럼프 행정부에 배상 청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/057/0001969201?sid=104",
+       "press": "mbn.co.kr",
+       "publishedAt": "2026-09-15T22:46:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 한국인 300명, 트럼프 행정부에 손해배상 청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/029/0003048241?sid=102",
+       "press": "dt.co.kr",
+       "publishedAt": "2026-09-15T22:29:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "현대차·LG 공장 구금 한국인 300명, 미 정부 상대 행정청구",
+       "url": "https://www.autodaily.co.kr/news/articleView.html?idxno=600476",
+       "press": "autodaily.co.kr",
+       "publishedAt": "2026-09-15T22:20:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
+    },
+    {
+     "issueKey": "acle한국팀경기결과",
+     "keyword": "ACLE 한국팀 경기결과",
+     "category": "sports",
+     "ranks": {
+      "signal.bz": 7,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 7,
+     "blogDocCount": 1110,
+     "samples": [
+      {
+       "title": "[현장목소리] 中 청두 서정원 감독 \"오랜만에 ACLE, 한국팀 만나 더욱 설...",
+       "url": "https://m.sports.naver.com/kfootball/article/139/0002233011",
+       "press": "sportalkorea.com",
+       "publishedAt": "2025-09-17T12:46:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/139/2025/09/17/0002233011_001_20250917215907757.jpg",
+       "origin": "site-issue-board"
+      }
+     ],
+     "boardWhy": "ACLE서 한국팀이 J리그와 피지컬·레벨 격차를 절감하며 16강에 올랐다."
+    }
+   ]
+  },
+  {
+   "schemaVersion": "homefeed-snapshot-v1",
+   "capturedAt": "2026-09-15T23:52:05.963Z",
+   "collectorVersion": "homefeed-collector-1",
+   "intervalMinutes": 10,
+   "sources": [
+    {
+     "name": "signal.bz",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "nate",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "google",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "daum",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "site-issue-board",
+     "ok": true,
+     "count": 35,
+     "error": null
+    },
+    {
+     "name": "naver-news",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "naver-blog",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "og-image",
+     "ok": true,
+     "count": 17,
+     "error": null
+    }
+   ],
+   "issues": [
+    {
+     "issueKey": "서울시내버스협상타결",
+     "keyword": "서울 시내버스 파업 철회",
+     "category": "work",
+     "ranks": {
+      "signal.bz": 1,
+      "nate": 1,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 1707,
+     "blogDocCount": 2383,
+     "samples": [
+      {
+       "title": "서울 시내버스 노사 임단협 타결...임금 3.2% 인상·파업 철회",
+       "url": "https://www.joongangenews.com/news/articleView.html?idxno=548394",
+       "press": "joongangenews.com",
+       "publishedAt": "2026-09-15T23:40:00.000Z",
+       "image": "https://cdn.joongangenews.com/news/photo/202609/548394_354874_3826.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 노사 막판 합의···임금 3.2% 인상",
+       "url": "https://www.smartbizn.com/news/articleView.html?idxno=153971",
+       "press": "smartbizn.com",
+       "publishedAt": "2026-09-15T23:40:00.000Z",
+       "image": "https://cdn.smartbizn.com/news/photo/202609/153971_260455_5014.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "오세훈 서울시장 , 파업 철회 환영…\"파업부터 예고하는 행태 되풀이 안...",
+       "url": "https://n.news.naver.com/mnews/article/018/0006370120?sid=102",
+       "press": "edaily.co.kr",
+       "publishedAt": "2026-09-15T23:36:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/018/2026/09/16/0006370120_001_20260916083616960.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "오세훈 “시내버스 파업 철회 환영…갈등 가능성은 아직 남아”",
+       "url": "https://n.news.naver.com/mnews/article/016/0002697874?sid=102",
+       "press": "biz.heraldcorp.com",
+       "publishedAt": "2026-09-15T23:35:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 파업 극적 철회, '출근길 대란' 피해",
+       "url": "https://n.news.naver.com/mnews/article/421/0009172743?sid=102",
+       "press": "news1.kr",
+       "publishedAt": "2026-09-15T23:31:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 파업 극적 철회",
+       "url": "https://n.news.naver.com/mnews/article/421/0009172742?sid=102",
+       "press": "news1.kr",
+       "publishedAt": "2026-09-15T23:31:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
+    },
+    {
+     "issueKey": "조지아한국인구금소송",
+     "keyword": "조지아 한국인 구금 소송",
+     "category": "policy",
+     "ranks": {
+      "signal.bz": 3,
+      "nate": null,
+      "google": 3,
+      "daum": null
+     },
+     "newsTotal": 458,
+     "blogDocCount": 885,
+     "samples": [
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
+       "url": "https://www.ngonews.kr/news/articleView.html?idxno=238328",
+       "press": "ngonews.kr",
+       "publishedAt": "2026-09-15T23:16:00.000Z",
+       "image": "https://cdn.ngonews.kr/news/photo/202609/238328_242923_1016.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 노동자, 트럼프 행정부 상대 법적 대응 착수",
+       "url": "https://n.news.naver.com/mnews/article/022/0004159398?sid=104",
+       "press": "segye.com",
+       "publishedAt": "2026-09-15T23:14:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/022/2026/09/16/20260916502777_20260916081410338.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 소송 맡은 한인 변호사 “미국 정부 잘못, 기록으로 남...",
+       "url": "https://n.news.naver.com/mnews/article/028/0002823273?sid=104",
+       "press": "hani.co.kr",
+       "publishedAt": "2026-09-15T22:56:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/028/2026/09/16/0002823273_001_20260916082209966.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300여 명, 트럼프 행정부에 배상 청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/057/0001969201?sid=104",
+       "press": "mbn.co.kr",
+       "publishedAt": "2026-09-15T22:46:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 한국인 300명, 트럼프 행정부에 손해배상 청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/029/0003048241?sid=102",
+       "press": "dt.co.kr",
+       "publishedAt": "2026-09-15T22:29:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "현대차·LG 공장 구금 한국인 300명, 미 정부 상대 행정청구",
+       "url": "https://www.autodaily.co.kr/news/articleView.html?idxno=600476",
+       "press": "autodaily.co.kr",
+       "publishedAt": "2026-09-15T22:20:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
+    },
+    {
+     "issueKey": "acle한국팀경기결과",
+     "keyword": "ACLE 한국팀 경기결과",
+     "category": "sports",
+     "ranks": {
+      "signal.bz": 7,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 7,
+     "blogDocCount": 1110,
+     "samples": [
+      {
+       "title": "[현장목소리] 中 청두 서정원 감독 \"오랜만에 ACLE, 한국팀 만나 더욱 설...",
+       "url": "https://m.sports.naver.com/kfootball/article/139/0002233011",
+       "press": "sportalkorea.com",
+       "publishedAt": "2025-09-17T12:46:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/139/2025/09/17/0002233011_001_20250917215907757.jpg",
+       "origin": "site-issue-board"
+      }
+     ],
+     "boardWhy": "ACLE서 한국팀이 J리그와 피지컬·레벨 격차를 절감하며 16강에 올랐다."
+    }
+   ]
+  },
+  {
+   "schemaVersion": "homefeed-snapshot-v1",
+   "capturedAt": "2026-09-16T00:02:05.958Z",
+   "collectorVersion": "homefeed-collector-1",
+   "intervalMinutes": 10,
+   "sources": [
+    {
+     "name": "signal.bz",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "nate",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "google",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "daum",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "site-issue-board",
+     "ok": true,
+     "count": 35,
+     "error": null
+    },
+    {
+     "name": "naver-news",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "naver-blog",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "og-image",
+     "ok": true,
+     "count": 16,
+     "error": null
+    }
+   ],
+   "issues": [
+    {
+     "issueKey": "서울시내버스협상타결",
+     "keyword": "서울 시내버스 파업 철회",
+     "category": "work",
+     "ranks": {
+      "signal.bz": 1,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 1717,
+     "blogDocCount": 2399,
+     "samples": [
+      {
+       "title": "\"출근길 대란 피했다\"…서울 시내버스 임금 3.2% 인상, 파업 철회",
+       "url": "https://n.news.naver.com/mnews/article/053/0000061527?sid=102",
+       "press": "weekly.chosun.com",
+       "publishedAt": "2026-09-16T00:00:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/053/2026/09/16/0000061527_001_20260916090011291.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 노사 협상 극적 합의…정상운행",
+       "url": "https://www.pennmike.com/news/articleView.html?idxno=127873",
+       "press": "pennmike.com",
+       "publishedAt": "2026-09-15T23:56:00.000Z",
+       "image": "https://cdn.pennmike.com/news/thumbnail/202609/127873_173638_4457_v150.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "오세훈 \"버스 파업 철회 환영\"…\"일방적 시한부 파업 예고 되풀이 안 돼...",
+       "url": "https://www.pennmike.com/news/articleView.html?idxno=127874",
+       "press": "pennmike.com",
+       "publishedAt": "2026-09-15T23:56:00.000Z",
+       "image": "https://cdn.pennmike.com/news/thumbnail/202609/127874_173639_5116_v150.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 파업 직전 극적 타결…전 노선 정상운행",
+       "url": "http://www.newstomato.com/ReadNews.aspx?no=1313832&inflow=N",
+       "press": "newstomato.com",
+       "publishedAt": "2026-09-15T23:44:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "[속보] 서울 버스 노사 극적 합의...파업 철회, 정상 운행",
+       "url": "https://www.gukjenews.com/news/articleView.html?idxno=3696495",
+       "press": "gukjenews.com",
+       "publishedAt": "2026-09-15T23:42:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 임단협 타결…예고 파업 철회, 첫차부터 정상 운행",
+       "url": "https://www.youthdaily.co.kr/news/article.html?no=227142",
+       "press": "youthdaily.co.kr",
+       "publishedAt": "2026-09-15T23:42:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
+    },
+    {
+     "issueKey": "조지아한국인구금소송",
+     "keyword": "조지아 한국인 구금 소송",
+     "category": "policy",
+     "ranks": {
+      "signal.bz": 3,
+      "nate": null,
+      "google": 4,
+      "daum": null
+     },
+     "newsTotal": 461,
+     "blogDocCount": 887,
+     "samples": [
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손해배상 청구 개시",
+       "url": "https://www.tfmedia.co.kr/news/article.html?no=207268",
+       "press": "tfmedia.co.kr",
+       "publishedAt": "2026-09-15T23:54:00.000Z",
+       "image": "https://www.tfmedia.co.kr/data/photos/20260938/art_17895162596409_2ace98.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
+       "url": "https://www.m-i.kr/news/articleView.html?idxno=1414534",
+       "press": "m-i.kr",
+       "publishedAt": "2026-09-15T23:52:00.000Z",
+       "image": "https://cdn.m-i.kr/news/thumbnail/202609/1414534_1202901_5012_v150.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 1년 만에 트럼프 행정부에 손배청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/052/0002407579?sid=104",
+       "press": "ytn.co.kr",
+       "publishedAt": "2026-09-15T23:42:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/052/2026/09/16/202609160842299950_t_20260916084828321.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 노동자, 트럼프 행정부 상대 법적 대응 착수",
+       "url": "https://n.news.naver.com/mnews/article/022/0004159398?sid=104",
+       "press": "segye.com",
+       "publishedAt": "2026-09-15T23:14:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 소송 맡은 한인 변호사 “미국 정부 잘못, 기록으로 남...",
+       "url": "https://n.news.naver.com/mnews/article/028/0002823273?sid=104",
+       "press": "hani.co.kr",
+       "publishedAt": "2026-09-15T22:56:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300여 명, 트럼프 행정부에 배상 청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/057/0001969201?sid=104",
+       "press": "mbn.co.kr",
+       "publishedAt": "2026-09-15T22:46:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
+    },
+    {
+     "issueKey": "acle한국팀경기결과",
+     "keyword": "ACLE 한국팀 경기결과",
+     "category": "sports",
+     "ranks": {
+      "signal.bz": 7,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 7,
+     "blogDocCount": 1110,
+     "samples": [
+      {
+       "title": "[현장목소리] 中 청두 서정원 감독 \"오랜만에 ACLE, 한국팀 만나 더욱 설...",
+       "url": "https://m.sports.naver.com/kfootball/article/139/0002233011",
+       "press": "sportalkorea.com",
+       "publishedAt": "2025-09-17T12:46:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/139/2025/09/17/0002233011_001_20250917215907757.jpg",
+       "origin": "site-issue-board"
+      }
+     ],
+     "boardWhy": "ACLE서 한국팀이 J리그와 피지컬·레벨 격차를 절감하며 16강에 올랐다."
+    }
+   ]
+  },
+  {
+   "schemaVersion": "homefeed-snapshot-v1",
+   "capturedAt": "2026-09-16T00:12:05.956Z",
+   "collectorVersion": "homefeed-collector-1",
+   "intervalMinutes": 10,
+   "sources": [
+    {
+     "name": "signal.bz",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "nate",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "google",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "daum",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "site-issue-board",
+     "ok": true,
+     "count": 35,
+     "error": null
+    },
+    {
+     "name": "naver-news",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "naver-blog",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "og-image",
+     "ok": true,
+     "count": 19,
+     "error": null
+    }
+   ],
+   "issues": [
+    {
+     "issueKey": "서울시내버스협상타결",
+     "keyword": "서울 버스 파업 철회",
+     "category": "work",
+     "ranks": {
+      "signal.bz": 1,
+      "nate": null,
+      "google": null,
+      "daum": 8
+     },
+     "newsTotal": 5406,
+     "blogDocCount": 5461,
+     "samples": [
+      {
+       "title": "\"버스 파업 철회 다행, 시민 일상 위협 되풀이돼선 안 돼”…오세훈 시...",
+       "url": "https://www.wikitree.co.kr/articles/1159822",
+       "press": "wikitree.co.kr",
+       "publishedAt": "2026-09-16T00:08:00.000Z",
+       "image": "https://cdnweb01.wikitree.co.kr/webdata/editor/202609/16/img_20260916085404_6fdb5b8f.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "\"출근길 대란 피했다\"…서울 시내버스 임금 3.2% 인상, 파업 철회",
+       "url": "https://n.news.naver.com/mnews/article/053/0000061527?sid=102",
+       "press": "weekly.chosun.com",
+       "publishedAt": "2026-09-16T00:00:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/053/2026/09/16/0000061527_001_20260916090011291.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "오세훈 \"버스 파업 철회 환영\"…\"일방적 시한부 파업 예고 되풀이 안 돼...",
+       "url": "https://www.pennmike.com/news/articleView.html?idxno=127874",
+       "press": "pennmike.com",
+       "publishedAt": "2026-09-15T23:56:00.000Z",
+       "image": "https://cdn.pennmike.com/news/thumbnail/202609/127874_173639_5116_v150.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 노사,임금 3.2% 인상 극적 타결…'통상임금' 불씨 남아",
+       "url": "https://www.shinailbo.co.kr/news/articleView.html?idxno=5062674",
+       "press": "shinailbo.co.kr",
+       "publishedAt": "2026-09-15T23:56:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 파업 직전 극적 타결…전 노선 정상운행",
+       "url": "http://www.newstomato.com/ReadNews.aspx?no=1313832&inflow=N",
+       "press": "newstomato.com",
+       "publishedAt": "2026-09-15T23:44:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 임단협 타결…예고 파업 철회, 첫차부터 정상 운행",
+       "url": "https://www.youthdaily.co.kr/news/article.html?no=227142",
+       "press": "youthdaily.co.kr",
+       "publishedAt": "2026-09-15T23:42:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
+    },
+    {
+     "issueKey": "조지아한국인구금소송",
+     "keyword": "조지아 한국인 구금 소송",
+     "category": "policy",
+     "ranks": {
+      "signal.bz": 2,
+      "nate": null,
+      "google": 5,
+      "daum": null
+     },
+     "newsTotal": 461,
+     "blogDocCount": 889,
+     "samples": [
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손해배상 청구 개시",
+       "url": "https://www.tfmedia.co.kr/news/article.html?no=207268",
+       "press": "tfmedia.co.kr",
+       "publishedAt": "2026-09-15T23:54:00.000Z",
+       "image": "https://www.tfmedia.co.kr/data/photos/20260938/art_17895162596409_2ace98.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
+       "url": "https://www.m-i.kr/news/articleView.html?idxno=1414534",
+       "press": "m-i.kr",
+       "publishedAt": "2026-09-15T23:52:00.000Z",
+       "image": "https://cdn.m-i.kr/news/thumbnail/202609/1414534_1202901_5012_v150.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 1년 만에 트럼프 행정부에 손배청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/052/0002407579?sid=104",
+       "press": "ytn.co.kr",
+       "publishedAt": "2026-09-15T23:42:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/052/2026/09/16/202609160842299950_t_20260916084828321.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 노동자, 트럼프 행정부 상대 법적 대응 착수",
+       "url": "https://n.news.naver.com/mnews/article/022/0004159398?sid=104",
+       "press": "segye.com",
+       "publishedAt": "2026-09-15T23:14:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 소송 맡은 한인 변호사 “미국 정부 잘못, 기록으로 남...",
+       "url": "https://n.news.naver.com/mnews/article/028/0002823273?sid=104",
+       "press": "hani.co.kr",
+       "publishedAt": "2026-09-15T22:56:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300여 명, 트럼프 행정부에 배상 청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/057/0001969201?sid=104",
+       "press": "mbn.co.kr",
+       "publishedAt": "2026-09-15T22:46:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
+    },
+    {
+     "issueKey": "acle한국팀경기결과",
+     "keyword": "ACLE 한국팀 경기결과",
+     "category": "sports",
+     "ranks": {
+      "signal.bz": 10,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 7,
+     "blogDocCount": 1111,
+     "samples": [
+      {
+       "title": "[현장목소리] 中 청두 서정원 감독 \"오랜만에 ACLE, 한국팀 만나 더욱 설...",
+       "url": "https://m.sports.naver.com/kfootball/article/139/0002233011",
+       "press": "sportalkorea.com",
+       "publishedAt": "2025-09-17T12:46:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/139/2025/09/17/0002233011_001_20250917215907757.jpg",
+       "origin": "site-issue-board"
+      }
+     ],
+     "boardWhy": "ACLE서 한국팀이 J리그와 피지컬·레벨 격차를 절감하며 16강에 올랐다."
+    }
+   ]
+  },
+  {
+   "schemaVersion": "homefeed-snapshot-v1",
+   "capturedAt": "2026-09-16T00:22:05.958Z",
+   "collectorVersion": "homefeed-collector-1",
+   "intervalMinutes": 10,
+   "sources": [
+    {
+     "name": "signal.bz",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "nate",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "google",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "daum",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "site-issue-board",
+     "ok": true,
+     "count": 35,
+     "error": null
+    },
+    {
+     "name": "naver-news",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "naver-blog",
+     "ok": true,
+     "count": 10,
+     "error": null
+    },
+    {
+     "name": "og-image",
+     "ok": true,
+     "count": 19,
+     "error": null
+    }
+   ],
+   "issues": [
+    {
+     "issueKey": "서울시내버스협상타결",
+     "keyword": "서울 버스 파업 철회",
+     "category": "work",
+     "ranks": {
+      "signal.bz": 1,
+      "nate": 1,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 5406,
+     "blogDocCount": 5479,
+     "samples": [
+      {
+       "title": "\"버스 파업 철회 다행, 시민 일상 위협 되풀이돼선 안 돼”…오세훈 시...",
+       "url": "https://www.wikitree.co.kr/articles/1159822",
+       "press": "wikitree.co.kr",
+       "publishedAt": "2026-09-16T00:08:00.000Z",
+       "image": "https://cdnweb01.wikitree.co.kr/webdata/editor/202609/16/img_20260916085404_6fdb5b8f.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "\"출근길 대란 피했다\"…서울 시내버스 임금 3.2% 인상, 파업 철회",
+       "url": "https://n.news.naver.com/mnews/article/053/0000061527?sid=102",
+       "press": "weekly.chosun.com",
+       "publishedAt": "2026-09-16T00:00:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/053/2026/09/16/0000061527_001_20260916090011291.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "오세훈 \"버스 파업 철회 환영\"…\"일방적 시한부 파업 예고 되풀이 안 돼...",
+       "url": "https://www.pennmike.com/news/articleView.html?idxno=127874",
+       "press": "pennmike.com",
+       "publishedAt": "2026-09-15T23:56:00.000Z",
+       "image": "https://cdn.pennmike.com/news/thumbnail/202609/127874_173639_5116_v150.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 노사,임금 3.2% 인상 극적 타결…'통상임금' 불씨 남아",
+       "url": "https://www.shinailbo.co.kr/news/articleView.html?idxno=5062674",
+       "press": "shinailbo.co.kr",
+       "publishedAt": "2026-09-15T23:56:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 버스 파업 직전 극적 타결…전 노선 정상운행",
+       "url": "http://www.newstomato.com/ReadNews.aspx?no=1313832&inflow=N",
+       "press": "newstomato.com",
+       "publishedAt": "2026-09-15T23:44:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "서울 시내버스 임단협 타결…예고 파업 철회, 첫차부터 정상 운행",
+       "url": "https://www.youthdaily.co.kr/news/article.html?no=227142",
+       "press": "youthdaily.co.kr",
+       "publishedAt": "2026-09-15T23:42:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "서울 버스 노사가 임금 3.2% 인상에 합의해 파업 철회, 첫차부터 정상 운행한다."
+    },
+    {
+     "issueKey": "조지아한국인구금소송",
+     "keyword": "조지아 한국인 구금 소송",
+     "category": "policy",
+     "ranks": {
+      "signal.bz": 2,
+      "nate": null,
+      "google": 6,
+      "daum": null
+     },
+     "newsTotal": 462,
+     "blogDocCount": 894,
+     "samples": [
+      {
+       "title": "'조지아 구금' 한국 노동자 300여 명, 트럼프 정부에 소송",
+       "url": "https://n.news.naver.com/mnews/article/047/0002529102?sid=104",
+       "press": "ohmynews.com",
+       "publishedAt": "2026-09-16T00:21:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/047/2026/09/16/0002529102_001_20260916092111637.jpg?type&#x3D;w800",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손해배상 청구 개시",
+       "url": "https://www.tfmedia.co.kr/news/article.html?no=207268",
+       "press": "tfmedia.co.kr",
+       "publishedAt": "2026-09-15T23:54:00.000Z",
+       "image": "https://www.tfmedia.co.kr/data/photos/20260938/art_17895162596409_2ace98.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 300명, 트럼프 행정부에 손배청구 시작",
+       "url": "https://www.m-i.kr/news/articleView.html?idxno=1414534",
+       "press": "m-i.kr",
+       "publishedAt": "2026-09-15T23:52:00.000Z",
+       "image": "https://cdn.m-i.kr/news/thumbnail/202609/1414534_1202901_5012_v150.jpg",
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 1년 만에 트럼프 행정부에 손배청구 시작",
+       "url": "https://n.news.naver.com/mnews/article/052/0002407579?sid=104",
+       "press": "ytn.co.kr",
+       "publishedAt": "2026-09-15T23:42:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "'조지아 구금' 한국인 노동자, 트럼프 행정부 상대 법적 대응 착수",
+       "url": "https://n.news.naver.com/mnews/article/022/0004159398?sid=104",
+       "press": "segye.com",
+       "publishedAt": "2026-09-15T23:14:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      },
+      {
+       "title": "‘조지아 구금’ 소송 맡은 한인 변호사 “미국 정부 잘못, 기록으로 남...",
+       "url": "https://n.news.naver.com/mnews/article/028/0002823273?sid=104",
+       "press": "hani.co.kr",
+       "publishedAt": "2026-09-15T22:56:00.000Z",
+       "image": null,
+       "origin": "naver-news"
+      }
+     ],
+     "boardWhy": "조지아서 구금됐던 한국인 300여명이 미 정부에 소송·배상 청구를 시작했다."
+    },
+    {
+     "issueKey": "acle한국팀경기결과",
+     "keyword": "ACLE 한국팀 경기결과",
+     "category": "sports",
+     "ranks": {
+      "signal.bz": 10,
+      "nate": null,
+      "google": null,
+      "daum": null
+     },
+     "newsTotal": 7,
+     "blogDocCount": 1111,
+     "samples": [
+      {
+       "title": "[현장목소리] 中 청두 서정원 감독 \"오랜만에 ACLE, 한국팀 만나 더욱 설...",
+       "url": "https://m.sports.naver.com/kfootball/article/139/0002233011",
+       "press": "sportalkorea.com",
+       "publishedAt": "2025-09-17T12:46:00.000Z",
+       "image": "https://imgnews.pstatic.net/image/139/2025/09/17/0002233011_001_20250917215907757.jpg",
+       "origin": "site-issue-board"
+      }
+     ],
+     "boardWhy": "ACLE서 한국팀이 J리그와 피지컬·레벨 격차를 절감하며 16강에 올랐다."
     }
    ]
   }
  ],
  "state": {
   "schemaVersion": "homefeed-signal-state-v1",
-  "updatedAt": "2026-09-15T23:10:13.889Z",
+  "updatedAt": "2026-09-16T01:12:05.969Z",
   "entries": {
-   "서울시내버스타결": {
-    "issueKey": "서울시내버스타결",
-    "keyword": "서울 시내버스 협상 타결",
-    "firstSeenAt": "2026-09-15T22:20:13.886Z",
-    "lastSeenAt": "2026-09-15T23:10:13.889Z",
+   "서울시내버스협상타결": {
+    "issueKey": "서울시내버스협상타결",
+    "keyword": "서울 시내버스 운행 정상",
+    "firstSeenAt": "2026-09-15T23:22:05.958Z",
+    "lastSeenAt": "2026-09-16T01:12:05.969Z",
     "firstSeenCensored": true,
-    "appearances": 6
-   },
-   "엄지성해트트릭첫승리": {
-    "issueKey": "엄지성해트트릭첫승리",
-    "keyword": "엄지성 해트트릭! 카타르 격파",
-    "firstSeenAt": "2026-09-15T22:20:13.886Z",
-    "lastSeenAt": "2026-09-15T23:10:13.889Z",
-    "firstSeenCensored": true,
-    "appearances": 6
+    "appearances": 12
    },
    "조지아한국인구금소송": {
     "issueKey": "조지아한국인구금소송",
     "keyword": "조지아 한국인 구금 소송",
-    "firstSeenAt": "2026-09-15T22:20:13.886Z",
-    "lastSeenAt": "2026-09-15T23:10:13.889Z",
+    "firstSeenAt": "2026-09-15T23:22:05.958Z",
+    "lastSeenAt": "2026-09-16T01:12:05.969Z",
     "firstSeenCensored": true,
-    "appearances": 6
+    "appearances": 12
+   },
+   "acle한국팀경기결과": {
+    "issueKey": "acle한국팀경기결과",
+    "keyword": "ACLE 한국팀 경기결과",
+    "firstSeenAt": "2026-09-15T23:22:05.958Z",
+    "lastSeenAt": "2026-09-16T01:02:05.962Z",
+    "firstSeenCensored": true,
+    "appearances": 11
    }
   }
  }
