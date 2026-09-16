@@ -61,7 +61,7 @@ export function decideVisualStrategy(
     return {
       strategy: hybrid ? 'HYBRID' : 'REAL-FIRST',
       reason: hybrid
-        ? `${CATEGORY_LABEL[category]} · 실제 사진을 대표로, 정보층 ${payoffLayers.length}개는 소제목 설명 그림으로`
+        ? `${CATEGORY_LABEL[category]} · 실제 사진을 대표로, 본문에서 풀 이야기 ${payoffLayers.length}개는 소제목 설명 그림으로`
         : `${CATEGORY_LABEL[category]}${scene ? ' · 제목에 장면 말(공개 · 포착 등)' : ''} — 실제 사진이 사실을 보여 준다`,
       whyReal: WHY_REAL[category] ?? '제목의 장면을 실제로 보여 줘야 궁금증이 풀린다',
       whyAi: hybrid ? '절차 · 비교 같은 설명 소제목은 AI 그림이 더 또렷하다' : 'AI 그림은 실제 사건 사진으로 오해될 수 있어 대표이미지로 쓰지 않는다',
