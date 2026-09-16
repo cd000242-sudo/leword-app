@@ -27,6 +27,8 @@ const EXPECTED_NAV: Array<[string, string]> = [
     ['pro', 'PRO 트래픽 폭발 키워드 헌터'],
     ['adsense', 'AdSense 승인 키워드 헌터'],
     ['mate', '네이버 AI 메이트 키워드 찾기'],
+    // 2026-09-17 사장님 "키워드 분석기는어디있냐고" — 앱에 화면이 없어 사이트로 가야 했다.
+    ['analyzer', '키워드 분석기'],
     ['sites', '사이트에서 보기 ↗'],
     ['settings', '설정 · 키'],
 ];

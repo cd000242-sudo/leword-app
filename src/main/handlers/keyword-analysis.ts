@@ -745,6 +745,8 @@ export function setupKeywordAnalysisHandlers(): void {
 
           // 🔥 검색의도 명확한 키워드만 필터링 (쓰레기 키워드 완벽 제거)
           const uniqueAutocomplete = new Set<string>();
+          /** 두 어절 이상이면 첫 어절로도 뻗는다 — 아래 '첫 어절 자동완성' 블록이 쓴다. */
+          const seedTokensForHead = trimmedKeyword.split(/\s+/).filter(Boolean);
 
           // 1. 기본 자동완성
           const autocompleteKeywords = await getNaverAutocompleteKeywords(trimmedKeyword, {
@@ -758,6 +760,33 @@ export function setupKeywordAnalysisHandlers(): void {
               uniqueAutocomplete.add(trimmed);
             }
           });
+
+          /*
+           * 두 어절 이상 씨앗은 그대로 물으면 자동완성이 거의 안 온다(2026-09-17 실측:
+           * "챗지티피 비용" → 0개, 첫 어절 "챗지티피" → 28개). 그런데 그 28개를 모으고도
+           * **대체 토큰 뽑는 데만 쓰고 버렸다** — 그래서 마인드맵이 2건만 내놨다
+           * (사장님 "마인드맵은 가지치기가 사이트보다 훨씬약하네요").
+           * 첫 어절 꼬리말 자체를 후보로 넣는다. 거르는 규칙(isValidSearchKeyword)은 그대로 태운다.
+           */
+          if (seedTokensForHead.length >= 2 && hasNaverApiKeys) {
+            try {
+              const headAuto = await getNaverAutocompleteKeywords(seedTokensForHead[0], {
+                clientId: naverClientId,
+                clientSecret: naverClientSecret
+              });
+              let headAdded = 0;
+              for (const kw of headAuto) {
+                const trimmed = String(kw || '').trim();
+                if (isValidSearchKeyword(trimmed) && !uniqueAutocomplete.has(trimmed)) {
+                  uniqueAutocomplete.add(trimmed);
+                  headAdded += 1;
+                }
+              }
+              console.log(`[KEYWORD-EXPANSIONS] 첫 어절 "${seedTokensForHead[0]}" 자동완성 ${headAuto.length}건 중 ${headAdded}건 추가`);
+            } catch (error: any) {
+              console.warn('[KEYWORD-EXPANSIONS] 첫 어절 자동완성 실패:', error?.message);
+            }
+          }
 
           // v2.43.11: 시맨틱 sibling 통합 — 시드와 같은 카테고리의 다른 키워드 (예: 나이키 → 아디다스/뉴발란스)
           // 헤드 명사 sibling (마인드맵에서 검증된 로직)

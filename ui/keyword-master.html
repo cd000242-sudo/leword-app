@@ -789,8 +789,9 @@
         <button role="tab" data-screen="pro" aria-selected="false" onclick="showScreen('pro')"><span class="k">10</span>PRO 트래픽 폭발 키워드 헌터</button>
         <button role="tab" data-screen="adsense" aria-selected="false" onclick="showScreen('adsense')"><span class="k">11</span>AdSense 승인 키워드 헌터</button>
         <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">12</span>네이버 AI 메이트 키워드 찾기</button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">13</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">14</span>설정 · 키</button>
+        <button role="tab" data-screen="analyzer" aria-selected="false" onclick="showScreen('analyzer')"><span class="k">13</span>키워드 분석기<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">14</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">15</span>설정 · 키</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -1543,6 +1544,36 @@
       엔진이 같이 주는 goldenScore/honeyPotScore/estimatedDailyTraffic/trafficPotential 은 안 쓴다 —
       사장님 규칙(추정치 UI 노출 금지). 답변 각도와 블로그 다리 제목은 글감이라 남긴다.
     -->
+    <!--
+      키워드 분석기(2026-09-17) — 사장님 "키워드 분석기는어디있냐고".
+      앱에는 화면이 없어 사이트 /leword 분석 탭으로 가야 했다. 핸들러(analyze-keyword-competition ·
+      generate-keyword-mindmap)는 예전부터 있었는데 화면이 없어 놀고 있었다.
+      표시하는 값은 전부 실측이다 — 검색량 · 문서수는 API 가 준 값, 황금비율은 검색량÷문서수 나눗셈 하나.
+      등급 · 점수 · 예상 유입 같은 지어낸 값은 만들지 않는다.
+    -->
+    <section class="leword-screen" data-screen="analyzer">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+        <h2 style="margin: 0; font-size: 19px; font-weight: 700; color: #e2e8f0;">키워드 분석기</h2>
+        <span style="font-size: 11.5px; color: #64748b;">검색량 · 문서수 · 황금비율 · 확장어 — 전부 이 PC 에서 실측</span>
+      </div>
+
+      <div class="golden-cond-row" style="margin-bottom: 14px;">
+        <span style="font-size:11.5px; color:#64748b;">분석할 키워드</span>
+        <input id="analyzerInput" type="text" placeholder="예: 챗지티피 비용" onkeydown="if(event.key==='Enter'){analyzerRun();}">
+        <select id="analyzerDepth" title="확장 깊이 — 깊을수록 오래 걸립니다"
+          style="padding:7px 10px; border:1px solid rgba(255,255,255,0.09); border-radius:7px; background:#1e293b; color:#e2e8f0; font:inherit; font-size:12px;">
+          <option value="1">1단계 (빠름)</option>
+          <option value="2" selected>2단계</option>
+          <option value="3">3단계 (깊게)</option>
+        </select>
+        <button id="analyzerBtn" onclick="analyzerRun()"
+          style="padding:7px 14px; border-radius:7px; border:0; background:linear-gradient(135deg,#fbbf24,#f59e0b); color:#1f2937; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer;">분석</button>
+      </div>
+
+      <div id="analyzerProgress" style="font-size:12px; color:#94a3b8; margin-bottom:10px;"></div>
+      <div id="analyzerResults" class="result-container"></div>
+    </section>
+
     <section class="leword-screen" data-screen="kin">
       <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
@@ -2002,6 +2033,8 @@
           kin: { load: 'loadKinBoard' },
           // 유튜브도 열 때 저절로 안 부른다 — API 할당량을 쓰는 일이다.
           youtube: { load: 'loadYoutubeBoard' },
+          // 키워드 분석기는 열 때 아무것도 안 부른다 — 사장님이 키워드를 넣고 눌러야 API 를 쓴다.
+          analyzer: {},
           // 사이트에서 보기 — 열 때 보드 넷의 회차 현황을 읽는다(무엇이 언제 실렸나).
           sites: { load: 'loadBoardStatus' },
           seat: { open: 'openSeatMeasureModal', root: 'seatMeasureModal' },
@@ -5731,6 +5764,89 @@
         // 옛 이름도 그대로 둔다 — 표·알약 양쪽이 이 이름으로 부른다.
         window.lewordShowTrendGraph = function(kw, monthSv) {
           return window.rfShowTrendGraph(kw, monthSv);
+        };
+
+        /*
+         * 키워드 분석기(2026-09-17) — 사장님 "키워드 분석기는어디있냐고".
+         *
+         * 앱에 화면이 없어 사이트로 가야 했다. 핸들러는 예전부터 있었는데(analyze-keyword-competition ·
+         * generate-keyword-mindmap) 창구와 화면이 없어 놀고 있었다 — 📈 그래프와 같은 함정이다.
+         * 마인드맵 경로(자동완성 + 검색광고 연관어 + 데이터랩, 깊이 3단)를 그대로 쓴다.
+         * 값은 전부 실측이다. 유일한 계산은 검색량 ÷ 문서수 한 번이고 그건 나눗셈이라 추정이 아니다.
+         * 못 잰 값은 0 으로 채우지 않고 '—' 로 둔다.
+         */
+        window.analyzerRun = async function analyzerRun() {
+          const input = document.getElementById('analyzerInput');
+          const depthSel = document.getElementById('analyzerDepth');
+          const btn = document.getElementById('analyzerBtn');
+          const prog = document.getElementById('analyzerProgress');
+          const box = document.getElementById('analyzerResults');
+          const keyword = String(input?.value || '').trim();
+          if (!keyword) { if (prog) prog.textContent = '분석할 키워드를 넣어 주세요.'; input?.focus(); return; }
+
+          const maxDepth = parseInt(depthSel?.value || '2', 10) || 2;
+          if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+          if (prog) prog.textContent = `"${keyword}" 확장 중… (깊이 ${maxDepth}단 · 자동완성 · 검색광고 연관어 · 데이터랩)`;
+          if (box) box.innerHTML = '';
+
+          let res = null;
+          try {
+            res = await window.electronAPI?.generateKeywordMindmap?.(keyword, { maxDepth, maxKeywordsPerLevel: 50 });
+          } catch (e) {
+            res = { success: false, error: e && e.message ? e.message : '호출 실패' };
+          }
+          if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+
+          const rows = res && Array.isArray(res.keywords) ? res.keywords
+            : (res && res.data && Array.isArray(res.data.keywords)) ? res.data.keywords : [];
+          if (!res || res.success === false || rows.length === 0) {
+            const why = (res && (res.error || res.message)) || '확장 결과가 없습니다';
+            if (prog) prog.innerHTML = '<span style="color:#fbbf24;">' + kitEsc(String(why)) + '</span>';
+            return;
+          }
+
+          const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
+          const fmt = (v) => (v === null ? '—' : v.toLocaleString('ko-KR'));
+          const ratioOf = (sv, dc) => (sv !== null && dc !== null && dc > 0 ? (sv / dc) : null);
+          const seen = new Set();
+          const list = [];
+          for (const row of rows) {
+            const kw = String((row && (row.keyword || row.text)) || '').trim();
+            const key = kw.replace(/\s+/g, '').toLowerCase();
+            if (!kw || seen.has(key)) continue;
+            seen.add(key);
+            const sv = num(row.searchVolume ?? row.totalSearchVolume);
+            const dc = num(row.documentCount ?? row.docCount);
+            list.push({ keyword: kw, sv, dc, ratio: ratioOf(sv, dc), level: num(row.level) });
+          }
+          // 황금비율 큰 순 — 못 잰 것은 뒤로(0 으로 쳐서 앞세우면 안 잰 것을 제일 나쁜 것으로 만든다).
+          list.sort((a, b) => (b.ratio === null ? -1 : b.ratio) - (a.ratio === null ? -1 : a.ratio));
+
+          if (prog) prog.textContent = `"${keyword}" 확장 ${list.length}개 · 깊이 ${maxDepth}단 · 검색량과 문서수는 API 실측`;
+          box.innerHTML = '<table style="width:100%; border-collapse:collapse; font-size:12.5px;">'
+            + '<thead><tr style="color:#94a3b8; text-align:left;">'
+            + '<th style="padding:8px 6px;">#</th><th style="padding:8px 6px;">키워드</th>'
+            + '<th style="padding:8px 6px; text-align:right;">검색량</th><th style="padding:8px 6px; text-align:right;">문서수</th>'
+            + '<th style="padding:8px 6px; text-align:right;">황금비율</th><th style="padding:8px 6px;">단계</th><th style="padding:8px 6px;">액션</th>'
+            + '</tr></thead><tbody>'
+            + list.map((row, i) => {
+              const safe = row.keyword.replace(/'/g, "\\'");
+              const ratio = row.ratio === null ? '—' : row.ratio.toFixed(2);
+              const color = row.ratio === null ? '#64748b' : row.ratio >= 1 ? '#22c55e' : '#fbbf24';
+              return '<tr style="border-top:1px solid rgba(255,255,255,0.06);">'
+                + '<td style="padding:7px 6px; color:#64748b;">' + (i + 1) + '</td>'
+                + '<td style="padding:7px 6px; color:#e2e8f0; font-weight:600;">' + kitEsc(row.keyword) + '</td>'
+                + '<td style="padding:7px 6px; text-align:right; color:#cbd5e1;">' + fmt(row.sv) + '</td>'
+                + '<td style="padding:7px 6px; text-align:right; color:#94a3b8;">' + fmt(row.dc) + '</td>'
+                + '<td style="padding:7px 6px; text-align:right; font-weight:700; color:' + color + ';">' + ratio + '</td>'
+                + '<td style="padding:7px 6px; color:#64748b;">' + (row.level === null ? '—' : row.level + '단계') + '</td>'
+                + '<td style="padding:7px 6px;">'
+                + '<button onclick="copyToClipboard(\'' + safe + '\')" title="복사" style="padding:3px 6px; margin-right:3px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.12); border-radius:5px; cursor:pointer; font-size:11px;">📋</button>'
+                + '<button onclick="lewordNaverSearch(\'' + safe + '\')" title="네이버 검색" style="padding:3px 6px; margin-right:3px; background:rgba(255,255,255,0.06); color:#cbd5e1; border:1px solid rgba(255,255,255,0.12); border-radius:5px; cursor:pointer; font-size:11px;">🔍</button>'
+                + '<button onclick="rfShowTrendGraph(\'' + safe + '\', ' + (row.sv || 0) + ')" title="30일 추이" style="padding:3px 6px; background:#ecfeff; color:#0e7490; border:1px solid #67e8f9; border-radius:5px; cursor:pointer; font-size:11px;">📈</button>'
+                + '</td></tr>';
+            }).join('')
+            + '</tbody></table>';
         };
 
         // v2.42.28~29: LEWORD 키워드 분석 결과 — 확장 키워드 드릴다운 (rfDrilldown 패턴 재사용)

@@ -230,6 +230,11 @@ export type BloggerApi = {
    * 화면의 📈 버튼이 "이 화면에서는 트렌드 그래프를 표시하지 않습니다" 만 띄웠다(2026-09-17 사장님 지적).
    */
   keywordTrend30Day(keyword: string): Promise<{ success: boolean; series?: number[]; dates?: string[]; analysis?: any; error?: string }>;
+  /**
+   * 키워드 마인드맵 — 자동완성 + 검색광고 연관어 + 데이터랩을 깊이 3단으로 뻗는다.
+   * 핸들러(config-utility)는 예전부터 있었는데 창구가 없어 화면이 쓰지 못했다(2026-09-17).
+   */
+  generateKeywordMindmap(keyword: string, options?: { maxDepth?: number; maxKeywordsPerLevel?: number; maxTotalKeywords?: number }): Promise<any>;
   getYouTubeVideos(options?: { maxResults?: number }): Promise<any[]>;
 
   /** YouTube 심층 분석 */
@@ -532,6 +537,10 @@ const api: BloggerApi = {
 
   // 30일 검색 추이 — 화면의 📈 버튼이 쓴다(핸들러는 source-signals 에 있었는데 창구가 없었다).
   keywordTrend30Day: (keyword: string) => ipcRenderer.invoke('keyword-trend-30day', keyword),
+
+  // 키워드 마인드맵(자동완성 + 검색광고 연관어 + 데이터랩, 깊이 3단) — 핸들러는 있었는데 창구가 없어 놀고 있었다.
+  generateKeywordMindmap: (keyword: string, options?: { maxDepth?: number; maxKeywordsPerLevel?: number; maxTotalKeywords?: number }) =>
+    ipcRenderer.invoke('generate-keyword-mindmap', keyword, options || {}),
 
   // 자동완성 및 연관 키워드 조회
   getAutoComplete: (keyword: string) => ipcRenderer.invoke('get-autocomplete-keywords', keyword),
