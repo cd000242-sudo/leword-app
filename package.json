@@ -154,7 +154,16 @@
       "scripts/load-project-env.js",
       "scripts/trim-candidates.js",
       "scripts/preemption-board-batch.js",
-      "scripts/publish-preemption-board.js"
+      "scripts/publish-preemption-board.js",
+      "scripts/affiliate-refresh.js",
+      "scripts/affiliate-campaigns.js",
+      "scripts/affiliate-campaigns-parse.js",
+      "scripts/affiliate-snapshot.js",
+      "scripts/affiliate-login-session.js",
+      "scripts/affiliate-ai-titles.js",
+      "scripts/affiliate-recommendation.mjs",
+      "scripts/affiliate-enrich.js",
+      "scripts/shopping-insight.mjs"
     ],
     "extraResources": [
       {

@@ -54,19 +54,19 @@ const probe = put('scripts/probe.js', [
 
 const OWN_KEYS = new Set(['LEWORD_APP_USER_DATA', 'LEWORD_SEED_DB_PATH', 'BRIGHTDATA_TOKEN', 'LEWORD_PROBE_LEAK']);
 
-function runProbe(extra: Record<string, string>, args: string[] = []) {
+function runProbe(extra: Record<string, string>, args: string[] = [], script: string = probe) {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
     if (value !== undefined && !OWN_KEYS.has(key.toUpperCase())) env[key] = value;
   }
-  return spawnSync(process.execPath, ['-r', shim, probe, ...args], { env: { ...env, ...extra }, encoding: 'utf8', timeout: 20000 });
+  return spawnSync(process.execPath, ['-r', shim, script, ...args], { env: { ...env, ...extra }, encoding: 'utf8', timeout: 20000 });
 }
 
 const userData = path.join(root, 'user data');
 const seedDb = path.join(root, 'seed-db.json');
 
-function probeOutput(extra: Record<string, string>, args: string[] = []) {
-  const result = runProbe(extra, args);
+function probeOutput(extra: Record<string, string>, args: string[] = [], script?: string) {
+  const result = runProbe(extra, args, script);
   expect(result.status, result.stderr).toBe(0);
   return JSON.parse(result.stdout);
 }
@@ -113,5 +113,31 @@ describe('앱 연결 파일', () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('LEWORD_APP_USER_DATA');
     expect(result.stdout).toBe('');
+  });
+
+  /**
+   * 제휴 수집을 앱이 대신 돌리려면 스크립트를 **앱 데이터 폴더로 복사해** 거기서 돌려야 한다(2026-09-16).
+   * 수집기가 쿠키 프로필을 `scripts/../tmp/affiliate-profile` 로 박아 뒀는데, 설치판에서 scripts 는
+   * app.asar 안이라 쓸 수 없기 때문이다. 그런데 복사본은 이 파일이 보는 `ROOT/scripts` 밖이라
+   * '../src/…' 를 컴파일본으로 돌려주지 못한다 — 어디를 스크립트 폴더로, 어디를 컴파일본으로 볼지 받는다.
+   * 안 주면 지금처럼 이 파일 옆을 본다(황금키워드 경로는 그대로다).
+   */
+  it('스크립트를 다른 폴더로 복사해 돌려도 ../src 가 컴파일본으로 이어진다', () => {
+    const copiedScripts = path.join(root, 'app data', 'scripts');
+    fs.mkdirSync(copiedScripts, { recursive: true });
+    const copiedProbe = path.join(copiedScripts, 'probe.js');
+    fs.copyFileSync(probe, copiedProbe);
+    fs.copyFileSync(path.join(root, 'scripts', 'load-project-env.js'), path.join(copiedScripts, 'load-project-env.js'));
+
+    const out = probeOutput({
+      LEWORD_APP_USER_DATA: userData,
+      LEWORD_APP_SCRIPTS_DIR: copiedScripts,
+      LEWORD_APP_DIST_DIR: path.join(root, 'dist', 'src'),
+    }, [], copiedProbe);
+
+    expect(out.value).toBe(42);
+    // 복사본에서도 레포 .env 는 안 올리고, 설정 폴더는 앱 것을 본다.
+    expect(out.leak).toBeNull();
+    expect(out.userData).toBe(userData);
   });
 });

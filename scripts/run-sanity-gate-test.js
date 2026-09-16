@@ -460,6 +460,11 @@ const VITEST_SUITES = [
     'src/utils/__tests__/codex-image-runner.test.ts',
     // 실측 통합 — 이 PC 가 실제로 쌓은 스냅샷(기사 제목 · 주소 · 문서수)으로 스토리를 조립한다. mock 만으로 통과하지 못하게 한다.
     'src/utils/__tests__/homefeed-real-data.test.ts',
+    // 내 블로그 분야 집계(2026-09-16) — 글 전체에서 센 낱말이 제목 문체 · 숫자 표현으로 오염되면 관문이 아무 후보나 통과시킨다.
+    'src/utils/__tests__/blog-topic-profile.test.ts',
+    'src/utils/__tests__/my-blog-vocabulary.test.ts',
+    // 제휴 자동 실행(2026-09-16) — 앱 폴더로 복사해 돌릴 스크립트 목록이 빠지면 자식 프로세스가 require 에서 죽는다.
+    'src/utils/__tests__/affiliate-local-plan.test.ts',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');

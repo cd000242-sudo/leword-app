@@ -24,8 +24,14 @@ const os = require('os');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const SCRIPTS_DIR = path.join(ROOT, 'scripts') + path.sep;
-const DIST_SRC = path.join(ROOT, 'dist', 'src');
+/*
+ * 어디를 '스크립트 폴더'로 보고 어디서 컴파일본을 찾을지 받는다(2026-09-16, 제휴 자동 실행).
+ * 제휴 수집기는 쿠키 프로필을 scripts/../tmp 에 두는데, 설치판에서 그 자리는 app.asar 안이라 쓸 수 없다.
+ * 그래서 앱이 스크립트를 데이터 폴더로 복사해 돌린다 — 복사본은 이 파일 옆이 아니라서 그냥 두면
+ * '../src/…' 를 컴파일본으로 돌려주지 못한다. 안 주면 지금까지처럼 이 파일 옆을 본다(황금키워드 경로 그대로).
+ */
+const SCRIPTS_DIR = path.join(String(process.env.LEWORD_APP_SCRIPTS_DIR || '').trim() || path.join(ROOT, 'scripts')) + path.sep;
+const DIST_SRC = path.join(String(process.env.LEWORD_APP_DIST_DIR || '').trim() || path.join(ROOT, 'dist', 'src'));
 const USER_DATA = String(process.env.LEWORD_APP_USER_DATA || '').trim();
 const SEED_DB_PATH = String(process.env.LEWORD_SEED_DB_PATH || '').trim();
 const TS_NODE_REQUESTS = new Set(['ts-node/register/transpile-only', 'ts-node/register']);

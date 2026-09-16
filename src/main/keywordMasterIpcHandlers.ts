@@ -24,6 +24,7 @@ import { setupGoldenLocalHandlers, startGoldenLocalScheduler, stopGoldenLocalSch
 import { setupDailyPickHandlers } from './handlers/daily-pick';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
 import { startHomefeedScheduler, stopHomefeedScheduler } from './homefeed/scheduler';
+import { setupAffiliateLocalHandlers, startAffiliateScheduler, stopAffiliateScheduler } from './handlers/affiliate-local';
 import { setupTrendImportHandlers } from './handlers/trend-import';
 import { startCiWatchdog, stopCiWatchdog, setupCiWatchdogHandlers } from './handlers/ci-watchdog';
 import { setupSiteBoardHandlers } from './handlers/site-board';
@@ -100,6 +101,7 @@ export function stopMyLaneSchedulers(): void {
   stopSeatWatchScheduler();
   stopRealtimeNicheScheduler();
   stopHomefeedScheduler();
+  stopAffiliateScheduler();
   stopTopicBriefsScheduler();
   stopGoldenLocalScheduler();
   /*
@@ -205,6 +207,13 @@ export function setupKeywordMasterHandlers() {
   setupRealtimeNicheHandlers();
   // 홈판 신호(앱 전용, 2026-09-16) — 켜 두면 10분마다 실시간 이슈 스냅샷을 쌓아 스토리 창을 잰다(기본 꺼짐 · 사이트 탭에서 켠다).
   startHomefeedScheduler();
+  /*
+   * 제휴 수집(앱 전용, 2026-09-16) — 사장님 "매일마다 로그인해야되는거네".
+   * 갱신이 수동이라 아무도 안 돌리면 쿠키가 방치돼 만료되고, 끊긴 걸 열흘간 아무도 몰랐다.
+   * 하루 한 번(한국 06시 이후) 창 없이 돌려 세션을 살려 두고, 정말 끊겼을 때만 알림을 띄운다.
+   */
+  setupAffiliateLocalHandlers();
+  startAffiliateScheduler();
   // 트렌드 CSV 들이기(앱 전용, 2026-09-10) — 크리에이터 어드바이저 유입 검색어를 재서 빈자리를 고른다.
   setupTrendImportHandlers();
   // 회차 감시견(2026-09-10, 2026-09-12 에 보드 넷으로 확대) —
