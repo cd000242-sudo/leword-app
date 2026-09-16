@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { anglesOf, clusterSamples, revealLayersOf } from '../homefeed/clusters';
 import { buildStories, buildStory } from '../homefeed/engine';
 import { compareStories, decideStatus, decideWindow } from '../homefeed/status';
-import { detectTensions, freshDeltaOf, funGapOf, risksOf, tellabilityOf } from '../homefeed/story';
+import { anchorOf, detectTensions, freshDeltaOf, funGapOf, risksOf, tellabilityOf } from '../homefeed/story';
 import { titleTokens } from '../homefeed/text';
 import type { HomefeedSignals, HomefeedStory } from '../homefeed/types';
 import { at, issue, ledger, sample, settings, snapshot } from './homefeed-fixtures';
@@ -45,6 +45,15 @@ describe('묶음 · 각도 · 정보층', () => {
 
   it('정보층은 숫자 · 인용 · 사건 말을 값으로 접는다(같은 값은 한 층)', () => {
     expect(revealLayersOf(latestSamples, KEY).map((layer) => [layer.kind, layer.value])).toEqual([['event', '확정'], ['number', '300억'], ['number', '10년']]);
+  });
+});
+
+describe('기준어', () => {
+  it('넓은 앞어절 하나로 두지 않고 두 어절까지 넓힌다 — 사람 이름은 그대로', () => {
+    expect(anchorOf('서울 시내버스 협상 타결', 'work').text).toBe('서울 시내버스');
+    expect(anchorOf('조지아 한국인 구금 소송', 'policy').text).toBe('조지아 한국인');
+    expect(anchorOf('엄지성 해트트릭 카타르 격파', 'sports').text).toBe('엄지성');
+    expect(anchorOf('토지거래허가제', 'house').text).toBe('토지거래허가제');
   });
 });
 

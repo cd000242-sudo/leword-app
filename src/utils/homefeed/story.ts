@@ -38,8 +38,22 @@ import {
 import { evidenceOf } from './clusters';
 import { clip, compactKey, normalizeTitle, numberTokens, quoteSpans, surfaceToken, titleTokens, withoutTokens } from './text';
 
+/**
+ * 이 말 하나로는 무슨 이야기인지 알 수 없는 앞어절 — 지역 · 나라 이름은 범위가 너무 넓다.
+ * 실측(2026-09-16): '서울 시내버스 협상 타결'의 기준어가 '서울'로 잡혀 카드 문구가 "서울 철회"가 됐다.
+ */
+const BROAD_ANCHORS: ReadonlySet<string> = new Set([
+  '서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '경기', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주', '전국',
+  '정부', '국회', '미국', '중국', '일본', '러시아', '유럽', '대만', '조지아', '베트남', '태국', '인도', '호주', '캐나다', '독일', '프랑스', '영국',
+  '이란', '이스라엘', '우크라이나', '북한',
+]);
+
 export function anchorOf(keyword: string, category: HomefeedCategory): { text: string; category: HomefeedCategory } {
-  return { text: (issueEntity(keyword) || keyword).trim(), category };
+  const tokens = String(keyword || '').trim().split(/\s+/).filter(Boolean);
+  const entity = (issueEntity(keyword) || keyword).trim();
+  // 넓은 말 하나만 남으면 두 어절까지 넓힌다 — 카드 문구가 '서울 철회' 같은 말이 되지 않게.
+  const text = BROAD_ANCHORS.has(entity) && tokens.length >= 2 ? tokens.slice(0, 2).join(' ') : entity;
+  return { text, category };
 }
 
 /** 날짜 · 연도처럼 긴장이 아닌 숫자는 뺀다. */
