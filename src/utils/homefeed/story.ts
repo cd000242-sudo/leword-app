@@ -223,11 +223,11 @@ export function noSearchOf(
     && (funGap.some((reason) => reason.flag === 'visual_curiosity') || REAL_SCENE_CATEGORIES.includes(anchor.category));
   const payoffBeyondAnswer = payoffLayers.length >= settings.story.payoffMin;
   const checks: HomefeedCheck[] = [
-    { id: 'situation_in_1s', passed: situationIn1s, reason: situationIn1s ? '기준어 카테고리가 사전에 있다' : '카테고리 사전에 안 걸린다(미분류)' },
-    { id: 'immediate_why', passed: immediateWhy, reason: immediateWhy ? `긴장 ${tensions.length} · 재미 근거 ${funGap.length}` : '긴장 · 재미 근거가 제목에 없다' },
-    { id: 'answer_wanted', passed: answerWanted, reason: answerWanted ? '제목이 답을 궁금하게 하고 표본에 답(정보층)이 있다' : '궁금증 유형의 긴장이 없거나 정보층이 없다' },
-    { id: 'image_curiosity', passed: imageIncreasesCuriosity, reason: imageIncreasesCuriosity ? `이미지 후보 ${signals.visualCandidateCount}개 · 장면형 주제` : '이미지 후보가 없거나 장면형이 아니다' },
-    { id: 'payoff_beyond_answer', passed: payoffBeyondAnswer, reason: `정보층 ${payoffLayers.length}개(기준 ${settings.story.payoffMin})` },
+    { id: 'situation_in_1s', passed: situationIn1s, reason: situationIn1s ? '어떤 분야 이야기인지 바로 안다' : '어떤 분야 이야기인지 흐리다(분류가 안 된다)' },
+    { id: 'immediate_why', passed: immediateWhy, reason: immediateWhy ? `제목에 눈길 끄는 대목 ${tensions.length}개 · 재미 근거 ${funGap.length}개` : '제목이 사실만 전하고 눈길 끄는 대목이 없다' },
+    { id: 'answer_wanted', passed: answerWanted, reason: answerWanted ? '제목이 답을 감추고, 본문에서 풀 이야기가 있다' : '본문에서 풀어 줄 이야기가 없어 한 줄로 끝난다' },
+    { id: 'image_curiosity', passed: imageIncreasesCuriosity, reason: imageIncreasesCuriosity ? `쓸 만한 사진 후보 ${signals.visualCandidateCount}장 · 보여 줄 장면이 있는 주제` : '쓸 만한 사진이 없거나 보여 줄 장면이 아니다' },
+    { id: 'payoff_beyond_answer', passed: payoffBeyondAnswer, reason: `본문에서 풀 이야기 ${payoffLayers.length}개(기준 ${settings.story.payoffMin}개)` },
   ];
   return { situationIn1s, immediateWhy, answerWanted, imageIncreasesCuriosity, payoffBeyondAnswer, passed: situationIn1s && immediateWhy && answerWanted, checks };
 }
@@ -276,7 +276,7 @@ export function firstCardOf(
   const checks: HomefeedCheck[] = [
     { id: 'anchor_visible', passed: Boolean(anchor.text) && headline1.includes(anchor.text.slice(0, 15)), reason: `기준어 "${anchor.text}"` },
     { id: 'hook_in_first_15', passed: Boolean(hook) && headline1.includes(clip(hook, 15 - Math.min(anchor.text.length + 1, 14))), reason: hook ? `걸림 말 "${hook}"(근거 제목에 있는 말)` : '걸림 말이 없다(새 사실 · 긴장 없음)' },
-    { id: 'answer_hidden', passed: hidden, reason: hidden ? '정보층 일부가 카드 밖에 남아 본문으로 이어진다' : '정보층이 카드에 다 드러난다' },
+    { id: 'answer_hidden', passed: hidden, reason: hidden ? '풀 이야기 일부가 카드 밖에 남아 본문으로 이어진다' : '풀 이야기가 카드에 다 드러나 더 볼 것이 없다' },
     { id: 'image_ready', passed: image.kind !== 'none', reason: image.kind === 'real' ? '기사 대표이미지 후보가 있다(권리 확인 필요)' : image.kind === 'ai' ? 'AI 이미지로 만들 장면이다' : '실제 이미지가 필요한데 후보가 없다' },
     { id: 'not_article_copy', passed: coverage < 0.8, reason: `표본 제목 어절을 최대 ${Math.round(coverage * 100)}% 담음(80% 이상이면 기사 제목 옮기기)` },
   ];
