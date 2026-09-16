@@ -465,6 +465,17 @@ const VITEST_SUITES = [
     'src/utils/__tests__/my-blog-vocabulary.test.ts',
     // 제휴 자동 실행(2026-09-16) — 앱 폴더로 복사해 돌릴 스크립트 목록이 빠지면 자식 프로세스가 require 에서 죽는다.
     'src/utils/__tests__/affiliate-local-plan.test.ts',
+    // 막힌 제휴 상품의 자리 넓히기(2026-09-17) — 기준이 산술 비율로 되돌아가면 롱테일이 다시 0건이 된다.
+    'src/utils/__tests__/affiliate-slots.test.ts',
+];
+
+/**
+ * node --test 로 도는 것(.cjs · .mjs). vitest 목록과 달리 러너가 달라 따로 부른다.
+ * 2026-09-17 까지 이 자리가 없어서, 제휴 로그인 헬퍼 테스트 둘이 저장소에 있으면서도 아무 데서도 안 돌았다.
+ */
+const NODE_TEST_FILES = [
+    'scripts/affiliate-login-session.test.cjs',
+    'scripts/affiliate-session-persistence.test.cjs',
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
@@ -476,6 +487,19 @@ const vitest = spawnSync('npx', ['vitest', 'run', ...VITEST_SUITES], {
 if (vitest.status !== 0) {
     console.error('[vitest] ❌ 선점 판정계 회귀 — release 차단');
     process.exit(1);
+}
+
+const nodeTestTargets = NODE_TEST_FILES.filter((file) => fs.existsSync(path.join(__dirname, '..', file)));
+if (nodeTestTargets.length > 0) {
+    console.log('[node --test] 제휴 로그인 세션 실행...');
+    const nodeTest = spawnSync(process.execPath, ['--test', ...nodeTestTargets], {
+        stdio: 'inherit',
+        cwd: path.join(__dirname, '..'),
+    });
+    if (nodeTest.status !== 0) {
+        console.error('[node --test] ❌ 회귀 — release 차단');
+        process.exit(1);
+    }
 }
 
 console.log('[sanity-gate.test] ✅ PASSED');

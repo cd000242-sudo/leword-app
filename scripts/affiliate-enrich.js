@@ -186,6 +186,107 @@ async function main() {
     item.seat = measured[0];
     seated += 1;
   }
+  /*
+   * 1-b) 막힌 상품의 자리 넓히기(2026-09-17) — 사장님 2026-08-22 "노출 어려움으로만 도배돼 있으면
+   * 노출된 걸 알려줘야 황금 제품 키워드 아니냐".
+   * 수집기의 기준은 '검색량 ≥ 문서수' 인데 2026-09-16 실측에서 통과가 **0건**이었다(후보는 101 · 134개였다).
+   * 제휴 니즈는 대개 문서가 훨씬 많아 그 산술로는 구조적으로 아무것도 안 남는다. 그래서 여기서는
+   * 연관어를 뻗어 **블로그탭을 실제로 받아** 자리를 재고, 열림 · 반열림만 싣는다. 예산은 따로 둔다.
+   */
+  const maxSlotSeat = Number(arg('maxSlotSeat')) || 40;
+  if (adConfig.accessLicense && adConfig.secretKey && maxSlotSeat > 0) {
+    const { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+    const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
+    const { getNaverAutocompleteKeywords } = require('../src/utils/naver-autocomplete');
+    const { needsSlots, pickSlotCandidates, slotsFromSeats } = require('../src/utils/affiliate-slots');
+    const blocked = targets
+      .filter((it) => needsSlots(it))
+      .sort((a, b) => (b.needVolume || 0) - (a.needVolume || 0));
+    console.log(`자리 넓히기 — 막힌 상품 ${blocked.length} · 블로그탭 상한 ${maxSlotSeat}`);
+    // 자리 실측 예산은 위 단계와 나눠 쓴다 — 같은 카운터를 쓰면 롱테일이 한 건도 못 잰다.
+    let slotFetched = 0;
+    const measureSlotKeyword = async (keyword) => {
+      if (seatCache.has(keyword)) return seatCache.get(keyword);
+      slotFetched += 1;
+      const res = await localSerpFetch(seatBlogTabUrl(keyword));
+      if (!res.ok) { seatCache.set(keyword, null); return null; }
+      const seat = measureSeat({ keyword, blogTabHtml: res.body, allTabHtml: null });
+      const out = seat.sampled >= 3
+        ? { keyword, openSlot: seat.vacancy, facing: seat.facing, verdict: seat.verdict, sampled: seat.sampled, measuredAt: new Date().toISOString() }
+        : null;
+      seatCache.set(keyword, out);
+      return out;
+    };
+    let widened = 0;
+    for (const item of blocked) {
+      if (slotFetched >= maxSlotSeat) break;
+      const seed = String(item.needKeyword || item.keyword || '').trim();
+      if (seed.length < 2) continue;
+      /*
+       * 후보는 두 곳에서 받는다. 1차 실주행(2026-09-17)에서 연관어만 썼더니 30회를 재고도 0건이었다 —
+       * 검색광고 연관어는 **더 큰 말**을 돌려준다('약과' → '약과선물세트 100,375' · '약과세트 162,196').
+       * 큰 말은 당연히 잠겨 있다. 진짜 꼬리말은 자동완성에서 나온다(오늘 쓸 한 편 실측: 자동완성 8건 중 5건이
+       * 자리 있음 · 붙여 쓴 연관어 13건 중 2건). 자동완성은 검색량을 안 주므로 따로 잰다.
+       */
+      let suggestions = [];
+      try { suggestions = await getNaverSearchAdKeywordSuggestions(adConfig, seed, 80); } catch { suggestions = []; }
+      await sleep(1500); // 몰아 부르면 429
+      const pool = suggestions.map((s) => ({
+        keyword: String(s.keyword || '').trim(),
+        volume: typeof s.totalSearchVolume === 'number' ? s.totalSearchVolume : 0,
+        documentCount: 0,
+      }));
+      let autoWords = [];
+      try { autoWords = await getNaverAutocompleteKeywords(seed, openApi); } catch { autoWords = []; }
+      const known = new Set(pool.map((c) => c.keyword.replace(/\s+/g, '').toLowerCase()));
+      for (const word of autoWords.slice(0, 12)) {
+        const keyword = String(word || '').trim();
+        const key = keyword.replace(/\s+/g, '').toLowerCase();
+        if (keyword.length < 2 || known.has(key)) continue;
+        known.add(key);
+        let volume = 0;
+        try {
+          const rows = await getNaverSearchAdKeywordVolume(adConfig, [keyword]);
+          const row = (rows || []).find((x) => String(x.keyword || '').replace(/\s+/g, '').toLowerCase() === key);
+          volume = row && typeof row.totalSearchVolume === 'number' ? row.totalSearchVolume : 0;
+        } catch { volume = 0; }
+        await sleep(1200);
+        pool.push({ keyword, volume, documentCount: 0 });
+      }
+      /*
+       * 하한 50(롱테일은 원래 작다 — 수집기도 같은 값) · 상한 3,000.
+       * 상한이 핵심이다: 2차 실주행에서 검색량 큰 순으로 골라 후보가 전부 머리말이었고(블루투스이어폰 64,200 ·
+       * 소고기장조림 45,110) 18회를 재고도 열린 자리가 0이었다. 오늘 쓸 한 편 실측에서 순위가 잡힌 9건이
+       * 전부 3,610 이하였으니, 그보다 큰 말은 애초에 재 볼 이유가 없다.
+       */
+      const picked = pickSlotCandidates(item, pool, { limit: 3, minVolume: 50, maxVolume: 3000 });
+      if (picked.length === 0) {
+        // 조용히 넘기면 "후보가 없어서 0" 인지 "자리가 없어서 0" 인지 구분이 안 된다.
+        console.log(`  · ${String(item.name).slice(0, 20)} ← 후보 없음(연관어 ${suggestions.length} · 자동완성 ${autoWords.length})`);
+        continue;
+      }
+      const measured = [];
+      for (const cand of picked) {
+        if (slotFetched >= maxSlotSeat) break;
+        let documentCount = null;
+        try { documentCount = await getNaverBlogDocumentCount(cand.keyword, { config: openApi }); } catch { documentCount = null; }
+        const seat = await measureSlotKeyword(cand.keyword);
+        measured.push({ candidate: { ...cand, documentCount: typeof documentCount === 'number' ? documentCount : 0 }, seat });
+      }
+      const slots = slotsFromSeats(measured);
+      // 잰 것을 그대로 남긴다 — 0건일 때 후보가 나빴는지, 자리가 정말 없는지 이 줄로만 알 수 있다.
+      if (measured.length > 0) {
+        console.log(`  · ${String(item.name).slice(0, 20)} ← ${measured.map(({ candidate, seat }) => `${candidate.keyword}(검색량 ${candidate.volume} · 문서 ${candidate.documentCount} · ${seat ? `${seat.verdict} 정면${seat.facing}` : '못 잼'})`).join(' / ')}`);
+      }
+      if (slots.length > 0) {
+        item.slots = slots;
+        widened += 1;
+        console.log(`  + ${String(item.name).slice(0, 24)} → ${slots.map((s) => `${s.keyword}(${s.seat.verdict}${s.seat.openSlot != null ? ` ${s.seat.openSlot}위빈자리` : ''})`).join(' · ')}`);
+      }
+    }
+    console.log(`  자리 넓힘 ${widened}개 상품 · 블로그탭 ${slotFetched}회`);
+  }
+
   await closeLocalSerpFetch();
   const byVerdict = targets.reduce((m, it) => { if (it.seat) m[it.seat.verdict] = (m[it.seat.verdict] || 0) + 1; return m; }, {});
   console.log(`  자리 실측 ${seated}/${targets.length} (블로그탭 ${fetched}회) · ${Object.entries(byVerdict).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
