@@ -25,6 +25,7 @@ import { describeBlogFacts, type BlogFactsCard } from '../../utils/blog-class/pl
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { measureMyRanks } from './blog-class-rank';
 import { buildEnvelope, buildNearBand, type BlogEnvelope, type WonRow } from '../../utils/blog-class/envelope';
+import { buildTopicProfile, type TopicProfile } from '../../utils/blog-class/topic-profile';
 
 export const BLOG_CLASS_PROGRESS_CHANNEL = 'blog-class-progress';
 
@@ -47,6 +48,12 @@ export interface BlogClassRecord {
   sampledPosts: number;
   /** 2단계(제목 → 검색어 → 순위)가 쓰는 원료. 화면은 안 쓴다. */
   posts: BlogPostRow[];
+  /**
+   * 내 블로그가 실제로 써 온 이야기 — 글 **전체** 제목에서 센 낱말(2026-09-16).
+   * 사장님 "글들을 전부 분석하고 파악해서 지금 내가쓰면 이기는 키워드를 분석해서 알려줘야되는거아니니".
+   * 오늘 쓸 한 편이 이걸 씨앗으로 쓴다. 목록을 못 읽었으면 null.
+   */
+  topicProfile?: TopicProfile | null;
   /** 내가 이긴 자리 — 순위를 실제로 잰 행. 안 쟀으면 빈 배열. */
   wonRows?: WonRow[];
   /** 내가 이겨본 크기. 이긴 기록이 없으면 null — 기본값을 지어내지 않는다. */
@@ -124,8 +131,16 @@ export async function measureBlogClass(
   const snapshot = await fetchBlogSnapshot(blogId, fetchImpl);
 
   report({ step: '글 목록', received: 0, total: snapshot?.postCount ?? null, message: '글 목록을 받는 중…' });
+  /*
+   * 글 목록은 **전부** 받는다(2026-09-16). 사장님 "글들을 전부 분석하고 파악해서".
+   *
+   * 전에는 표본 수(sample)가 두 가지 일을 겸했다 — 글을 몇 개 읽을지와 순위를 몇 개 잴지.
+   * 순위 실측이 건당 2초라 50으로 묶어 뒀는데, 그 숫자가 **글 읽기까지** 50개로 묶어 버렸다.
+   * 452편 블로그가 최근 50편으로만 판단됐다는 뜻이다.
+   * 목록 창구는 30개씩 주고 쉼이 400ms 라 452편이면 약 7초다 — 싸다. 순위는 여전히 maxRank(80)로 막혀 있어
+   * 글을 전부 넘겨도 제일 비싼 단계의 시간은 늘지 않는다(blog-class-rank 의 orderRankTargets).
+   */
   const swept = await sweepPosts(blogId, fetchImpl, {
-    limit: sample,
     includeOldest: true,
     onProgress: (received, total) => report({
       step: '글 목록', received, total, message: `글 ${received}개를 읽었어요`,
@@ -152,6 +167,17 @@ export async function measureBlogClass(
     isInfluencer,
     sampledPosts: swept.posts.length,
     posts: swept.posts,
+    // 글 전체에서 센 '내가 써 온 이야기'. 오늘 쓸 한 편이 이걸 씨앗으로 쓴다.
+    topicProfile: swept.ok
+      ? buildTopicProfile(
+        swept.posts.map((post) => ({ title: post.title, publishedOn: post.publishedOn, searchable: post.searchable })),
+        {
+          now: Date.parse(measuredAt),
+          totalPosts: swept.totalCount ?? snapshot?.postCount ?? null,
+          declaredTopic: snapshot?.declaredTopic || null,
+        },
+      )
+      : null,
     card: describeBlogFacts({
       snapshot,
       activity,
@@ -174,7 +200,12 @@ export async function measureBlogClass(
       ? (EnvironmentManager as any).getInstance() : new (EnvironmentManager as any)();
     let lastPartialAt = 0;
     const ranked = await measureMyRanks(
-      swept.posts.map((post) => ({
+      /*
+       * 순위는 최근 sample 편에서만 잰다 — 글 전체는 분야 파악(topicProfile)에 쓰고, 여기까지 전부 넘기면
+       * 검색량 조회가 452편분(묶음 260회)으로 늘어 회차가 몇 분씩 길어진다. 순위 실측 자체는 maxRank 로
+       * 막혀 있어 어차피 80건이다. 무엇을 읽느냐(전체)와 무엇을 재느냐(표본)를 나눈 것이 이번 수정의 핵심이다.
+       */
+      swept.posts.slice(0, sample).map((post) => ({
         title: post.title,
         url: `https://blog.naver.com/${blogId}/${post.logNo}`,
         publishedOn: post.publishedOn,

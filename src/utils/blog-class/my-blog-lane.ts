@@ -79,6 +79,12 @@ export interface MyBlogProfile {
 export interface ProfileSource {
   wonRows?: WonRow[] | null;
   snapshot?: { declaredTopic?: string | null } | null;
+  /**
+   * 글 전체에서 센 낱말(topic-profile). 없으면 예전과 똑같이 순위를 잰 검색어에서만 어휘를 만든다.
+   * 순위는 최근 50편만 재므로, 이것이 없으면 452편이 다룬 이야기 대부분이 어휘에 없었다 — 그러면
+   * 그 분야 후보가 관문(sharesVocabulary)에서 '내 이야기가 아니다'로 걸러졌다(2026-09-16).
+   */
+  topicProfile?: { words?: Array<{ word: string }>; recentWords?: Array<{ word: string }> } | null;
 }
 
 /** 내 크기 재기 기록에서 오늘 쓸 한 편이 쓸 것만 뽑는다. 순위를 잰 기록이 없으면 null. */
@@ -86,10 +92,19 @@ export function buildProfile(record: ProfileSource | null): MyBlogProfile | null
   const rows = record && Array.isArray(record.wonRows) ? record.wonRows : [];
   if (rows.length === 0) return null;
   const vocabulary: string[] = [];
+  // ① 순위를 잰 검색어의 낱말이 먼저다 — 실제로 붙어 본 말이라 근거가 가장 가깝다.
   for (const row of rows) {
     for (const word of coreWords(row.keyword)) {
       if (!vocabulary.includes(word)) vocabulary.push(word);
     }
+  }
+  // ② 그 뒤에 글 전체가 다룬 낱말(최근 것 먼저). 같은 말은 한 번만 — 앞자리를 흔들지 않는다.
+  const topicWords = record && record.topicProfile
+    ? [...(record.topicProfile.recentWords || []), ...(record.topicProfile.words || [])]
+    : [];
+  for (const entry of topicWords) {
+    const word = String(entry && entry.word ? entry.word : '').trim();
+    if (word.length >= 2 && !vocabulary.includes(word)) vocabulary.push(word);
   }
   const topic = record && record.snapshot && record.snapshot.declaredTopic ? String(record.snapshot.declaredTopic) : null;
   return {
