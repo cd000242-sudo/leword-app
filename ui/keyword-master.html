@@ -4365,6 +4365,11 @@
           body.style.display = 'none';
           folded.style.display = 'flex';
           folded.setAttribute('aria-expanded', 'false');
+          /*
+           * 접은 줄이 화면 위로 밀리면 사장님 눈에는 **입력 칸이 통째로 사라진 것**으로 보인다
+           * (2026-09-17 지적: "정작 키워드 분석하는 필드가 없어졌네"). 접는 순간 그 줄을 보여 준다.
+           */
+          try { folded.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* 옛 브라우저 */ }
         };
 
         window.goldenUnfoldConditions = function goldenUnfoldConditions() {
@@ -5663,12 +5668,69 @@
           } catch (e) { window.open(url, '_blank'); }
         };
 
-        // 트렌드 그래프 — 서버 보드가 제공하던 기능. 지금은 없으면 조용히 안내만 한다.
-        window.lewordShowTrendGraph = function(kw, monthSv) {
-          if (typeof window.rfShowTrendGraph === 'function') {
-            return window.rfShowTrendGraph(kw, monthSv);
+        /*
+         * 30일 검색 추이 그래프(2026-09-17 복구).
+         *
+         * 사장님 "그래프 클릭하면 이렇게뜨네" — 📈 버튼이 안내창만 띄웠다. 원인은 셋이 겹쳤다:
+         *   ① rfShowTrendGraph 가 어디에도 정의돼 있지 않았다(예전 서버 보드 화면에서 오던 함수다)
+         *   ② keyword-trend-30day 핸들러는 있는데 preload 에 창구가 없었다
+         *   ③ 그래서 lewordShowTrendGraph 는 언제나 alert 로 빠졌다
+         * 창구를 뚫고, 받은 일별 값을 그 자리에서 SVG 로 그린다. 외부 라이브러리는 쓰지 않는다.
+         * 못 받은 값은 0 으로 채우지 않는다 — 키가 없으면 없다고 적는다.
+         */
+        window.rfShowTrendGraph = async function rfShowTrendGraph(kw, monthSv) {
+          const keyword = String(kw || '').trim();
+          if (!keyword) return;
+          const old = document.getElementById('lewordTrendModal');
+          if (old) old.remove();
+
+          const wrap = document.createElement('div');
+          wrap.id = 'lewordTrendModal';
+          wrap.style.cssText = 'position:fixed; inset:0; z-index:9999; background:rgba(2,6,23,0.72); display:flex; align-items:center; justify-content:center; padding:24px;';
+          wrap.onclick = (e) => { if (e.target === wrap) wrap.remove(); };
+          wrap.innerHTML = '<div style="background:#0f172a; border:1px solid rgba(255,255,255,0.12); border-radius:14px; padding:20px 22px; min-width:min(560px,92vw); color:#e2e8f0;">'
+            + '<div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">'
+            + '<strong style="font-size:15px;">' + kitEsc(keyword) + '</strong>'
+            + '<span style="font-size:11.5px; color:#64748b;">최근 30일 검색 추이 · 네이버 데이터랩</span>'
+            + '<button onclick="document.getElementById(\'lewordTrendModal\').remove()" style="margin-left:auto; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.14); color:#cbd5e1; border-radius:8px; padding:5px 10px; cursor:pointer; font:inherit; font-size:12px;">닫기</button>'
+            + '</div><div id="lewordTrendBody" style="font-size:12.5px; color:#94a3b8;">불러오는 중…</div></div>';
+          document.body.appendChild(wrap);
+
+          const body = wrap.querySelector('#lewordTrendBody');
+          let res = null;
+          try {
+            res = await window.electronAPI?.keywordTrend30Day?.(keyword);
+          } catch (e) {
+            res = { success: false, error: e && e.message ? e.message : '호출 실패' };
           }
-          alert('이 화면에서는 트렌드 그래프를 표시하지 않습니다.');
+          if (!res || !res.success || !Array.isArray(res.series) || res.series.length === 0) {
+            const why = res && res.error ? res.error : '데이터랩에서 값을 받지 못했습니다';
+            body.innerHTML = '<div style="color:#fbbf24;">' + kitEsc(why) + '</div>'
+              + '<div style="margin-top:6px; color:#64748b;">네이버 API 키가 설정돼 있어야 추이를 받을 수 있습니다(설정 · 키 탭).</div>';
+            return;
+          }
+
+          const series = res.series.map((n) => (typeof n === 'number' && isFinite(n) ? n : 0));
+          const dates = Array.isArray(res.dates) ? res.dates : [];
+          const max = Math.max.apply(null, series) || 1;
+          const W = 520, H = 160, pad = 8;
+          const step = series.length > 1 ? (W - pad * 2) / (series.length - 1) : 0;
+          const points = series.map((v, i) => (pad + i * step).toFixed(1) + ',' + (H - pad - (v / max) * (H - pad * 2)).toFixed(1)).join(' ');
+          const first = dates[0] || '', last = dates[dates.length - 1] || '';
+          const shape = res.analysis && res.analysis.type ? res.analysis.type : '';
+          body.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%; height:auto; background:#0b1220; border:1px solid rgba(255,255,255,0.08); border-radius:10px;">'
+            + '<polyline points="' + points + '" fill="none" stroke="#67e8f9" stroke-width="2" />'
+            + '</svg>'
+            + '<div style="display:flex; justify-content:space-between; margin-top:8px; font-size:11.5px; color:#64748b;">'
+            + '<span>' + kitEsc(first) + '</span>'
+            + '<span>' + (shape ? kitEsc(shape) + ' · ' : '') + '월 검색량 ' + (Number(monthSv) || 0).toLocaleString('ko-KR') + '</span>'
+            + '<span>' + kitEsc(last) + '</span>'
+            + '</div>';
+        };
+
+        // 옛 이름도 그대로 둔다 — 표·알약 양쪽이 이 이름으로 부른다.
+        window.lewordShowTrendGraph = function(kw, monthSv) {
+          return window.rfShowTrendGraph(kw, monthSv);
         };
 
         // v2.42.28~29: LEWORD 키워드 분석 결과 — 확장 키워드 드릴다운 (rfDrilldown 패턴 재사용)

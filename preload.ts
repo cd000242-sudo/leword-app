@@ -225,6 +225,11 @@ export type BloggerApi = {
   huntAdsenseKeywords(options?: { category?: string; seedKeywords?: string[]; count?: number; excludeYmylHigh?: boolean; minInfoIntent?: number; minMonthlyRevenue?: number; requireRealData?: boolean; blueOceanOnly?: boolean; minBlueOceanRatio?: number; sortBy?: 'value' | 'blueOcean' | 'revenue' | 'reachable'; newbieMode?: boolean; excludeZeroClickHigh?: boolean }): Promise<any>;
   getAdsenseCategories(): Promise<{ success: boolean; categories: Array<{ value: string; label: string }> }>;
   getGoogleTrendKeywords(): Promise<Array<{ rank: number; keyword: string; changeRate: number; category: string }>>;
+  /**
+   * 30일 검색 추이(데이터랩 일별). 핸들러는 예전부터 있었는데 여기 창구가 없어서
+   * 화면의 📈 버튼이 "이 화면에서는 트렌드 그래프를 표시하지 않습니다" 만 띄웠다(2026-09-17 사장님 지적).
+   */
+  keywordTrend30Day(keyword: string): Promise<{ success: boolean; series?: number[]; dates?: string[]; analysis?: any; error?: string }>;
   getYouTubeVideos(options?: { maxResults?: number }): Promise<any[]>;
 
   /** YouTube 심층 분석 */
@@ -524,6 +529,9 @@ const api: BloggerApi = {
     ipcRenderer.invoke('youtube-golden-keywords', params),
 
   getGoogleTrendKeywords: () => ipcRenderer.invoke('get-google-trend-keywords'),
+
+  // 30일 검색 추이 — 화면의 📈 버튼이 쓴다(핸들러는 source-signals 에 있었는데 창구가 없었다).
+  keywordTrend30Day: (keyword: string) => ipcRenderer.invoke('keyword-trend-30day', keyword),
 
   // 자동완성 및 연관 키워드 조회
   getAutoComplete: (keyword: string) => ipcRenderer.invoke('get-autocomplete-keywords', keyword),
