@@ -10,7 +10,7 @@
  *   node scripts/affiliate-refresh.js --publish
  *     위에 더해 그 파일 하나만 커밋하고 푸시한다.
  *   node scripts/affiliate-refresh.js --autoLogin
- *     세션이 풀렸으면 로그인 창을 띄우고, 로그인 뒤 채집을 한 번 더 시도한다.
+ *     세션이 풀렸으면 같은 수집 창에서 로그인한 직후 채집을 이어간다.
  *
  * 세션: tmp/affiliate-profile (쿠키만. 비밀번호는 어디에도 저장되지 않는다)
  *
@@ -98,7 +98,9 @@ function main() {
   const autoLogin = hasFlag('autoLogin');
   const selection = arg('sites', 'toss,brandconnect');
   if (selection.split(',').some((id) => !['toss', 'brandconnect'].includes(id))) throw new Error('알 수 없는 제휴 플랫폼');
-  const scrapeArgs = [`--sites=${selection}`, ...(hasFlag('headless') ? ['--headless'] : [])];
+  const interactive = autoLogin || hasFlag('interactive');
+  const scrapeArgs = [`--sites=${selection}`, ...(hasFlag('headless') ? ['--headless'] : []),
+    ...(interactive ? ['--interactive'] : [])];
   const target = path.join(SITE_REPO, SITE_RELATIVE);
   if (!fs.existsSync(path.join(SITE_REPO, 'spa', 'package.json'))) {
     throw new Error('사이트 경로를 확인하세요: NAVER_SITE_REPO 환경변수가 필요합니다.');
@@ -106,11 +108,11 @@ function main() {
 
   if (!fs.existsSync(PROFILE_DIR)) {
     console.log('브라우저 프로필이 없습니다 — 최초 1회 로그인이 필요합니다.');
-    if (!autoLogin) {
+    if (!interactive) {
       console.log('  node scripts/affiliate-campaigns.js --login');
       process.exit(3);
     }
-    if (!run('affiliate-campaigns.js', ['--login', `--sites=${selection}`])) process.exit(3);
+    fs.mkdirSync(PROFILE_DIR, { recursive: true });
   }
 
   // ── 1) 채집 ───────────────────────────────────────────────────────────
@@ -122,19 +124,8 @@ function main() {
     process.exit(1);
   }
 
-  let expired = expiredSites(readJson(SCRAPE_SUMMARY));
-  if (expired.length > 0) {
-    if (!autoLogin) announceLogin(expired);
-    else {
-      console.log('\n세션 만료 감지 — 로그인 창을 엽니다.');
-      for (const site of expired) console.log(`  · ${site.label} — ${site.reason}`);
-      if (!run('affiliate-campaigns.js', ['--login', `--sites=${expired.map((site) => site.id).join(',')}`])) process.exit(3);
-      console.log('\n[1/4 다시] 로그인 뒤 재채집');
-      if (!run('affiliate-campaigns.js', ['--scrape', ...scrapeArgs])) process.exit(1);
-      expired = expiredSites(readJson(SCRAPE_SUMMARY));
-      if (expired.length > 0) announceLogin(expired);
-    }
-  }
+  const expired = expiredSites(readJson(SCRAPE_SUMMARY));
+  if (expired.length > 0) announceLogin(expired);
 
   // ── 2) 파싱 + 실측 판정 ───────────────────────────────────────────────
   console.log('\n[2/4] 상품명 → 핵심 검색어 → 검색량·문서수·상위10 정면 실측');

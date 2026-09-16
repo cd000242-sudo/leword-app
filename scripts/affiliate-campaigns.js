@@ -28,6 +28,7 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 const puppeteer = require('puppeteer');
+const { isAffiliateLoginUrl, continueAuthenticatedPage } = require('./affiliate-login-session');
 
 const PROFILE_DIR = path.join(__dirname, '..', 'tmp', 'affiliate-profile');
 const DUMP_DIR = path.join(__dirname, '..', 'tmp', 'affiliate-dump');
@@ -98,10 +99,11 @@ function waitForEnter(message) {
 async function launch() {
   return puppeteer.launch({
     // 두 플랫폼 다 headless 를 탐지한다. 로컬에 화면이 있으니 정직하게 창을 띄운다.
-    headless: hasFlag('headless'),
+    headless: hasFlag('headless') && !hasFlag('interactive'),
     userDataDir: PROFILE_DIR,
     defaultViewport: { width: 1280, height: 900 },
-    args: ['--lang=ko-KR', '--disable-blink-features=AutomationControlled'],
+    // 전용 프로필의 세션 쿠키를 다음 실행에도 복원한다. 일반 Chrome 설정은 건드리지 않는다.
+    args: ['--lang=ko-KR', '--disable-blink-features=AutomationControlled', '--restore-last-session'],
   });
 }
 
@@ -193,6 +195,10 @@ async function scrapeMode() {
     console.log(`\n■ ${target.label} 여는 중…`);
     let navigationFailed = false;
     await page.goto(target.url, { waitUntil: 'networkidle2', timeout: 45000 }).catch(() => { navigationFailed = true; });
+    if (hasFlag('interactive') && isAffiliateLoginUrl(page.url())) {
+      console.log('이 창에서 로그인해주세요. 창을 닫지 않으면 인증 직후 같은 창에서 자동 수집합니다.');
+      await continueAuthenticatedPage(page, target.url).catch(() => { navigationFailed = true; });
+    }
     // 목록이 지연 로드되는 경우를 위해 두 번 스크롤하고 잠시 둔다.
     for (let i = 0; i < 3; i += 1) {
       await page.evaluate(() => window.scrollBy(0, 1200)).catch(() => {});
@@ -207,7 +213,7 @@ async function scrapeMode() {
      * "로그인" 글자는 흔해서(헤더·팝업) 매번 오탐했다 — 세션이 살아 있는데
      * "풀린 것으로 보임" 이 찍혔다(실사고 2026-08-20, 정산정보까지 온 상태).
      */
-    const loggedOut = /nid\.naver\.com|business\.toss\.im\/account|\/login/.test(page.url());
+    const loggedOut = isAffiliateLoginUrl(page.url());
 
     // 채집된 JSON 에서 목록 후보를 추린다.
     const candidates = [];
