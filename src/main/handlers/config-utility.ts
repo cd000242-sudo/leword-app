@@ -121,6 +121,8 @@ export function setupConfigUtilityHandlers(): void {
           anthropicApiKey: env.anthropicApiKey || '',
           aiInferenceMode: env.aiInferenceMode || 'auto',
           manusApiKey: env.manusApiKey || '',
+          // 홈판 신호 공개본을 쓸 사이트 폴더(2026-09-17) — 비면 앱이 바탕화면 · 문서에서 찾는다.
+          siteRepoDir: env.siteRepoDir || '',
         };
       } catch (error: any) {
         console.error('[KEYWORD-MASTER] check-api-keys 오류:', error);
@@ -491,6 +493,8 @@ export function setupConfigUtilityHandlers(): void {
         if (settings.naverSearchAdCustomerId) envConfig.naverSearchAdCustomerId = settings.naverSearchAdCustomerId;
         if (settings.anthropicApiKey !== undefined) envConfig.anthropicApiKey = settings.anthropicApiKey;
         if (settings.aiInferenceMode !== undefined) envConfig.aiInferenceMode = settings.aiInferenceMode;
+        // 빈 문자열도 그대로 저장한다 — 사장님이 칸을 비우면 자동 찾기로 돌아가야 한다.
+        if (settings.siteRepoDir !== undefined) envConfig.siteRepoDir = settings.siteRepoDir;
         if (settings.manusApiKey !== undefined) envConfig.manusApiKey = settings.manusApiKey;
         // v2.42.55: 쇼핑 커넥트 재설계 Phase 1 — 쿠팡 파트너스 트래킹
         if (settings.coupangAccessKey !== undefined) envConfig.coupangAccessKey = settings.coupangAccessKey;

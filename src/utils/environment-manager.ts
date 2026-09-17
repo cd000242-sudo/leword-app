@@ -20,6 +20,11 @@ export interface EnvConfig {
   anthropicApiKey?: string;          // Claude API key (sk-ant-...)
   aiInferenceMode?: 'claude' | 'rule' | 'auto';   // 기본 'auto'
   manusApiKey?: string;              // Manus AI key (PRO 트래픽 헌터 보강용)
+  /**
+   * 사이트 레포 폴더 — 홈판 신호 공개본을 여기 spa/public/data 로 쓴다(2026-09-17).
+   * 비워 두면 바탕화면 · 문서에서 찾는다(homefeed/publish.ts resolveSiteDataDir).
+   */
+  siteRepoDir?: string;
   pexelsApiKey?: string;
   dalleApiKey?: string;
   naverClientId?: string;
@@ -258,6 +263,7 @@ export class EnvironmentManager {
         anthropicApiKey: envFileConfig['ANTHROPIC_API_KEY'] || envFileConfig['CLAUDE_API_KEY'] || process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_API_KEY'] || '',
         manusApiKey: envFileConfig['MANUS_API_KEY'] || process.env['MANUS_API_KEY'] || '',
         aiInferenceMode: ((envFileConfig['AI_INFERENCE_MODE'] || process.env['AI_INFERENCE_MODE'] || 'auto').toLowerCase() as 'claude' | 'rule' | 'auto'),
+        siteRepoDir: envFileConfig['LEWORD_SITE_REPO_DIR'] || process.env['LEWORD_SITE_REPO_DIR'] || '',
         pexelsApiKey: envFileConfig['PEXELS_API_KEY'] || process.env['PEXELS_API_KEY'] || '',
         dalleApiKey: envFileConfig['DALLE_API_KEY'] || envFileConfig['OPENAI_API_KEY'] || process.env['DALLE_API_KEY'] || process.env['OPENAI_API_KEY'] || '',
         naverClientId: envFileConfig['NAVER_CLIENT_ID'] || process.env['NAVER_CLIENT_ID'] || '',

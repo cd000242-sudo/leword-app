@@ -18,6 +18,8 @@ import { setupSeatMeasureHandlers } from './handlers/seat-measure';
 import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler } from './handlers/seat-watch';
 import { setupBlogClassHandlers } from './handlers/blog-class';
 import { setupGoldenWritingKitHandlers } from './handlers/golden-writing-kit';
+// 홈판 신호(2026-09-17) — 앱이 계산하는데 정작 앱 화면이 없어 사이트로 가야 했다.
+import { registerHomefeedHandlers } from './handlers/homefeed-handlers';
 import { setupTopicBriefsLocalHandlers, startTopicBriefsScheduler, stopTopicBriefsScheduler } from './handlers/topic-briefs-local';
 import { setupPreemptionBoardHandlers } from './handlers/preemption-board';
 import { setupGoldenLocalHandlers, startGoldenLocalScheduler, stopGoldenLocalScheduler } from './handlers/golden-local';
@@ -184,6 +186,8 @@ export function setupKeywordMasterHandlers() {
   setupExposureTrackingHandlers();
   setupLaneInsightsHandlers();
   setupAgentCliHandlers();
+  // 홈판 신호(앱 전용 화면, 2026-09-17) — 브리지가 쓰던 서비스를 IPC 로도 잇는다.
+  registerHomefeedHandlers();
   // 자리 실측기(앱 전용, 2026-09-08) — 내 PC 브라우저로 네이버 자리를 센다.
   setupSeatMeasureHandlers();
   // 자리 감시(앱 전용, 플랜 A3) — 관심 키워드를 새벽에 다시 재고 열리면 알린다.

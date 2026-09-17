@@ -235,6 +235,14 @@ export type BloggerApi = {
    * 핸들러(config-utility)는 예전부터 있었는데 창구가 없어 화면이 쓰지 못했다(2026-09-17).
    */
   generateKeywordMindmap(keyword: string, options?: { maxDepth?: number; maxKeywordsPerLevel?: number; maxTotalKeywords?: number }): Promise<any>;
+
+  /**
+   * 홈판 신호 — 이 PC 가 10분마다 쌓은 스토리 목록과 수동 수집(2026-09-17).
+   * 계산은 브리지가 쓰던 서비스 그대로다. 앱에 화면이 없어 사이트로 가야 했던 것을 연다.
+   */
+  homefeedStories(): Promise<any>;
+  homefeedCollect(): Promise<any>;
+
   getYouTubeVideos(options?: { maxResults?: number }): Promise<any[]>;
 
   /** YouTube 심층 분석 */
@@ -541,6 +549,10 @@ const api: BloggerApi = {
   // 키워드 마인드맵(자동완성 + 검색광고 연관어 + 데이터랩, 깊이 3단) — 핸들러는 있었는데 창구가 없어 놀고 있었다.
   generateKeywordMindmap: (keyword: string, options?: { maxDepth?: number; maxKeywordsPerLevel?: number; maxTotalKeywords?: number }) =>
     ipcRenderer.invoke('generate-keyword-mindmap', keyword, options || {}),
+
+  // 홈판 신호 — 앱 화면이 쓰는 창구(2026-09-17). 그전에는 사이트만 브리지로 볼 수 있었다.
+  homefeedStories: () => ipcRenderer.invoke('homefeed-stories'),
+  homefeedCollect: () => ipcRenderer.invoke('homefeed-collect'),
 
   // 자동완성 및 연관 키워드 조회
   getAutoComplete: (keyword: string) => ipcRenderer.invoke('get-autocomplete-keywords', keyword),

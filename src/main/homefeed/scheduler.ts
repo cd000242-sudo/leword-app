@@ -10,6 +10,7 @@ import { createHomefeedStore, type HomefeedStore } from './store';
 import { collectHomefeedSnapshot } from './collector';
 import { createHomefeedSourceDeps } from './sources';
 import { recomputeHomefeedStories } from './engine';
+import { publishHomefeedPublicFile } from './publish-file';
 
 let store: HomefeedStore | null = null;
 let timer: NodeJS.Timeout | null = null;
@@ -48,6 +49,8 @@ export async function runHomefeedCycle(reason: 'auto' | 'manual'): Promise<{ ok:
     const file = recomputeHomefeedStories(target);
     lastError = null;
     console.log(`[HOMEFEED] ${reason === 'auto' ? '자동' : '수동'} 회차 끝 — 스토리 ${file.stories.length}`);
+    // 사이트가 앱 없이도 보게 공개본을 써 둔다(2026-09-17). 실패해도 회차는 산다 — 수집이 우선이다.
+    publishHomefeedPublicFile(target);
     return { ok: true, stories: file.stories.length, issues: snapshot.issues.length };
   } catch (error) {
     lastError = String(error instanceof Error ? error.message : error).slice(0, 200);
