@@ -457,6 +457,12 @@ const VITEST_SUITES = [
     'src/utils/__tests__/homefeed-visual-titles-draft.test.ts',
     'src/utils/__tests__/homefeed-store-collector.test.ts',
     'src/utils/__tests__/homefeed-bridge-service.test.ts',
+    'src/utils/__tests__/homefeed-editorial.test.ts',
+    'src/utils/__tests__/homefeed-article-reader.test.ts',
+    'src/utils/__tests__/homefeed-editorial-service.test.ts',
+    'src/utils/__tests__/homefeed-editorial-app.test.ts',
+    'src/utils/__tests__/homefeed-editorial-ipc.test.ts',
+    'src/utils/__tests__/homefeed-publish.test.ts',
     'src/utils/__tests__/codex-image-runner.test.ts',
     // 실측 통합 — 이 PC 가 실제로 쌓은 스냅샷(기사 제목 · 주소 · 문서수)으로 스토리를 조립한다. mock 만으로 통과하지 못하게 한다.
     'src/utils/__tests__/homefeed-real-data.test.ts',

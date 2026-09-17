@@ -33,7 +33,7 @@ export interface RankedKeyword {
 
 export interface HomefeedNewsResult {
   total: number | null;
-  items: Array<{ title: string; url: string; press: string | null; publishedAt: string | null }>;
+  items: Array<{ title: string; url: string; press: string | null; publishedAt: string | null; description?: string; originalUrl?: string }>;
 }
 
 export interface HomefeedBoardIssue {

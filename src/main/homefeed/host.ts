@@ -11,6 +11,8 @@ export function createHomefeedHostDeps(): HomefeedBridgeDeps {
     if (service) return service;
     const scheduler = await import('./scheduler');
     const { createHomefeedService } = await import('./service');
+    const { enrichEditorialSources } = await import('./article-reader');
+    const { publishHomefeedPublicFile } = await import('./publish-file');
     const { runWithAnyAgent } = await import('../../utils/agent-cli/runAny');
     const { createDefaultAgentChain } = await import('../../utils/agent-cli/defaultChain');
     const { runCodexImage } = await import('../../utils/agent-cli/codexImageRunner');
@@ -40,6 +42,8 @@ export function createHomefeedHostDeps(): HomefeedBridgeDeps {
       },
       now: () => Date.now(),
       newId: () => randomUUID().replace(/-/g, '').slice(0, 16),
+      enrichSources: (sources) => enrichEditorialSources(sources),
+      publishPublic: () => publishHomefeedPublicFile(scheduler.homefeedStore()),
     });
     return service;
   };
@@ -48,6 +52,9 @@ export function createHomefeedHostDeps(): HomefeedBridgeDeps {
     stories: async () => (await load()).stories(),
     story: async (input) => (await load()).story(input),
     collect: async () => (await load()).collect(),
+    brief: async (input) => (await load()).brief(input),
+    selectEditorial: async (input) => (await load()).selectEditorial(input),
+    shareEditorial: async (input) => (await load()).shareEditorial(input),
     review: async (input) => (await load()).review(input),
     titles: async (input) => (await load()).titles(input),
     visual: async (input) => (await load()).visual(input),

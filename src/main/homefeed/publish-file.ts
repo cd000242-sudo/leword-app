@@ -17,6 +17,7 @@ import { EnvironmentManager } from '../../utils/environment-manager';
 import { buildHomefeedPublicPayload, resolveSiteDataDir, HOMEFEED_PUBLIC_FILE } from '../../utils/homefeed/publish';
 import { storySummary } from './service';
 import type { HomefeedStore } from './store';
+import { publicStoryDetail } from './public-detail';
 
 function homeDir(): string {
   try {
@@ -64,7 +65,8 @@ export function publishHomefeedPublicFile(store: HomefeedStore): { written: stri
         status: tally(file.stories.map((story) => story.status.state)),
         window: tally(file.stories.map((story) => story.window.state)),
       },
-      stories: file.stories.map((story) => storySummary(story, store.readAssets(story.issueKey))),
+      stories: file.stories.map((story) => storySummary(story, store.readAssets(story.issueKey), true)),
+      publicDetails: Object.fromEntries(file.stories.map((story) => [story.id, publicStoryDetail(story, store.readAssets(story.issueKey))])),
     }, null, { nowMs: Date.now() });
 
     if (!payload) {

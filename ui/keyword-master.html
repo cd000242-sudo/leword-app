@@ -1701,20 +1701,23 @@
     <section class="leword-screen" data-screen="homefeed">
       <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
         <h2 style="margin: 0; font-size: 19px; font-weight: 700; color: #e2e8f0;">홈판 신호</h2>
-        <span style="font-size: 11.5px; color: #64748b;">지금 새로 나온 사실 · 걸림 말 · 첫 카드 — 전부 이 PC 가 잰 실측</span>
+        <span style="font-size: 11.5px; color: #94a3b8;">사건과 근거를 읽고, 쓸 관점을 고르세요</span>
       </div>
       <p style="margin: 0 0 14px; font-size: 12.5px; line-height: 1.7; color: #94a3b8;">
-        10분마다 실시간 이슈를 쌓아 판정합니다. 수집할 때마다 결과를 사이트 폴더에도 써 두어, 앱을 끈 뒤에도 사이트에서 보입니다.
-        홈판 노출을 보장하거나 가능성을 수치로 말하지 않습니다 — 못 잰 값은 '—' 로 둡니다.
+        실시간 이슈의 관측 기록과 근거를 모읍니다. 작성안을 만들면 예상 독자의 질문, 추천 관점, 본문에서 답할 사실을 함께 볼 수 있습니다.
+        추천 관점은 편집 제안이며, 홈판 노출이나 독자 반응을 측정한 값은 아닙니다.
       </p>
       <div style="display: flex; gap: 8px; margin-bottom: 14px;">
         <button id="homefeedReloadBtn" onclick="loadHomefeedBoard()"
           style="padding: 10px 16px; background: #1e293b; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: #e2e8f0; font-size: 13px; cursor: pointer;">목록 새로고침</button>
         <button id="homefeedCollectBtn" onclick="homefeedCollectNow()"
           style="padding: 10px 16px; background: #0ea5e9; border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; cursor: pointer;">지금 수집</button>
+        <button id="homefeedBatchBtn" onclick="homefeedBatchBriefs()"
+          style="padding: 10px 16px; background: #115e59; border: 1px solid #0f766e; border-radius: 8px; color: #ccfbf1; font-size: 13px; cursor: pointer;">후보 최대 3건 작성안 만들기</button>
       </div>
       <div id="homefeedStatus" style="font-size: 12.5px; color: #64748b; margin-bottom: 12px;"></div>
       <div id="homefeedBody"></div>
+      <div id="homefeedDetail" hidden style="margin-top:18px; padding:20px; background:#0f172a; border:1px solid #334155; border-radius:12px;"></div>
     </section>
 
     <section class="leword-screen" data-screen="sites">
@@ -5806,85 +5809,258 @@
           return window.rfShowTrendGraph(kw, monthSv);
         };
 
-        /*
-         * 홈판 신호(2026-09-17) — 사장님 "사이트랑 앱에서도 잘 나오도록 해 줘".
-         *
-         * 수집 · 판정은 이 PC 앱이 10분마다 하고 있었는데 앱에는 화면이 없어 사이트로 가야 했다.
-         * 브리지가 쓰던 서비스를 IPC 로 이어 그대로 그린다 — 새 계산은 없다.
-         * 못 잰 값은 0 으로 채우지 않고 '—' 로 둔다.
-         */
-        window.loadHomefeedBoard = async function loadHomefeedBoard() {
-          const status = document.getElementById('homefeedStatus');
-          const body = document.getElementById('homefeedBody');
-          if (!status || !body) return;
-          status.textContent = '계산본을 읽는 중…';
-          body.innerHTML = '';
-          let res = null;
-          try {
-            res = await window.electronAPI?.homefeedStories?.();
-          } catch (e) {
-            res = { success: false, error: e && e.message ? e.message : String(e) };
+        /* HOMEFEED_EDITORIAL_START */
+        (() => {
+          const state = { stories: [], selected: new Set(), detail: null, detailEpoch: 0, loadEpoch: 0, busy: false };
+          const el = (id) => document.getElementById(id);
+          const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+          const arr = (value) => Array.isArray(value) ? value : [];
+          const label = { unprepared: '작성안 준비 전', ready: '작성안 준비됨', needs_evidence: '추가 확인 필요', stale: '근거 변경 · 갱신 필요', failed: '생성 실패 · 재시도 가능' };
+          const btnStyle = 'padding:9px 12px;background:#164e63;border:1px solid #155e75;border-radius:7px;color:#e0f2fe;cursor:pointer;font-size:13px;';
+          const inputStyle = 'display:block;width:100%;box-sizing:border-box;padding:10px;background:#020617;border:1px solid #475569;border-radius:6px;color:#e2e8f0;margin:6px 0 13px;';
+          const status = (message, detail = false) => { const node = el(detail ? 'homefeedDetailStatus' : 'homefeedStatus'); if (node) node.textContent = message; };
+          const safeUrl = (value) => { try { const u = new URL(String(value)); return ['https:', 'http:'].includes(u.protocol) && !u.username && !u.password ? u.href : ''; } catch { return ''; } };
+          const link = (url, title) => { const clean = safeUrl(url); return clean ? '<a href="' + esc(clean) + '" data-homefeed-link="1" target="_blank" rel="noopener noreferrer" style="color:#7dd3fc;">' + esc(title) + '</a>' : esc(title); };
+          const view = (s) => s.editorial || { state: 'unprepared', brief: null, selection: null, sourceTitle: arr(s.evidence)[0]?.title || '', sourceUrl: arr(s.evidence)[0]?.url || null, evidenceRevision: '' };
+          const recommended = (e) => arr(e.brief?.angles).find((a) => a.id === e.brief?.recommendedAngleId) || arr(e.brief?.angles)[0];
+          const canWrite = (e) => e?.state === 'ready' && e.brief && e.brief.evidenceRevision === e.evidenceRevision;
+          const api = async (name, input) => {
+            if (typeof window.electronAPI?.[name] !== 'function') throw new Error('이 앱 버전에서는 작성 기능을 사용할 수 없습니다. 앱을 업데이트해 주세요.');
+            const res = await window.electronAPI[name](input);
+            if (!res || res.success === false) throw new Error(res?.error || '요청을 처리하지 못했습니다.');
+            return res.result || {};
+          };
+          const observation = (s) => {
+            const sig = s.signals || {}; const measured = (value) => value == null ? '미측정' : esc(value);
+            const timing = { NOW: '현재 관측 조건 충족', EARLY: '초기 관측', WATCH: '변화 관찰 중', LATE: '확산 후반', DROP: '후보에서 제외' };
+            return '<div style="margin-top:10px;font-size:12px;color:#94a3b8;line-height:1.9;">관측 상태: ' + esc(timing[s.status?.state] || '미확인')
+              + ' · 순위 ' + measured(sig.rankNow) + ' · 최근 30분 뉴스 증가 ' + measured(sig.newsDelta30m) + ' · 블로그 문서 증가 ' + measured(sig.docDelta30m)
+              + '<br>뉴스 제목 표본 유사도: ' + (sig.cloneRatio == null ? '미측정' : esc(Math.round(sig.cloneRatio * 100)) + '%')
+              + ' · 실제 독자 반응이나 홈판 노출 가능성을 뜻하지 않습니다.'
+              + arr(s.status?.reasons).map((reason) => '<div>' + esc(reason) + '</div>').join('') + '</div>';
+          };
+          function renderBoard() {
+            const body = el('homefeedBody'); if (!body) return;
+            if (!state.stories.length) { body.innerHTML = '<p style="color:#94a3b8;">아직 수집된 소재가 없습니다. 「지금 수집」을 눌러 이슈와 출처 기사를 가져오세요.</p>'; return; }
+            const cards = (stories) => stories.map((s) => {
+              const e = view(s), angle = recommended(e), index = state.stories.indexOf(s), dropped = s.status?.state === 'DROP';
+              return '<article style="padding:17px;margin-bottom:10px;background:#0f172a;border:1px solid #334155;border-radius:10px;">'
+                + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:#94a3b8;">'
+                + (!dropped ? '<label><input type="checkbox" data-homefeed-pick="' + index + '" ' + (state.selected.has(s.id) ? 'checked ' : '') + (state.busy ? 'disabled ' : '') + '> 후보 선택</label>' : '')
+                + '<span>' + esc(s.keyword) + ' · ' + esc(s.category || '분류 미확인') + '</span><span style="color:' + (e.state === 'ready' ? '#5eead4' : '#fbbf24') + ';">' + esc(label[e.state] || label.unprepared) + '</span></div>'
+                + '<div style="font-size:16px;line-height:1.6;font-weight:650;color:#f1f5f9;margin:10px 0;">' + esc(e.summary || e.sourceTitle || s.keyword) + '</div>'
+                + (!e.brief ? '<div style="font-size:12px;color:#94a3b8;">출처 기사: ' + link(e.sourceUrl, e.sourceTitle || '상세에서 확인') + ' · 아직 작성안을 만들지 않았습니다.</div>' : '')
+                + (angle ? '<div style="color:#cbd5e1;font-size:13px;line-height:1.9;"><strong>추천 관점</strong> ' + esc(angle.label) + '<br><strong>독자 질문</strong> ' + esc(angle.readerQuestion) + '</div>' : '')
+                + (e.error ? '<p style="color:#fca5a5;font-size:12px;">' + esc(e.error) + '</p>' : '')
+                + '<div style="margin-top:12px;"><button data-homefeed-open="' + index + '" style="' + btnStyle + '" ' + (state.busy ? 'disabled' : '') + '>작성안과 근거 보기</button></div>'
+                + '<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:12px;color:#94a3b8;">관측 근거 펼치기</summary>' + observation(s)
+                + arr(e.brief?.sources).slice(0, 3).map((source) => '<p style="font-size:12px;">' + link(source.url, source.title) + '</p>').join('') + '</details></article>';
+            }).join('');
+            const active = state.stories.filter((s) => s.status?.state !== 'DROP').sort((a, b) => Number(view(b).state === 'ready') - Number(view(a).state === 'ready'));
+            const dropped = state.stories.filter((s) => s.status?.state === 'DROP');
+            body.innerHTML = cards(active) + (dropped.length ? '<details><summary style="color:#94a3b8;padding:12px;cursor:pointer;">제외된 후보 ' + dropped.length + '건과 사유 보기</summary>' + cards(dropped) + '</details>' : '');
           }
-          if (!res || res.success === false) {
-            status.textContent = '읽지 못했습니다 — ' + ((res && res.error) || '창구가 없습니다');
-            return;
-          }
-          const data = res.result || {};
-          const stories = Array.isArray(data.stories) ? data.stories : [];
-          const snapAt = data.snapshotAt ? new Date(data.snapshotAt).toLocaleString('ko-KR') : '없음';
-          const on = data.settings && data.settings.enabled;
-          status.textContent = '마지막 스냅샷 ' + snapAt
-            + ' · 스토리 ' + stories.length + '건'
-            + ' · 수집 ' + (on ? ('켜짐 · ' + (data.settings.snapshotIntervalMinutes || 10) + '분마다') : '꺼짐');
-          if (stories.length === 0) {
-            body.innerHTML = '<div style="padding:16px; background:#0f172a; border:1px solid rgba(255,255,255,0.08); border-radius:10px; color:#94a3b8; font-size:13px;">'
-              + '아직 쌓인 스토리가 없습니다. 「지금 수집」을 누르면 한 회차를 돌립니다. 새 사실 · 증가 속도는 이력이 30~60분 쌓인 뒤부터 계산됩니다.</div>';
-            return;
-          }
-          const esc = (v) => kitEsc(String(v == null ? '' : v));
-          const rows = stories.map((s) => {
-            const hooks = Array.isArray(s.tensions) ? s.tensions.map((t) => t.matched).filter(Boolean) : [];
-            const hook = (s.firstCard && s.firstCard.hook) || hooks[0] || '';
-            const st = (s.status && s.status.state) || '—';
-            const win = (s.window && s.window.state) || '—';
-            const color = st === 'NOW' ? '#22c55e' : st === 'EARLY' ? '#f59e0b' : st === 'WATCH' ? '#60a5fa' : '#64748b';
-            return '<tr style="border-top:1px solid rgba(255,255,255,0.06);">'
-              + '<td style="padding:10px 8px; color:#e2e8f0; font-size:13px;">' + esc(s.keyword) + '</td>'
-              + '<td style="padding:10px 8px; color:#94a3b8; font-size:12px;">' + esc(s.category || '—') + '</td>'
-              + '<td style="padding:10px 8px; font-size:12px; color:' + color + '; font-weight:600;">' + esc(st) + '</td>'
-              + '<td style="padding:10px 8px; color:#94a3b8; font-size:12px;">' + esc(win) + '</td>'
-              + '<td style="padding:10px 8px; color:#cbd5e1; font-size:12.5px;">' + (hook ? esc(hook) : '—') + '</td>'
-              + '<td style="padding:10px 8px; color:#94a3b8; font-size:12px;">' + esc((s.firstCard && s.firstCard.headline1) || '—') + '</td>'
-              + '</tr>';
-          }).join('');
-          body.innerHTML = '<div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; background:#0f172a; border:1px solid rgba(255,255,255,0.08); border-radius:10px;">'
-            + '<thead><tr style="background:#111c33;">'
-            + '<th style="padding:10px 8px; text-align:left; font-size:11.5px; color:#64748b;">키워드</th>'
-            + '<th style="padding:10px 8px; text-align:left; font-size:11.5px; color:#64748b;">주제</th>'
-            + '<th style="padding:10px 8px; text-align:left; font-size:11.5px; color:#64748b;">상태</th>'
-            + '<th style="padding:10px 8px; text-align:left; font-size:11.5px; color:#64748b;">창</th>'
-            + '<th style="padding:10px 8px; text-align:left; font-size:11.5px; color:#64748b;">걸림 말</th>'
-            + '<th style="padding:10px 8px; text-align:left; font-size:11.5px; color:#64748b;">첫 카드 문구</th>'
-            + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
-        };
-
-        window.homefeedCollectNow = async function homefeedCollectNow() {
-          const btn = document.getElementById('homefeedCollectBtn');
-          const status = document.getElementById('homefeedStatus');
-          if (btn) { btn.disabled = true; btn.textContent = '수집 중…'; }
-          if (status) status.textContent = '한 회차를 도는 중입니다 — 이슈 수만큼 네이버 키 쿼터를 씁니다.';
-          try {
-            const res = await window.electronAPI?.homefeedCollect?.();
-            if (!res || res.success === false) {
-              if (status) status.textContent = '수집 실패 — ' + ((res && res.error) || '창구가 없습니다');
+          function setBusy(busy) {
+            state.busy = busy;
+            for (const id of ['homefeedCollectBtn', 'homefeedBatchBtn', 'homefeedReloadBtn', 'homefeedBriefBtn', 'homefeedSaveBtn', 'homefeedDraftBtn']) {
+              const node = el(id); if (node) node.disabled = busy || (['homefeedSaveBtn', 'homefeedDraftBtn'].includes(id) && !canWrite(state.detail?.editorial));
             }
-          } catch (e) {
-            if (status) status.textContent = '수집 실패 — ' + (e && e.message ? e.message : String(e));
-          } finally {
-            if (btn) { btn.disabled = false; btn.textContent = '지금 수집'; }
+            for (const id of ['homefeedAngle', 'homefeedTitle', 'homefeedCard1', 'homefeedCard2', 'homefeedImage']) { const node = el(id); if (node) node.disabled = busy || !canWrite(state.detail?.editorial); }
+            const share = el('homefeedShareBtn'); if (share) share.disabled = busy || (!state.detail?.editorial?.shared && !canWrite(state.detail?.editorial));
+            for (const id of ['homefeedBody', 'homefeedDetail']) el(id)?.querySelectorAll('[data-homefeed-open], [data-homefeed-pick], [data-homefeed-close]').forEach((node) => { node.disabled = busy; });
           }
-          await window.loadHomefeedBoard();
-        };
+          function renderDetail() {
+            const box = el('homefeedDetail'), detail = state.detail; if (!box || !detail) return;
+            const s = detail.story, e = detail.editorial || view(s), brief = e.brief;
+            const selection = e.selection?.briefRevision === brief?.revision && e.selection?.evidenceRevision === e.evidenceRevision ? e.selection : null;
+            const angle = arr(brief?.angles).find((a) => a.id === selection?.angleId) || recommended(e);
+            const sources = arr(brief?.sources), facts = arr(brief?.facts), images = sources.filter((source) => safeUrl(source.imageUrl));
+            const issues = [...new Set([...arr(brief?.unresolved), ...arr(brief?.problems), ...arr(brief?.review?.issues)])];
+            const sourceLink = (sourceId) => { const source = sources.find((item) => item.id === sourceId); return source ? link(source.url, source.title) : '<span>근거 확인 필요</span>'; };
+            box.hidden = false;
+            box.innerHTML = '<div style="display:flex;justify-content:space-between;gap:12px;"><h3 style="margin:0;color:#f1f5f9;">' + esc(s.keyword) + ' · 작성안</h3><button data-homefeed-close="1" style="' + btnStyle + '">닫기</button></div>'
+              + '<p style="font-size:13px;color:#fbbf24;">' + esc(label[e.state] || label.unprepared) + '</p>'
+              + '<div id="homefeedDetailStatus" role="status" aria-live="polite" style="color:#fbbf24;font-size:13px;line-height:1.7;margin:8px 0;">' + esc(e.error || (e.state === 'stale' ? '근거가 변경되었습니다. 아래 작성안은 이전 기록입니다. 갱신 후 관점과 문구를 다시 선택하세요.' : '')) + '</div>'
+              + '<p style="font-size:16px;line-height:1.8;color:#e2e8f0;">' + esc(e.summary || e.sourceTitle || s.keyword) + '</p>'
+              + (brief ? '<div style="color:#cbd5e1;line-height:1.9;font-size:13px;"><strong>지금 다룰 이유</strong><br>' + esc(brief.whyNow) + '<br><strong>예상 독자</strong> ' + esc(brief.audience) + '<span style="color:#94a3b8;"> (편집 제안)</span></div>' : '<p style="color:#94a3b8;">출처 기사: ' + link(e.sourceUrl, e.sourceTitle || '상세 근거') + '<br>작성안을 만들면 추천 관점과 본문에 쓸 사실을 근거와 함께 정리합니다.</p>')
+              + '<button id="homefeedBriefBtn" data-homefeed-generate="1" style="' + btnStyle + 'margin:12px 0;" ' + (state.busy ? 'disabled' : '') + '>' + (brief ? '근거 확인하고 작성안 다시 만들기' : '이 소재 작성안 만들기') + '</button>'
+              + (brief || e.shared ? '<div style="margin:8px 0 16px;padding:12px;border:1px solid #334155;border-radius:8px;"><button id="homefeedShareBtn" data-homefeed-share="1" style="' + btnStyle + '">' + (e.shared ? '사이트 공개본에서 이 작성안 제외' : '사이트 공개본에 이 작성안 포함') + '</button><p style="margin:8px 0 0;color:#94a3b8;font-size:12px;line-height:1.7;">작성안은 기본적으로 개인 작업입니다. 포함을 선택하면 사건 요약·추천 관점·질문·제한된 근거가 공개 파일에 담깁니다. 개인 선택과 원고, 기사 본문 전체는 포함하지 않습니다. 사이트 반영은 배포 후 확인할 수 있습니다.</p></div>' : '')
+              + (brief ? '<h4 style="color:#e2e8f0;margin-bottom:7px;">본문에서 답할 질문</h4>' + arr(brief.sections).map((section) => '<section style="margin:10px 0;padding:12px;background:#111c33;border-radius:8px;line-height:1.8;color:#cbd5e1;font-size:13px;"><strong>' + esc(section.question) + '</strong><p style="margin:5px 0;">' + esc(section.answer) + '</p>'
+                + arr(section.factIds).map((factId) => { const fact = facts.find((f) => f.id === factId); return fact ? '<details><summary style="cursor:pointer;color:#7dd3fc;">사실: ' + esc(fact.text) + '</summary>' + arr(fact.supports).map((support) => '<div style="margin:6px 0;">“' + esc(support.excerpt) + '” · ' + sourceLink(support.sourceId) + '</div>').join('') + '</details>' : ''; }).join('') + '</section>').join('') : '')
+              + (brief && issues.length ? '<div style="padding:12px;border:1px solid #854d0e;border-radius:8px;color:#fde68a;font-size:13px;"><strong>더 확인할 내용</strong>' + issues.map((text) => '<p style="margin:6px 0;">' + esc(text) + '</p>').join('') + '</div>' : '')
+              + '<details style="margin:15px 0;color:#cbd5e1;font-size:13px;"><summary style="cursor:pointer;">출처와 관측 근거</summary>' + observation(s)
+              + (sources.length ? sources.map((source) => '<div style="margin-top:12px;">' + link(source.url, source.title) + '<span style="color:#94a3b8;"> · ' + esc({ headline: '기사 제목', description: '검색 요약', body: '기사 본문' }[source.level] || '확인 범위 미상') + '</span><p style="white-space:pre-wrap;line-height:1.7;">' + esc(String(source.text || '').slice(0, 900)) + '</p></div>').join('') : arr(s.evidence).map((source) => '<p>' + link(source.url, source.title) + '</p>').join('')) + '</details>'
+              + (angle ? '<h4 style="color:#e2e8f0;">제목·첫 카드·이미지 선택</h4><p style="color:#94a3b8;font-size:12px;">관점에 맞게 문구를 고친 뒤 저장하세요. 원고 생성에도 같은 선택이 반영됩니다.</p>'
+                + '<label style="color:#cbd5e1;font-size:13px;">작성 관점<select id="homefeedAngle" style="' + inputStyle + '">' + arr(brief.angles).map((a) => '<option value="' + esc(a.id) + '" ' + (a.id === angle.id ? 'selected' : '') + '>' + esc(a.label) + '</option>').join('') + '</select></label>'
+                + '<p id="homefeedAngleDifference" style="font-size:13px;line-height:1.7;color:#94a3b8;">' + esc(angle.readerQuestion) + '<br>수집 기사와 다른 점: ' + esc(angle.difference) + '</p>'
+                + '<label style="font-size:13px;color:#cbd5e1;">제목<input id="homefeedTitle" maxlength="80" style="' + inputStyle + '" value="' + esc(selection?.title || angle.suggestedTitle) + '"></label>'
+                + '<label style="font-size:13px;color:#cbd5e1;">첫 카드 1행<input id="homefeedCard1" maxlength="80" style="' + inputStyle + '" value="' + esc(selection?.card?.line1 || angle.firstCard?.line1) + '"></label>'
+                + '<label style="font-size:13px;color:#cbd5e1;">첫 카드 2행<input id="homefeedCard2" maxlength="80" style="' + inputStyle + '" value="' + esc(selection?.card?.line2 ?? angle.firstCard?.line2) + '"></label>'
+                + '<label style="font-size:13px;color:#cbd5e1;">이미지 후보<select id="homefeedImage" style="' + inputStyle + '"><option value="">이미지 선택 안 함</option>' + images.map((source) => '<option value="' + esc(source.id) + '" ' + (selection?.imageId === source.id ? 'selected' : '') + '>' + esc(source.title) + '</option>').join('') + (selection?.imageId && !images.some((source) => source.id === selection.imageId) ? '<option value="' + esc(selection.imageId) + '" selected>저장된 이미지 선택 유지</option>' : '') + '</select></label>'
+                + '<div id="homefeedImagePreview"></div><p style="font-size:12px;color:#94a3b8;">기사 이미지 후보입니다. 사용 권한과 출처를 확인해 주세요.</p>'
+                + '<div style="display:flex;gap:8px;flex-wrap:wrap;"><button id="homefeedSaveBtn" data-homefeed-save="1" style="' + btnStyle + '" ' + (!canWrite(e) || state.busy ? 'disabled' : '') + '>이 선택 저장</button><button id="homefeedDraftBtn" data-homefeed-draft="1" style="' + btnStyle + '" ' + (!canWrite(e) || state.busy ? 'disabled' : '') + '>선택 저장하고 원고 만들기</button></div>'
+                + (!canWrite(e) ? '<p style="color:#fbbf24;font-size:12px;">근거가 충분한 최신 작성안이 준비되면 선택 저장과 원고 생성을 할 수 있습니다.</p>' : '') : '')
+              + '<h4 style="color:#e2e8f0;">원고</h4><div id="homefeedDraftStatus" style="font-size:12px;color:#fbbf24;"></div><pre id="homefeedDraftOutput" style="white-space:pre-wrap;word-break:break-word;font:14px/1.9 inherit;color:#cbd5e1;"></pre>';
+            updateImagePreview();
+            setBusy(state.busy);
+            const previous = arr(detail.assets?.drafts)[0];
+            if (previous) {
+              el('homefeedDraftOutput').textContent = previous.text || '';
+              updateDraftStatus();
+            }
+          }
+          function updateDraftStatus() {
+            const e = state.detail?.editorial, previous = arr(state.detail?.assets?.drafts)[0];
+            if (!previous || !el('homefeedDraftStatus')) return;
+            const current = canWrite(e) && e.selection?.briefRevision === e.brief.revision && e.selection?.evidenceRevision === e.evidenceRevision && previous.briefRevision === e.brief.revision && previous.selectionRevision === e.selection?.revision;
+            el('homefeedDraftStatus').textContent = (current ? '현재 선택으로 저장한 원고' : '이전 작성안 또는 선택으로 저장한 원고') + (arr(previous.problems).length ? ' · 확인 필요: ' + arr(previous.problems).join(' · ') : '');
+          }
+          function updateImagePreview() {
+            const preview = el('homefeedImagePreview'); if (!preview) return;
+            const source = arr(state.detail?.editorial?.brief?.sources).find((item) => item.id === el('homefeedImage')?.value), url = safeUrl(source?.imageUrl);
+            preview.innerHTML = url ? '<img src="' + esc(url) + '" alt="선택한 기사 이미지 후보" referrerpolicy="no-referrer" style="max-width:320px;width:100%;max-height:200px;object-fit:contain;border-radius:8px;">' : '';
+            const thumbnail = preview.querySelector?.('img');
+            thumbnail?.addEventListener('error', () => { if (preview.querySelector('img') === thumbnail) preview.innerHTML = '<p style="font-size:12px;color:#94a3b8;">미리보기를 불러오지 못했습니다. ' + link(source.url, '원문에서 이미지 확인') + '</p>'; });
+          }
+          function applyEditorial(id, editorial) {
+            if (!editorial) return;
+            const story = state.stories.find((item) => item.id === id); if (story) story.editorial = editorial;
+            if (state.detail?.story.id === id) state.detail.editorial = editorial;
+          }
+          window.loadHomefeedBoard = async function loadHomefeedBoard() {
+            const epoch = ++state.loadEpoch; status('저장된 소재와 작성안을 읽는 중…');
+            try {
+              const data = await api('homefeedStories'); if (epoch !== state.loadEpoch) return;
+              state.stories = arr(data.stories); state.selected = new Set([...state.selected].filter((id) => state.stories.some((s) => s.id === id)));
+              if (state.detail && !state.busy) {
+                const current = state.stories.find((s) => s.id === state.detail.story.id || (s.issueKey && s.issueKey === state.detail.story.issueKey));
+                if (current && (view(current).evidenceRevision !== state.detail.editorial.evidenceRevision || view(current).brief?.revision !== state.detail.editorial.brief?.revision || view(current).selection?.revision !== state.detail.editorial.selection?.revision)) {
+                  state.detail.editorial = view(current); state.detail.story = { ...state.detail.story, ...current }; renderDetail();
+                  status('근거·작성안·저장된 선택의 변경을 반영했습니다. 선택을 다시 확인하세요.', true);
+                }
+              }
+              renderBoard(); const snapAt = data.snapshotAt ? new Date(data.snapshotAt).toLocaleString('ko-KR') : '없음';
+              status('마지막 수집 ' + snapAt + ' · 소재 ' + state.stories.length + '건 · 목록 열람은 저장된 결과만 읽습니다.');
+            } catch (error) { if (epoch === state.loadEpoch) status('읽기 실패 · ' + error.message); }
+          };
+          window.homefeedOpenStory = async function homefeedOpenStory(id) {
+            if (state.busy) return;
+            const epoch = ++state.detailEpoch; status('소재의 작성안과 근거를 읽는 중…');
+            state.detail = null; if (el('homefeedDetail')) el('homefeedDetail').hidden = true;
+            try {
+              let detail;
+              if (typeof window.electronAPI?.homefeedStory === 'function') detail = await api('homefeedStory', { id });
+              else { const s = state.stories.find((item) => item.id === id); if (!s) throw new Error('목록을 새로고침해 주세요.'); detail = { story: s, editorial: view(s), assets: {} }; }
+              if (epoch !== state.detailEpoch || state.busy) return;
+              state.detail = { ...detail, editorial: detail.editorial || view(detail.story) }; renderDetail(); el('homefeedDetail')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); status('작성안과 근거를 열었습니다.');
+            } catch (error) { if (epoch === state.detailEpoch) status('상세 열기 실패 · ' + error.message); }
+          };
+          window.homefeedGenerateBrief = async function homefeedGenerateBrief() {
+            if (state.busy || !state.detail) return; const detail = state.detail, id = detail.story.id;
+            setBusy(true); status('기사 근거를 확인하고 작성안을 만드는 중…', true);
+            try {
+              const result = await api('homefeedBrief', { id, force: Boolean(detail.editorial.brief), evidenceRevision: detail.editorial.evidenceRevision });
+              applyEditorial(id, result.editorial); renderBoard(); renderDetail(); status(result.editorial?.state === 'ready' ? '작성안이 준비되었습니다. 관점과 문구를 확인하고 저장하세요.' : '작성안을 확인하고 부족한 근거를 보완하세요.', true);
+            } catch (error) { status('작성안 생성 실패 · ' + error.message + ' · 기존 작성안과 선택은 보존됩니다.', true); }
+            finally { setBusy(false); }
+          };
+          window.homefeedBatchBriefs = async function homefeedBatchBriefs() {
+            if (state.busy) return;
+            const seen = new Set(), candidates = state.stories.filter((s) => {
+              const e = view(s); if (s.status?.state === 'DROP' || e.state === 'ready' || (state.selected.size && !state.selected.has(s.id))) return false;
+              const key = safeUrl(e.sourceUrl) || s.issueKey || s.id; if (seen.has(key)) return false; seen.add(key); return true;
+            }).slice(0, 3);
+            if (!candidates.length) { status('새로 만들 후보가 없습니다. 준비 전인 소재를 선택하거나 새로 수집하세요.'); return; }
+            setBusy(true); let succeeded = 0; const failures = [];
+            try {
+              for (const [index, s] of candidates.entries()) {
+                status('작성안 ' + (index + 1) + '/' + candidates.length + ' 생성 중 · ' + s.keyword);
+                try { const result = await api('homefeedBrief', { id: s.id, evidenceRevision: view(s).evidenceRevision }); applyEditorial(s.id, result.editorial); succeeded++; }
+                catch (error) { failures.push(s.keyword + ': ' + error.message); }
+                renderBoard();
+              }
+              if (state.detail) renderDetail();
+              status('작성안 ' + succeeded + '건 처리 완료' + (failures.length ? ' · 실패 ' + failures.join(' / ') : ' · 각 소재의 준비 상태와 근거를 확인하세요.'));
+            } finally { setBusy(false); renderBoard(); }
+          };
+          async function saveSelection() {
+            const detail = state.detail, e = detail?.editorial; if (!canWrite(e)) throw new Error('근거가 충분한 최신 작성안을 먼저 준비하세요.');
+            const selection = await api('homefeedSelectEditorial', { id: detail.story.id, briefRevision: e.brief.revision, evidenceRevision: e.evidenceRevision, expectedRevision: e.selection?.revision || 0,
+              angleId: el('homefeedAngle')?.value || '', title: el('homefeedTitle')?.value || '', card: { line1: el('homefeedCard1')?.value || '', line2: el('homefeedCard2')?.value || '' }, imageId: el('homefeedImage')?.value || null });
+            if (!selection.selection) throw new Error('선택 저장 결과를 확인하지 못했습니다. 다시 열어 확인해 주세요.');
+            applyEditorial(detail.story.id, selection.editorial || { ...e, selection: selection.selection }); renderBoard(); updateDraftStatus();
+            return { id: detail.story.id, briefRevision: e.brief.revision, selectionRevision: selection.selection.revision };
+          }
+          window.homefeedSaveEditorial = async function homefeedSaveEditorial() {
+            if (state.busy) return; setBusy(true);
+            try { await saveSelection(); status('관점·제목·카드·이미지 선택을 저장했습니다.', true); }
+            catch (error) { status('선택 저장 실패 · ' + error.message, true); }
+            finally { setBusy(false); }
+          };
+          window.homefeedShareEditorial = async function homefeedShareEditorial() {
+            const detail = state.detail, e = detail?.editorial; if (state.busy || !e) return;
+            const share = !e.shared;
+            if (share && !canWrite(e)) { status('근거가 충분한 최신 작성안만 공개본에 포함할 수 있습니다.', true); return; }
+            setBusy(true); status('사이트 공개 파일에 반영하는 중…', true);
+            try {
+              const result = await api('homefeedShareEditorial', { id: detail.story.id, briefRevision: e.brief?.revision || '', share });
+              applyEditorial(detail.story.id, result.editorial || { ...e, shared: result.shared }); renderBoard();
+              const button = el('homefeedShareBtn'); if (button) button.textContent = result.shared ? '사이트 공개본에서 이 작성안 제외' : '사이트 공개본에 이 작성안 포함';
+              const written = typeof result.publishResult?.written === 'string' && result.publishResult.written.trim().length > 0;
+              status(written ? (result.shared ? '공개 파일에 작성안을 포함했습니다.' : '공개 파일에서 작성안을 제외했습니다.') + ' 사이트 반영은 배포 후 확인할 수 있습니다.' : '공개 여부는 저장했지만 공개 파일 저장에 실패했습니다. ' + (result.publishResult?.reason || '사이트 폴더 설정을 확인해 주세요.'), true);
+            } catch (error) { status('공개본 변경 실패 · ' + error.message, true); }
+            finally { setBusy(false); }
+          };
+          window.homefeedGenerateDraft = async function homefeedGenerateDraft() {
+            if (state.busy) return; setBusy(true);
+            try {
+              status('현재 선택을 저장하는 중…', true); const input = await saveSelection();
+              status('저장한 관점과 카드로 원고를 만드는 중…', true); const result = await api('homefeedDraft', input);
+              el('homefeedDraftOutput').textContent = result.draft?.text || '원고가 비어 있습니다.';
+              const problems = arr(result.problemLabels).length ? result.problemLabels : arr(result.draft?.problems);
+              el('homefeedDraftStatus').textContent = problems.join(' · ');
+              if (result.draft && state.detail) state.detail.assets = { ...(state.detail.assets || {}), drafts: [result.draft, ...arr(state.detail.assets?.drafts).filter((d) => d.id !== result.draft.id)] };
+              status(problems.length ? '원고 초안을 저장했습니다. 검토에서 확인된 내용을 보완해 주세요.' : '저장한 선택으로 원고를 만들었습니다. 사실과 표현을 확인하세요.', true);
+            } catch (error) { status('원고 생성 중단 · ' + error.message, true); }
+            finally { setBusy(false); }
+          };
+          window.homefeedCollectNow = async function homefeedCollectNow() {
+            if (state.busy) return; setBusy(true); status('실시간 이슈와 기사 근거를 수집하는 중…');
+            try { await api('homefeedCollect'); await window.loadHomefeedBoard(); if (state.detail) { const id = state.detail.story.id; setBusy(false); await window.homefeedOpenStory(id); } }
+            catch (error) { status('수집 실패 · ' + error.message); }
+            finally { setBusy(false); }
+          };
+          el('homefeedBody')?.addEventListener('click', (event) => {
+            const target = event.target.closest('[data-homefeed-open]'); if (target) { const s = state.stories[Number(target.dataset.homefeedOpen)]; if (s) window.homefeedOpenStory(s.id); }
+          });
+          el('homefeedBody')?.addEventListener('change', (event) => {
+            const target = event.target.closest('[data-homefeed-pick]'); if (!target) return; const s = state.stories[Number(target.dataset.homefeedPick)]; if (!s) return;
+            if (target.checked && state.selected.size >= 3) { target.checked = false; status('한 번에 최대 3건까지 선택할 수 있습니다.'); return; }
+            if (target.checked) state.selected.add(s.id); else state.selected.delete(s.id);
+          });
+          el('homefeedDetail')?.addEventListener('click', (event) => {
+            if (event.target.closest('[data-homefeed-close]')) { if (!state.busy) { ++state.detailEpoch; state.detail = null; el('homefeedDetail').hidden = true; } }
+            else if (event.target.closest('[data-homefeed-generate]')) window.homefeedGenerateBrief();
+            else if (event.target.closest('[data-homefeed-save]')) window.homefeedSaveEditorial();
+            else if (event.target.closest('[data-homefeed-share]')) window.homefeedShareEditorial();
+            else if (event.target.closest('[data-homefeed-draft]')) window.homefeedGenerateDraft();
+          });
+          el('homefeedDetail')?.addEventListener('change', (event) => {
+            if (event.target.id === 'homefeedImage') updateImagePreview();
+            if (event.target.id === 'homefeedAngle') {
+              const angle = arr(state.detail?.editorial?.brief?.angles).find((a) => a.id === event.target.value); if (!angle) return;
+              el('homefeedTitle').value = angle.suggestedTitle; el('homefeedCard1').value = angle.firstCard.line1; el('homefeedCard2').value = angle.firstCard.line2;
+              el('homefeedAngleDifference').textContent = angle.readerQuestion + ' · 수집 기사와 다른 점: ' + angle.difference;
+              status('선택한 관점의 문구를 불러왔습니다. 확인 후 저장하세요.', true);
+            }
+          });
+          for (const id of ['homefeedBody', 'homefeedDetail']) el(id)?.addEventListener('click', (event) => {
+            const anchor = event.target.closest('[data-homefeed-link]'); if (!anchor) return;
+            const url = safeUrl(anchor.getAttribute('href')); event.preventDefault();
+            if (url && window.electronAPI?.openExternal) window.electronAPI.openExternal(url).catch(() => status('출처 링크를 열지 못했습니다.'));
+          });
+        })();
+        /* HOMEFEED_EDITORIAL_END */
 
         /*
          * 키워드 분석기(2026-09-17) — 사장님 "키워드 분석기는어디있냐고".

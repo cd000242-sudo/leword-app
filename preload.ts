@@ -242,6 +242,11 @@ export type BloggerApi = {
    */
   homefeedStories(): Promise<any>;
   homefeedCollect(): Promise<any>;
+  homefeedStory(input: { id: string }): Promise<any>;
+  homefeedBrief(input: { id: string; provider?: string; force?: boolean; evidenceRevision?: string }): Promise<any>;
+  homefeedSelectEditorial(input: import('./src/utils/homefeed/editorial-types').EditorialSelectInput): Promise<any>;
+  homefeedShareEditorial(input: { id: string; briefRevision: string; share: boolean }): Promise<any>;
+  homefeedDraft(input: { id: string; provider?: string; briefRevision?: string; selectionRevision?: number }): Promise<any>;
 
   getYouTubeVideos(options?: { maxResults?: number }): Promise<any[]>;
 
@@ -553,6 +558,11 @@ const api: BloggerApi = {
   // 홈판 신호 — 앱 화면이 쓰는 창구(2026-09-17). 그전에는 사이트만 브리지로 볼 수 있었다.
   homefeedStories: () => ipcRenderer.invoke('homefeed-stories'),
   homefeedCollect: () => ipcRenderer.invoke('homefeed-collect'),
+  homefeedStory: (input) => ipcRenderer.invoke('homefeed-story', input),
+  homefeedBrief: (input) => ipcRenderer.invoke('homefeed-brief', input),
+  homefeedSelectEditorial: (input) => ipcRenderer.invoke('homefeed-select-editorial', input),
+  homefeedShareEditorial: (input) => ipcRenderer.invoke('homefeed-share-editorial', input),
+  homefeedDraft: (input) => ipcRenderer.invoke('homefeed-draft', input),
 
   // 자동완성 및 연관 키워드 조회
   getAutoComplete: (keyword: string) => ipcRenderer.invoke('get-autocomplete-keywords', keyword),

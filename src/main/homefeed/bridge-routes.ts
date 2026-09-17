@@ -11,6 +11,7 @@
  */
 import type http from 'http';
 import { HOMEFEED_ASPECT_RATIOS, HOMEFEED_CHECKPOINTS, type HomefeedCheckpoint } from '../../utils/homefeed/types';
+import type { EditorialBriefInput, EditorialSelectInput } from '../../utils/homefeed/editorial-types';
 
 export const HOMEFEED_ROUTE_PREFIX = '/v1/bridge/homefeed/';
 
@@ -35,11 +36,14 @@ export interface HomefeedBridgeDeps {
   stories(): Promise<unknown>;
   story(input: { id: string }): Promise<unknown>;
   collect(): Promise<unknown>;
+  brief(input: EditorialBriefInput): Promise<unknown>;
+  selectEditorial(input: EditorialSelectInput): Promise<unknown>;
+  shareEditorial(input: { id: string; briefRevision: string; share: boolean }): Promise<unknown>;
   review(input: { id: string; provider: string; force: boolean }): Promise<unknown>;
   titles(input: { id: string; provider: string; force: boolean }): Promise<unknown>;
   visual(input: { id: string; provider: string; refine: boolean }): Promise<unknown>;
   select(input: { id: string; titleId: string; pairId: string }): Promise<unknown>;
-  draft(input: { id: string; provider: string }): Promise<unknown>;
+  draft(input: { id: string; provider?: string; briefRevision?: string; selectionRevision?: number }): Promise<unknown>;
   image(input: { id: string; promptId: string; prompt: string; aspectRatio: string }): Promise<unknown>;
   imageFile(id: string): Promise<{ mime: string; data: Buffer } | null>;
   publish(input: { id: string; postUrl: string; publishedAt: string; titleId: string }): Promise<unknown>;
@@ -119,6 +123,12 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, deps: 
       return ok(await deps.collect());
     case 'review':
       return ok(await deps.review({ id: storyId(body.id), provider: provider(body.provider), force: body.force === true }));
+    case 'brief':
+      return ok(await deps.brief({ id: storyId(body.id), provider: provider(body.provider), force: body.force === true, evidenceRevision: text(body.evidenceRevision, 64) }));
+    case 'select-editorial':
+      return ok(await deps.selectEditorial({ ...body, id: storyId(body.id) } as unknown as EditorialSelectInput));
+    case 'share-editorial':
+      return ok(await deps.shareEditorial({ id: storyId(body.id), briefRevision: text(body.briefRevision, 64), share: body.share as boolean }));
     case 'titles':
       return ok(await deps.titles({ id: storyId(body.id), provider: provider(body.provider), force: body.force === true }));
     case 'visual':
@@ -130,7 +140,7 @@ async function route(req: http.IncomingMessage, res: http.ServerResponse, deps: 
       return ok(await deps.select({ id: storyId(body.id), titleId, pairId }));
     }
     case 'draft':
-      return ok(await deps.draft({ id: storyId(body.id), provider: provider(body.provider) }));
+      return ok(await deps.draft({ id: storyId(body.id), provider: provider(body.provider), briefRevision: text(body.briefRevision, 64), selectionRevision: body.selectionRevision as number }));
     case 'image': {
       const promptId = text(body.promptId, 64);
       if (!ASSET_ID_RE.test(promptId)) throw new HomefeedRequestError(400, '프롬프트 id 형식이 올바르지 않습니다.');

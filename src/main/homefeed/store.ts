@@ -119,6 +119,11 @@ export function emptyAssets(issueKey: string): HomefeedAssets {
     selection: null,
     drafts: [],
     images: [],
+    editorial: null,
+    editorialHistory: [],
+    editorialSelection: null,
+    editorialFailure: null,
+    publicEditorialRevision: null,
   };
 }
 
@@ -208,7 +213,7 @@ export function createHomefeedStore(baseDir: string): HomefeedStore {
     writeStories(stories) { writeJson(file('stories.json'), stories); },
     readAssets(issueKey) {
       const assets = readVersioned<HomefeedAssets>(assetsFile(issueKey), HOMEFEED_SCHEMA.assets, () => emptyAssets(issueKey));
-      return assets.issueKey === issueKey ? assets : emptyAssets(issueKey);
+      return assets.issueKey === issueKey ? { ...emptyAssets(issueKey), ...assets } : emptyAssets(issueKey);
     },
     writeAssets(assets) { writeJson(assetsFile(assets.issueKey), assets); },
     readPosts() {

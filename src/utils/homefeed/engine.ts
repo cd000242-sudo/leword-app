@@ -79,7 +79,11 @@ export function buildStory(
     keyword: issue.keyword,
     category: issue.category,
     capturedAt: latest.capturedAt,
-    evidenceHash: shortHash({ urls: issue.samples.map((sample) => sample.url), delta: delta?.text ?? null, tensions: tensions.map((tension) => tension.type).sort() }),
+    evidenceHash: shortHash({ version: 'evidence-2', issueKey: issue.issueKey, evidence: issue.samples.map((sample) => ({
+      url: sample.url, originalUrl: sample.originalUrl ?? '', title: sample.title,
+      description: sample.description ?? '', publishedAt: sample.publishedAt,
+      image: sample.image, press: sample.press,
+    })).sort((a, b) => a.url.localeCompare(b.url) || a.title.localeCompare(b.title)) }),
     signals,
     anchor,
     delta,
@@ -103,6 +107,7 @@ export function buildStory(
     boardWhy: issue.boardWhy,
     evidence: issue.samples.map((sample) => ({
       title: sample.title, url: sample.url, press: sample.press, publishedAt: sample.publishedAt, image: sample.image, origin: sample.origin,
+      description: sample.description, originalUrl: sample.originalUrl,
     })),
   };
 }

@@ -30,6 +30,7 @@ export interface HomefeedBridgeLike {
   sources?: unknown;
   counts?: unknown;
   stories?: unknown;
+  publicDetails?: Record<string, unknown>;
 }
 
 export interface HomefeedPublicPayload {
@@ -42,6 +43,7 @@ export interface HomefeedPublicPayload {
   sources: unknown[];
   counts: { status: Record<string, number>; window: Record<string, number> };
   stories: unknown[];
+  publicDetails: Record<string, unknown>;
 }
 
 function isoOrNull(value: unknown): string | null {
@@ -81,8 +83,28 @@ export function buildHomefeedPublicPayload(
     storedSnapshots: typeof bridge.storedSnapshots === 'number' ? bridge.storedSnapshots : 0,
     sources: Array.isArray(bridge.sources) ? bridge.sources : [],
     counts: { status: countMap(counts.status), window: countMap(counts.window) },
-    stories,
+    stories: stories.map(publicSummary),
+    publicDetails: Object.fromEntries(Object.entries(bridge.publicDetails ?? {}).filter(([id]) => stories.some((row: any) => row?.id === id))
+      .map(([id, detail]) => [id, publicDetail(detail)])),
   };
+}
+
+/** 명시된 공개 필드만 복사한다. 생성/편집 서비스의 개인 결과를 통째로 발행하지 않는다. */
+const SUMMARY_KEYS = ['id', 'issueKey', 'keyword', 'category', 'capturedAt', 'window', 'status', 'anchor', 'delta', 'deltaReason',
+  'signals', 'tensions', 'funGap', 'alternativeAngles', 'payoffCount', 'noSearchPassed', 'tellable', 'firstCard', 'visualStrategy', 'thumbnail', 'risks'] as const;
+function publicSummary(value: unknown): Record<string, unknown> {
+  const row = value && typeof value === 'object' ? value as Record<string, any> : {};
+  const editorial = row.editorial?.public === true ? { ...row.editorial, selection: null, error: null } : undefined;
+  return { ...Object.fromEntries(SUMMARY_KEYS.filter((key) => key in row).map((key) => [key, row[key]])),
+    // 실수로 개인 목록을 전달해도 작성안에서 파생한 문구까지 공개하지 않는다.
+    ...(row.editorial && !editorial ? { noSearchPassed: false, tellable: null, firstCard: { headline1: '', headline2: null, hook: null, possible: false } } : {}),
+    ...(editorial ? { editorial } : {}), progress: { titles: false, selected: false, drafts: 0, images: 0 } };
+}
+function publicDetail(value: unknown): Record<string, unknown> {
+  const row = value && typeof value === 'object' ? value as Record<string, any> : {};
+  // 입력은 발행 전용 projection에서 오지만 assets를 다시 비워 실수로 개인 작업물이 섞이는 것을 막는다.
+  return { story: row.story, editorial: row.editorial?.public === true ? { ...row.editorial, selection: null, error: null } : null,
+    readOnly: true, timeline: [], assets: { review: null, titles: null, prompts: [], promptsRefinedBy: null, selection: null, drafts: [], images: [] } };
 }
 
 /** 사이트 폴더를 자동으로 찾을 때 훑는 자리 — 바탕화면 · 문서 아래의 흔한 이름. */

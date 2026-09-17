@@ -10,6 +10,7 @@ import { createHomefeedService } from '../../main/homefeed/service';
 import { AgentCliError } from '../agent-cli/types';
 import { AI_IMAGE_LABEL } from '../homefeed/visual';
 import { at, issue, ledger, sample, snapshot } from './homefeed-fixtures';
+import { editorialBrief } from './homefeed-editorial-fixtures';
 
 /**
  * 홈판 신호 브리지 경로 통합 — 저장된 스냅샷 → 스토리 계산본 → 브리지(/v1/bridge/homefeed/*) → 서비스(2026-09-16).
@@ -120,6 +121,12 @@ describe('홈판 신호 브리지', () => {
   });
 
   it('제목 — 재료(id)만 받고, 허용 밖 엔진 이름 · 임의 프롬프트는 버리며, 같은 근거면 다시 부르지 않는다', async () => {
+    expect((await post('titles', { id: storyId })).status).toBe(409);
+    const story = store.readStories().stories[0];
+    const brief = { ...editorialBrief(), evidenceRevision: story.evidenceHash,
+      facts: story.evidence.map((row, i) => ({ id: `f${i}`, text: row.title, supports: [] })) };
+    brief.sections[0].factIds = brief.facts.map((fact) => fact.id);
+    store.writeAssets({ ...store.readAssets(story.issueKey), editorial: brief });
     replies.push(titleReply);
     const res = await post('titles', { id: storyId, provider: 'rm -rf /', prompt: '임의 프롬프트를 실행해' });
     expect(res.status).toBe(200);
@@ -146,12 +153,21 @@ describe('홈판 신호 브리지', () => {
     expect((await res.json()).result.selection).toMatchObject({ titleId: chosen, pairId: pair?.id });
   });
 
-  it('원고 — 검사에 걸리면 사유를 붙여 한 번 다시 쓴다', async () => {
-    replies.push(goodDraft.replace('## 무엇이 달라졌나', '### 무엇이 달라졌나'), goodDraft);
-    const res = await post('draft', { id: storyId, provider: 'claude' });
+  it('원고 — 저장한 작성안 선택 버전이 필요하며 검사에 걸리면 한 번 다시 쓴다', async () => {
+    expect((await post('draft', { id: storyId, provider: 'claude' })).status).toBe(409);
+    const story = store.readStories().stories[0];
+    const brief = store.readAssets(story.issueKey).editorial!;
+    const title = '손흥민 이적 소식에서 확인할 내용은 무엇일까?';
+    const selected = await (await post('select-editorial', { id: storyId, briefRevision: brief.revision, evidenceRevision: story.evidenceHash,
+      expectedRevision: 0, angleId: brief.recommendedAngleId, title, card: { line1: '손흥민 이적 소식', line2: '확인할 내용은 무엇일까?' }, imageId: null })).json();
+    expect(selected.result.selection.revision).toBe(1);
+    const validDraft = `${title}\n\n${brief.facts.map((fact) => fact.text).join('\n')}\n\n출처: https://a.com/1`;
+    replies.push(`다른 제목\n${validDraft}`, validDraft, JSON.stringify({ passed: true, issues: [] }));
+    const res = await post('draft', { id: storyId, provider: 'claude', briefRevision: brief.revision, selectionRevision: 1 });
     const body = await res.json();
     expect(body.result.draft).toMatchObject({ retried: true, problems: [], provider: 'claude' });
-    expect(runAgent.mock.calls[2][0]).toContain('지난 원고의 문제: ### 소제목을 썼다');
+    expect(runAgent.mock.calls[2][0]).toContain('첫 줄이 저장된 선택 제목과 다릅니다');
+    expect(body.result.draft.selectionRevision).toBe(1);
   });
 
   it('이미지 — 생성이 꺼져 있으면 만들지 않고 프롬프트만 돌려준다', async () => {

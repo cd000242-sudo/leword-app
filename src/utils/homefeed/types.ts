@@ -6,6 +6,8 @@
  * 저장은 앱 userData/homefeed 아래 JSON(스키마 버전 문자열)이다. 운영 DB 가 없어 파괴적 마이그레이션도 없다.
  */
 
+import type { EditorialBrief, EditorialFailure, EditorialSelection } from './editorial-types';
+
 export const HOMEFEED_SCHEMA = {
   snapshot: 'homefeed-snapshot-v1',
   sources: 'homefeed-sources-v1',
@@ -34,6 +36,8 @@ export type HomefeedSourceName = HomefeedRankSource | 'naver-news' | 'naver-blog
 export interface HomefeedSample {
   title: string;
   url: string;
+  description?: string;
+  originalUrl?: string;
   /** 원문 매체 도메인. 못 읽으면 null. */
   press: string | null;
   publishedAt: string | null;
@@ -334,6 +338,8 @@ export interface HomefeedFirstCard {
 export interface HomefeedEvidenceItem extends HomefeedEvidenceRef {
   image: string | null;
   origin: HomefeedSample['origin'];
+  description?: string;
+  originalUrl?: string;
 }
 
 export interface HomefeedStory {
@@ -417,6 +423,9 @@ export interface HomefeedDraftResult {
   problems: string[];
   retried: boolean;
   evidenceHash: string;
+  briefRevision?: string;
+  selectionRevision?: number;
+  review?: { passed: boolean; issues: string[] };
 }
 
 export interface HomefeedImageRecord {
@@ -452,6 +461,8 @@ export interface HomefeedAssets {
   review: HomefeedAiStoryReview | null;
   titles: {
     evidenceHash: string;
+    briefRevision?: string;
+    angleId?: string;
     provider: string;
     createdAt: string;
     candidates: HomefeedTitleCandidate[];
@@ -462,6 +473,12 @@ export interface HomefeedAssets {
   selection: { storyId: string; titleId: string; pairId: string | null; selectedAt: string } | null;
   drafts: HomefeedDraftResult[];
   images: HomefeedImageRecord[];
+  /** Additive v1 fields: old drafts/images/posts remain readable without a destructive schema reset. */
+  editorial?: EditorialBrief | null;
+  editorialHistory?: EditorialBrief[];
+  editorialSelection?: EditorialSelection | null;
+  editorialFailure?: EditorialFailure | null;
+  publicEditorialRevision?: string | null;
 }
 
 export type HomefeedCheckpoint = '30m' | '2h' | '6h' | '24h';

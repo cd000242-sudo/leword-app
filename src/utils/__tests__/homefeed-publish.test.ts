@@ -74,6 +74,16 @@ describe('공개 발행본 만들기', () => {
     expect(payload as unknown as Record<string, unknown>).not.toHaveProperty('settings');
   });
 
+  it('개인 목록이 들어와도 미공유 작성안에서 파생한 요약·카드는 발행하지 않는다', () => {
+    const payload = buildHomefeedPublicPayload(bridgeResult([story('손흥민', {
+      editorial: { state: 'ready', summary: '개인 작성안', selection: { title: '개인 선택' } },
+      tellable: '개인 작성안', firstCard: { headline1: '개인 카드', possible: true },
+    })]), null, { nowMs: Date.now() });
+    expect(payload!.stories[0]).not.toHaveProperty('editorial');
+    expect(payload!.stories[0]).toMatchObject({ noSearchPassed: false, tellable: null, firstCard: { headline1: '', possible: false } });
+    expect(JSON.stringify(payload)).not.toContain('개인');
+  });
+
   it('발행 시각과 스키마 버전을 적는다 — 사이트가 얼마나 묵은 것인지 안다', () => {
     const payload = buildHomefeedPublicPayload(bridgeResult([story('손흥민')]), null, { nowMs: Date.parse('2026-09-17T02:15:00.000Z') });
     expect(payload!.publishedAt).toBe('2026-09-17T02:15:00.000Z');

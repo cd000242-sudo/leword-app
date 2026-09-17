@@ -9,7 +9,7 @@
  *   og:image           기사 페이지 대표이미지 — 주소마다 한 번(캐시)
  */
 import { getSignalBzKeywords } from '../../utils/signal-bz-crawler';
-import { parseNewsHeadlines } from '../../utils/issue-context';
+import { parseNewsHeadlines, stripNewsMarkup } from '../../utils/issue-context';
 import type { HomefeedCollectorDeps, HomefeedBoardIssue, RankedKeyword } from './collector';
 import type { HomefeedStore } from './store';
 import { createOgImageResolver } from './og-image';
@@ -78,11 +78,16 @@ export function createHomefeedSourceDeps(store: HomefeedStore, options: { fetchI
         signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) throw new Error(`뉴스 검색 ${response.status}`);
-      const json = await response.json() as { total?: unknown };
+      const json = await response.json() as { total?: unknown; items?: Array<Record<string, unknown>> };
       const total = typeof json?.total === 'number' && Number.isFinite(json.total) ? json.total : null;
       return {
         total,
-        items: parseNewsHeadlines(json, display).map((row) => ({ title: row.title, url: row.link, press: row.press, publishedAt: row.publishedAt })),
+        items: parseNewsHeadlines(json, display).map((row) => {
+          const raw = json.items?.find((item) => String(item.link || item.originallink || '') === row.link);
+          return { title: row.title, url: row.link, press: row.press, publishedAt: row.publishedAt,
+            description: stripNewsMarkup(raw?.description).slice(0, 3000),
+            originalUrl: String(raw?.originallink || '').slice(0, 1000) };
+        }),
       };
     },
 
