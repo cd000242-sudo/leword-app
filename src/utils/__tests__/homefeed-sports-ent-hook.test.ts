@@ -75,6 +75,22 @@ describe('스포츠 소재가 후킹 재료로 잡힌다', () => {
     expect(classifyHomefeedCategory('손흥민 선발 제외 침묵 SON', ['손흥민 선발 제외 침묵 SON'])).toBe('sports');
     expect(classifyHomefeedCategory('안세영 돌아왔다 압승 쾌승 유럽', ['안세영 돌아왔다 압승 쾌승 유럽'])).toBe('sports');
   });
+
+  /**
+   * 실주행 오탐(2026-09-17 16:06 공개본): '천하람 경기남부'가 [sports]로 나갔다.
+   * '경기'는 지역 이름 · 경제 말로도 쓰인다 — 스포츠 말로만 보면 엉뚱한 카드에 선수 사진 전략이 붙는다.
+   */
+  it("'경기'가 지역 · 경제 뜻일 때는 스포츠로 보지 않는다", () => {
+    expect(classifyHomefeedCategory('천하람 경기남부', ['천하람 경기남부'])).not.toBe('sports');
+    expect(classifyHomefeedCategory('경기북부 폭우 피해', ['경기북부 폭우 피해'])).not.toBe('sports');
+    expect(classifyHomefeedCategory('경기 침체 장기화', ['경기 침체 장기화'])).not.toBe('sports');
+    expect(classifyHomefeedCategory('경기도 광주 아파트', ['경기도 광주 아파트'])).not.toBe('sports');
+  });
+
+  it('진짜 경기 맥락은 그대로 스포츠로 잡는다', () => {
+    expect(classifyHomefeedCategory('손흥민 경기 선발 출전', ['손흥민 경기 선발 출전'])).toBe('sports');
+    expect(classifyHomefeedCategory('코리아컵 경기 결과', ['코리아컵 경기 결과'])).toBe('sports');
+  });
 });
 
 describe('연예 소재가 후킹 재료로 잡힌다', () => {
