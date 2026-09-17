@@ -152,7 +152,8 @@ export interface HomefeedEvidenceRef {
 
 export type HomefeedTensionType =
   | 'number_conflict' | 'relationship_shift' | 'expectation_break' | 'action_reversal'
-  | 'identity_contrast' | 'past_vs_now' | 'result_first' | 'scale_mismatch' | 'hidden_reason';
+  | 'identity_contrast' | 'past_vs_now' | 'result_first' | 'scale_mismatch' | 'hidden_reason'
+  | 'rival_compare';
 
 export interface HomefeedTension {
   type: HomefeedTensionType;

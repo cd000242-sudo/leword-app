@@ -21,6 +21,7 @@ import {
 } from '../../utils/homefeed/types';
 import type { HomefeedSettings } from '../../utils/homefeed/settings';
 import { classifyHomefeedCategory } from '../../utils/homefeed/category';
+import { EVENT_FACT_RE, TENSION_RULES } from '../../utils/homefeed/lexicon';
 import { recordSnapshotInLedger, resolveIssueKey } from '../../utils/homefeed/ledger';
 import { compactKey, isRelevantSample, sameIssueKeyword } from '../../utils/homefeed/text';
 import type { HomefeedStore } from './store';
@@ -80,6 +81,39 @@ function tallyRun(name: HomefeedSourceName, t: Tally, skipped: boolean): Homefee
 function rankIn(list: readonly RankedKeyword[], keyword: string): number | null {
   const hit = list.find((item) => sameIssueKeyword(item.keyword, keyword));
   return hit ? hit.rank : null;
+}
+
+/**
+ * 검색어 자체에서 세는 걸림 말 수 — 사건 사실 말 + 긴장 말.
+ *
+ * 이 시점에는 뉴스 표본이 아직 없다(표본은 이슈마다 따로 받는다). 그래서 검색어 문자열만 본다.
+ * 지어낸 점수가 아니라 사전에 실제로 걸린 말의 개수다.
+ */
+function hookWordCount(keyword: string): number {
+  const facts = keyword.match(EVENT_FACT_RE) ?? [];
+  const tensions = TENSION_RULES.filter((rule) => rule.re.test(keyword)).length;
+  return facts.length + tensions;
+}
+
+/**
+ * 네 실시간 목록을 합쳐 이번 회차 후보를 고른다.
+ *
+ * 합치는 순서는 HOMEFEED_RANK_SOURCES 대로이고, 같은 이슈가 여러 목록에 있으면 처음 것만 담는다
+ * (어느 목록에 몇 위였는지는 뒤에서 ranks 에 따로 적는다).
+ * 줄세우기는 걸림 말이 많은 쪽 → 원래 순위가 앞선 쪽. 걸림 말이 없으면 순위 그대로 둔다.
+ */
+function pickIssueCandidates(lists: Partial<Record<HomefeedRankSource, RankedKeyword[]>>, limit: number): RankedKeyword[] {
+  const merged: Array<{ item: RankedKeyword; hooks: number; order: number }> = [];
+  for (const name of HOMEFEED_RANK_SOURCES) {
+    for (const item of lists[name] ?? []) {
+      if (merged.some((row) => sameIssueKeyword(row.item.keyword, item.keyword))) continue;
+      merged.push({ item, hooks: hookWordCount(item.keyword), order: merged.length });
+    }
+  }
+  return merged
+    .sort((a, b) => (b.hooks - a.hooks) || (a.item.rank - b.item.rank) || (a.order - b.order))
+    .slice(0, limit)
+    .map((row) => row.item);
 }
 
 function mergeSamples(news: HomefeedSample[], board: HomefeedSample[], max: number): HomefeedSample[] {
@@ -156,9 +190,9 @@ export async function collectHomefeedSnapshot(
     for (const lane of ['nate', 'google', 'daum'] as const) runs.push({ name: lane, ok: false, count: 0, error: null, skipped: true });
   }
 
-  // 이슈 목록은 네이버 실시간(Signal.bz)이 먼저다. 그게 죽었을 때만 다른 목록으로 회차를 잇는다.
-  const issueSource = HOMEFEED_RANK_SOURCES.find((name) => (lists[name]?.length ?? 0) > 0) ?? null;
-  const keywords = issueSource ? (lists[issueSource] as RankedKeyword[]).slice(0, settings.issueLimit) : [];
+  // 네 목록을 다 본 뒤에 자른다. 예전에는 Signal.bz 하나만 쓰고 나머지는 순위 대조용이라,
+  // 네이트 · 다음 · 구글에만 있던 스포츠 · 연예 소재가 후보에 아예 못 들어갔다(2026-09-17 실측).
+  const keywords = pickIssueCandidates(lists, settings.issueLimit);
 
   let board: { publishedAt: string | null; issues: HomefeedBoardIssue[] } | null = null;
   if (settings.sources.siteBoard) {
@@ -193,10 +227,11 @@ export async function collectHomefeedSnapshot(
     if (!issueKey) continue;
     taken.add(issueKey);
 
+    // 후보를 네 목록에서 합쳐 뽑으므로 '어느 목록이 준 후보인가'를 따로 두지 않는다 — 목록마다 조회해 적는다.
     const ranks: HomefeedIssueSnapshot['ranks'] = {};
     for (const name of HOMEFEED_RANK_SOURCES) {
       const list = lists[name];
-      if (list) ranks[name] = name === issueSource ? item.rank : rankIn(list, item.keyword);
+      if (list) ranks[name] = rankIn(list, item.keyword);
     }
 
     let newsTotal: number | null = null;

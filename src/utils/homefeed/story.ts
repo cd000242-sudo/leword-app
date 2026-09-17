@@ -159,6 +159,7 @@ const TENSION_FLAGS: Partial<Record<HomefeedTensionType, HomefeedFunGapFlag[]>> 
   identity_contrast: ['visible_contrast'],
   past_vs_now: ['visible_contrast'],
   result_first: ['outcome_mismatch'],
+  rival_compare: ['visible_contrast'],
 };
 
 export function funGapOf(

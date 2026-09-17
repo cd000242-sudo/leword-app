@@ -25,6 +25,7 @@ export const TITLE_TRIGGERS: readonly HomefeedTriggerType[] = [
 const TENSION_LABEL: Record<string, string> = {
   number_conflict: '숫자 충돌', relationship_shift: '관계 변화', expectation_break: '예상 밖', action_reversal: '번복',
   identity_contrast: '정체 대비', past_vs_now: '과거와 지금', result_first: '결과 먼저', scale_mismatch: '규모 불일치', hidden_reason: '숨은 이유',
+  rival_compare: '맞수 비교',
 };
 
 export interface TitleMaterials {

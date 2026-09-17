@@ -105,7 +105,9 @@ describe('수집 한 회차', () => {
     // 검색어와 어절이 겹치지 않는 기사는 버린다(뉴스가 성공한 이슈 2건 × 1개).
     expect(droppedSamples).toBe(2);
     expect(snap.issues.every((row) => row.samples.every((sample) => !sample.title.includes('손흥민')))).toBe(true);
-    expect(snap.issues.map((row) => row.keyword)).toEqual(['서울 시내버스 타결', '유승호 결혼식', '토지거래허가제']);
+    // 2026-09-17 이후 후보는 네 목록을 합쳐 뽑고 걸림 말이 많은 쪽을 앞에 세운다 —
+    // '유승호 결혼식'은 사건 사실 말('결혼')이 있어 순위가 뒤여도 먼저 온다.
+    expect(snap.issues.map((row) => row.keyword)).toEqual(['유승호 결혼식', '서울 시내버스 타결', '토지거래허가제']);
     expect(newIssueKeys).toHaveLength(3);
     const byName = Object.fromEntries(snap.sources.map((run) => [run.name, run]));
     expect(byName['signal.bz']).toMatchObject({ ok: true, count: 3 });
@@ -113,7 +115,11 @@ describe('수집 한 회차', () => {
     expect(byName['naver-news']).toMatchObject({ ok: true, count: 2, error: '뉴스 검색 429' });
     expect(byName['naver-blog']).toMatchObject({ ok: true, count: 2, error: '문서수를 받지 못했습니다' });
 
-    const [bus, wedding, land] = snap.issues;
+    // 자리 순서는 걸림 말 우선 줄세우기가 정한다 — 검사는 이름으로 찾아 순서에 묶이지 않게 한다.
+    const find = (keyword: string) => snap.issues.find((row) => row.keyword === keyword)!;
+    const bus = find('서울 시내버스 타결');
+    const wedding = find('유승호 결혼식');
+    const land = find('토지거래허가제');
     expect(bus.ranks).toEqual({ 'signal.bz': 1, nate: 1 });
     expect(wedding).toMatchObject({ blogDocCount: null, boardWhy: '헤드라인 검증 통과한 이유' });
     expect(wedding.samples.map((row) => row.origin)).toEqual(['naver-news', 'site-issue-board']);

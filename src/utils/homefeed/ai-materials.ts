@@ -10,6 +10,7 @@ import { clip } from './text';
 
 const TENSION_TYPES: readonly HomefeedTensionType[] = [
   'number_conflict', 'relationship_shift', 'expectation_break', 'action_reversal', 'identity_contrast', 'past_vs_now', 'result_first', 'scale_mismatch', 'hidden_reason',
+  'rival_compare',
 ];
 const FUN_GAP_FLAGS: readonly HomefeedFunGapFlag[] = [
   'unexpected_fact', 'surprising_number', 'relationship_change', 'strong_quote', 'visible_contrast', 'before_after', 'unusual_object_price', 'outcome_mismatch', 'socially_tellable', 'visual_curiosity',
