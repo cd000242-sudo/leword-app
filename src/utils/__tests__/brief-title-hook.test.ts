@@ -70,20 +70,20 @@ describe('사람 냄새가 있는지 본다', () => {
   });
 });
 
-describe('프롬프트가 교리를 들고 있다', () => {
-  it('자극·훅·사람냄새를 시키고, 앵커를 보여 준다', async () => {
+describe('프롬프트가 근거 없는 경험과 자극을 요구하지 않는다', () => {
+  it('사실과 질문으로 흥미를 만들고 직접 경험을 요구하지 않는다', async () => {
     const fs = await import('fs');
     const path = await import('path');
-    const src = fs.readFileSync(path.join(__dirname, '..', 'topic-briefs.ts'), 'utf8');
-    expect(src).toContain('포켓몬고 위치정보 오류 이러니까 바로 풀리네요');
-    expect(src).toMatch(/자극/);
-    expect(src).toMatch(/기사 제목|보도|뉴스 제목/);
+    const src = fs.readFileSync(path.join(__dirname, '..', 'topic-brief-prompt.ts'), 'utf8');
+    expect(src).not.toContain('포켓몬고 위치정보 오류 이러니까 바로 풀리네요');
+    expect(src).toContain('경험을 받은 적이 없다');
+    expect(src).toContain('확인된 사실');
   });
 
   it('서로 반대인 규칙을 없앴다 — 인용 갈래가 답을 다 적게 시키지 않는다', async () => {
     const fs = await import('fs');
     const path = await import('path');
-    const src = fs.readFileSync(path.join(__dirname, '..', 'topic-briefs.ts'), 'utf8');
+    const src = fs.readFileSync(path.join(__dirname, '..', 'topic-brief-prompt.ts'), 'utf8');
     expect(src, '아직 숫자를 제목에 박으라고 시킨다').not.toContain('카드에 있는 **숫자나 날짜**를 제목 안에 넣어라');
   });
 });
@@ -98,13 +98,13 @@ describe('기사형 제목을 실제로 버린다', () => {
     ], '다른 제목', 4, kws);
     const texts = out.map((t) => t.text);
     expect(texts, '기사형이 살아남았다').not.toContain('곽빈 아시안게임 대표팀 와일드카드로 합류했다');
-    expect(texts).toContain('곽빈 아시안게임 발탁 팬들이 갈린 진짜 이유가 있더라고요');
+    expect(texts, '직접 확인한 듯한 경험도 제거한다').not.toContain('곽빈 아시안게임 발탁 팬들이 갈린 진짜 이유가 있더라고요');
   });
 
   it('버리는 이유가 코드에 드러나 있다', async () => {
     const fs = await import('fs');
     const path = await import('path');
-    const src = fs.readFileSync(path.join(__dirname, '..', 'topic-briefs.ts'), 'utf8');
+    const src = fs.readFileSync(path.join(__dirname, '..', 'topic-brief-titles.ts'), 'utf8');
     expect(src).toContain('isNewsyTitle(text)');
   });
 });
@@ -117,14 +117,14 @@ describe('사람 말투를 앞세운다', () => {
    * 진짜 신호는 '사람 말투가 없다' 인데, 그걸 그대로 탈락시키면 그 회차가 통째로 빈다.
    * 그래서 버리지 않고 **앞세운다.** 고르는 건 사장님이 한다.
    */
-  it('같은 갈래 안에서 사람 말투가 먼저 온다', async () => {
+  it('사람 말투를 위해 지어낸 병원 방문 경험은 제거한다', async () => {
     const { sanitizeTitles } = await import('../topic-briefs');
     const kws = ['독감 유행'];
     const out = sanitizeTitles([
       { target: '검색', type: '정리형', text: '독감 유행 왜 예년보다 한 달 빨라졌나' },
       { target: '검색', type: '경험형', text: '독감 유행 한 달 빨라진 이유 병원에서 듣고 놀랐어요' },
     ], '다른 제목', 4, kws);
-    expect(out[0].text).toBe('독감 유행 한 달 빨라진 이유 병원에서 듣고 놀랐어요');
+    expect(out.map(t => t.text)).toEqual(['독감 유행 왜 예년보다 한 달 빨라졌나']);
   });
 
   it('사람 말투가 하나도 없어도 회차가 비지 않는다', async () => {

@@ -26,6 +26,7 @@ const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 const { requireJsonArray } = require('../src/utils/agent-cli/replyValidators');
 const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+const { enrichBriefFacts, reviewTopicBriefs, normalizeBriefBoard } = require('../src/main/topic-brief-pipeline');
 
 const arg = (name, fallback = '') => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -111,7 +112,9 @@ async function main() {
   };
   const fieldFacts = new Map();
   let newsCalls = 0;
-  for (const { field, queries } of BRIEF_FIELDS) {
+  const selectedFields = arg('fields') ? BRIEF_FIELDS.filter(({ field }) => arg('fields').split('|').includes(field)) : BRIEF_FIELDS;
+  if (selectedFields.length === 0) throw new Error('선택한 분야가 없습니다.');
+  for (const { field, queries } of selectedFields) {
     const seen = new Set();
     const cards = [];
     for (const q of queries) {
@@ -130,8 +133,8 @@ async function main() {
   const droppedAll = [];
   const agentFailures = [];
   let agentCalls = 0;
-  for (const { field } of BRIEF_FIELDS) {
-    const facts = fieldFacts.get(field) || [];
+  for (const { field } of selectedFields) {
+    const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
     if (facts.length < 2) { console.log(`  ${field}: 근거 카드 ${facts.length}개 — 건너뜀`); continue; }
     // 5개 이상을 받기 위해 한 개 더 청한다 — 검증기에서 한둘 떨어져도 5가 남게.
     const prompt = buildBriefPrompt(field, facts, today, perField + 1, excludeListOf(priorRounds, field));
@@ -148,7 +151,12 @@ async function main() {
     }
     const parsed = tryExtractJson(reply);
     const { ok, dropped } = validateBriefs(parsed, facts, field, today);
-    const { kept, repeated } = dropRepeats(ok, priorRounds);
+    const reviewed = await reviewTopicBriefs(ok, facts, async (reviewPrompt) => {
+      const review = await runWithAnyAgent(reviewPrompt, AGENT_CHAIN, { timeoutMs: 120_000, validate: requireJsonArray() });
+      agentCalls += 1;
+      return review.reply;
+    });
+    const { kept, repeated } = dropRepeats(reviewed, priorRounds);
     all.push(...kept);
     droppedAll.push(...dropped.map((d) => ({ field, ...d })), ...repeated.map((b) => ({ field, title: b.title, reason: '앞 회차와 같은 검색어' })));
     console.log(`  ${field.padEnd(14)} ${provider} → 글감 ${kept.length} · 떨어짐 ${dropped.length + repeated.length}${dropped.length + repeated.length ? ` (${[...dropped.map((d) => d.reason), ...repeated.map(() => '앞 회차 중복')].join(' / ')})` : ''}`);
@@ -158,7 +166,7 @@ async function main() {
     throw new Error(`게시할 글감이 0건입니다. 기존 게시본을 유지하고 회차를 실패 처리합니다. ${agentFailures[0] || '근거 부족 또는 검증·중복 제거 후 후보 없음'}`);
   }
 
-  // 3) 검색량 실측 — 후보 검색어 전부 재서 가장 큰 것을 핵심 검색어로(null = '< 10' 실측)
+  // 3) 글감이 정한 핵심 검색어의 검색량을 측정한다. 큰 검색량으로 질문을 바꾸지 않는다.
   let measuredBriefs = all;
   const volumes = new Map(); // 공백 걷은 검색어 → 월 검색량(null = '< 10'). 5) 대안 검색어 후보에도 쓴다.
   if (adConfig.accessLicense && adConfig.secretKey && all.length > 0) {
@@ -290,18 +298,18 @@ async function main() {
   const builtAt = new Date().toISOString();
   const thisRound = { slot, builtAt, counts: roundCounts(briefs), briefs };
   // 같은 회차 이름이 오늘 이미 있으면(수동 재실행) 그 자리를 갈아끼운다.
-  const rounds = [...priorRounds.filter((r) => r.slot !== slot), thisRound];
+  const rounds = [...priorRounds.filter((r) => r.slot !== slot).map(normalizeBriefBoard), thisRound];
   const result = {
     builtAt,
     slot,
     // 오늘의 회차들(아침·오후·저녁) — 화면은 이걸 회차 탭으로 그린다. briefs 는 이번 회차(호환용).
     rounds,
     method: {
-      facts: '네이버 뉴스 API 실측 기사(분야별 질의, 최신순). 카드에 없는 날짜·숫자는 검증기가 떨어뜨린다',
+      facts: '뉴스 제목·요약과 지원되는 기사 본문에서 발췌를 대조하고 별도로 근거를 검토한다. 부족한 답은 추가 확인으로 표시한다',
       timing: 'NOW=최근 5일 안 기사 · NEXT=기사에 미래 날짜 · ALWAYS=철 안 타는 제도(카드 근거 필수)',
       searchVolume: '검색광고 키워드도구 월간 검색량 실측(핵심 검색어) · 없으면 null',
-      serpFit: `정면 글 수 실측(${serpMode}) — 높음 ≤2(또는 빈자리 ≤3) · 보통 ≤5 · 낮음 · 안 쟀으면 미측정. 높음은 상위노출 보장이 아니다`,
-      star: '적합성 높음 + (검색량 500+ 또는 날짜 박힌 NOW/NEXT)',
+      serpFit: `정면 글 수 실측(${serpMode}) — 높음 ≤2 · 보통 ≤5 · 낮음 ≥6 · 안 쟀으면 미측정. 상위 노출을 보장하지 않는다`,
+      star: '독립 검토를 통과한 답과 정확한 목표 검색어의 실측값으로 우선 확인 후보를 고른다',
     },
     counts: { briefs: briefs.length, now: briefs.filter((b) => b.timing === 'NOW').length, next: briefs.filter((b) => b.timing === 'NEXT').length, always: briefs.filter((b) => b.timing === 'ALWAYS').length, star: briefs.filter((b) => b.star).length, dropped: droppedAll.length, newsCalls, agentCalls },
     briefs,

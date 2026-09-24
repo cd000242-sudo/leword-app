@@ -67,7 +67,7 @@ describe('validateBriefs — 카드에 없는 것은 못 들어간다', () => {
         { id: 'f1', field: '건강', title: '독감 무료접종 9월 21일부터 시작', snippet: '어린이·임신부 대상', press: 'kdca.go.kr', link: 'https://kdca.go.kr/1', publishedAt: '2026-09-08T01:00:00.000Z', dates: ['2026-09-21'] },
         { id: 'f2', field: '건강', title: '인플루엔자 증가세 주의 당부', snippet: '학생 단체생활', press: 'kdca.go.kr', link: 'https://kdca.go.kr/2', publishedAt: '2026-09-07T01:00:00.000Z', dates: [] },
     ];
-    const good = { title: '2026-2027 독감 무료접종 언제부터? 대상별 일정표', timing: 'NEXT', types: ['가이드형'], primaryIntent: '무료 접종 대상과 시작일 확인', value: '9월 21일부터 어린이·임신부 접종이 시작된다.', experience: '접종 경험을 의학 효과로 일반화하지 않음', differentiation: '연령별 날짜 + 1회/2회 대상', coreKeyword: '독감 무료접종 일정', factIds: ['f1'] };
+    const good = { title: '독감 무료접종 언제부터? 대상별 일정표', timing: 'NEXT', types: ['가이드형'], primaryIntent: '무료 접종 대상과 시작일 확인', value: '9월 21일부터 어린이·임신부 접종이 시작된다.', experience: '접종 경험을 의학 효과로 일반화하지 않음', differentiation: '접종 대상과 확인된 일정을 구분', coreKeyword: '독감 무료접종 일정', factIds: ['f1'] };
     it('근거 카드·날짜·시기가 맞으면 통과한다', () => {
         const r = validateBriefs([good], facts, '건강', TODAY);
         expect(r.ok).toHaveLength(1);
@@ -79,9 +79,10 @@ describe('validateBriefs — 카드에 없는 것은 못 들어간다', () => {
         expect(r.ok).toHaveLength(0);
         expect(r.dropped[0]?.reason).toContain('2026-09-25');
     });
-    it('카드의 발행일(KST)은 근거다 — "8일 발표"는 본문이 아니라 발행일에서 온다', () => {
+    it('카드의 발행일을 발표일의 근거로 대신 쓰지 않는다', () => {
         const r = validateBriefs([{ ...good, timing: 'NOW', factIds: ['f1'], value: '8일 질병관리청이 발표했다.' }], facts, '건강', TODAY);
-        expect(r.ok).toHaveLength(1);
+        expect(r.ok).toHaveLength(0);
+        expect(r.dropped[0]?.reason).toContain('근거에 없는 날짜');
     });
     it('factIds 는 "[f1]"·"F1 " 표기도 받는다(게임 회차 통째 탈락 재발 방지)', () => {
         expect(validateBriefs([{ ...good, factIds: ['[f1]', 'F1 '] }], facts, '건강', TODAY).ok[0]?.factIds).toEqual(['f1']);
@@ -100,12 +101,12 @@ describe('validateBriefs — 카드에 없는 것은 못 들어간다', () => {
     });
 });
 
-describe('applyMeasuredVolumes — 잰 검색량이 가장 큰 후보가 핵심 검색어', () => {
+describe('applyMeasuredVolumes — 핵심 검색어를 고정하고 실측 검색량만 반영', () => {
     const brief = { ...validateBriefs([{ title: '독감 무료접종 언제부터 대상별 일정', timing: 'ALWAYS', keywords: ['독감 접종', '독감 무료접종 대상'], value: '', factIds: ['f1'] }],
         [{ id: 'f1', field: '건강', title: 't', snippet: '', press: 'p', link: 'l', publishedAt: '2026-09-08T00:00:00.000Z', dates: [] }], '건강', TODAY).ok[0]! };
-    it('큰 쪽으로 바꾸고, < 10 만 잰 경우는 under10 표시', () => {
+    it('다른 후보가 더 커도 바꾸지 않고, < 10은 under10 표시', () => {
         const a = applyMeasuredVolumes(brief, new Map([['독감접종', 800], ['독감무료접종대상', 2940]]));
-        expect([a.coreKeyword, a.searchVolume, a.searchVolumeUnder10]).toEqual(['독감 무료접종 대상', 2940, false]);
+        expect([a.coreKeyword, a.searchVolume, a.searchVolumeUnder10]).toEqual(['독감 접종', 800, false]);
         const b = applyMeasuredVolumes(brief, new Map([['독감접종', null]]));
         expect([b.coreKeyword, b.searchVolume, b.searchVolumeUnder10]).toEqual(['독감 접종', null, true]);
         expect(applyMeasuredVolumes(brief, new Map()).searchVolumeUnder10).toBeUndefined();
@@ -116,14 +117,14 @@ describe('serpFitOf · markStars · 프롬프트', () => {
     it('적합성은 실측 정면 글 수로만', () => {
         expect(serpFitOf(null, null)).toBe('미측정');
         expect(serpFitOf(1, null)).toBe('높음');
-        expect(serpFitOf(7, 2)).toBe('높음');
+        expect(serpFitOf(7, 2)).toBe('낮음');
         expect(serpFitOf(4, null)).toBe('보통');
         expect(serpFitOf(9, null)).toBe('낮음');
     });
-    it('★은 높음 + (검색량 500+ 또는 날짜 박힌 NOW/NEXT)', () => {
+    it('근거 검토가 없는 구형 글감은 수요가 크거나 NOW여도 추천하지 않는다', () => {
         const base = { title: 't', timing: 'ALWAYS' as const, types: [], primaryIntent: '', value: '', experience: '', differentiation: '', coreKeyword: 'k', keywords: ['k'], factIds: ['f1'], field: 'x', facts: [], searchVolume: null, serpFacing: 1, serpVacancy: null, serpFit: '높음' as const, star: false };
         const out = markStars([base, { ...base, timing: 'NOW' }, { ...base, searchVolume: 900 }, { ...base, serpFit: '보통' }]);
-        expect(out.map((b) => b.star)).toEqual([false, true, true, false]);
+        expect(out.map((b) => b.star)).toEqual([false, false, false, false]);
     });
     it('프롬프트는 카드 id·날짜를 싣고 JSON 배열만 요구한다', () => {
         const p = buildBriefPrompt('건강', [{ id: 'f1', field: '건강', title: 'T', snippet: 'S', press: 'p', link: 'l', publishedAt: '2026-09-08T00:00:00.000Z', dates: ['2026-09-21'] }], TODAY);
@@ -159,10 +160,10 @@ describe('하루 3회차 — 아침·오후·저녁(사장님 2026-09-09)', () =
         const carried = carrySeats([mk({ coreKeyword: '독감 접종' }), mk({ coreKeyword: '진드기 물림' })], prior);
         expect([carried[0]?.serpFacing, carried[0]?.serpVacancy, carried[1]?.serpFacing]).toEqual([2, 1, null]);
     });
-    it('프롬프트는 제외 목록을 싣고 N-1~N개를 청한다', () => {
+    it('프롬프트는 제외 목록을 싣고 근거가 없으면 0개를 허용한다', () => {
         const p = buildBriefPrompt('건강', [], TODAY, 6, ['독감 접종 일정(독감 접종)']);
         expect(p).toContain('독감 접종 일정(독감 접종)');
-        expect(p).toContain('5~6개');
+        expect(p).toContain('0~6개');
     });
 });
 
@@ -174,15 +175,17 @@ describe('extractDates — ISO·슬래시 꼴', () => {
 
 describe('대안 검색어 — 핵심이 낮음/보통일 때 좁은 검색어로(사장님 2026-09-09)', () => {
     const brief = { coreKeyword: '추석 기차표 예매', keywords: ['추석 기차표 예매', '추석 KTX 예매'] };
-    it('후보는 같은 주제(토큰 공유)·검색량 100+·5어절 이하·핵심 제외, 검색량 순 3개', () => {
+    it('후보는 원검색 전체를 보존한 좁은 말·검색량 100+·5어절 이하·핵심 제외', () => {
         const picked = pickAltCandidates(brief, [
             { keyword: '추석 호남선 KTX 예매', totalSearchVolume: 900 },
             { keyword: '명절 선물', totalSearchVolume: 5000 }, // 주제 다름
             { keyword: '추석 기차표 예매', totalSearchVolume: 120200 }, // 핵심 자신
             { keyword: '추석 열차 예매 시간', totalSearchVolume: 50 }, // 100 미만
             { keyword: 'SRT 추석 예매', totalSearchVolume: 3000 },
+            { keyword: '추석 기차표 예매 시간', totalSearchVolume: 400 },
+            { keyword: '추석 기차표 예매 취소', totalSearchVolume: 800 },
         ], new Map([['추석KTX예매', 2500]]));
-        expect(picked.map((c) => c.keyword)).toEqual(['SRT 추석 예매', '추석 KTX 예매', '추석 호남선 KTX 예매']);
+        expect(picked.map((c) => c.keyword)).toEqual(['추석 기차표 예매 취소', '추석 기차표 예매 시간']);
     });
     it('잰 대안 중 열린 것이 우선이고, 열린 게 없으면 정면 글 적은 것', () => {
         const alt = chooseAlternative([
@@ -192,13 +195,13 @@ describe('대안 검색어 — 핵심이 낮음/보통일 때 좁은 검색어�
         expect(alt?.keyword).toBe('b');
         expect(chooseAlternative([{ keyword: 'x', searchVolume: 1, serpFacing: null, serpVacancy: null, serpFit: '미측정' }])).toBeNull();
     });
-    it('★은 대안이 열렸을 때도 붙는다 — 그 대안의 검색량으로', () => {
+    it('대안이 열려도 글감의 근거 검토가 없으면 별을 붙이지 않는다', () => {
         const base = { title: 't', timing: 'ALWAYS' as const, types: [], primaryIntent: '', value: '', experience: '', differentiation: '', coreKeyword: 'k', keywords: ['k'], factIds: ['f1'], field: 'x', facts: [], searchVolume: 120000, serpFacing: 9, serpVacancy: null, serpFit: '낮음' as const, star: false };
         const out = markStars([
             { ...base, alternative: { keyword: 'k2', searchVolume: 900, serpFacing: 1, serpVacancy: 2, serpFit: '높음' } },
             { ...base, alternative: { keyword: 'k3', searchVolume: 200, serpFacing: 1, serpVacancy: 2, serpFit: '높음' } },
             { ...base, alternative: null },
         ]);
-        expect(out.map((b) => b.star)).toEqual([true, false, false]);
+        expect(out.map((b) => b.star)).toEqual([false, false, false]);
     });
 });

@@ -40,6 +40,7 @@ import {
   type MyBlogProfile,
 } from '../../utils/blog-class/my-blog-lane';
 import { measureKeywords } from './seat-measure';
+import { normalizeBriefBoard } from '../topic-brief-pipeline';
 
 export const DAILY_PICK_PROGRESS_CHANNEL = 'daily-pick-progress';
 
@@ -106,7 +107,7 @@ export interface Picked extends Candidate {
 const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null);
 
 function fromBriefs(): Candidate[] {
-  const j = readJson<any>(U('topic-briefs', 'latest.json'), null);
+  const j = normalizeBriefBoard(readJson<any>(U('topic-briefs', 'latest.json'), null));
   const rows: any[] = (j && Array.isArray(j.briefs)) ? j.briefs : [];
   return rows.map((b) => ({
     keyword: String(b.coreKeyword || ''),
@@ -117,9 +118,10 @@ function fromBriefs(): Candidate[] {
     documentCount: null,
     facing: num(b.serpFacing),
     vacancy: num(b.serpVacancy),
-    titles: (b.titles || []).map((t: any) => ({ label: String(t.target || t.type || ''), text: String(t.text || '') })),
+    titles: b.editorial?.status === 'supported' ? (b.titles || []).map((t: any) => ({ label: String(t.target || t.type || ''), text: String(t.text || '') })) : [],
     related: (b.related || []).map((r: any) => ({ keyword: String(r.keyword), searchVolume: num(r.searchVolume), open: r.serpFit === '높음' })),
-    why: String(b.value || b.primaryIntent || ''),
+    why: b.editorial?.status === 'supported' ? String(b.value || b.primaryIntent || '')
+      : `추가 확인이 필요한 조사 주제입니다. ${(b.editorial?.missing || []).slice(0, 2).join(' ')}`,
     facts: (b.facts || []).map((f: any) => ({ title: String(f.title || ''), press: String(f.press || ''), link: String(f.link || '') })),
   }));
 }

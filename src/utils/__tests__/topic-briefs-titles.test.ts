@@ -10,7 +10,7 @@ const t = (type: string, text: string) => ({ type, text });
 const MAIN = '주담대 한 달 새 4조3000억 증가, 왜 늘었나';
 
 describe('제목 후보 다듬기', () => {
-    it('유형과 글을 그대로 담아 준다', () => {
+    it('질문은 보존하고 제공되지 않은 경험을 주장하는 제목은 제거한다', () => {
         const got = sanitizeTitles([
             t('질문형', '주담대가 갑자기 늘어난 이유가 뭘까요'),
             t('경험형', '주담대 갈아타기 해보니 이렇더라고요'),
@@ -18,7 +18,6 @@ describe('제목 후보 다듬기', () => {
         // keywords 를 안 주면 갈래를 가리지 않는다 — target 은 null 이다(2026-09-10 SEO/AEO/GEO 갈래 추가).
         expect(got).toEqual([
             { target: null, type: '질문형', text: '주담대가 갑자기 늘어난 이유가 뭘까요' },
-            { target: null, type: '경험형', text: '주담대 갈아타기 해보니 이렇더라고요' },
         ]);
     });
 

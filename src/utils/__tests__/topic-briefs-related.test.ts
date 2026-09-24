@@ -6,7 +6,7 @@ import { pickRelatedKeywords } from '../topic-briefs';
  * "확장키워드나 연관키워드도 같이 보여주면 그걸로 글 쓸 수 있게").
  * 대안 검색어와 규칙이 다르다: 대안은 핵심을 **대신할** 하나, 이건 같이 **담을** 여럿이다.
  */
-const brief = { coreKeyword: '주택담보대출', keywords: ['주택담보대출', '주담대'] };
+const brief = { coreKeyword: '주택담보대출', keywords: ['주택담보대출', '주담대', '주택담보대출 조건'] };
 
 const suggest = (rows: Array<[string, number | null]>) =>
     rows.map(([keyword, totalSearchVolume]) => ({ keyword, totalSearchVolume }));
@@ -18,7 +18,7 @@ describe('같이 넣을 말 고르기', () => {
             ['주택담보대출 한도', 12000],
             ['주담대 갈아타기', 5400],
         ]), new Map(), 6);
-        expect(got.map((r) => r.keyword)).toEqual(['주택담보대출 금리', '주택담보대출 한도', '주담대 갈아타기']);
+        expect(got.map((r) => r.keyword)).toEqual(['주택담보대출 금리', '주택담보대출 한도']);
         expect(got[0].searchVolume).toBe(33000);
     });
 
@@ -48,14 +48,14 @@ describe('같이 넣을 말 고르기', () => {
 
     it('글감이 스스로 가진 검색어의 실측 검색량도 함께 본다', () => {
         // 스크립트가 만든 검색량 지도는 공백을 걷은 키를 쓴다 — 그 규칙 그대로 찾아야 한다.
-        const own = new Map<string, number | null>([['주담대', 39300]]);
+        const own = new Map<string, number | null>([['주택담보대출조건', 39300]]);
         const got = pickRelatedKeywords(brief, [], own, 6);
-        expect(got).toEqual([{ keyword: '주담대', searchVolume: 39300 }]);
+        expect(got).toEqual([{ keyword: '주택담보대출 조건', searchVolume: 39300 }]);
     });
 
     it('같은 말이 두 곳에서 와도 한 번만 넣는다', () => {
-        const own = new Map<string, number | null>([['주담대', 39300]]);
-        const got = pickRelatedKeywords(brief, suggest([['주담대', 39300]]), own, 6);
-        expect(got.filter((r) => r.keyword === '주담대')).toHaveLength(1);
+        const own = new Map<string, number | null>([['주택담보대출조건', 39300]]);
+        const got = pickRelatedKeywords(brief, suggest([['주택담보대출 조건', 39300]]), own, 6);
+        expect(got.filter((r) => r.keyword === '주택담보대출 조건')).toHaveLength(1);
     });
 });

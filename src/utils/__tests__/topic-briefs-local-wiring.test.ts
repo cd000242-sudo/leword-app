@@ -96,7 +96,7 @@ describe('글감 앱 레인 배선', () => {
   });
 
   it('자리를 안 잰 같이 넣을 말에는 초록 점을 찍지 않는다', () => {
-    const card = html.slice(html.indexOf('function briefCard(b)'), html.indexOf('window.lewordOpenExternal'));
+    const card = html.slice(html.indexOf('function briefCard('), html.indexOf('window.lewordOpenExternal'));
     // 열림일 때만 초록. 잰 적 없으면(serpFit 없음) 회색.
     expect(card).toContain("const open = r.serpFit === '높음';");
     expect(card).toContain("(open ? '#22c55e' : r.serpFit ? '#ef4444' : '#334155')");

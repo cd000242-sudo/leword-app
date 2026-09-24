@@ -18,6 +18,7 @@
  * 사이트 행을 화면이 아는 모양으로 바꾸는 일도 화면 쪽에서 한다(모양이 화면마다 다르다).
  */
 import { ipcMain } from 'electron';
+import { normalizeBriefBoard } from '../topic-brief-pipeline';
 
 const BASE = 'https://leaderspro.kr/data';
 
@@ -54,7 +55,8 @@ export async function fetchSiteBoard(key: string, fetchImpl: typeof fetch = fetc
           : `사이트를 읽지 못했습니다 (HTTP ${res.status})`,
       };
     }
-    return { success: true, board: await res.json() };
+    const board = await res.json();
+    return { success: true, board: key === 'briefs' ? normalizeBriefBoard(board) : board };
   } catch (error) {
     return { success: false, error: `사이트에 닿지 못했습니다 — ${String((error as Error)?.message || error).slice(0, 120)}` };
   }

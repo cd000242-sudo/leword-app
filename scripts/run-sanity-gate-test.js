@@ -295,6 +295,19 @@ for (const testFile of testFiles) {
  * 그래서 vitest 를 한 번 불러 같은 게이트 안에서 막는다.
  */
 const VITEST_SUITES = [
+    // 오늘의 글감 — 질문별 근거, 독립 검토, 보수적인 추천과 앱 표시를 함께 잠근다.
+    'src/utils/__tests__/topic-brief-evidence.test.ts',
+    'src/utils/__tests__/topic-brief-pipeline.test.ts',
+    'src/utils/__tests__/topic-briefs-editorial-app.test.ts',
+    'src/utils/__tests__/topic-briefs.test.ts',
+    'src/utils/__tests__/topic-briefs-titles.test.ts',
+    'src/utils/__tests__/topic-briefs-related.test.ts',
+    'src/utils/__tests__/topic-briefs-local-wiring.test.ts',
+    'src/utils/__tests__/topic-briefs-local-cancel.test.ts',
+    'src/utils/__tests__/daily-pick-brief-readiness.test.ts',
+    'src/utils/__tests__/topic-briefs-publishing.test.ts',
+    'src/utils/__tests__/brief-title-hook.test.ts',
+    'src/utils/__tests__/brief-title-targets.test.ts',
     'src/utils/__tests__/preemption-gate.test.ts',
     'src/utils/__tests__/keyword-intent.test.ts',
     'src/utils/__tests__/keyword-completeness.test.ts',

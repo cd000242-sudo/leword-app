@@ -33,6 +33,11 @@ async function runScript(options: { previousCount?: number; fail?: boolean; noFa
     // 폴백 체인 답 검사(2026-09-15) — 글감이 JSON 배열이 아니면 다음 엔진으로 넘긴다.
     '../src/utils/agent-cli/replyValidators': { requireJsonArray },
     '../src/utils/naver-searchad-api': {},
+    '../src/main/topic-brief-pipeline': {
+      enrichBriefFacts: async (cards: unknown) => cards,
+      reviewTopicBriefs: async (rows: unknown) => rows,
+      normalizeBriefBoard: (board: unknown) => board,
+    },
   };
   const script = fs.readFileSync(path.resolve(__dirname, '../../../scripts/topic-briefs.js'), 'utf8');
   await vm.runInNewContext(script, {

@@ -35,6 +35,7 @@ import { requireJsonArray } from '../../utils/agent-cli/replyValidators';
 import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions } from '../../utils/naver-searchad-api';
 import { measureSeat, seatBlogTabUrl } from '../../utils/seat-measure';
 import { localSerpFetch, closeLocalSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
+import { enrichBriefFacts, normalizeBriefBoard, reviewTopicBriefs } from '../topic-brief-pipeline';
 
 export const BRIEFS_PROGRESS_CHANNEL = 'topic-briefs-local-progress';
 
@@ -95,6 +96,10 @@ export interface LocalBriefsResult {
 let running = false;
 let abortRequested = false;
 let autoTimer: NodeJS.Timeout | null = null;
+
+function throwIfCancelled(): void {
+  if (abortRequested) throw new Error('글감 생성을 취소했습니다. 기존 저장본을 유지합니다.');
+}
 
 function ensureDir(): void {
   try { fs.mkdirSync(DIR(), { recursive: true }); } catch { /* 이미 있으면 그만 */ }
@@ -195,7 +200,8 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   for (let i = 0; i < BRIEF_FIELDS.length; i += 1) {
     if (abortRequested) break;
     const { field } = BRIEF_FIELDS[i];
-    const facts = fieldFacts.get(field) || [];
+    const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
+    throwIfCancelled();
     if (facts.length < 2) {
       report({ step: '글감', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — 근거 카드 ${facts.length}장뿐이라 건너뜀` });
       continue;
@@ -211,8 +217,16 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
       report({ step: '글감', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — 에이전트 실패: ${String(error?.message || error).slice(0, 60)}` });
       continue;
     }
+    throwIfCancelled();
     const { ok, dropped } = validateBriefs(tryExtractJson(reply), facts, field, today);
-    const { kept, repeated } = dropRepeats(ok, prior);
+    const reviewed = await reviewTopicBriefs(ok, facts, async (reviewPrompt) => {
+      if (abortRequested) throw new Error('cancelled');
+      const review = await runWithAnyAgent(reviewPrompt, AGENT_CHAIN, { timeoutMs: 120_000, validate: requireJsonArray() });
+      agentCalls += 1;
+      return review.reply;
+    });
+    throwIfCancelled();
+    const { kept, repeated } = dropRepeats(reviewed, prior);
     all.push(...kept);
     droppedAll.push(
       ...dropped.map((d) => ({ field, ...d })),
@@ -221,6 +235,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     report({ step: '글감', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — ${provider} 로 글감 ${kept.length}개 (떨어짐 ${dropped.length + repeated.length})` });
   }
 
+  throwIfCancelled();
   if (all.length === 0) {
     throw new Error(`게시할 글감이 0건입니다. 기존 저장본을 유지합니다. ${agentFailures[0] || (abortRequested ? '사용자 취소' : '근거 부족 또는 검증·중복 제거 후 후보 없음')}`);
   }
@@ -316,7 +331,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     slot,
     source: 'app',
     // 같은 회차 이름이 오늘 이미 있으면 그 자리를 갈아끼운다(수동 재실행).
-    rounds: [...prior.filter((r) => r.slot !== slot), thisRound],
+    rounds: [...prior.filter((r) => r.slot !== slot).map((r) => normalizeBriefBoard(r)), thisRound],
     counts: {
       briefs: starred.length,
       now: starred.filter((b) => b.timing === 'NOW').length,
@@ -328,17 +343,18 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
       agentCalls,
     },
     method: {
-      facts: '네이버 뉴스 API 실측 기사(분야별 질의, 최신순). 카드에 없는 날짜·숫자는 검증기가 떨어뜨린다',
+      facts: '뉴스 제목·요약과 지원되는 기사 본문을 대조한다. 정확 발췌와 수치·날짜 검사 후 독립 검토하며, 미확인 내용은 추가 확인으로 표시한다',
       timing: 'NOW=최근 5일 안 기사 · NEXT=기사에 미래 날짜 · ALWAYS=철 안 타는 제도(카드 근거 필수)',
       searchVolume: '검색광고 키워드도구 월간 검색량 실측(핵심 검색어) · 없으면 null',
-      serpFit: '정면 글 수 실측(이 PC 크로미엄) — 높음 ≤2(또는 빈자리 ≤3) · 보통 ≤5 · 낮음 · 안 쟀으면 미측정. 높음은 상위노출 보장이 아니다',
-      star: '적합성 높음 + (검색량 500+ 또는 날짜 박힌 NOW/NEXT)',
+      serpFit: '정면 글 수 실측(이 PC 크로미엄) — 높음 ≤2 · 보통 ≤5 · 낮음 ≥6 · 안 쟀으면 미측정. 상위 노출을 보장하지 않는다',
+      star: '독립 검토를 통과한 답과 정확한 목표 검색어의 측정값으로 우선 확인 후보를 고른다',
     },
     briefs: starred,
     dropped: droppedAll.slice(0, 50),
     seatsMeasured,
     seconds: Math.round((Date.now() - started) / 1000),
   };
+  throwIfCancelled();
   writeLocalBriefs(result);
   report({ step: '정리', done: starred.length, total: starred.length, message: `끝 — 글감 ${starred.length}개 · 자리 ${seatsMeasured}건 · ${result.seconds}초` });
   return result;
@@ -358,7 +374,7 @@ export function setupTopicBriefsLocalHandlers(): void {
     ipcMain.handle('topic-briefs-local-get', async (_e, payload?: { includePublished?: boolean }) => {
       const local = readLocalBriefs();
       const published = (!local || payload?.includePublished) ? await fetchPublished() : null;
-      return { success: true, running, auto: autoEnabled(), autoHours: AUTO_HOURS, local, published };
+      return { success: true, running, auto: autoEnabled(), autoHours: AUTO_HOURS, local: normalizeBriefBoard(local), published: normalizeBriefBoard(published) };
     });
   }
 
