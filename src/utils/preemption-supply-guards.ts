@@ -61,6 +61,16 @@ const ANSWER_CARD_PATTERNS: ReadonlyArray<{ pattern: RegExp; label: string }> = 
    * '~시세 전망'처럼 뒤에 말이 붙으면 글감이라 끝맺음으로만 잡는다. 상위종목·상한가도 증권 화면이다.
    */
   { pattern: /(?:주가|주가지수|환율|시세|상위종목|상한가)$/, label: '증권·시세 카드가 답한다 — 숫자 하나면 나간다' },
+  /*
+   * 지수 · 증시 · 유가 · 코인 이름만 친 말(2026-09-24 오늘의 추천 실측: 비즈니스·경제 10칸 중
+   * 오늘주식시장 · 나스닥선물 · 코스피 · 코스피지수 · 국제유가 · 미국증시 · 리플이 들어왔다).
+   * 끝이 '주가 · 시세'가 아니라 위 줄이 못 잡았다. 전체 일치로만 잡는다 — '유가'가 '유가족 지원금'을,
+   * '리플'이 '리플 전망'을 잡으면 안 된다.
+   */
+  { pattern: /^(?:코스피(?:200)?|코스닥(?:150)?|나스닥(?:100)?|다우(?:존스)?|s&p(?:500)?|니케이(?:225)?|항셍)(?:지수)?(?:선물)?$/i, label: '지수 카드가 답한다 — 숫자 하나면 나간다' },
+  { pattern: /^(?:미국|유럽|중국|일본|국내|해외|뉴욕|아시아|오늘|오늘의)?(?:증시|주식시장)$/, label: '증시 카드가 답한다 — 숫자 하나면 나간다' },
+  { pattern: /^(?:국제|오늘|오늘의)?(?:유가|금값)$/, label: '유가·금값 카드가 답한다 — 숫자 하나면 나간다' },
+  { pattern: /^(?:비트코인|이더리움|리플|도지코인|솔라나)$/, label: '코인 시세 카드가 답한다 — 숫자 하나면 나간다' },
   { pattern: /운세$/, label: '운세 카드가 답한다' },
   { pattern: /로또$|로또(?:당첨)?(?:번호|결과)(?:조회)?$|복권$/, label: '로또·복권 결과 카드가 답한다' },
   // 달력·음력도 카드다(오늘의 추천 실측: 음력달력 614,000).
@@ -93,6 +103,39 @@ export function judgeAnswerCardKeyword(keyword: string): AnswerCardVerdict {
     if (pattern.test(text)) return { answerCard: true, reason: label };
   }
   return { answerCard: false, reason: '' };
+}
+
+/*
+ * 상장 종목 이름만 친 말 — '삼성전자' · 'SK하이닉스' · '삼성전자우'(2026-09-24 오늘의 추천 실측).
+ * 네이버가 주가 카드로 답한다. 종목 이름은 사전으로 다 적을 수 없어서, 창고(검색광고 업종 씨앗)에
+ * '○○주가' 가 있으면 '○○' 를 종목 이름으로 본다 — 지어낸 목록이 아니라 창고에 실제로 있는 말이다.
+ * '미국주가' · '오늘주가' 의 앞말은 종목이 아니라 걸러 둔다.
+ */
+const NOT_A_LISTED_NAME = new Set([
+  '오늘', '미국', '한국', '국내', '해외', '일본', '중국', '유럽', '주식', '종합', '테마', '급등', '상한가', '우선',
+]);
+
+/** 창고 씨앗의 '○○주가' 에서 종목 이름을 모은다(공백 없이 · 소문자). */
+export function listedNamesFromSeeds(seeds: ReadonlyArray<{ keyword?: string | null }>): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const seed of seeds) {
+    const match = String(seed?.keyword || '').match(/^(.+?)\s*주가$/);
+    if (!match) continue;
+    const name = match[1].replace(/\s+/g, '').toLowerCase();
+    if (name.length < 2 || NOT_A_LISTED_NAME.has(name)) continue;
+    names.add(name);
+  }
+  return names;
+}
+
+/**
+ * 종목 이름만(또는 이름 + '주식'만) 친 말인가 — '삼성전자주식'도 주가 카드가 답한다(2026-09-24 실측).
+ * 뒤에 다른 말이 붙으면('삼성전자 서비스센터' · '삼성전자 주식 전망') 글감이라 아니다.
+ */
+export function isListedName(keyword: string, names: ReadonlySet<string>): boolean {
+  const text = String(keyword || '').replace(/\s+/g, '').toLowerCase();
+  if (!text) return false;
+  return names.has(text) || (text.endsWith('주식') && names.has(text.slice(0, -2)));
 }
 
 /** 며칠짜리 일정 조회인가. 걸리면 이유(패턴 근거)를 같이 낸다. */

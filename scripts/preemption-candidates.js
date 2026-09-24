@@ -62,7 +62,8 @@ const { analyzeKeywordSignals, sortWeight } = require('../src/utils/keyword-inte
 const { pickMeasureSample } = require('../src/utils/candidate-sample');
 const { sharesSeedToken } = require('../src/utils/seed-drift');
 const { judgeEphemeralKeyword, judgeAnswerCardKeyword } = require('../src/utils/preemption-supply-guards');
-const { shardTopics } = require('./candidate-shards');
+const { isMoneyTopic, orderSeedsByBid, bidKey, bidValue } = require('../src/utils/money-keywords');
+const { shardTopics, defaultTopicConcurrency } = require('./candidate-shards');
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -155,7 +156,7 @@ async function main() {
     process.exit(2);
   }
 
-  const { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+  const { getNaverSearchAdKeywordSuggestions, getNaverSearchAdKeywordVolume, getNaverSearchAdBidPairs } = require('../src/utils/naver-searchad-api');
   const { selectSearchAdAccountFromEnv } = require('../src/utils/searchad-account-pool');
   const { getNaverAutocompleteKeywords } = require('../src/utils/naver-autocomplete');
   const { getNaverBlogDocumentCount, takeRecentBlogTitles } = require('../src/utils/naver-blog-api');
@@ -311,8 +312,11 @@ async function main() {
    * API 별 속도를 묶기 때문이다. 늘어나는 것은 기다리는 시간이 겹치는 정도뿐이라,
    * 이 배치처럼 지연이 지배적인 곳에서는 그만큼 그대로 빨라진다.
    * 천장은 간격기다: 문서수 120ms → 초당 8.3건이 이 회차의 하한 시간을 정한다.
+   *
+   * 샤드 회차는 맡은 주제를 전부 한꺼번에 돌린다(2026-09-24). 6개로 두면 앞의 6개가 마감까지
+   * 다 쓰고 7번째부터 구절 0개로 끝났다 — 비즈니스·경제 · 건강·의학이 그 자리였다(candidate-shards.js).
    */
-  const concurrency = Number(arg('concurrency')) || 6;
+  const concurrency = Number(arg('concurrency')) || defaultTopicConcurrency({ shards, topicCount: topics.length });
   /*
    * 벽시계 마감 (2026-09-15).
    *
@@ -451,13 +455,36 @@ async function main() {
      * 같은 회차에 여섯 주제가 동시에 도는데 전부 같은 씨앗을 받으면 헛일이다.
      */
     const topicIndex = topics.indexOf(topic);
-    const dbSeeds = pickSeeds(seedDb, {
+    const pickOptions = {
       limit: dbSeedsPerTopic,
       minVolume,
       topic, // 이 주제로 매핑된 업종 씨앗만 — 자동차에 페키니즈분양이 가지 않게
       exclude: [...coverage.seedTerms, ...seasonalSeeds],
       round: Number(`${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}`) + topicIndex,
-    });
+    };
+    let dbSeeds = pickSeeds(seedDb, pickOptions);
+    /*
+     * 돈 되는 주제는 입찰가 순으로 고른다(2026-09-24 사장님 "돈 될 만한 황금키워드가 절대 아냐").
+     * 검색량 순으로만 뽑아서 광고주가 몰리는 씨앗(보험 · 대출 · 세금 · 의료)이 몫에 못 들어왔다.
+     * 창을 8배로 넓혀 파워링크 3위 입찰가를 재고, 비싼 씨앗부터 몫만큼 가져간다. 호출은 주제당 4회
+     * (50개 × PC · 모바일)라 검색량 실측 수천 회에 비하면 티도 안 난다. 못 재면 예전 그대로 검색량 순이다.
+     */
+    if (isMoneyTopic(topic) && dbSeeds.length > 0) {
+      const wide = pickSeeds(seedDb, { ...pickOptions, limit: dbSeedsPerTopic * 8 });
+      try {
+        const bids = await getNaverSearchAdBidPairs(searchAd, wide);
+        if (bids.size > 0) {
+          dbSeeds = orderSeedsByBid(wide, bids).slice(0, dbSeedsPerTopic);
+          const priced = dbSeeds.slice(0, 6).map((seed) => {
+            const value = bidValue(bids.get(bidKey(seed)));
+            return value === null ? seed : `${seed}(${value.toLocaleString('ko-KR')}원)`;
+          });
+          console.log(`  ${topic} 창고 씨앗 입찰가 순(${wide.length}개 중 ${dbSeeds.length}개): ${priced.join(', ')}${dbSeeds.length > 6 ? ' …' : ''}`);
+        }
+      } catch (error) {
+        console.log(`  !! ${topic} 창고 씨앗 입찰가 — ${String((error && error.message) || error).slice(0, 70)} (검색량 순으로 간다)`);
+      }
+    }
     if (dbSeeds.length > 0) console.log(`  ${topic} 창고 씨앗 ${dbSeeds.length}개: ${dbSeeds.slice(0, 6).join(', ')}${dbSeeds.length > 6 ? ' …' : ''}`);
     const baseSeeds = [...coverage.seedTerms, ...seasonalSeeds, ...dbSeeds];
     /*

@@ -16,6 +16,7 @@ import {
   selectSearchAdAccount,
 } from './searchad-account-pool';
 import { getSearchAdVolumeCached, setSearchAdVolumeCached } from './searchad-volume-cache';
+import { bidKey, type BidPair } from './money-keywords';
 
 /**
  * 검색량 조회 한 요청에 담는 키워드 수. 실측(scripts/verify-v2.49.20-chunksize.ts)으로 4 —
@@ -681,4 +682,133 @@ export async function getNaverSearchAdKeywordSuggestions(
     console.warn('[NAVER-SEARCHAD] 제안 조회 실패:', error.message);
     return [];
   }
+}
+
+/**
+ * 파워링크 평균 순위 입찰가 — /estimate/average-position-bid/keyword (2026-09-24).
+ *
+ * 키워드도구 응답엔 단가 필드가 없어서(monthlyAveCpc 는 한 번도 온 적 없다) 돈 되는 말을 가를 값이 없었다.
+ * 이 창구는 "그 순위에 광고를 걸려면 얼마를 넣어야 하나"를 알려 준다 — 광고주가 실제로 넣는 값이다.
+ * 한 번에 50개까지 묻는다(실측). /npc-estimate 는 다른 광고 상품이라 값이 훨씬 낮다 — 쓰지 않는다.
+ */
+export const AVERAGE_POSITION_BID_CHUNK = 50;
+const AVERAGE_POSITION_BID_URI = '/estimate/average-position-bid/keyword';
+
+/** 응답 { estimate: [{ keyword, position, bid }] } → 입찰가 표(열쇠는 bidKey). 모양이 아니면 빈 표. */
+export function parseAveragePositionBids(body: unknown): Map<string, number> {
+  const out = new Map<string, number>();
+  const list = (body as { estimate?: unknown } | null | undefined)?.estimate;
+  if (!Array.isArray(list)) return out;
+  for (const item of list) {
+    const keyword = typeof item?.keyword === 'string' ? item.keyword : '';
+    const bid = item?.bid;
+    if (!keyword || typeof bid !== 'number' || !Number.isFinite(bid) || bid <= 0) continue;
+    out.set(bidKey(keyword), bid);
+  }
+  return out;
+}
+
+export interface AveragePositionBidOptions {
+  device: 'PC' | 'MOBILE';
+  /** 파워링크 순위 — 기본 3위. */
+  position?: number;
+  fetchImpl?: typeof fetch;
+  /** 쿼터 예약. false 면 더 묻지 않고 잰 만큼만 돌려준다. 기본은 계정 장부(reserveSearchAdCall). */
+  reserve?: (calls: number) => boolean;
+  /** 호출 간격(ms). 기본은 검색량 조회와 같은 간격 — 같은 계정 · 같은 대기열에 선다. */
+  gapMs?: number;
+}
+
+/**
+ * 키워드마다 한 기기의 입찰가. 표의 열쇠는 bidKey(키워드).
+ * 한 묶음이 실패해도 나머지 묶음 값은 남긴다. 키가 없으면 부르지 않고 던진다.
+ */
+export async function getNaverSearchAdAveragePositionBids(
+  config: NaverSearchAdConfig,
+  keywords: readonly string[],
+  options: AveragePositionBidOptions,
+): Promise<Map<string, number>> {
+  const accessLicense = String(config?.accessLicense || '').trim();
+  const secretKey = String(config?.secretKey || '').trim();
+  if (!accessLicense || !secretKey) {
+    throw new Error('네이버 검색광고 API 인증 정보가 필요합니다');
+  }
+  const activeConfig: NaverSearchAdConfig = { ...config, accessLicense, secretKey };
+  const customerId = resolveSearchAdCustomerId(activeConfig);
+  const accountId = searchAdAccountId(activeConfig);
+  const reserve = options.reserve ?? ((calls: number) => reserveSearchAdCall(accountId, calls));
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const intervalMs = options.gapMs ?? SEARCHAD_BASE_INTERVAL_MS;
+  const position = options.position ?? 3;
+
+  /*
+   * 공백을 빼고 묻는다(2026-09-24 실측). '자동차보험 비교' 는 70원, '자동차보험비교' 는 21,270원이었다 —
+   * 공백이 든 말은 등록 안 된 말로 보고 늘 최저가를 준다. 공백만 다른 말은 한 번만 묻는다.
+   */
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const keyword of keywords) {
+    const compact = String(keyword || '').replace(/\s+/g, '');
+    const key = bidKey(compact);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(compact);
+  }
+
+  const out = new Map<string, number>();
+  for (let i = 0; i < unique.length; i += AVERAGE_POSITION_BID_CHUNK) {
+    const now = Date.now();
+    lastSearchAdRequestAt = Math.max(now, lastSearchAdRequestAt + intervalMs);
+    const waitMs = lastSearchAdRequestAt - now;
+    if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+    if (!reserve(1)) break;
+
+    const chunk = unique.slice(i, i + AVERAGE_POSITION_BID_CHUNK);
+    const timestamp = String(Date.now());
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    try {
+      const response = await fetchImpl(`https://api.searchad.naver.com${AVERAGE_POSITION_BID_URI}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'X-Timestamp': timestamp,
+          'X-API-KEY': accessLicense,
+          'X-Customer': customerId,
+          'X-Signature': generateSignature('POST', AVERAGE_POSITION_BID_URI, timestamp, secretKey),
+        },
+        body: JSON.stringify({ device: options.device, items: chunk.map((key) => ({ key, position })) }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        console.warn(`[NAVER-SEARCHAD] 입찰가 조회 실패: ${response.status} (${chunk.length}개 묶음)`);
+        continue;
+      }
+      for (const [key, bid] of parseAveragePositionBids(await response.json())) out.set(key, bid);
+    } catch (error: any) {
+      console.warn('[NAVER-SEARCHAD] 입찰가 조회 실패:', error?.message || error);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  return out;
+}
+
+/** PC · 모바일을 따로 물어 한 표로 합친다. 둘 다 못 잰 말은 표에 없다. */
+export async function getNaverSearchAdBidPairs(
+  config: NaverSearchAdConfig,
+  keywords: readonly string[],
+  options: Omit<AveragePositionBidOptions, 'device'> = {},
+): Promise<Map<string, BidPair>> {
+  const pc = await getNaverSearchAdAveragePositionBids(config, keywords, { ...options, device: 'PC' });
+  const mobile = await getNaverSearchAdAveragePositionBids(config, keywords, { ...options, device: 'MOBILE' });
+  const out = new Map<string, BidPair>();
+  for (const keyword of keywords) {
+    const key = bidKey(keyword);
+    if (!key || out.has(key)) continue;
+    const pair: BidPair = { pc: pc.get(key) ?? null, mobile: mobile.get(key) ?? null };
+    if (pair.pc === null && pair.mobile === null) continue;
+    out.set(key, pair);
+  }
+  return out;
 }

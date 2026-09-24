@@ -510,7 +510,7 @@ async function main() {
    */
   try {
     const { EnvironmentManager } = require('../src/utils/environment-manager');
-    const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
+    const { getNaverSearchAdKeywordVolume, getNaverSearchAdBidPairs } = require('../src/utils/naver-searchad-api');
     const cfg = (typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager()).getConfig();
     const adConfig = {
       accessLicense: cfg.naverSearchAdAccessLicense || process.env.NAVER_SEARCH_AD_ACCESS_LICENSE || '',
@@ -544,6 +544,23 @@ async function main() {
         }
       }
       console.log(`  광고 실측    ${need.length}행 중 ${filled}행 채움 (검색광고 ${adCalls}콜)`);
+      /*
+       * 입찰가 실측(2026-09-24, 사장님 "돈 될 만한 황금키워드가 절대 아냐"): 파워링크 3위 평균 입찰가를
+       * 발행 행마다 잰다. 키워드도구엔 단가가 없어서(monthlyAveCpc 는 한 번도 온 적 없다) 돈 되는 말을
+       * 가를 값이 이것뿐이다. 200행이면 50개씩 PC · 모바일 8콜. 입찰가는 광고주가 바꾸므로 이월 행까지
+       * 매 회차 새로 잰다. 못 잰 행은 money 가 null — 화면은 배지를 안 그린다. 지어내지 않는다.
+       */
+      try {
+        const { moneyBidOf, bidKey } = require('../src/utils/money-keywords');
+        const bids = await getNaverSearchAdBidPairs(adConfig, merged.rows.map((row) => String(row.keyword)));
+        merged.rows = merged.rows.map((row) => ({ ...row, money: moneyBidOf(bids.get(bidKey(row.keyword))) }));
+        const tiers = { high: 0, mid: 0, low: 0, none: 0 };
+        for (const row of merged.rows) if (row.money) tiers[row.money.tier] += 1;
+        const unmeasured = merged.rows.filter((row) => !row.money).length;
+        console.log(`  입찰가 실측  고단가(3,000원↑) ${tiers.high} · 중단가(1,000원↑) ${tiers.mid} · 저단가 ${tiers.low} · 광고 경쟁 없음(70원) ${tiers.none} · 못 잼 ${unmeasured}`);
+      } catch (error) {
+        console.log(`  !! 입찰가 실측 실패(계속) — ${String((error && error.message) || error).slice(0, 80)}`);
+      }
     }
   } catch (error) {
     console.log(`  !! 광고 실측 단계 건너뜀 — ${String((error && error.message) || error).slice(0, 80)}`);

@@ -30,8 +30,10 @@ const arg = (name) => {
 
 const { topicOfSeed } = require('../src/utils/seed-db');
 const { NAVER_BLOG_TOPICS } = require('../src/utils/naver-blog-topics');
-const { judgeAnswerCardKeyword, judgeEphemeralKeyword } = require('../src/utils/preemption-supply-guards');
+const { judgeAnswerCardKeyword, judgeEphemeralKeyword, listedNamesFromSeeds, isListedName } = require('../src/utils/preemption-supply-guards');
 const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
+const { getNaverSearchAdBidPairs } = require('../src/utils/naver-searchad-api');
+const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-keywords');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
@@ -91,6 +93,17 @@ async function main() {
     console.error('네이버 오픈 API 자격증명이 필요합니다(문서수 실측).');
     process.exit(2);
   }
+  /*
+   * 입찰가(파워링크 3위) — 황금 안에서 돈 되는 순으로 세운다(2026-09-24 사장님 "돈 될 만한 황금키워드").
+   * 키가 없으면 재지 않고 예전처럼 황금비 순이다. 보여 줄 행만 재서 주제당 2콜(PC · 모바일)이다.
+   */
+  const searchAd = {
+    accessLicense: cfg.naverSearchAdAccessLicense || process.env.NAVER_SEARCH_AD_ACCESS_LICENSE || '',
+    secretKey: cfg.naverSearchAdSecretKey || process.env.NAVER_SEARCH_AD_SECRET_KEY || '',
+    customerId: cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '',
+  };
+  const canBid = Boolean(searchAd.accessLicense && searchAd.secretKey);
+  if (!canBid) console.log('검색광고 키 없음 — 입찰가 없이 황금비 순으로 간다.');
   const db = JSON.parse(fs.readFileSync(warehousePath, 'utf8'));
   if (!db || !Array.isArray(db.seeds)) {
     console.error(`창고를 못 읽었습니다: ${warehousePath}`);
@@ -99,17 +112,22 @@ async function main() {
 
   const topics = NAVER_BLOG_TOPICS.map((t) => t.label);
   const byTopic = new Map(topics.map((t) => [t, []]));
+  // 종목 이름만 친 말('삼성전자' · 'SK하이닉스')은 주가 카드가 답한다 — 창고의 '○○주가' 씨앗이 이름을 알려 준다.
+  const listedNames = listedNamesFromSeeds(db.seeds);
+  let listedDropped = 0;
   for (const s of db.seeds) {
     if (!(s.searchVolume >= 500)) continue;
     const kw = String(s.keyword || '');
     if (kw.length < 2 || kw.length > 15) continue;
     if (judgeAnswerCardKeyword(kw).answerCard || judgeEphemeralKeyword(kw).ephemeral) continue;
+    if (isListedName(kw, listedNames)) { listedDropped += 1; continue; }
     const t = topicOfSeed(s);
     if (!t || !byTopic.has(t)) continue;
     byTopic.get(t).push(s);
   }
 
   console.log(`오늘의 추천키워드 — 창고 ${db.seeds.length.toLocaleString('ko-KR')}개 · 주제 ${topics.length} · 주제당 후보 ${perTopic} · 황금비 ${minRatio}+ 앞 · 나머지 채움 · 시즌 표시(${months.join('·')}월) · 남김 ${keep}`);
+  console.log(`  종목 이름 ${listedNames.size}개 확인 · 후보에서 뺀 말 ${listedDropped}개`);
   const result = {
     builtAt: new Date().toISOString(),
     warehouseBuiltAt: db.builtAt || null,
@@ -121,7 +139,8 @@ async function main() {
     method: {
       searchVolume: '검색광고 키워드도구 월간 검색량 실측(PC+모바일)',
       documentCount: '네이버 블로그 오픈 API 문서수 실측',
-      ratio: `검색량 ÷ 문서수 — ${minRatio} 이상(황금 비율)을 앞에, 모자라면 나머지를 황금비 순으로 채운다`,
+      ratio: `검색량 ÷ 문서수 — ${minRatio} 이상(황금 비율)을 앞에(그 안에서는 입찰가 높은 순), 모자라면 나머지를 황금비 순으로 채운다`,
+      bid: '네이버 검색광고 파워링크 3위 평균 입찰가 실측(PC · 모바일 중 큰 값) — 70원이면 3위 자리까지 광고 경쟁이 없다',
       season: '이번 달·다음 달 피크인 계절 씨앗은 seasonPeakMonth 로 표시 — 트래픽 몰릴 예정',
       depth: '월 평균 노출 검색광고 수 실측 · 0 이면 광고주가 없는 말',
       serp: '자리(상위 10개 정면 글·빈자리)는 재지 않았다 — 선점 회차가 브라이트데이터로 잰다',
@@ -167,11 +186,19 @@ async function main() {
       }
       await sleep(gapMs);
     }
-    golden.sort((a, b) => b.ratio - a.ratio);
     // 시즌 앞(피크 임박) 비황금을 먼저, 그다음 황금비 순
     others.sort((a, b) => (Number(!!b.seasonPeakMonth) - Number(!!a.seasonPeakMonth)) || (b.ratio - a.ratio));
-    const g = golden.slice(0, keep);
-    const rows = g.concat(others.slice(0, keep - g.length));
+    const shown = golden.slice(0, keep).concat(others.slice(0, keep - Math.min(golden.length, keep)));
+    let bids = new Map();
+    if (canBid && shown.length > 0) {
+      try { bids = await getNaverSearchAdBidPairs(searchAd, shown.map((row) => row.keyword)); } catch (error) {
+        console.log(`  !! ${t} 입찰가 — ${String((error && error.message) || error).slice(0, 70)}`);
+      }
+    }
+    const priced = (row) => ({ ...row, money: moneyBidOf(bids.get(bidKey(row.keyword))) });
+    // 황금 안에서는 돈 되는 순(입찰가 구간 → 입찰가 → 황금비). 못 잰 것끼리는 예전처럼 황금비 순이다.
+    const g = orderGoldenByMoney(golden.slice(0, keep).map(priced));
+    const rows = g.concat(others.slice(0, keep - g.length).map(priced));
     result.topics.push({ topic: t, candidates: cand.length, measured: golden.length + others.length, golden: g.length, rows });
     const repeated = rows.filter((r) => alreadyShown.has(flat(r.keyword))).length;
     console.log(`  ${t.padEnd(8)} 후보 ${String(cand.length).padStart(3)} → 황금 ${String(g.length).padStart(2)} + 채움 ${String(rows.length - g.length).padStart(2)}  (새것 ${rows.length - repeated}/${rows.length} · 누적 호출 ${calls})`);

@@ -473,6 +473,14 @@ const VITEST_SUITES = [
     'src/utils/__tests__/affiliate-local-plan.test.ts',
     // 막힌 제휴 상품의 자리 넓히기(2026-09-17) — 기준이 산술 비율로 되돌아가면 롱테일이 다시 0건이 된다.
     'src/utils/__tests__/affiliate-slots.test.ts',
+    /*
+     * 돈 되는 황금키워드(2026-09-24) — 입찰가 판정 · 조회(공백을 빼야 제 값이 온다) · 시세 카드 가드 ·
+     * 샤드 굶김 · 발행/추천 배선. 공백을 되살리거나 배선이 한 곳만 빠져도 화면은 전부 '광고 경쟁 없음'이 된다.
+     */
+    'src/utils/__tests__/money-keywords.test.ts',
+    'src/utils/__tests__/searchad-average-position-bid.test.ts',
+    'src/utils/__tests__/market-quote-guard.test.ts',
+    'src/utils/__tests__/money-bid-wiring.test.ts',
 ];
 
 /**

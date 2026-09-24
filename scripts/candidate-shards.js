@@ -69,6 +69,27 @@ function shardTopics(topics, shard, shards, weights) {
     return list.filter((topic) => owner.get(topic) === index);
 }
 
+/**
+ * 샤드 하나가 주제를 몇 개씩 동시에 돌릴까.
+ *
+ * 굶김 실측(2026-09-21 회차 35544285040): 샤드마다 주제 7~9개인데 동시 실행이 6이라, 앞의 6개가
+ * 마감 · 하드 스톱까지 약 3시간 20분을 다 쓰고 7번째부터는 17~33초 만에 구절 0개로 끝났다.
+ * 그 자리에 비즈니스·경제 · 건강·의학 · 어학·외국어 · 교육·학문 · IT·컴퓨터가 앉아 있었다 — 돈 되는
+ * 주제가 통째로 빠진 것이다.
+ *
+ * 샤드로 나눴으면 맡은 주제를 전부 한꺼번에 돌린다. API 호출 간격은 공용 간격기가 묶으므로 동시
+ * 실행을 늘려도 초당 호출은 그대로다 — 같은 시간을 여섯이 아니라 전부가 나눠 쓴다. 적으면 예전처럼 6.
+ * 샤드가 없는 로컬 전체 실행(32주제)은 예전 그대로 6이다.
+ *
+ * @param {{ shards: number, topicCount: number }} options
+ * @returns {number}
+ */
+function defaultTopicConcurrency({ shards, topicCount }) {
+    const base = 6;
+    if (!(Number(shards) > 1)) return base;
+    return Math.max(base, Math.floor(Number(topicCount) || 0));
+}
+
 /** 샤드 파일 하나를 읽는다. 못 읽으면 null — 회차를 죽이지 않는다. */
 function readShard(file) {
     try {
@@ -144,7 +165,7 @@ function mergeCandidateFiles(files, options = {}) {
     };
 }
 
-module.exports = { shardTopics, mergeCandidateFiles };
+module.exports = { shardTopics, mergeCandidateFiles, defaultTopicConcurrency };
 
 // ── CLI: node scripts/candidate-shards.js --out=candidates.json a.json b.json ──
 if (require.main === module) {
