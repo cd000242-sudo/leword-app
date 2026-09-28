@@ -9,6 +9,7 @@ type Shape = { [key: string]: true | 'textMatrix' | Shape | [Shape] };
 const fields = (names: string): Shape => Object.fromEntries(names.split(' ').map(name => [name, true]));
 const title = fields('text type target frame basis');
 const metric = fields('keyword searchVolume serpFacing serpVacancy serpFit');
+const searchVolumeEvidence = fields('source keyword measuredAt pc mobile pcUnder10 mobileUnder10 totalMin totalMax status');
 const fact = fields('id title snippet evidenceExcerpts press link publishedAt');
 const editorial: Shape = { ...fields('version status summary audience missing outline angle'), review: fields('passed issues'),
   answers: [{ ...fields('question answer factIds'), excerpts: [fields('factId text')] }] };
@@ -18,7 +19,7 @@ const writingPackage: Shape = { ...fields('version status title intro conclusion
 const writingGuide: Shape = { ...fields('version direction mustInclude avoid seoTitles homeTitles relatedTerms'), images: [fields('sourceId url kind description captureArea')] };
 const inventory: Shape = fields('targetCount actualCount complete shortfall shortfallReason supportedCount refillRounds attempts');
 const brief: Shape = { ...fields('title timing types primaryIntent value experience differentiation coreKeyword keywords factIds field searchVolume searchVolumeUnder10 documentCount documentCountMeasuredAt serpFacing serpVacancy serpFit star'),
-  facts: [fact], editorial, writingPackage, writingGuide, titles: [title], alternative: metric, related: [metric], recommendation: fields('keyword reason') };
+  facts: [fact], editorial, writingPackage, writingGuide, searchVolumeEvidence, titles: [title], alternative: metric, related: [metric], recommendation: fields('keyword reason') };
 const issue: Shape = { ...fields('issue issueType lane issueStatus isHot why rowCount carried'),
   headlines: [fields('title press publishedAt link')], concentrated: [fields('keyword searchVolume origin')],
   nextWave: [fields('keyword reason searchVolume documentCount onBoard')] };

@@ -37,13 +37,14 @@ import { measureSeat, seatBlogTabUrl } from '../../utils/seat-measure';
 import { localSerpFetch, closeLocalSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
 import { enrichBriefFacts, normalizeBriefBoard, reviewTopicBriefs } from '../topic-brief-pipeline';
 import { generateBriefInventory, preserveRicherBriefRound, type BriefInventoryMetadata } from '../topic-brief-inventory';
-import { measureBriefDocumentCounts } from '../topic-brief-metrics';
+import { buildTopicBriefPolicy } from '../../utils/topic-brief-policy';
+import { measureBriefDocumentCounts, measureBriefSearchVolumes } from '../topic-brief-metrics';
 import { atomicBoardWrite } from '../board-cache';
 
 export const BRIEFS_PROGRESS_CHANNEL = 'topic-briefs-local-progress';
 
 /** 분야당 몇 개를 청할까. 검증기에서 한둘 떨어지므로 한 개 더 청한다(스크립트와 같은 규칙). */
-const PER_FIELD = 5;
+const PER_FIELD = 4;
 /** 자리 실측 상한. 사이트는 BD 값 때문에 40 인데 여기는 내 브라우저라 넉넉히 둔다. */
 const CORE_SEAT_CAP = 120;
 /** 같이 넣을 말 자리 상한. 글감당 3개까지 재므로 실제로는 글감 수에 걸린다. */
@@ -145,6 +146,8 @@ async function seatOf(keyword: string): Promise<{ facing: number; vacancy: numbe
 }
 
 export interface RunOptions {
+  goal?: number;
+  mainCategories?: string[];
   perField?: number;
   /** 자리를 아예 재지 않고 빨리 보고 싶을 때. 기본은 잰다. */
   measureSeats?: boolean;
@@ -158,7 +161,10 @@ export interface RunOptions {
 export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBriefsResult> {
   const started = Date.now();
   const report = options.onProgress ?? (() => {});
-  const perField = Math.max(1, options.perField ?? PER_FIELD);
+  const perField = Math.min(4, Math.max(1, options.perField ?? PER_FIELD));
+  if (options.mainCategories !== undefined && (!Array.isArray(options.mainCategories) || options.mainCategories.some(name => !BRIEF_FIELDS.some(item => item.field === name)))) throw new Error('알 수 없는 글감 분야입니다.');
+  const policy = buildTopicBriefPolicy({goal: options.goal, mainCategories: options.mainCategories, weights: options.mainCategories ? Object.fromEntries(options.mainCategories.map(field => [field, 1])) : undefined});
+  const selectedFields = BRIEF_FIELDS.filter(({field}) => policy.allocations.some(item => item.field === field && item.desiredTarget > 0));
   const wantSeats = options.measureSeats !== false;
   const { openApi, ad } = configOf();
   if (!openApi.clientId || !openApi.clientSecret) {
@@ -173,9 +179,9 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   // ── 1) 사실 카드 — 분야별 뉴스 실측
   const fieldFacts = new Map<string, ReturnType<typeof toFactCards>>();
   let newsCalls = 0;
-  for (let i = 0; i < BRIEF_FIELDS.length; i += 1) {
+  for (let i = 0; i < selectedFields.length; i += 1) {
     if (abortRequested) break;
-    const { field, queries } = BRIEF_FIELDS[i];
+    const { field, queries } = selectedFields[i];
     const seen = new Set<string>();
     const cards: ReturnType<typeof toFactCards> = [];
     for (const query of queries) {
@@ -192,9 +198,9 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
       } catch { /* 이 질의만 건너뛴다 */ }
       await sleep(120);
     }
-    const picked = pickFactsForPrompt(cards, today, 24);
+    const picked = pickFactsForPrompt(cards, today, 48);
     fieldFacts.set(field, picked);
-    report({ step: '뉴스', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — 기사 ${cards.length}건에서 근거 카드 ${picked.length}장` });
+    report({ step: '뉴스', done: i + 1, total: selectedFields.length, message: `${field} — 기사 ${cards.length}건에서 근거 카드 ${picked.length}장` });
   }
 
   // ── 2) 글감 — 사장님 구독 CLI 가 카드 **안에서만** 고른다
@@ -203,17 +209,17 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   const agentFailures: string[] = [];
   let agentCalls = 0;
   const inventoryFields = [];
-  for (const { field } of BRIEF_FIELDS) {
+  for (const { field } of selectedFields) {
     throwIfCancelled();
     const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
-    inventoryFields.push({ field, facts, targetCount: /지원금|비즈니스|소상공인|경제|시사/.test(field) ? Math.max(8, perField) : perField });
+    inventoryFields.push({ ...policy.allocations.find(item => item.field === field), field, facts, targetCount: perField });
   }
-  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: prior.filter(r => r.slot !== slot), goal: 30, cancelled: () => abortRequested,
+  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: prior.filter(r => r.slot !== slot), goal: policy.goal, cancelled: () => abortRequested,
     run: async (prompt, context) => {
       throwIfCancelled();
       const result = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
       agentCalls += 1; return result.reply;
-    }, onProgress: progress => report({ step: '글감', done: progress.actualCount, total: 30, message: progress.field + ' — 글감 ' + progress.actualCount + '개 확보' }) });
+    }, onProgress: progress => report({ step: '글감', done: progress.actualCount, total: policy.goal, message: progress.field + ' — 글감 ' + progress.actualCount + '개 확보' }) });
   all.push(...generated.briefs); droppedAll.push(...generated.dropped);
 
   throwIfCancelled();
@@ -222,25 +228,12 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   }
 
   // ── 3) 검색량 실측
-  const volumes = new Map<string, number | null>();
-  let briefs = await measureBriefDocumentCounts(all, openApi, { cancelled: () => abortRequested, onProgress: (done, total) => report({ step: '검색량', done, total, message: '블로그 문서량 실측 ' + done + '/' + total }) });
-  if (ad.accessLicense && ad.secretKey && all.length > 0) {
-    const wanted = [...new Set(all.flatMap((b) => b.keywords))];
-    for (let i = 0; i < wanted.length && !abortRequested; i += 5) {
-      const chunk = wanted.slice(i, i + 5);
-      try {
-        const vols: any[] = await getNaverSearchAdKeywordVolume(ad as any, chunk);
-        const byKey = new Map((vols || []).map((v: any) => [String(v.keyword || '').replace(/\s+/g, ''), v]));
-        for (const k of chunk) {
-          const v: any = byKey.get(k.replace(/\s+/g, ''));
-          if (v) volumes.set(k.replace(/\s+/g, ''), typeof v.totalSearchVolume === 'number' ? v.totalSearchVolume : null);
-        }
-      } catch { /* 이 묶음만 건너뛴다 */ }
-      report({ step: '검색량', done: Math.min(i + 5, wanted.length), total: wanted.length, message: `검색어 ${Math.min(i + 5, wanted.length)}/${wanted.length} · 잰 것 ${volumes.size}` });
-      await sleep(300);
-    }
-    briefs = briefs.map((b) => applyMeasuredVolumes(b, volumes));
-  }
+  const documented = await measureBriefDocumentCounts(all, openApi, { cancelled: () => abortRequested, onProgress: (done, total) => report({ step: '검색량', done, total, message: '블로그 문서량 실측 ' + done + '/' + total }) });
+  throwIfCancelled();
+  const measured = await measureBriefSearchVolumes(documented, ad, {cancelled: () => abortRequested,
+    onProgress: (done,total) => report({step:'검색량',done,total,message:`검색광고 PC·모바일 응답 확인 ${done}/${total}`})});
+  const volumes = measured.volumes;
+  let briefs = measured.briefs;
   briefs = carrySeats(briefs, prior);
 
   // ── 4) 자리 실측 — 상한이 넉넉하다. 이게 앱 레인의 값이다.
@@ -308,7 +301,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   const builtAt = new Date().toISOString();
   const thisRound: BriefRound = { slot, builtAt, counts: roundCounts(starred), briefs: starred };
   if (previous && preserveRicherBriefRound(thisRound, prior.find(r => r.slot === slot)) !== thisRound) {
-    report({ step: '정리', done: previous.briefs.length, total: 30, message: '같은 회차의 더 풍부한 기존 글감을 유지했습니다.' });
+    report({ step: '정리', done: previous.briefs.length, total: policy.goal, message: '같은 회차의 더 풍부한 기존 글감을 유지했습니다.' });
     return previous;
   }
   const result: LocalBriefsResult = {
@@ -372,13 +365,15 @@ export function setupTopicBriefsLocalHandlers(): void {
   }
 
   if (!ipcMain.listenerCount('topic-briefs-local-run')) {
-    ipcMain.handle('topic-briefs-local-run', async (event, payload?: { perField?: number; measureSeats?: boolean }) => {
+    ipcMain.handle('topic-briefs-local-run', async (event, payload?: { perField?: number; measureSeats?: boolean; goal?: number; mainCategories?: string[] }) => {
       if (running) return { success: false, error: '이미 만드는 중입니다.' };
       running = true;
       abortRequested = false;
       try {
         const result = await runLocalBriefs({
           perField: payload?.perField,
+          goal: payload?.goal,
+          mainCategories: payload?.mainCategories,
           measureSeats: payload?.measureSeats,
           onProgress: (p) => { try { event.sender.send(BRIEFS_PROGRESS_CHANNEL, p); } catch { /* 창이 닫혔을 수 있다 */ } },
         });

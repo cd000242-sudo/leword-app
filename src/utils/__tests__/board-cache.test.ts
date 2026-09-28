@@ -11,6 +11,15 @@ afterEach(() => dirs.splice(0).forEach(dir => fs.rmSync(dir, { recursive: true, 
 const brief = { title: '지원금 신청 조건 확인', coreKeyword: '지원금 신청', timing: 'NOW', field: '정책', facts: [{ id: 'f1', title: '지원금 신청', snippet: '조건 확인', body: '비공개 기사 전체', apiKey: 'SECRET', link: 'https://news.naver.com/article/1', publishedAt: stamp }], factIds: ['f1'] };
 
 describe('public board projection and successful snapshot', () => {
+  it('preserves same-query split search counts and strips private response data', () => {
+    const evidence = {source:'naver-searchad',keyword:'지원금 신청',measuredAt:stamp,pc:100,mobile:null,pcUnder10:false,mobileUnder10:true,totalMin:100,totalMax:109,status:'range',accessToken:'SECRET'};
+    const board:any = publicBoard('topic-briefs',{builtAt:stamp,briefs:[{...brief,searchVolume:999,searchVolumeUnder10:true,searchVolumeEvidence:evidence}]},now);
+    expect(board.briefs[0]).toMatchObject({searchVolume:null,searchVolumeUnder10:false,searchVolumeEvidence:{totalMin:100,totalMax:109,pc:100,mobile:null}});
+    expect(JSON.stringify(board)).not.toContain('SECRET');
+    const invalid:any = publicBoard('topic-briefs',{builtAt:stamp,briefs:[{...brief,searchVolume:999,searchVolumeEvidence:{...evidence,keyword:'다른 검색어'}}]},now);
+    expect(invalid.briefs[0].searchVolume).toBeNull();
+    expect(invalid.briefs[0].searchVolumeEvidence).toBeUndefined();
+  });
   it('publishes bounded inventory metadata without provider errors or private details', () => {
     const inventory = {targetCount:30,actualCount:1,complete:false,shortfall:29,shortfallReason:'추가 자료 확인 중',supportedCount:0,refillRounds:2,attempts:3,failures:[{reason:'SECRET'}],byField:{정책:1},token:'SECRET'};
     const board:any = publicBoard('topic-briefs',{builtAt:stamp,briefs:[brief],inventory,rounds:[{slot:'아침',builtAt:stamp,briefs:[brief],inventory}]},now);

@@ -28,7 +28,8 @@ const { requireJsonArray } = require('../src/utils/agent-cli/replyValidators');
 const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
 const { enrichBriefFacts, reviewTopicBriefs, normalizeBriefBoard } = require('../src/main/topic-brief-pipeline');
 const { generateBriefInventory, isBriefRoundComplete, preserveRicherBriefRound } = require('../src/main/topic-brief-inventory');
-const { measureBriefDocumentCounts } = require('../src/main/topic-brief-metrics');
+const { buildTopicBriefPolicy } = require('../src/utils/topic-brief-policy');
+const { measureBriefDocumentCounts, measureBriefSearchVolumes } = require('../src/main/topic-brief-metrics');
 
 const arg = (name, fallback = '') => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -40,7 +41,12 @@ const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
 
 async function main() {
   const outPath = path.resolve(arg('out', 'topic-briefs.json'));
-  const perField = Number(arg('perField')) || 5; // 사장님 2026-09-09: 주제마다 5개 이상
+  const perField = Math.min(4, Math.max(1, Number(arg('perField')) || 4));
+  const requestedFields = arg('fields').split('|').filter(Boolean);
+  const mainCategories = arg('mainCategories') ? arg('mainCategories').split('|') : undefined;
+  if ([...requestedFields, ...(mainCategories || [])].some(name => !BRIEF_FIELDS.some(item => item.field === name))) throw new Error('알 수 없는 글감 분야입니다.');
+  const policy = buildTopicBriefPolicy({ goal: Number(arg('goal')) || undefined, mainCategories,
+    weights: requestedFields.length ? Object.fromEntries(BRIEF_FIELDS.map(({field}) => [field, requestedFields.includes(field) ? 1 : 0])) : mainCategories ? Object.fromEntries(mainCategories.map(field => [field, 1])) : undefined }); // 사장님 2026-09-09: 주제마다 5개 이상
   const serpMode = arg('serp', 'none'); // local | brightdata | none
   const maxSerp = Number(arg('maxSerp')) || 40;
   /*
@@ -84,7 +90,7 @@ async function main() {
    * 그래서 회차마다 예약을 여러 번 걸고, 먼저 도는 하나만 일하고 나머지는 여기서 곧장 나간다.
    * 비용이 드는 단계(뉴스·에이전트·검색광고·자리 실측) 앞이라 헛돈이 안 나간다.
    */
-  if (arg('skipIfSlotDone') === 'true' && priorRounds.some((r) => r.slot === slot && isBriefRoundComplete(r))) {
+  if (arg('skipIfSlotDone') === 'true' && priorRounds.some((r) => r.slot === slot && isBriefRoundComplete(r, policy.goal, policy.allocations))) {
     const done = priorRounds.find((r) => r.slot === slot);
     console.log(`${slot} 회차는 오늘 이미 실렸다(${done.builtAt} · 글감 ${done.briefs.length}). 아무것도 하지 않고 나간다.`);
     return;
@@ -114,7 +120,7 @@ async function main() {
   };
   const fieldFacts = new Map();
   let newsCalls = 0;
-  const selectedFields = arg('fields') ? BRIEF_FIELDS.filter(({ field }) => arg('fields').split('|').includes(field)) : BRIEF_FIELDS;
+  const selectedFields = BRIEF_FIELDS.filter(({field}) => policy.allocations.some(item => item.field === field && item.desiredTarget > 0));
   if (selectedFields.length === 0) throw new Error('선택한 분야가 없습니다.');
   for (const { field, queries } of selectedFields) {
     const seen = new Set();
@@ -125,7 +131,7 @@ async function main() {
       cards.push(...toFactCards(items, field, seen));
       await sleep(120);
     }
-    const picked = pickFactsForPrompt(cards, today, 24);
+    const picked = pickFactsForPrompt(cards, today, 48);
     fieldFacts.set(field, picked);
     console.log(`  ${field.padEnd(14)} 기사 ${String(cards.length).padStart(3)} → 근거 카드 ${String(picked.length).padStart(2)}`);
   }
@@ -138,9 +144,9 @@ async function main() {
   const inventoryFields = [];
   for (const { field } of selectedFields) {
     const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
-    inventoryFields.push({ field, facts, targetCount: /지원금|비즈니스|소상공인|경제|시사/.test(field) ? Math.max(8, perField) : perField });
+    inventoryFields.push({ ...policy.allocations.find(item => item.field === field), field, facts, targetCount: perField });
   }
-  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: priorRounds.filter(r => r.slot !== slot), goal: 30,
+  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: priorRounds.filter(r => r.slot !== slot), goal: policy.goal,
     run: async (prompt, context) => {
       const result = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
       agentCalls += 1; console.log(`  ${context.field} ${context.stage} → ${result.provider}`); return result.reply;
@@ -153,28 +159,10 @@ async function main() {
 
   // 3) 글감이 정한 핵심 검색어의 검색량을 측정한다. 큰 검색량으로 질문을 바꾸지 않는다.
   let measuredBriefs = await measureBriefDocumentCounts(all, openApi);
-  const volumes = new Map(); // 공백 걷은 검색어 → 월 검색량(null = '< 10'). 5) 대안 검색어 후보에도 쓴다.
-  if (adConfig.accessLicense && adConfig.secretKey && all.length > 0) {
-    const wanted = [...new Set(all.flatMap((b) => b.keywords))];
-    for (let i = 0; i < wanted.length; i += 5) {
-      const chunk = wanted.slice(i, i + 5);
-      try {
-        const vols = await getNaverSearchAdKeywordVolume(adConfig, chunk);
-        const byKey = new Map((vols || []).map((v) => [String(v.keyword || '').replace(/\s+/g, ''), v]));
-        for (const k of chunk) {
-          const v = byKey.get(k.replace(/\s+/g, ''));
-          if (v) volumes.set(k.replace(/\s+/g, ''), typeof v.totalSearchVolume === 'number' ? v.totalSearchVolume : null);
-        }
-      } catch (error) {
-        console.log(`  !! 검색량 실측 실패(계속) — ${String((error && error.message) || error).slice(0, 80)}`);
-      }
-      await sleep(300);
-    }
-    measuredBriefs = measuredBriefs.map((b) => applyMeasuredVolumes(b, volumes));
-    console.log(`  검색량 실측  검색어 ${wanted.length}개 → 잰 것 ${volumes.size} · 10+ ${[...volumes.values()].filter((v) => v != null).length}`);
-  } else if (all.length > 0) {
-    console.log('  검색광고 키 없음 — 검색량은 null 로 둔다');
-  }
+  const measured = await measureBriefSearchVolumes(measuredBriefs, adConfig);
+  measuredBriefs = measured.briefs;
+  const volumes = measured.volumes;
+  console.log(`  검색량 실측  정확 값 ${measuredBriefs.filter(b => b.searchVolumeEvidence?.status === 'exact').length} · 공개 범위 ${measuredBriefs.filter(b => b.searchVolumeEvidence?.status === 'range').length} · 나머지 미측정`);
   const seatedBriefs = carrySeats(measuredBriefs, priorRounds);
   all.length = 0; all.push(...seatedBriefs); // 검색량 미측정 시 measuredBriefs === all 이어도 후보를 잃지 않는다.
 

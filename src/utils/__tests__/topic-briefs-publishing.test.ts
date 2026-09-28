@@ -7,6 +7,7 @@ import { tryExtractJson } from '../agent-cli/parse';
 import { runWithAnyAgent } from '../agent-cli/runAny';
 import { requireJsonArray } from '../agent-cli/replyValidators';
 import * as inventory from '../../main/topic-brief-inventory';
+import { buildTopicBriefPolicy } from '../topic-brief-policy';
 
 const DAY = new Date('2026-09-13T06:00:00.000Z');
 const draft = { title: '가을 건강 관리 준비할 사항', timing: 'NOW', coreKeyword: '가을 건강', keywords: ['가을 건강'], factIds: ['f1'], value: '가을 건강 관리 안내', primaryIntent: '건강 관리', types: ['가이드형'] };
@@ -19,7 +20,7 @@ async function runScript(options: { previousCount?: number; fail?: boolean; noFa
   const claude = vi.fn(async () => { if (options.claudeProse) return '요청하신 글감은 다음과 같습니다.'; throw new Error('weekly limit'); });
   const codex = vi.fn(async () => { throw new Error('not_installed'); });
   const gemini = vi.fn(async () => { if (options.fail) throw new Error('503 unavailable'); return JSON.stringify([draft]); });
-  const previous = options.previousCount == null ? null : { rounds: [{ slot: '아침', builtAt: DAY.toISOString(), briefs: Array.from({length:options.previousCount || 0}, (_, i) => ({...draft,coreKeyword:'기존 검색어 '+i,facts})) }] };
+  const previous = options.previousCount == null ? null : { rounds: [{ slot: '아침', builtAt: DAY.toISOString(), briefs: Array.from({length:options.previousCount || 0}, (_, i) => ({...draft,field:'건강',coreKeyword:'기존 검색어 '+i,facts})) }] };
   const mocks: Record<string, unknown> = {
     'ts-node/register/transpile-only': {},
     './load-project-env': { loadProjectEnv() {} },
@@ -34,8 +35,9 @@ async function runScript(options: { previousCount?: number; fail?: boolean; noFa
     // 폴백 체인 답 검사(2026-09-15) — 글감이 JSON 배열이 아니면 다음 엔진으로 넘긴다.
     '../src/utils/agent-cli/replyValidators': { requireJsonArray },
     '../src/utils/naver-searchad-api': {},
+    '../src/utils/topic-brief-policy': { buildTopicBriefPolicy: () => buildTopicBriefPolicy({weights:{'지원금·복지':0,'비즈니스·소상공인':0,'경제·금융':0,'생활경제·부동산':0,'주요 이슈':0,'건강':1},mainCategories:['건강']}) },
     '../src/main/topic-brief-inventory': { ...inventory, generateBriefInventory: (options: any) => inventory.generateBriefInventory({...options,goal:1,maxRefillRounds:0}) },
-    '../src/main/topic-brief-metrics': { measureBriefDocumentCounts: async (rows: unknown) => rows },
+    '../src/main/topic-brief-metrics': { measureBriefDocumentCounts: async (rows: unknown) => rows, measureBriefSearchVolumes: async (rows: unknown) => ({briefs:rows,volumes:new Map(),evidenceByKeyword:new Map()}) },
     '../src/main/topic-brief-pipeline': {
       enrichBriefFacts: async (cards: unknown) => cards,
       reviewTopicBriefs: async (rows: unknown) => rows,
@@ -69,8 +71,8 @@ describe('오늘의 글감 발행 경로', () => {
     expect(result.writes).toHaveBeenCalledOnce();
     expect(JSON.parse(result.writes.mock.calls[0][1]).counts.briefs).toBe(1);
   });
-  it('30개 이상 게시된 회차는 API를 다시 호출하지 않는다', async () => {
-    const result = await runScript({ previousCount: 30 });
+  it('50개 이상 게시된 회차는 API를 다시 호출하지 않는다', async () => {
+    const result = await runScript({ previousCount: 50 });
     expect(result.news).not.toHaveBeenCalled();
     expect(result.gemini).not.toHaveBeenCalled();
     expect(result.writes).not.toHaveBeenCalled();

@@ -77,6 +77,8 @@ export interface TopicBrief extends BriefDraft {
   facts: Array<{ id: string; title: string; snippet?: string; evidenceExcerpts?: string[]; press: string; link: string; publishedAt: string }>;
   recommendation?: { keyword: string; reason: string };
   searchVolume: number | null;
+  /** Exact PC/mobile response and disclosure bounds for this same keyword. */
+  searchVolumeEvidence?: import('./topic-brief-volume').BriefSearchVolumeEvidence;
   /** Naver document total for the exact keyword; only the measurement stage may populate it. */
   documentCount?: number | null;
   documentCountMeasuredAt?: string;
@@ -276,7 +278,8 @@ export function applyMeasuredVolumes(brief: TopicBrief, volumes: ReadonlyMap<str
   const norm = (k: string) => k.replace(/\s+/g, '');
   if (!volumes.has(norm(brief.coreKeyword))) return brief;
   const volume = volumes.get(norm(brief.coreKeyword)) ?? null;
-  return { ...brief, searchVolume: volume, searchVolumeUnder10: volume == null };
+  // A null total alone cannot distinguish undisclosed device counts from API failure.
+  return { ...brief, searchVolume: volume, searchVolumeUnder10: false };
 }
 
 /** 기존 호출 계약을 유지하되 최종 추천은 근거 검토와 실제 대상 검색어의 측정값을 함께 요구한다. */

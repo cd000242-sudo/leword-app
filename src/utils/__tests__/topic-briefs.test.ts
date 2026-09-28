@@ -104,11 +104,11 @@ describe('validateBriefs — 카드에 없는 것은 못 들어간다', () => {
 describe('applyMeasuredVolumes — 핵심 검색어를 고정하고 실측 검색량만 반영', () => {
     const brief = { ...validateBriefs([{ title: '독감 무료접종 언제부터 대상별 일정', timing: 'ALWAYS', keywords: ['독감 접종', '독감 무료접종 대상'], value: '', factIds: ['f1'] }],
         [{ id: 'f1', field: '건강', title: 't', snippet: '', press: 'p', link: 'l', publishedAt: '2026-09-08T00:00:00.000Z', dates: [] }], '건강', TODAY).ok[0]! };
-    it('다른 후보가 더 커도 바꾸지 않고, < 10은 under10 표시', () => {
+    it('다른 후보가 더 커도 바꾸지 않고, 출처 없는 null은 미측정으로 유지', () => {
         const a = applyMeasuredVolumes(brief, new Map([['독감접종', 800], ['독감무료접종대상', 2940]]));
         expect([a.coreKeyword, a.searchVolume, a.searchVolumeUnder10]).toEqual(['독감 접종', 800, false]);
         const b = applyMeasuredVolumes(brief, new Map([['독감접종', null]]));
-        expect([b.coreKeyword, b.searchVolume, b.searchVolumeUnder10]).toEqual(['독감 접종', null, true]);
+        expect([b.coreKeyword, b.searchVolume, b.searchVolumeUnder10]).toEqual(['독감 접종', null, false]);
         expect(applyMeasuredVolumes(brief, new Map()).searchVolumeUnder10).toBeUndefined();
     });
 });

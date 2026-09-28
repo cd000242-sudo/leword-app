@@ -11,7 +11,7 @@ vi.mock('electron', () => ({ app: { getPath: () => 'fixture-user-data' }, ipcMai
 } }));
 vi.mock('fs', () => ({ readFileSync: () => state.previous, writeFileSync: state.writes, mkdirSync: vi.fn() }));
 vi.mock('../topic-briefs', async (original) => ({
-  ...(await original<any>()), BRIEF_FIELDS: [{ field: '생활', queries: ['지역 축제'] }],
+  ...(await original<any>()), BRIEF_FIELDS: [{ field: '지원금·복지', queries: ['지역 축제'] }],
 }));
 vi.mock('../naver-api-hub', () => ({ naverApiFetch: state.news }));
 vi.mock('../environment-manager', () => ({ EnvironmentManager: { getInstance: () => ({ getConfig: () => ({
@@ -19,10 +19,10 @@ vi.mock('../environment-manager', () => ({ EnvironmentManager: { getInstance: ()
 }) }) } }));
 vi.mock('../agent-cli/defaultChain', () => ({ createDefaultAgentChain: () => [] }));
 vi.mock('../agent-cli/runAny', () => ({ runWithAnyAgent: state.agent }));
-vi.mock('../naver-searchad-api', () => ({ getNaverSearchAdKeywordVolume: state.volume, getNaverSearchAdKeywordSuggestions: vi.fn() }));
+vi.mock('../naver-searchad-api', () => ({ SEARCHAD_VOLUME_CHUNK_SIZE: 4, getNaverSearchAdKeywordVolume: state.volume, getNaverSearchAdKeywordSuggestions: vi.fn() }));
 vi.mock('../local-serp-fetch', () => ({ localSerpFetch: vi.fn(), closeLocalSerpFetch: vi.fn(), localSerpStats: () => ({ consecutiveBlocked: 0 }) }));
 vi.mock('../../main/topic-brief-pipeline', async (original) => ({ ...(await original<any>()), enrichBriefFacts: async (facts: unknown) => facts }));
-vi.mock('../../main/topic-brief-metrics', () => ({ measureBriefDocumentCounts: async (rows: unknown) => rows }));
+vi.mock('../../main/topic-brief-metrics', async original => ({ ...(await original<any>()), measureBriefDocumentCounts: async (rows: unknown) => rows }));
 
 import { readLocalBriefs, setupTopicBriefsLocalHandlers } from '../../main/handlers/topic-briefs-local';
 

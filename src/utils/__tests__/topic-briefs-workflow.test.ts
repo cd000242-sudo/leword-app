@@ -50,7 +50,8 @@ describe('오늘의 글감 워크플로', () => {
         expect(workflow).toContain('site/spa/public/data/topic-briefs.json');
         // 앞 회차를 이어받아 아침·오후·저녁을 한 파일에 쌓고, 주제마다 5개 이상
         expect(workflow).toContain('--carry=site/spa/public/data/topic-briefs.json');
-        expect(workflow).toContain('--perField=5');
+        expect(workflow).toContain('--goal=50');
+        expect(workflow).toContain('--perField=4');
         expect(workflow).toContain('--maxAltSerp=70');
     });
 

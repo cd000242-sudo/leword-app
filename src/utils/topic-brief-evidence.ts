@@ -2,6 +2,7 @@ import type { BriefEditorial, FactCard, TopicBrief } from './topic-briefs';
 import { extractDates } from './topic-brief-dates';
 import { hasFabricatedExperience, sanitizeTitles } from './topic-brief-titles';
 import { validateWritingGuide } from './topic-brief-guide';
+import { normalizeBriefSearchVolumeEvidence, applyBriefSearchVolumeEvidence } from './topic-brief-volume';
 
 const text = (value: unknown) => typeof value === 'string' ? value.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
 const norm = (value: unknown) => text(value).normalize('NFKC').replace(/\s+/g, '');
@@ -137,13 +138,16 @@ export function normalizeBriefForDisplay(brief: TopicBrief): TopicBrief {
   }
   if (editorial.review?.passed !== true) editorial.status = 'needs_research';
   const coreKeyword = text(brief.coreKeyword);
+  const measured = brief.searchVolumeEvidence !== undefined
+    ? applyBriefSearchVolumeEvidence(brief, normalizeBriefSearchVolumeEvidence(coreKeyword, brief.searchVolumeEvidence))
+    : brief;
   const safeTitle = `${coreKeyword || '글감'} 확인된 내용과 더 알아볼 점`;
   const title = claimIssue(brief.title, facts, anchor) ? safeTitle : text(brief.title) || safeTitle;
   const keywords = unique([coreKeyword, ...(brief.keywords || []).filter(k => isNarrowerKeyword(coreKeyword, k))].filter(Boolean));
   const alternative = brief.alternative && isNarrowerKeyword(coreKeyword, brief.alternative.keyword)
     ? { ...brief.alternative, serpFit: serpFitOf(brief.alternative.serpFacing, brief.alternative.serpVacancy) } : brief.alternative === undefined ? undefined : null;
   const result: TopicBrief = {
-    ...brief, title, coreKeyword, keywords, editorial,
+    ...measured, title, coreKeyword, keywords, editorial,
     writingGuide: guideResult.guide,
     documentCount: typeof brief.documentCount === 'number' && Number.isSafeInteger(brief.documentCount) && brief.documentCount >= 0 && Number.isFinite(Date.parse(brief.documentCountMeasuredAt || '')) ? brief.documentCount : null,
     documentCountMeasuredAt: Number.isFinite(Date.parse(brief.documentCountMeasuredAt || '')) ? brief.documentCountMeasuredAt : undefined,
