@@ -264,6 +264,10 @@ jobs:
         run: node scripts/realtime-signals.js --out=signals.json --limit=20
 
       # 후보 발굴은 무료다(검색광고·자동완성). BD 크레딧은 발행 잡에서만 쓴다.
+      - name: 현재 글감 출처 받기
+        continue-on-error: true
+        run: curl --fail --silent --show-error --max-time 30 https://leaderspro.kr/data/topic-briefs.json --output current-briefs.json
+
       - name: 후보 발굴
         env:
           # 러너 4개가 한 검색광고 계정을 동시에 부른다(2026-09-08 실측 429 폭주). 러너 안 간격을
@@ -342,6 +346,7 @@ jobs:
             --targetTotal=2560 --promotedPerTopic=30 \
             --starvedFloor=15 --starvedFacing=6 \
             --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json \
+            --currentBriefs=current-briefs.json \
             --signals=signals.json
 
       - name: 샤드 결과 넘기기

@@ -42,6 +42,7 @@ const { TIER_ORDER } = require('../src/utils/preemption-gate');
 const { orderForPublish } = require('../src/utils/board-order');
 // 죽은 행 — 카드로 답이 나오는 검색어·수익 판정 bad. 등급(검색량÷문서수)은 의도를 못 본다.
 const { judgeDeadRow } = require('../src/utils/board-dead-rows');
+const { classifyGoldenShortTrend, retainGoldenShortTrend, shortTrendCandidates, unknownGoldenShortTrend } = require('../src/utils/golden-short-trend');
 
 const DEFAULT_DEST = path.join(
   __dirname, '..', 'tmp', 'leaderspro-admin-work', 'spa', 'public', 'data', 'preemption-board.json',
@@ -52,6 +53,117 @@ function arg(name, fallback = '') {
   return found ? found.slice(name.length + 3) : fallback;
 }
 const hasFlag = (name) => process.argv.includes(`--${name}`);
+
+/** Daily trends never refresh the age of the independent SERP measurement. */
+async function enrichShortTermTrends(rows, options = {}) {
+  const nowMs = options.nowMs ?? Date.now();
+  const budget = Math.min(120, options.budget ?? 60);
+  const normalized = rows.map(row => ({ ...row, shortTermTrend: retainGoldenShortTrend(row.shortTermTrend, nowMs) }));
+  const skipped = new Set(options.skipKeywords || []);
+  const candidates = shortTrendCandidates(normalized.filter(row => !skipped.has(trendKey(row))), nowMs, budget);
+  if (candidates.length === 0) return normalized;
+  const provider = require('../src/utils/trend-type-classifier');
+  const fetchHorizon = options.fetchHorizon || provider.fetchDatalabHorizon;
+  const fetchSeries = options.fetchSeries || provider.fetchKeywordTimeseries30Day;
+  const config = options.config || {};
+  let horizon;
+  try { horizon = await fetchHorizon(config, nowMs); } catch { return normalized; }
+  if (!horizon) return normalized;
+  const measuredAt = new Date(nowMs).toISOString();
+  const byRow = new Map();
+  for (const row of candidates) {
+    if (options.onAttempt) options.onAttempt(row.keyword);
+    try {
+      const raw = await fetchSeries(row.keyword, config);
+      const points = raw.dates.map((period, index) => ({ period, ratio: raw.series[index] }));
+      byRow.set(row, classifyGoldenShortTrend(points, horizon, measuredAt, nowMs));
+    } catch {
+      byRow.set(row, unknownGoldenShortTrend(measuredAt, horizon));
+    }
+  }
+  return normalized.map(row => byRow.has(row) ? { ...row, shortTermTrend: byRow.get(row) } : row);
+}
+
+const financialRow = row => /비즈니스|경제|금융|재테크|지원금/.test(String(row.topic || ''))
+  || /지원금|장려금|소상공인|정책자금|세액공제|부가세|연금|대출|적금/.test(String(row.keyword || ''));
+const trendKey = row => String(row.keyword || '').normalize('NFKC').replace(/\s/g, '').toLowerCase();
+function eligibleTrendCandidate(row, nowMs) {
+  if (!row || !trendKey(row) || !financialRow(row)) return false;
+  const at = Date.parse(row.measuredAt || '');
+  const sampled = row.serp?.sampledTitles ?? row.sampledTitles;
+  const facing = row.serp?.exactTitleHits ?? row.facingPosts;
+  if (!Number.isFinite(at) || at > nowMs || nowMs - at > 7 * 86400000
+    || !Number.isFinite(row.searchVolume) || row.searchVolume <= 0
+    || !Number.isFinite(row.documentCount) || row.documentCount < 0
+    || !Number.isFinite(sampled) || sampled < 5
+    || !Number.isFinite(facing) || facing < 0 || facing > sampled) return false;
+  const serpSections = trustedSections(row.serp || {}) || row.serpSections || [];
+  return !judgeNamedPersonRisk(row.keyword).risky && judgeCompleteness(row.keyword, []).complete
+    && !judgeDeadRow({ ...row, serpSections }).dead;
+}
+
+/** Safe exception to empty-round protection: real rising evidence can update a surviving board. */
+function canCarryTrendOnly(rows, rejections, previous, nowMs = Date.now()) {
+  return rows.length === 0 && Array.isArray(previous?.rows) && previous.rows.length > 0
+    && rejections.some(row => eligibleTrendCandidate(row, nowMs)
+      && retainGoldenShortTrend(row.shortTermTrend, nowMs).status === 'rising');
+}
+
+/** A normal batch has no daily trend yet. Check it before the empty guard, once per total budget. */
+async function prepareTrendOnlyRound(rows, rejections, previous, options = {}) {
+  const nowMs = options.nowMs ?? Date.now();
+  const requested = options.budget ?? 60;
+  const budget = Number.isFinite(requested) ? Math.max(0, Math.min(120, Math.floor(requested))) : 0;
+  const alreadyAllowed = canCarryTrendOnly(rows, rejections, previous, nowMs);
+  if (rows.length > 0 || !Array.isArray(previous?.rows) || previous.rows.length === 0 || alreadyAllowed) {
+    return { rejections, remainingBudget: budget, attemptedKeywords: [], canCarry: alreadyAllowed };
+  }
+  const attemptedKeywords = [];
+  const unique = new Map();
+  for (const row of rejections) if (!unique.has(trendKey(row))) unique.set(trendKey(row), row);
+  const candidates = [...unique.values()].filter(row => eligibleTrendCandidate(row, nowMs));
+  const measured = await enrichShortTermTrends(candidates, {
+    ...options, budget, onAttempt: keyword => { attemptedKeywords.push(trendKey({ keyword })); },
+  });
+  const byKey = new Map(measured.map(row => [trendKey(row), row.shortTermTrend]));
+  const enriched = rejections.map(row => byKey.has(trendKey(row))
+    ? { ...row, shortTermTrend: byKey.get(trendKey(row)) } : row);
+  return { rejections: enriched, remainingBudget: budget - attemptedKeywords.length, attemptedKeywords,
+    canCarry: canCarryTrendOnly(rows, enriched, previous, nowMs) };
+}
+
+/** Both lanes share a single provider budget; rejection never changes the golden-board gates. */
+async function enrichGoldenTrends(rows, rejections = [], previousCandidates = [], options = {}) {
+  const nowMs = options.nowMs ?? Date.now();
+  const accepted = new Set(rows.map(trendKey));
+  const seen = new Set(accepted);
+  const rejected = [...rejections, ...previousCandidates].filter(row => {
+    const key = trendKey(row);
+    if (!key || seen.has(key)) return false;
+    seen.add(key); // A newer invalid measurement must not resurrect the old valid row.
+    return eligibleTrendCandidate(row, nowMs);
+  });
+  const combined = [...rows, ...rejected].sort((a, b) => Number(financialRow(b)) - Number(financialRow(a)));
+  const enriched = await enrichShortTermTrends(combined, options);
+  const byKey = new Map(enriched.map(row => [trendKey(row), row]));
+  const trendCandidates = enriched.filter(row => !accepted.has(trendKey(row)) && row.shortTermTrend.status === 'rising')
+    .sort((a, b) => b.shortTermTrend.ratio - a.shortTermTrend.ratio || b.searchVolume - a.searchVolume)
+    .slice(0, 12).map(row => {
+      const sampledTitles = row.serp?.sampledTitles ?? row.sampledTitles;
+      const facingPosts = row.serp?.exactTitleHits ?? row.facingPosts;
+      const reason = String(row.reason || row.note || referenceRowReason(row)).slice(0, 500);
+      return {
+        keyword: row.keyword, topic: row.topic, searchVolume: row.searchVolume, documentCount: row.documentCount,
+        measuredAt: row.measuredAt, shortTermTrend: row.shortTermTrend, money: row.money || null,
+        currentSource: row.currentSource || null, sampledTitles, facingPosts, reason, note: reason,
+        sourceUrl: /^https?:\/\//i.test(String(row.currentSource?.sourceUrl || row.currentSource?.url || ''))
+          ? String(row.currentSource.sourceUrl || row.currentSource.url) : null,
+        serp: { sampledTitles, exactTitleHits: facingPosts, topTitles: (row.serp?.topTitles || []).slice(0, 10) },
+        serpSections: trustedSections(row.serp || {}) || row.serpSections || [], monetize: row.monetize || null,
+      };
+    });
+  return { rows: rows.map(row => byKey.get(trendKey(row))), trendCandidates };
+}
 
 /**
  * 화면이 쓰는 필드만 남긴다. 운영자용 정보는 여기서 걸러진다.
@@ -125,6 +237,8 @@ function toPublicRow(row) {
     briefingRisk: row.briefingRisk || null,
     regulatoryLabel: row.regulatoryLabel || '',
     trendLabel: row.trendLabel || '',
+    shortTermTrend: row.shortTermTrend || unknownGoldenShortTrend(),
+    currentSource: row.currentSource || null,
     /*
      * 확장·연관 여부 — 화면이 "씨앗 머리말"과 "거기서 늘린 말"을 갈라 보여 줄 근거다.
      * seedKind  coverage(상시) · seasonal(계절) · warehouse(창고) · related(연관어에서 늘림)
@@ -235,6 +349,10 @@ async function main() {
 
   const board = JSON.parse(fs.readFileSync(inPath, 'utf8'));
   const dest = arg('dest') || DEFAULT_DEST;
+  let prevPayload = null;
+  if (!hasFlag('noCarry') && fs.existsSync(dest)) {
+    try { prevPayload = JSON.parse(fs.readFileSync(dest, 'utf8')); } catch { /* No carry on invalid JSON. */ }
+  }
 
   // ③ 가짜 데이터 차단
   const generator = String(board.generator || '');
@@ -312,7 +430,23 @@ async function main() {
   console.log(`  선점 적기    ${early}행 (뜨는 중 · 밭 비어 있음 · 실시간 전 · 브리핑 없음 · 새로 생긴 말)`);
 
   // ① 빈 회차가 기존 보드를 지우지 않게
-  if (withEvidence.length === 0) {
+  const seriesConfig = (() => {
+    try { return require('../src/utils/environment-manager').EnvironmentManager.getInstance().getConfig(); }
+    catch { return {}; }
+  })();
+  const openApi = {
+    clientId: process.env.NAVER_CLIENT_ID || seriesConfig.naverClientId || '',
+    clientSecret: process.env.NAVER_CLIENT_SECRET || seriesConfig.naverClientSecret || '',
+  };
+  const seriesHubConfigured = require('../src/utils/naver-api-hub').isApiHubConfigured();
+  const canMeasureDaily = (openApi.clientId && openApi.clientSecret) || seriesHubConfigured;
+  const preparedTrends = await prepareTrendOnlyRound(withEvidence,
+    Array.isArray(board.rejections) ? board.rejections : [], prevPayload, {
+      config: openApi, budget: canMeasureDaily ? Number(arg('shortTrendBudget', '60')) : 0,
+    });
+  const rejections = preparedTrends.rejections;
+  const trendOnly = preparedTrends.canCarry;
+  if (withEvidence.length === 0 && !trendOnly) {
     const existing = fs.existsSync(dest);
     console.error(`\n거부 — 발행할 행이 없다. ${existing ? '기존 보드를 그대로 둔다.' : '발행할 것이 없다.'}`);
     process.exit(4);
@@ -335,7 +469,7 @@ async function main() {
    * 실명·조각·금지 주제는 여기에도 안 넣는다. 법적 위험이거나 글 제목이 못 되는
    * 것은 참고 가치도 없다.
    */
-  const reference = (Array.isArray(board.rejections) ? board.rejections : [])
+  let reference = rejections
     .filter((row) => row && row.keyword)
     .filter((row) => !judgeNamedPersonRisk(row.keyword).risky)
     .filter((row) => judgeCompleteness(row.keyword, []).complete)
@@ -368,13 +502,9 @@ async function main() {
    * --noCarry 로 끄면 예전처럼 대체 발행한다.
    */
   const carryDays = Number(arg('carryDays')) || 90;
-  let prevPayload = null;
-  if (!hasFlag('noCarry') && fs.existsSync(dest)) {
-    try {
-      prevPayload = JSON.parse(fs.readFileSync(dest, 'utf8'));
-    } catch {
-      prevPayload = null; // 못 읽으면 이월 없이 — 회차를 죽이지 않는다
-    }
+  if (trendOnly && Array.isArray(prevPayload?.reference)) {
+    const newKeys = new Set(reference.map(trendKey));
+    reference = [...reference, ...prevPayload.reference.filter(row => !newKeys.has(trendKey(row)))];
   }
   /*
    * **자리가 없는 행은 싣지 않는다**(사장님 지시 2026-08-28).
@@ -652,18 +782,6 @@ async function main() {
    * 키는 환경변수 → 앱 설정(config.json) 순으로 찾고, API HUB 키만 있어도 잰다(2026-09-15).
    * 앱 이 PC 판에서는 환경변수가 비어 있어 옛 키가 있는 사용자도 이 단계를 건너뛰었다.
    */
-  const seriesConfig = (() => {
-    try {
-      return require('../src/utils/environment-manager').EnvironmentManager.getInstance().getConfig();
-    } catch {
-      return {};
-    }
-  })();
-  const openApi = {
-    clientId: process.env.NAVER_CLIENT_ID || seriesConfig.naverClientId || '',
-    clientSecret: process.env.NAVER_CLIENT_SECRET || seriesConfig.naverClientSecret || '',
-  };
-  const seriesHubConfigured = require('../src/utils/naver-api-hub').isApiHubConfigured();
   const seriesBudget = Number(arg('seriesBudget')) || 60;
   const RECHECK_MS = 30 * 24 * 3600 * 1000;
   const hasSeries = (row) => Array.isArray(row.demandSeries) && row.demandSeries.length > 0;
@@ -711,6 +829,15 @@ async function main() {
   } else if (lacking.length > 0) {
     console.log(`  시계열 보강  건너뜀 — 오픈 API 키(옛 키 또는 API HUB) 없음 (${lacking.length}행 미측정)`);
   }
+
+  // Budget is independent of the monthly series backfill, never of SERP freshness.
+  const enrichedTrends = await enrichGoldenTrends(merged.rows, rejections, prevPayload?.trendCandidates || [], {
+    config: openApi,
+    budget: preparedTrends.remainingBudget,
+    skipKeywords: preparedTrends.attemptedKeywords,
+  });
+  merged.rows = enrichedTrends.rows;
+  console.log(`  단기 추세    최근 7일 / 직전 7일 · 상승 ${merged.rows.filter(row => row.shortTermTrend.status === 'rising').length} · 미확인 ${merged.rows.filter(row => row.shortTermTrend.status === 'unknown').length}`);
 
   merged.rows = orderForPublish(merged.rows, { now: new Date(), tierRank });
   const recurringCount = merged.rows.filter((row) => row.peakRecurring === true && Number(row.peakMultiplier) >= 2).length;
@@ -763,6 +890,7 @@ async function main() {
     topicsWithRows: mergedTopics.size,
     verified: board.verified ?? null,
     rows: merged.rows,
+    trendCandidates: enrichedTrends.trendCandidates,
     reference,
     /*
      * 쇼핑 레인으로 라우팅된 키워드 — 조용히 사라지면 "왜 줄었나"를 화면이
@@ -776,6 +904,11 @@ async function main() {
       reasons: Array.isArray(row.reasons) ? row.reasons : [],
     })),
   };
+
+  if (payload.rows.length === 0) {
+    console.error('거부 — 최종 게이트 통과 행이 없어 기존 보드를 그대로 둡니다.');
+    process.exit(4);
+  }
 
   if (hasFlag('dryRun')) {
     console.log('\ndryRun — 파일을 쓰지 않고 종료합니다.');
@@ -793,7 +926,9 @@ async function main() {
 }
 
 // main 이 async 라 거절을 잡지 않으면 조용히 0 으로 끝난다 — 실패는 실패로 끝내야 CI 가 안다.
-main().catch((error) => {
+if (require.main === module) main().catch((error) => {
   console.error(`발행 실패: ${error && error.stack ? error.stack : error}`);
   process.exit(1);
 });
+
+module.exports = { toPublicRow, enrichShortTermTrends, enrichGoldenTrends, canCarryTrendOnly, prepareTrendOnlyRound };

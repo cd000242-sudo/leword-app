@@ -64,6 +64,13 @@ const { sharesSeedToken } = require('../src/utils/seed-drift');
 const { judgeEphemeralKeyword, judgeAnswerCardKeyword } = require('../src/utils/preemption-supply-guards');
 const { isMoneyTopic, orderSeedsByBid, bidKey, bidValue } = require('../src/utils/money-keywords');
 const { shardTopics, defaultTopicConcurrency } = require('./candidate-shards');
+const { collectCurrentSeeds, reserveCurrentSeeds, prioritizeCurrentSample, exactMeasuredVolume } = require('./preemption-current-sources');
+
+function readOptionalJson(file) {
+  if (!file || !fs.existsSync(file)) return null;
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch { return null; }
+}
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -193,6 +200,10 @@ async function main() {
   const measureLogPath = arg('measureLog');
   const measureLog = measureLogPath ? [] : null;
   const realtime = loadRealtime(arg('signals'));
+  const currentSeeds = collectCurrentSeeds({
+    briefs: readOptionalJson(arg('currentBriefs')),
+    signals: readOptionalJson(arg('signals')),
+  });
   /*
    * 굶은 주제 구제선(2026-08-22).
    *
@@ -240,7 +251,8 @@ async function main() {
    * 창고 아티팩트를 읽으므로 배정도 같다. 창고가 없으면 예전 라운드로빈.
    */
   const topicWeights = shards > 1 ? seedWeightsByTopic(allTopics) : null;
-  const topics = shards > 1 ? shardTopics(allTopics, shardIndex, shards, topicWeights) : allTopics;
+  const topics = [...(shards > 1 ? shardTopics(allTopics, shardIndex, shards, topicWeights) : allTopics)]
+    .sort((a, b) => Number(b === '비즈니스·경제') - Number(a === '비즈니스·경제'));
   if (shards > 1) {
     console.log(`샤드 ${shardIndex + 1}/${shards} — 전체 ${allTopics.length}주제 중 ${topics.length}개를 맡는다${topicWeights ? ' (씨앗 수 균형)' : ' (라운드로빈)'}`);
     console.log(`  ${topics.map((t) => (topicWeights ? `${t}(${topicWeights[t] || 0})` : t)).join(' · ')}`);
@@ -439,6 +451,26 @@ async function main() {
     const answerCardLog = [];
     let expansionWarned = false;
 
+    // Current source terms get measured before static expansion can consume the quota.
+    // The same terms occupy existing sample slots below, so they are not queried twice.
+    const currentForTopic = currentSeeds.filter(row => row.topic === topic)
+      .filter(row => judgeCompleteness(row.keyword, coverage.seedIntents).complete)
+      .filter(row => !judgeEphemeralKeyword(row.keyword).ephemeral && !judgeAnswerCardKeyword(row.keyword).answerCard)
+      .slice(0, 12);
+    const earlyVolumeResults = [];
+    const earlyMeasured = new Set();
+    if (currentForTopic.length && !pastHardStop()) {
+      const { SEARCHAD_VOLUME_CHUNK_SIZE: chunkSize } = require('../src/utils/naver-searchad-api');
+      for (let index = 0; index < currentForTopic.length; index += chunkSize) {
+        if (pastHardStop() || !selectSearchAdAccountFromEnv(searchAd)) break;
+        const keywords = currentForTopic.slice(index, index + chunkSize).map(row => row.keyword);
+        try {
+          earlyVolumeResults.push(...await getNaverSearchAdKeywordVolume(searchAd, keywords));
+          for (const keyword of keywords) earlyMeasured.add(keyword.replace(/\s+/g, ''));
+        } catch { /* Failed measurements remain unknown and may use the ordinary retry. */ }
+      }
+    }
+
     // ── 1) 확장 씨앗을 넓힌다 ──────────────────────────────────────────
     // 검색광고 연관어는 **공백을 지운 1어절**로만 온다("강아지사료"). 그래서
     // 연관어 자체는 롱테일이 될 수 없고, 다음 단계의 씨앗으로만 쓴다.
@@ -486,7 +518,9 @@ async function main() {
       }
     }
     if (dbSeeds.length > 0) console.log(`  ${topic} 창고 씨앗 ${dbSeeds.length}개: ${dbSeeds.slice(0, 6).join(', ')}${dbSeeds.length > 6 ? ' …' : ''}`);
-    const baseSeeds = [...coverage.seedTerms, ...seasonalSeeds, ...dbSeeds];
+    const baseSeeds = reserveCurrentSeeds(
+      [...coverage.seedTerms, ...seasonalSeeds, ...dbSeeds], currentForTopic.map(row => row.keyword),
+    );
     /*
      * 씨앗이 어느 갈래에서 왔는지 적어 둔다 (2026-09-12).
      *
@@ -500,9 +534,13 @@ async function main() {
      *   related   검색광고 연관어에서 한 번 더 늘린 씨앗 — 가장 깊은 갈래다.
      */
     const seedKind = new Map();
+    const currentBySeed = new Map(currentForTopic.map(row => [row.keyword,
+      { url: row.sourceUrl, publishedAt: row.sourceAt, kind: row.kind },
+    ]));
     for (const term of coverage.seedTerms) seedKind.set(term, 'coverage');
     for (const term of seasonalSeeds) seedKind.set(term, 'seasonal');
     for (const term of dbSeeds) if (!seedKind.has(term)) seedKind.set(term, 'warehouse');
+    for (const row of currentForTopic) seedKind.set(row.keyword, row.kind);
     const expansionSeeds = new Set(baseSeeds);
     for (const seed of baseSeeds) {
       try {
@@ -515,7 +553,10 @@ async function main() {
             if (keyword && keyword.replace(/\s+/g, '').length <= 15) {
               expansionSeeds.add(keyword);
               // 연관어에서 온 씨앗 — 여기서 늘어난 말이 가장 깊은 확장이다.
-              if (!seedKind.has(keyword)) seedKind.set(keyword, 'related');
+              if (!seedKind.has(keyword)) {
+                seedKind.set(keyword, currentBySeed.has(seed) ? seedKind.get(seed) : 'related');
+                if (currentBySeed.has(seed)) currentBySeed.set(keyword, currentBySeed.get(seed));
+              }
             }
           });
       } catch (error) {
@@ -528,6 +569,13 @@ async function main() {
     // 자동완성은 사람이 실제로 치는 형태(띄어쓰기 포함)로 돌려준다.
     // 여기가 "어디에서도 찾기 힘든" 키워드가 나오는 유일한 지점이다.
     const phrases = new Map();
+    const currentPhrases = currentForTopic.map(row => ({
+      keyword: row.keyword, seed: row.keyword, seedKind: row.kind, expansionWords: 0,
+      currentSource: currentBySeed.get(row.keyword) || null,
+      longTail: wordCount(row.keyword) >= minWords,
+      inRealtime: realtime.has(row.keyword.replace(/\s+/g, '')),
+    }));
+    for (const row of currentPhrases) phrases.set(row.keyword, row);
     /*
      * 자동완성 안의 연관어 폴백에서 **검색광고는 뺀다** (2026-09-15).
      *
@@ -581,6 +629,7 @@ async function main() {
             seed,
             /** 씨앗이 어느 갈래였나 — coverage/seasonal/warehouse/related. */
             seedKind: seedKind.get(seed) || 'coverage',
+            currentSource: currentBySeed.get(seed) || null,
             /**
              * 씨앗보다 몇 어절 늘었나. 0 이면 씨앗 그대로(머리 키워드),
              * 1 이상이면 자동완성이 붙인 확장이다. 화면이 '확장 위주'로 세울 근거다.
@@ -630,7 +679,7 @@ async function main() {
     const sampleCap = pastHardStop() ? Math.min(sampleCapArg, perTopic * 5) : sampleCapArg;
     if (sampleCap < sampleCapArg) hardStopCuts.push(`${topic}: 표본 ${sampleCapArg} → ${sampleCap}`);
     const sample = pickMeasureSample(phrases.values(), sampleCap);
-    const phraseList = sample.rows;
+    const phraseList = prioritizeCurrentSample(sample.rows, currentPhrases, sampleCap);
     const volumes = new Map();
     /*
      * CPC·광고 경쟁도는 같은 응답에 이미 실려 온다 — 예전엔 검색량만 꺼내고
@@ -638,6 +687,24 @@ async function main() {
      * 이제 보존한다. 추가 호출·쿼터 소모 없음.
      */
     const adSignals = new Map();
+    function recordVolumeRows(rows) {
+      for (const row of rows) {
+        const total = exactMeasuredVolume(row);
+        const compact = String(row.keyword).replace(/\s+/g, '');
+        if (Number.isFinite(total) && total > 0) volumes.set(compact, total);
+        const adMetric = value => Number.isFinite(Number(value)) && value !== null && value !== undefined ? Number(value) : null;
+        const clkPc = adMetric(row.monthlyAvePcClkCnt);
+        const clkMo = adMetric(row.monthlyAveMobileClkCnt);
+        adSignals.set(compact, {
+          cpc: Number.isFinite(Number(row.monthlyAveCpc)) && Number(row.monthlyAveCpc) > 0 ? Number(row.monthlyAveCpc) : null,
+          competition: row.competition || null,
+          adClicks: clkPc === null && clkMo === null ? null : (clkPc || 0) + (clkMo || 0),
+          adCtrPc: adMetric(row.monthlyAvePcCtr), adCtrMobile: adMetric(row.monthlyAveMobileCtr),
+          adDepth: adMetric(row.plAvgDepth),
+        });
+      }
+    }
+    recordVolumeRows(earlyVolumeResults);
     /*
      * 검색광고 검색량은 어댑터가 4개씩 한 요청으로 보낸다(SEARCHAD_VOLUME_CHUNK_SIZE). 여기서
      * 5개씩 묶어 넘기면 4+1 로 갈라져 요청이 두 배가 됐다(2026-09-15 실측) — 샤드 회차는
@@ -654,28 +721,11 @@ async function main() {
        * null 을 돌려주지만, 묶음마다 경고를 한 줄씩 찍어 남은 수천 묶음이 수천 줄이 된다. 한 번 보고 멈춘다.
        */
       if (!selectSearchAdAccountFromEnv(searchAd)) { volumeCut = phraseList.length - i; volumeCutByQuota = true; break; }
-      const chunk = phraseList.slice(i, i + volumeChunk).map((row) => row.keyword);
+      const chunk = phraseList.slice(i, i + volumeChunk).map((row) => row.keyword)
+        .filter(keyword => !earlyMeasured.has(keyword.replace(/\s+/g, '')));
       try {
-        const rows = await getNaverSearchAdKeywordVolume(searchAd, chunk);
-        for (const row of rows) {
-          const total = Number(row.pcSearchVolume || 0) + Number(row.mobileSearchVolume || 0);
-          const compact = String(row.keyword).replace(/\s+/g, '');
-          if (total > 0) volumes.set(compact, total);
-          const adMetric = (value) => (Number.isFinite(Number(value)) && value !== null && value !== undefined
-            ? Number(value) : null);
-          const clkPc = adMetric(row.monthlyAvePcClkCnt);
-          const clkMo = adMetric(row.monthlyAveMobileClkCnt);
-          adSignals.set(compact, {
-            cpc: Number.isFinite(Number(row.monthlyAveCpc)) && Number(row.monthlyAveCpc) > 0
-              ? Number(row.monthlyAveCpc) : null,
-            competition: row.competition || null,
-            // 광고 클릭 실측 — 같은 응답 행. 클릭수는 PC+모바일 단순 합(둘 다 없으면 null).
-            adClicks: clkPc === null && clkMo === null ? null : (clkPc || 0) + (clkMo || 0),
-            adCtrPc: adMetric(row.monthlyAvePcCtr),
-            adCtrMobile: adMetric(row.monthlyAveMobileCtr),
-            adDepth: adMetric(row.plAvgDepth),
-          });
-        }
+        const rows = chunk.length ? await getNaverSearchAdKeywordVolume(searchAd, chunk) : [];
+        recordVolumeRows(rows);
       } catch { /* 측정 실패분은 후보에서 빠진다 — 지어내지 않는다 */ }
     }
 
@@ -690,7 +740,8 @@ async function main() {
     const shortlist = phraseList
       .map((row) => ({ ...row, searchVolume: volumes.get(row.keyword.replace(/\s+/g, '')) ?? null }))
       .filter((row) => (row.searchVolume || 0) >= minVolume)
-      .sort((a, b) => (a.searchVolume || 0) - (b.searchVolume || 0))  // 롱테일 우선
+      .sort((a, b) => Number(String(b.seedKind).startsWith('current-')) - Number(String(a.seedKind).startsWith('current-'))
+        || (a.searchVolume || 0) - (b.searchVolume || 0))  // 현재 이슈 측정 몫부터, 나머지는 롱테일 우선
       .filter((row) => {
         const used = bySeed.get(row.seed) || 0;
         if (used >= perSeed) return false;
@@ -915,6 +966,7 @@ async function main() {
         seed: row.seed,
         // 확장·연관 여부 — 배치·발행이 이름 그대로 옮겨야 화면까지 간다(필드 복사 누락 사고 재발 방지).
         seedKind: row.seedKind || null,
+        currentSource: row.currentSource || null,
         expansionWords: row.expansionWords ?? null,
         longTail: row.longTail,
         inRealtime: row.inRealtime,

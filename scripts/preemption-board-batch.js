@@ -127,6 +127,7 @@ function loadCandidates(inPath) {
       trendType: row.trendType || null,
       trendShape: row.trendShape || null,
       trendLabel: row.trendLabel || '',
+      shortTermTrend: row.shortTermTrend || null,
       // 제목 배선용 — 같은 씨앗 형제를 찾는 열쇠다. 없으면 어절 공유로 대신한다.
       seed: row.seed || null,
       /*
@@ -135,6 +136,7 @@ function loadCandidates(inPath) {
        * (timing 필드가 그렇게 네 곳에서 빠져 있었다).
        */
       seedKind: row.seedKind || null,
+      currentSource: row.currentSource || null,
       expansionWords: Number.isFinite(Number(row.expansionWords)) ? Number(row.expansionWords) : null,
       // 애드센스 레인 판정 재료(검색량 응답에 같이 온 실측). 없으면 null.
       cpc: Number.isFinite(Number(row.cpc)) && Number(row.cpc) > 0 ? Number(row.cpc) : null,
@@ -680,9 +682,14 @@ async function main() {
            * 돈을 넣는 검색어인가). 통과분에만 실으면 2군이 판단 재료 없이 나간다.
            */
           adCount: serp.adCount ?? null,
+          sections: serp.sections,
+          sectionMarkerVersion: serp.sectionMarkerVersion ?? null,
+          topTitles: serp.topTitles || [],
         } : null,
         intentLabel: candidate?.intentLabel || '',
         trendLabel: candidate?.trendLabel || '',
+        currentSource: candidate?.currentSource || null,
+        shortTermTrend: candidate?.shortTermTrend || null,
         recencySummary: candidate?.recencySummary || '',
         demandAsOf: candidate?.demandAsOf || null,
         latestVsPeakPct: candidate?.latestVsPeakPct ?? null,
@@ -709,6 +716,8 @@ async function main() {
         briefingRisk: candidate?.briefingRisk || null,
         regulatoryLabel: candidate?.regulatoryLabel || '',
         trendShape: candidate?.trendShape || null,
+        currentSource: candidate?.currentSource || null,
+        shortTermTrend: candidate?.shortTermTrend || null,
         trendLabel: candidate?.trendLabel || '',
         inRealtimeNow: realtimeState(realtime, result.keyword),
         monthsToPeak: candidate?.monthsToPeak ?? null,

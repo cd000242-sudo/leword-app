@@ -150,6 +150,7 @@
       "package.json",
       "scripts/app-script-shim.js",
       "scripts/preemption-candidates.js",
+      "scripts/preemption-current-sources.js",
       "scripts/candidate-shards.js",
       "scripts/load-project-env.js",
       "scripts/trim-candidates.js",
