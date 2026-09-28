@@ -52,7 +52,7 @@ describe('오늘의 추천키워드', () => {
     const script = read('scripts/today-picks.js');
     expect(script).toContain('listedNamesFromSeeds(');
     expect(script).toContain('getNaverSearchAdBidPairs');
-    expect(script).toContain('orderGoldenByMoney(');
+    expect(script).toMatch(/selectRows\(shown\.map\(priced\),history,keep,minRatio,orderGoldenByMoney\)/);
   });
 
   it('워크플로가 뽑기 단계에 검색광고 키를 넘기고, 주제당 30개를 남긴다', () => {

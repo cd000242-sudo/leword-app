@@ -302,6 +302,7 @@ const VITEST_SUITES = [
     'src/utils/__tests__/realtime-board-snapshot.test.ts',
     'src/utils/__tests__/today-picks-generator.test.ts',
     'src/utils/__tests__/today-picks-rounds.test.ts',
+    'src/utils/__tests__/today-picks-selection.test.ts',
     // 오늘의 글감 — 질문별 근거, 독립 검토, 보수적인 추천과 앱 표시를 함께 잠근다.
     'src/utils/__tests__/topic-brief-evidence.test.ts',
     'src/utils/__tests__/topic-brief-pipeline.test.ts',

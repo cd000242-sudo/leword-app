@@ -19,7 +19,8 @@ describe('오늘의 추천키워드 워크플로', () => {
     });
 
     it('회차 기준과 캐시 재사용을 명시한다', () => {
-        expect(workflow).toContain('--rounds=06:30,13:30,19:30');
+        expect(workflow).toContain('scripts/today-picks-done.js');
+        expect(workflow).toContain('--keep=30');
         expect(workflow).toContain('actions/cache/restore@v4');
         expect(workflow).toContain('actions/cache/save@v4');
         expect(workflow).toContain('--measurementCache=.today-picks-cache/documents.json');

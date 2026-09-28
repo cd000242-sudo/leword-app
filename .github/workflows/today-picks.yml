@@ -40,7 +40,7 @@ jobs:
             echo 'done=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          node scripts/board-round-done.js --url=https://leaderspro.kr/data/today-picks.json --field=builtAt --rounds=06:30,13:30,19:30
+          node scripts/today-picks-done.js --url=https://leaderspro.kr/data/today-picks.json --keep=30
 
   picks:
     # 검색광고 일일 쿼터(계정 25,000)를 러너들이 나눠 쓴다(2026-09-15). 장부는 러너의 tmpdir 이라 잡마다 새 장부 —
@@ -118,7 +118,7 @@ jobs:
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
         run: node scripts/build-seed-db.js --maxAgeDays=1
 
-      - name: 추천키워드 뽑기 (창고 → 문서수 실측 → 황금비 · 입찰가 · 어제 것 제외)
+      - name: 추천키워드 뽑기 (창고 → 문서수 실측 → 7일 신규 우선 · 황금비 · 입찰가)
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
