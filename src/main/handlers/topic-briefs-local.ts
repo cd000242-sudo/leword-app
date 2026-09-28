@@ -36,7 +36,8 @@ import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions } fro
 import { measureSeat, seatBlogTabUrl } from '../../utils/seat-measure';
 import { localSerpFetch, closeLocalSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
 import { enrichBriefFacts, normalizeBriefBoard, reviewTopicBriefs } from '../topic-brief-pipeline';
-import { generateBriefWritingPackages } from '../topic-brief-writing-pipeline';
+import { generateBriefInventory, preserveRicherBriefRound, type BriefInventoryMetadata } from '../topic-brief-inventory';
+import { measureBriefDocumentCounts } from '../topic-brief-metrics';
 import { atomicBoardWrite } from '../board-cache';
 
 export const BRIEFS_PROGRESS_CHANNEL = 'topic-briefs-local-progress';
@@ -93,6 +94,7 @@ export interface LocalBriefsResult {
   /** 이 회차에서 실제로 잰 자리 수. 사이트 회차와 견주는 값이다. */
   seatsMeasured: number;
   seconds: number;
+  inventory?: BriefInventoryMetadata;
 }
 
 let running = false;
@@ -165,7 +167,8 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
 
   const today = kstToday();
   const slot = roundSlotOf(today);
-  const prior = todaysRounds(readLocalBriefs()?.rounds || [], today);
+  const previous = readLocalBriefs();
+  const prior = todaysRounds(previous?.rounds || [], today);
 
   // ── 1) 사실 카드 — 분야별 뉴스 실측
   const fieldFacts = new Map<string, ReturnType<typeof toFactCards>>();
@@ -199,54 +202,19 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   const droppedAll: Array<{ field: string; title: string; reason: string }> = [];
   const agentFailures: string[] = [];
   let agentCalls = 0;
-  let writingAttempts = 0;
-  for (let i = 0; i < BRIEF_FIELDS.length; i += 1) {
-    if (abortRequested) break;
-    const { field } = BRIEF_FIELDS[i];
+  const inventoryFields = [];
+  for (const { field } of BRIEF_FIELDS) {
+    throwIfCancelled();
     const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
-    throwIfCancelled();
-    if (facts.length < 2) {
-      report({ step: '글감', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — 근거 카드 ${facts.length}장뿐이라 건너뜀` });
-      continue;
-    }
-    const prompt = buildBriefPrompt(field, facts, today, perField + 1, excludeListOf(prior, field));
-    let reply = '';
-    let provider = '';
-    try {
-      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000, validate: requireJsonArray() });
-      reply = run.reply; provider = run.provider; agentCalls += 1;
-    } catch (error: any) {
-      agentFailures.push(String(error?.message || error));
-      report({ step: '글감', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — 에이전트 실패: ${String(error?.message || error).slice(0, 60)}` });
-      continue;
-    }
-    throwIfCancelled();
-    const { ok, dropped } = validateBriefs(tryExtractJson(reply), facts, field, today);
-    const reviewed = await reviewTopicBriefs(ok, facts, async (reviewPrompt) => {
-      if (abortRequested) throw new Error('cancelled');
-      const review = await runWithAnyAgent(reviewPrompt, AGENT_CHAIN, { timeoutMs: 120_000, validate: requireJsonArray() });
-      agentCalls += 1;
-      return review.reply;
-    });
-    throwIfCancelled();
-    const { kept, repeated } = dropRepeats(reviewed, prior);
-    const prepared = await generateBriefWritingPackages(kept, facts, async (writingPrompt) => {
-      throwIfCancelled();
-      const result = await runWithAnyAgent(writingPrompt, AGENT_CHAIN, { timeoutMs: 120_000, deadlineMs: 240_000, validate: reply => {
-        const parsed = tryExtractJson(reply);
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('작성 패키지 JSON 객체가 필요합니다.');
-      } });
-      agentCalls += 1;
-      return result.reply;
-    }, { maxPackages: Math.max(0, 3 - writingAttempts), onAttempt: () => { writingAttempts += 1; } });
-    throwIfCancelled();
-    all.push(...prepared);
-    droppedAll.push(
-      ...dropped.map((d) => ({ field, ...d })),
-      ...repeated.map((b) => ({ field, title: b.title, reason: '앞 회차와 같은 검색어' })),
-    );
-    report({ step: '글감', done: i + 1, total: BRIEF_FIELDS.length, message: `${field} — ${provider} 로 글감 ${kept.length}개 (떨어짐 ${dropped.length + repeated.length})` });
+    inventoryFields.push({ field, facts, targetCount: /지원금|비즈니스|소상공인|경제|시사/.test(field) ? Math.max(8, perField) : perField });
   }
+  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: prior.filter(r => r.slot !== slot), goal: 30, cancelled: () => abortRequested,
+    run: async (prompt, context) => {
+      throwIfCancelled();
+      const result = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
+      agentCalls += 1; return result.reply;
+    }, onProgress: progress => report({ step: '글감', done: progress.actualCount, total: 30, message: progress.field + ' — 글감 ' + progress.actualCount + '개 확보' }) });
+  all.push(...generated.briefs); droppedAll.push(...generated.dropped);
 
   throwIfCancelled();
   if (all.length === 0) {
@@ -255,7 +223,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
 
   // ── 3) 검색량 실측
   const volumes = new Map<string, number | null>();
-  let briefs = all;
+  let briefs = await measureBriefDocumentCounts(all, openApi, { cancelled: () => abortRequested, onProgress: (done, total) => report({ step: '검색량', done, total, message: '블로그 문서량 실측 ' + done + '/' + total }) });
   if (ad.accessLicense && ad.secretKey && all.length > 0) {
     const wanted = [...new Set(all.flatMap((b) => b.keywords))];
     for (let i = 0; i < wanted.length && !abortRequested; i += 5) {
@@ -271,7 +239,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
       report({ step: '검색량', done: Math.min(i + 5, wanted.length), total: wanted.length, message: `검색어 ${Math.min(i + 5, wanted.length)}/${wanted.length} · 잰 것 ${volumes.size}` });
       await sleep(300);
     }
-    briefs = all.map((b) => applyMeasuredVolumes(b, volumes));
+    briefs = briefs.map((b) => applyMeasuredVolumes(b, volumes));
   }
   briefs = carrySeats(briefs, prior);
 
@@ -339,7 +307,12 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
 
   const builtAt = new Date().toISOString();
   const thisRound: BriefRound = { slot, builtAt, counts: roundCounts(starred), briefs: starred };
+  if (previous && preserveRicherBriefRound(thisRound, prior.find(r => r.slot === slot)) !== thisRound) {
+    report({ step: '정리', done: previous.briefs.length, total: 30, message: '같은 회차의 더 풍부한 기존 글감을 유지했습니다.' });
+    return previous;
+  }
   const result: LocalBriefsResult = {
+    inventory: generated.inventory,
     builtAt,
     slot,
     source: 'app',

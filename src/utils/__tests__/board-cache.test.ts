@@ -11,6 +11,14 @@ afterEach(() => dirs.splice(0).forEach(dir => fs.rmSync(dir, { recursive: true, 
 const brief = { title: '지원금 신청 조건 확인', coreKeyword: '지원금 신청', timing: 'NOW', field: '정책', facts: [{ id: 'f1', title: '지원금 신청', snippet: '조건 확인', body: '비공개 기사 전체', apiKey: 'SECRET', link: 'https://news.naver.com/article/1', publishedAt: stamp }], factIds: ['f1'] };
 
 describe('public board projection and successful snapshot', () => {
+  it('publishes bounded inventory metadata without provider errors or private details', () => {
+    const inventory = {targetCount:30,actualCount:1,complete:false,shortfall:29,shortfallReason:'추가 자료 확인 중',supportedCount:0,refillRounds:2,attempts:3,failures:[{reason:'SECRET'}],byField:{정책:1},token:'SECRET'};
+    const board:any = publicBoard('topic-briefs',{builtAt:stamp,briefs:[brief],inventory,rounds:[{slot:'아침',builtAt:stamp,briefs:[brief],inventory}]},now);
+    const expected = {targetCount:30,actualCount:1,complete:false,shortfall:29,shortfallReason:'추가 자료 확인 중',supportedCount:0,refillRounds:2,attempts:3};
+    expect(board.inventory).toEqual(expected);
+    expect(board.rounds[0].inventory).toEqual(expected);
+    expect(JSON.stringify(board)).not.toContain('SECRET');
+  });
   it('preserves writing tables and public paragraphs while excluding private nested fields', () => {
     const writingPackage = { version:1, status:'ready', title:'공개 제목', sourceIds:['f1'], sections:[{heading:'조건',paragraphs:['공개 설명'],factIds:['f1'],token:'SECRET'}], table:{caption:'조건표',headers:['항목','기준'],rows:[['조건','확인'],[{password:'SECRET'},'제외']],factIds:['f1'],privateDraft:'SECRET'},privateDraft:'SECRET' };
     const board: any = publicBoard('topic-briefs', {builtAt:stamp,briefs:[{...brief,writingPackage}]}, now);

@@ -10,9 +10,13 @@ export async function enrichBriefFacts(facts: readonly FactCard[], options: { fe
     publishedAt: fact.publishedAt, level: 'description', text: fact.snippet,
     contentHash: '', fetchStatus: 'not_requested', imageUrl: null,
   }));
-  // The shared reader enforces three articles, an eight-second timeout, a byte
-  // limit, and a Naver-only allowlist for every request and redirect.
-  const enriched = await enrichEditorialSources(sources, options);
+  // Each reader call keeps its three-article, timeout, byte and Naver redirect
+  // limits. Cover at most twelve candidates in sequential bounded batches.
+  const enriched = [...sources];
+  for (let offset = 0; offset < Math.min(sources.length, 12); offset += 3) {
+    const batch = await enrichEditorialSources(sources.slice(offset, Math.min(offset + 3, 12)), options);
+    enriched.splice(offset, batch.length, ...batch);
+  }
   return facts.map((fact, index) => {
     const source = enriched[index];
     if (source.level !== 'body' || source.fetchStatus !== 'ok') return { ...fact, sourceLevel: 'description' };
@@ -35,8 +39,10 @@ export function buildTopicBriefReviewPrompt(briefs: readonly TopicBrief[], facts
     '경험을 확인하지 않은 사용·방문·수령·상담·계산 완료 등 1인칭 사실, 확인되지 않은 손해/효과/원인, 지역/대상 범위 누락, 예정과 시행의 혼동은 실패다.',
     '제목의 구어체 자체는 오류가 아니다. 숫자 제목도 근거 있는 사실이면 허용한다. 단순한 문체 취향, 주관적 흥미, 광고 노출이나 시장 순위 추측을 실패 사유로 삼지 않는다.',
     '접근법과 목차는 편집 제안이다. 경쟁 글보다 우월함을 확인했다고 주장하거나 새로운 사실을 단정할 때만 지적한다. missing이 있으면 준비 완료로 승인하지 않는다.',
+    'writingGuide가 있으면 direction, mustInclude, avoid, seoTitles, homeTitles, relatedTerms도 같은 자료로 검토한다. 검색 제목은 핵심어를 보존하고 홈판 제목의 앞 큰따옴표는 편집 문구다. 실제 발언으로 꾸미거나 사실을 과장하면 실패다. 큰따옴표 형식이나 후킹 문체 자체는 실패 사유가 아니다.',
+    '이미지 가이드는 해당 sourceId의 출처 페이지 URL과 제공 자료에서 확인할 문장·표를 안내해야 한다. 보지 않은 이미지·화면 위치·이미지 파일 주소·재사용 허가를 꾸미면 실패다. 캡처 안내 자체가 이미지 사용 허가를 뜻하지 않는다.',
     'issues는 사용자가 추가로 확인할 구체적인 사항을 한국어 문장으로 적는다. source 본문에 답이 실제 존재하면 요약에 없다는 이유로 거절하지 않는다.',
-    JSON.stringify({ sources: facts.filter((fact) => ids.has(fact.id)).map((fact) => ({ id: fact.id, title: fact.title, publishedAt: fact.publishedAt, text: fact.body || fact.snippet })), briefs: briefs.map((brief, index) => ({ index, title: brief.title, titles: brief.titles, keyword: brief.coreKeyword, primaryIntent: brief.primaryIntent, value: brief.value, experience: brief.experience, differentiation: brief.differentiation, editorial: brief.editorial })) }),
+    JSON.stringify({ sources: facts.filter((fact) => ids.has(fact.id)).map((fact) => ({ id: fact.id, url: fact.link, title: fact.title, publishedAt: fact.publishedAt, text: fact.body || fact.snippet })), briefs: briefs.map((brief, index) => ({ index, title: brief.title, titles: brief.titles, keyword: brief.coreKeyword, primaryIntent: brief.primaryIntent, value: brief.value, experience: brief.experience, differentiation: brief.differentiation, editorial: brief.editorial, writingGuide: brief.writingGuide })) }),
   ].join('\n');
 }
 

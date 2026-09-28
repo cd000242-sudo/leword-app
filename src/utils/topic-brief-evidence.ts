@@ -1,6 +1,7 @@
 import type { BriefEditorial, FactCard, TopicBrief } from './topic-briefs';
 import { extractDates } from './topic-brief-dates';
 import { hasFabricatedExperience, sanitizeTitles } from './topic-brief-titles';
+import { validateWritingGuide } from './topic-brief-guide';
 
 const text = (value: unknown) => typeof value === 'string' ? value.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
 const norm = (value: unknown) => text(value).normalize('NFKC').replace(/\s+/g, '');
@@ -26,7 +27,7 @@ export function isNarrowerKeyword(core: string, candidate: string): boolean {
 }
 
 function quantities(value: string): string[] {
-  return [...value.matchAll(/\d[\d,]*(?:\.\d+)?\s*(?:(?:조|억|만|천)\s*)?(?:원|퍼센트|%|명|개|회|배|세|승|패|점|시간|분|개월|주간|일간|일\s*(?:이내|이상|이하)|월|년|일)(?!\d)/g)]
+  return [...value.matchAll(/\d[\d,]*(?:\.\d+)?\s*(?:(?:조|억|만|천)\s*)?(?:원|퍼센트|%|명|개|회|배|세|승|패|점|시간|분|개월|주간|일간|일\s*(?:이내|이상|이하)|월|년|일)/g)]
     .map(match => norm(match[0]).replace(/,/g, ''));
 }
 
@@ -129,6 +130,11 @@ export function normalizeBriefForDisplay(brief: TopicBrief): TopicBrief {
   const published = new Date(facts[0]?.publishedAt || '2000-01-01T00:00:00Z');
   const anchor = Number.isNaN(published.getTime()) ? new Date('2000-01-01T00:00:00Z') : published;
   const editorial = validateEditorial(brief.editorial, facts, anchor);
+  const guideResult = validateWritingGuide(brief.writingGuide, facts, anchor, brief.coreKeyword);
+  if (guideResult.issues.length) {
+    editorial.status = 'needs_research';
+    editorial.missing = unique([...editorial.missing, ...guideResult.issues]).slice(0, 12);
+  }
   if (editorial.review?.passed !== true) editorial.status = 'needs_research';
   const coreKeyword = text(brief.coreKeyword);
   const safeTitle = `${coreKeyword || '글감'} 확인된 내용과 더 알아볼 점`;
@@ -138,6 +144,9 @@ export function normalizeBriefForDisplay(brief: TopicBrief): TopicBrief {
     ? { ...brief.alternative, serpFit: serpFitOf(brief.alternative.serpFacing, brief.alternative.serpVacancy) } : brief.alternative === undefined ? undefined : null;
   const result: TopicBrief = {
     ...brief, title, coreKeyword, keywords, editorial,
+    writingGuide: guideResult.guide,
+    documentCount: typeof brief.documentCount === 'number' && Number.isSafeInteger(brief.documentCount) && brief.documentCount >= 0 && Number.isFinite(Date.parse(brief.documentCountMeasuredAt || '')) ? brief.documentCount : null,
+    documentCountMeasuredAt: Number.isFinite(Date.parse(brief.documentCountMeasuredAt || '')) ? brief.documentCountMeasuredAt : undefined,
     value: claimIssue(brief.value, facts, anchor) ? editorial.summary : text(brief.value),
     primaryIntent: safeMeta(brief.primaryIntent, `${coreKeyword} 확인`),
     experience: safeMeta(brief.experience, '직접 경험은 별도로 확보해야 합니다.'),

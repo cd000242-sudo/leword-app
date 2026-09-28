@@ -22,6 +22,7 @@ vi.mock('../agent-cli/runAny', () => ({ runWithAnyAgent: state.agent }));
 vi.mock('../naver-searchad-api', () => ({ getNaverSearchAdKeywordVolume: state.volume, getNaverSearchAdKeywordSuggestions: vi.fn() }));
 vi.mock('../local-serp-fetch', () => ({ localSerpFetch: vi.fn(), closeLocalSerpFetch: vi.fn(), localSerpStats: () => ({ consecutiveBlocked: 0 }) }));
 vi.mock('../../main/topic-brief-pipeline', async (original) => ({ ...(await original<any>()), enrichBriefFacts: async (facts: unknown) => facts }));
+vi.mock('../../main/topic-brief-metrics', () => ({ measureBriefDocumentCounts: async (rows: unknown) => rows }));
 
 import { readLocalBriefs, setupTopicBriefsLocalHandlers } from '../../main/handlers/topic-briefs-local';
 

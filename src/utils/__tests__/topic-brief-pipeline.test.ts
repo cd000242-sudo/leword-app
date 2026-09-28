@@ -20,6 +20,15 @@ describe('글감 본문과 독립 검토 연결', () => {
     expect(result[0].sourceLevel).toBe('body');
     expect(facts[0].body).toBeUndefined();
   });
+  it('분야별 본문 보강은 세 건씩 최대 열두 건을 읽고 나머지는 요약으로 남긴다', async () => {
+    const rows = Array.from({length:15}, (_,index) => ({...facts[0],id:`f${index+1}`,newsUrl:`https://n.news.naver.com/mnews/article/001/${String(index).padStart(10,'0')}`}));
+    const body = '지역 축제 사전등록은 무료다. 공식 누리집에서 방문일을 고른 뒤 신청할 수 있다. 등록 확인서를 보관한 방문객은 입구에서 확인받으면 된다. 방문 전에 공식 안내문에서 운영 시간과 변경 사항을 확인할 수 있다.';
+    const fetchImpl = vi.fn(async () => new Response(`<div id="dic_area">${body}</div>`,{headers:{'content-type':'text/html'}}));
+    const result = await enrichBriefFacts(rows,{fetchImpl});
+    expect(fetchImpl).toHaveBeenCalledTimes(12);
+    expect(result.filter(row => row.sourceLevel === 'body')).toHaveLength(12);
+    expect(result[12].sourceLevel).toBe('description');
+  });
   it('검토가 질문과 근거의 불일치를 발견하면 추천 가능 상태를 내린다', async () => {
     const run = vi.fn(async () => JSON.stringify([{ index: 0, passed: false, issues: ['무료라는 사실은 있지만 등록 절차는 확인되지 않았습니다.'] }]));
     const [result] = await reviewTopicBriefs([brief()], facts, run);

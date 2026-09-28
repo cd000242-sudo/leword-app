@@ -15,8 +15,10 @@ const editorial: Shape = { ...fields('version status summary audience missing ou
 const writingPackage: Shape = { ...fields('version status title intro conclusion nextSteps missing sourceIds reviewedAt'),
   sections: [fields('heading paragraphs factIds')], faq: [fields('question answer factIds')],
   table: { ...fields('caption headers factIds'), rows: 'textMatrix' } };
-const brief: Shape = { ...fields('title timing types primaryIntent value experience differentiation coreKeyword keywords factIds field searchVolume searchVolumeUnder10 serpFacing serpVacancy serpFit star'),
-  facts: [fact], editorial, writingPackage, titles: [title], alternative: metric, related: [metric], recommendation: fields('keyword reason') };
+const writingGuide: Shape = { ...fields('version direction mustInclude avoid seoTitles homeTitles relatedTerms'), images: [fields('sourceId url kind description captureArea')] };
+const inventory: Shape = fields('targetCount actualCount complete shortfall shortfallReason supportedCount refillRounds attempts');
+const brief: Shape = { ...fields('title timing types primaryIntent value experience differentiation coreKeyword keywords factIds field searchVolume searchVolumeUnder10 documentCount documentCountMeasuredAt serpFacing serpVacancy serpFit star'),
+  facts: [fact], editorial, writingPackage, writingGuide, titles: [title], alternative: metric, related: [metric], recommendation: fields('keyword reason') };
 const issue: Shape = { ...fields('issue issueType lane issueStatus isHot why rowCount carried'),
   headlines: [fields('title press publishedAt link')], concentrated: [fields('keyword searchVolume origin')],
   nextWave: [fields('keyword reason searchVolume documentCount onBoard')] };
@@ -56,7 +58,7 @@ export function boardTime(key: BoardKey, board: any): string | null {
 export function publicBoard(key: BoardKey, raw: unknown, nowMs = Date.now()): any | null {
   if (!raw || typeof raw !== 'object') return null;
   if (key === 'topic-briefs') {
-    const data: any = project(raw, { ...fields('builtAt slot'), briefs: [brief], rounds: [{ ...fields('slot builtAt'), briefs: [brief] }] });
+    const data: any = project(raw, { ...fields('builtAt slot'), inventory, briefs: [brief], rounds: [{ ...fields('slot builtAt'), inventory, briefs: [brief] }] });
     if (!fresh(data.builtAt, nowMs, 72)) return null;
     data.briefs = (data.briefs || []).filter((b: any) => typeof b.title === 'string' && typeof b.coreKeyword === 'string' && b.facts?.length);
     data.rounds = (data.rounds || []).filter((r: any) => fresh(r.builtAt, nowMs, 72)).map((r: any) => ({ ...r, briefs: (r.briefs || []).filter((b: any) => typeof b.title === 'string' && typeof b.coreKeyword === 'string' && b.facts?.length) })).filter((r: any) => r.briefs.length);

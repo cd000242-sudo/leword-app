@@ -1,5 +1,7 @@
 import { extractDates, timingOfFact } from './topic-brief-dates';
 import { sanitizeTitles } from './topic-brief-titles';
+import { validateWritingGuide, type BriefWritingGuide } from './topic-brief-guide';
+export type { BriefWritingGuide } from './topic-brief-guide';
 import { validateEditorial, claimIssue, isNarrowerKeyword, finalizeBriefRecommendations, serpFitOf } from './topic-brief-evidence';
 export * from './topic-brief-dates';
 export * from './topic-brief-prompt';
@@ -53,6 +55,7 @@ export interface BriefDraft {
   keywords: string[];
   factIds: string[];
   editorial?: BriefEditorial;
+  writingGuide?: BriefWritingGuide;
 }
 
 export interface BriefEditorial {
@@ -74,6 +77,9 @@ export interface TopicBrief extends BriefDraft {
   facts: Array<{ id: string; title: string; snippet?: string; evidenceExcerpts?: string[]; press: string; link: string; publishedAt: string }>;
   recommendation?: { keyword: string; reason: string };
   searchVolume: number | null;
+  /** Naver document total for the exact keyword; only the measurement stage may populate it. */
+  documentCount?: number | null;
+  documentCountMeasuredAt?: string;
   /** 검색광고가 '< 10' 으로 답한 검색어 — 잰 것이지 안 잰 게 아니다 */
   searchVolumeUnder10?: boolean;
   serpFacing: number | null;
@@ -132,8 +138,12 @@ export interface BriefAlternative {
 
 /** 분야와 뉴스 질의 — 공식 신호어(시행·접수·출시·개봉·접종·축제·예매·발표)를 섞는다. */
 export const BRIEF_FIELDS: ReadonlyArray<{ field: string; queries: string[] }> = Object.freeze([
-  { field: '정책·사회·법률·복지', queries: ['개정 시행 법령 달라지는', '지원금 신청 접수 시작', '복지 급여 기준 발표'] },
-  { field: '생활경제·금융·부동산·명절', queries: ['상품권 할인 발행 일정', '금리 발표 대출', '추석 할인 지원 농축산물'] },
+  { field: '지원금·복지', queries: ['지원금 신청 접수 시작 대상', '복지 급여 기준 발표', '청년 월세 지원 모집'] },
+  { field: '비즈니스·소상공인', queries: ['소상공인 지원사업 모집 공고', '중소기업 정책자금 신청 접수', '창업 사업화 지원 모집'] },
+  { field: '경제·금융', queries: ['금리 발표 대출 변경', '예금 적금 출시 우대 조건', '물가 경제 지표 발표'] },
+  { field: '생활경제·부동산', queries: ['상품권 할인 발행 일정', '청약 모집 공고 공급 일정', '공공요금 변경 할인 신청'] },
+  { field: '정책·사회·법률', queries: ['개정 시행 법령 달라지는', '정부 정책 발표 시행 일정', '세금 신고 납부 변경'] },
+  { field: '주요 이슈', queries: ['오늘 주요 이슈 발표 확인', '소비자 환불 리콜 공지', '서비스 장애 복구 보상 공지'] },
   { field: '취업·교육', queries: ['원서접수 일정 대학', '장려금 신청 청년 채용', '수능 일정 발표'] },
   { field: 'AI·IT·전자기기·앱', queries: ['출시 사전예약 신제품', '업데이트 새 기능 공개', 'AI 모델 발표 출시'] },
   { field: '게임', queries: ['게임 출시 예정 발매일', '게임 사전예약 시작'] },
@@ -141,7 +151,7 @@ export const BRIEF_FIELDS: ReadonlyArray<{ field: string; queries: string[] }> =
   { field: '연예·OTT·영화·문화', queries: ['공개 시즌 넷플릭스 디즈니', '개봉 예정 영화 확정', '전시 개막 공연 티켓'] },
   { field: '건강', queries: ['예방접종 무료 시작 일정', '질병관리청 주의 당부 증가'] },
   { field: '과학·우주', queries: ['발사 예정 위성 누리호', '연구 발표 국내 첫'] },
-  { field: '국내여행·로컬·시즌', queries: ['축제 개최 일정 9월', '예매 시작 연휴 열차', '가을 여행지 추천 공개'] },
+  { field: '국내여행·로컬·시즌', queries: ['축제 개최 일정 발표', '예매 시작 연휴 열차', '지역 관광 행사 예약 공지'] },
   { field: '쇼핑·뷰티·환절기', queries: ['기획전 세일 일정 올리브영', '환절기 신제품 출시'] },
   { field: '육아·가족', queries: ['아동수당 부모급여 지급', '육아 지원 신청 시작'] },
   { field: '반려동물', queries: ['동물등록 자진신고 기간', '반려동물 지원 시행'] },
@@ -212,7 +222,7 @@ export function validateBriefs(raw: unknown, facts: FactCard[], field: string, t
     const keywords = [...new Set(
       [d.coreKeyword, ...(Array.isArray(d.keywords) ? d.keywords : [])]
         .map((k) => cleanText(String(k || '')).slice(0, 40))
-        .filter((k) => k.length >= 2 && k.split(/\s+/).length <= 4),
+        .filter((k) => k.length >= 2 && k.split(/\s+/).length <= (k === cleanText(String(d.coreKeyword || '')) ? 6 : 4)),
     )].slice(0, 3);
     const coreKeyword = keywords[0] || '';
     if (!coreKeyword) { dropped.push({ title, reason: '핵심 검색어 없음' }); continue; }
@@ -221,6 +231,11 @@ export function validateBriefs(raw: unknown, facts: FactCard[], field: string, t
     if (issue) { dropped.push({ title, reason: issue }); continue; }
     const narrowKeywords = keywords.filter(k => k === coreKeyword || isNarrowerKeyword(coreKeyword, k));
     const editorial = validateEditorial(d.editorial, cited, today);
+    const guideResult = validateWritingGuide(d.writingGuide, cited, today, coreKeyword);
+    if (guideResult.issues.length) {
+      editorial.status = 'needs_research';
+      editorial.missing = [...new Set([...editorial.missing, ...guideResult.issues])].slice(0, 12);
+    }
     // 생성 모델이 review를 출력해도 검토 완료로 취급하지 않는다. 독립 검토가 나중에 붙인다.
     delete editorial.review;
     ok.push({
@@ -240,7 +255,9 @@ export function validateBriefs(raw: unknown, facts: FactCard[], field: string, t
         ...editorial.answers.flatMap(a => a.excerpts.filter(e => e.factId === f.id).map(e => e.text)),
       ])].slice(0, 16), press: f.press, link: f.link, publishedAt: f.publishedAt })),
       editorial,
+      ...(guideResult.guide ? {writingGuide: guideResult.guide} : {}),
       searchVolume: null,
+      documentCount: null,
       serpFacing: null,
       serpVacancy: null,
       serpFit: '미측정',

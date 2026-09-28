@@ -27,7 +27,8 @@ const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 const { requireJsonArray } = require('../src/utils/agent-cli/replyValidators');
 const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
 const { enrichBriefFacts, reviewTopicBriefs, normalizeBriefBoard } = require('../src/main/topic-brief-pipeline');
-const { generateBriefWritingPackages } = require('../src/main/topic-brief-writing-pipeline');
+const { generateBriefInventory, isBriefRoundComplete, preserveRicherBriefRound } = require('../src/main/topic-brief-inventory');
+const { measureBriefDocumentCounts } = require('../src/main/topic-brief-metrics');
 
 const arg = (name, fallback = '') => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -83,7 +84,7 @@ async function main() {
    * 그래서 회차마다 예약을 여러 번 걸고, 먼저 도는 하나만 일하고 나머지는 여기서 곧장 나간다.
    * 비용이 드는 단계(뉴스·에이전트·검색광고·자리 실측) 앞이라 헛돈이 안 나간다.
    */
-  if (arg('skipIfSlotDone') === 'true' && priorRounds.some((r) => r.slot === slot && r.briefs.length > 0)) {
+  if (arg('skipIfSlotDone') === 'true' && priorRounds.some((r) => r.slot === slot && isBriefRoundComplete(r))) {
     const done = priorRounds.find((r) => r.slot === slot);
     console.log(`${slot} 회차는 오늘 이미 실렸다(${done.builtAt} · 글감 ${done.briefs.length}). 아무것도 하지 않고 나간다.`);
     return;
@@ -134,51 +135,24 @@ async function main() {
   const droppedAll = [];
   const agentFailures = [];
   let agentCalls = 0;
-  let writingAttempts = 0;
+  const inventoryFields = [];
   for (const { field } of selectedFields) {
     const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
-    if (facts.length < 2) { console.log(`  ${field}: 근거 카드 ${facts.length}개 — 건너뜀`); continue; }
-    // 5개 이상을 받기 위해 한 개 더 청한다 — 검증기에서 한둘 떨어져도 5가 남게.
-    const prompt = buildBriefPrompt(field, facts, today, perField + 1, excludeListOf(priorRounds, field));
-    let reply = '';
-    let provider = '';
-    try {
-      const run = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: 240_000, validate: requireJsonArray() });
-      reply = run.reply; provider = run.provider; agentCalls += 1;
-    } catch (error) {
-      const message = String((error && error.message) || error);
-      agentFailures.push(`${field}: ${message}`);
-      console.log(`  ${field}: 에이전트 실패 — ${message}`);
-      continue;
-    }
-    const parsed = tryExtractJson(reply);
-    const { ok, dropped } = validateBriefs(parsed, facts, field, today);
-    const reviewed = await reviewTopicBriefs(ok, facts, async (reviewPrompt) => {
-      const review = await runWithAnyAgent(reviewPrompt, AGENT_CHAIN, { timeoutMs: 120_000, validate: requireJsonArray() });
-      agentCalls += 1;
-      return review.reply;
-    });
-    const { kept, repeated } = dropRepeats(reviewed, priorRounds);
-    const prepared = await generateBriefWritingPackages(kept, facts, async (writingPrompt) => {
-      const result = await runWithAnyAgent(writingPrompt, AGENT_CHAIN, { timeoutMs: 120_000, deadlineMs: 240_000, validate: reply => {
-        const parsed = tryExtractJson(reply);
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('작성 패키지 JSON 객체가 필요합니다.');
-      } });
-      agentCalls += 1;
-      return result.reply;
-    }, { maxPackages: Math.max(0, 3 - writingAttempts), onAttempt: () => { writingAttempts += 1; },
-      onIssue: issue => console.log(`  작성안 ${issue.stage}: ${issue.keyword} — ${issue.reason}`) });
-    all.push(...prepared);
-    droppedAll.push(...dropped.map((d) => ({ field, ...d })), ...repeated.map((b) => ({ field, title: b.title, reason: '앞 회차와 같은 검색어' })));
-    console.log(`  ${field.padEnd(14)} ${provider} → 글감 ${kept.length} · 떨어짐 ${dropped.length + repeated.length}${dropped.length + repeated.length ? ` (${[...dropped.map((d) => d.reason), ...repeated.map(() => '앞 회차 중복')].join(' / ')})` : ''}`);
+    inventoryFields.push({ field, facts, targetCount: /지원금|비즈니스|소상공인|경제|시사/.test(field) ? Math.max(8, perField) : perField });
   }
+  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: priorRounds.filter(r => r.slot !== slot), goal: 30,
+    run: async (prompt, context) => {
+      const result = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
+      agentCalls += 1; console.log(`  ${context.field} ${context.stage} → ${result.provider}`); return result.reply;
+    }, onProgress: progress => console.log(`  발굴 ${JSON.stringify(progress)}`) });
+  all.push(...generated.briefs); droppedAll.push(...generated.dropped);
 
   if (all.length === 0) {
     throw new Error(`게시할 글감이 0건입니다. 기존 게시본을 유지하고 회차를 실패 처리합니다. ${agentFailures[0] || '근거 부족 또는 검증·중복 제거 후 후보 없음'}`);
   }
 
   // 3) 글감이 정한 핵심 검색어의 검색량을 측정한다. 큰 검색량으로 질문을 바꾸지 않는다.
-  let measuredBriefs = all;
+  let measuredBriefs = await measureBriefDocumentCounts(all, openApi);
   const volumes = new Map(); // 공백 걷은 검색어 → 월 검색량(null = '< 10'). 5) 대안 검색어 후보에도 쓴다.
   if (adConfig.accessLicense && adConfig.secretKey && all.length > 0) {
     const wanted = [...new Set(all.flatMap((b) => b.keywords))];
@@ -196,7 +170,7 @@ async function main() {
       }
       await sleep(300);
     }
-    measuredBriefs = all.map((b) => applyMeasuredVolumes(b, volumes));
+    measuredBriefs = measuredBriefs.map((b) => applyMeasuredVolumes(b, volumes));
     console.log(`  검색량 실측  검색어 ${wanted.length}개 → 잰 것 ${volumes.size} · 10+ ${[...volumes.values()].filter((v) => v != null).length}`);
   } else if (all.length > 0) {
     console.log('  검색광고 키 없음 — 검색량은 null 로 둔다');
@@ -308,11 +282,19 @@ async function main() {
   briefs.sort((a, b) => (order[a.timing] - order[b.timing]) || (Number(b.star) - Number(a.star)) || ((b.searchVolume || 0) - (a.searchVolume || 0)));
   const builtAt = new Date().toISOString();
   const thisRound = { slot, builtAt, counts: roundCounts(briefs), briefs };
+  const chosenRound = preserveRicherBriefRound(thisRound, priorRounds.find(r => r.slot === slot));
+  if (chosenRound !== thisRound) {
+    console.log('같은 회차의 더 풍부한 기존 글감을 유지합니다.');
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, JSON.stringify(normalizeBriefBoard(carried), null, 1), 'utf8');
+    return;
+  }
   // 같은 회차 이름이 오늘 이미 있으면(수동 재실행) 그 자리를 갈아끼운다.
   const rounds = [...priorRounds.filter((r) => r.slot !== slot).map(normalizeBriefBoard), thisRound];
   const result = {
     builtAt,
     slot,
+    inventory: generated.inventory,
     // 오늘의 회차들(아침·오후·저녁) — 화면은 이걸 회차 탭으로 그린다. briefs 는 이번 회차(호환용).
     rounds,
     method: {
