@@ -6,6 +6,7 @@ import * as briefs from '../topic-briefs';
 import { tryExtractJson } from '../agent-cli/parse';
 import { runWithAnyAgent } from '../agent-cli/runAny';
 import { requireJsonArray } from '../agent-cli/replyValidators';
+import { generateBriefWritingPackages } from '../../main/topic-brief-writing-pipeline';
 
 const DAY = new Date('2026-09-13T06:00:00.000Z');
 const draft = { title: '가을 건강 관리 준비할 사항', timing: 'NOW', coreKeyword: '가을 건강', keywords: ['가을 건강'], factIds: ['f1'], value: '가을 건강 관리 안내', primaryIntent: '건강 관리', types: ['가이드형'] };
@@ -33,6 +34,7 @@ async function runScript(options: { previousCount?: number; fail?: boolean; noFa
     // 폴백 체인 답 검사(2026-09-15) — 글감이 JSON 배열이 아니면 다음 엔진으로 넘긴다.
     '../src/utils/agent-cli/replyValidators': { requireJsonArray },
     '../src/utils/naver-searchad-api': {},
+    '../src/main/topic-brief-writing-pipeline': { generateBriefWritingPackages },
     '../src/main/topic-brief-pipeline': {
       enrichBriefFacts: async (cards: unknown) => cards,
       reviewTopicBriefs: async (rows: unknown) => rows,

@@ -5,15 +5,18 @@ import { randomUUID } from 'crypto';
 import { normalizeBriefBoard } from './topic-brief-pipeline';
 
 export type BoardKey = 'topic-briefs' | 'issue-niche' | 'brief-titles';
-type Shape = { [key: string]: true | Shape | [Shape] };
+type Shape = { [key: string]: true | 'textMatrix' | Shape | [Shape] };
 const fields = (names: string): Shape => Object.fromEntries(names.split(' ').map(name => [name, true]));
 const title = fields('text type target frame basis');
 const metric = fields('keyword searchVolume serpFacing serpVacancy serpFit');
 const fact = fields('id title snippet evidenceExcerpts press link publishedAt');
 const editorial: Shape = { ...fields('version status summary audience missing outline angle'), review: fields('passed issues'),
   answers: [{ ...fields('question answer factIds'), excerpts: [fields('factId text')] }] };
+const writingPackage: Shape = { ...fields('version status title intro conclusion nextSteps missing sourceIds reviewedAt'),
+  sections: [fields('heading paragraphs factIds')], faq: [fields('question answer factIds')],
+  table: { ...fields('caption headers factIds'), rows: 'textMatrix' } };
 const brief: Shape = { ...fields('title timing types primaryIntent value experience differentiation coreKeyword keywords factIds field searchVolume searchVolumeUnder10 serpFacing serpVacancy serpFit star'),
-  facts: [fact], editorial, titles: [title], alternative: metric, related: [metric], recommendation: fields('keyword reason') };
+  facts: [fact], editorial, writingPackage, titles: [title], alternative: metric, related: [metric], recommendation: fields('keyword reason') };
 const issue: Shape = { ...fields('issue issueType lane issueStatus isHot why rowCount carried'),
   headlines: [fields('title press publishedAt link')], concentrated: [fields('keyword searchVolume origin')],
   nextWave: [fields('keyword reason searchVolume documentCount onBoard')] };
@@ -33,6 +36,8 @@ function project(value: any, shape: Shape): any {
     if (rule === true) {
       if (item === null || ['string', 'number', 'boolean'].includes(typeof item)) out[key] = item;
       else if (Array.isArray(item)) out[key] = item.filter(v => v === null || ['string', 'number', 'boolean'].includes(typeof v)).slice(0, 300);
+    } else if (rule === 'textMatrix') {
+      out[key] = Array.isArray(item) ? item.slice(0, 30).filter(row => Array.isArray(row) && row.length <= 6 && row.every(cell => typeof cell === 'string')).map(row => row.map((cell: string) => cell.slice(0, 12_000))) : [];
     } else if (Array.isArray(rule)) {
       out[key] = Array.isArray(item) ? item.slice(0, 500).map(v => project(v, rule[0])).filter(Boolean) : [];
     } else out[key] = project(item, rule);

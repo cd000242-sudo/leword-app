@@ -27,6 +27,7 @@ const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 const { requireJsonArray } = require('../src/utils/agent-cli/replyValidators');
 const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
 const { enrichBriefFacts, reviewTopicBriefs, normalizeBriefBoard } = require('../src/main/topic-brief-pipeline');
+const { generateBriefWritingPackages } = require('../src/main/topic-brief-writing-pipeline');
 
 const arg = (name, fallback = '') => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -133,6 +134,7 @@ async function main() {
   const droppedAll = [];
   const agentFailures = [];
   let agentCalls = 0;
+  let writingAttempts = 0;
   for (const { field } of selectedFields) {
     const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
     if (facts.length < 2) { console.log(`  ${field}: 근거 카드 ${facts.length}개 — 건너뜀`); continue; }
@@ -157,7 +159,16 @@ async function main() {
       return review.reply;
     });
     const { kept, repeated } = dropRepeats(reviewed, priorRounds);
-    all.push(...kept);
+    const prepared = await generateBriefWritingPackages(kept, facts, async (writingPrompt) => {
+      const result = await runWithAnyAgent(writingPrompt, AGENT_CHAIN, { timeoutMs: 120_000, deadlineMs: 240_000, validate: reply => {
+        const parsed = tryExtractJson(reply);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('작성 패키지 JSON 객체가 필요합니다.');
+      } });
+      agentCalls += 1;
+      return result.reply;
+    }, { maxPackages: Math.max(0, 3 - writingAttempts), onAttempt: () => { writingAttempts += 1; },
+      onIssue: issue => console.log(`  작성안 ${issue.stage}: ${issue.keyword} — ${issue.reason}`) });
+    all.push(...prepared);
     droppedAll.push(...dropped.map((d) => ({ field, ...d })), ...repeated.map((b) => ({ field, title: b.title, reason: '앞 회차와 같은 검색어' })));
     console.log(`  ${field.padEnd(14)} ${provider} → 글감 ${kept.length} · 떨어짐 ${dropped.length + repeated.length}${dropped.length + repeated.length ? ` (${[...dropped.map((d) => d.reason), ...repeated.map(() => '앞 회차 중복')].join(' / ')})` : ''}`);
   }

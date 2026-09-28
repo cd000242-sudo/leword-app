@@ -68,6 +68,8 @@ export interface BriefEditorial {
 }
 
 export interface TopicBrief extends BriefDraft {
+  /** Independently reviewed writing draft; separate from demand/competition recommendation. */
+  writingPackage?: import('./topic-brief-writing').BriefWritingPackage;
   field: string;
   facts: Array<{ id: string; title: string; snippet?: string; evidenceExcerpts?: string[]; press: string; link: string; publishedAt: string }>;
   recommendation?: { keyword: string; reason: string };

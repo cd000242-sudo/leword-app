@@ -36,6 +36,7 @@ import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions } fro
 import { measureSeat, seatBlogTabUrl } from '../../utils/seat-measure';
 import { localSerpFetch, closeLocalSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
 import { enrichBriefFacts, normalizeBriefBoard, reviewTopicBriefs } from '../topic-brief-pipeline';
+import { generateBriefWritingPackages } from '../topic-brief-writing-pipeline';
 import { atomicBoardWrite } from '../board-cache';
 
 export const BRIEFS_PROGRESS_CHANNEL = 'topic-briefs-local-progress';
@@ -198,6 +199,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   const droppedAll: Array<{ field: string; title: string; reason: string }> = [];
   const agentFailures: string[] = [];
   let agentCalls = 0;
+  let writingAttempts = 0;
   for (let i = 0; i < BRIEF_FIELDS.length; i += 1) {
     if (abortRequested) break;
     const { field } = BRIEF_FIELDS[i];
@@ -228,7 +230,17 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     });
     throwIfCancelled();
     const { kept, repeated } = dropRepeats(reviewed, prior);
-    all.push(...kept);
+    const prepared = await generateBriefWritingPackages(kept, facts, async (writingPrompt) => {
+      throwIfCancelled();
+      const result = await runWithAnyAgent(writingPrompt, AGENT_CHAIN, { timeoutMs: 120_000, deadlineMs: 240_000, validate: reply => {
+        const parsed = tryExtractJson(reply);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('작성 패키지 JSON 객체가 필요합니다.');
+      } });
+      agentCalls += 1;
+      return result.reply;
+    }, { maxPackages: Math.max(0, 3 - writingAttempts), onAttempt: () => { writingAttempts += 1; } });
+    throwIfCancelled();
+    all.push(...prepared);
     droppedAll.push(
       ...dropped.map((d) => ({ field, ...d })),
       ...repeated.map((b) => ({ field, title: b.title, reason: '앞 회차와 같은 검색어' })),

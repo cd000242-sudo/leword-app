@@ -11,6 +11,13 @@ afterEach(() => dirs.splice(0).forEach(dir => fs.rmSync(dir, { recursive: true, 
 const brief = { title: '지원금 신청 조건 확인', coreKeyword: '지원금 신청', timing: 'NOW', field: '정책', facts: [{ id: 'f1', title: '지원금 신청', snippet: '조건 확인', body: '비공개 기사 전체', apiKey: 'SECRET', link: 'https://news.naver.com/article/1', publishedAt: stamp }], factIds: ['f1'] };
 
 describe('public board projection and successful snapshot', () => {
+  it('preserves writing tables and public paragraphs while excluding private nested fields', () => {
+    const writingPackage = { version:1, status:'ready', title:'공개 제목', sourceIds:['f1'], sections:[{heading:'조건',paragraphs:['공개 설명'],factIds:['f1'],token:'SECRET'}], table:{caption:'조건표',headers:['항목','기준'],rows:[['조건','확인'],[{password:'SECRET'},'제외']],factIds:['f1'],privateDraft:'SECRET'},privateDraft:'SECRET' };
+    const board: any = publicBoard('topic-briefs', {builtAt:stamp,briefs:[{...brief,writingPackage}]}, now);
+    expect(board.briefs[0].writingPackage.table.rows).toEqual([['조건','확인']]);
+    expect(board.briefs[0].writingPackage.sections[0].paragraphs).toEqual(['공개 설명']);
+    expect(JSON.stringify(board)).not.toContain('SECRET');
+  });
   it('normalizes legacy briefs and only publishes whitelisted fields', () => {
     const board: any = publicBoard('topic-briefs', { builtAt: stamp, briefs: [brief], token: 'SECRET', rounds: [{ slot: '아침', builtAt: stamp, briefs: [brief], config: 'SECRET' }] }, now);
     expect(board.briefs[0].editorial.status).toBe('needs_research');
