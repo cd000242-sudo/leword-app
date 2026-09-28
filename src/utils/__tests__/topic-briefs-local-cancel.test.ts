@@ -53,6 +53,13 @@ async function run(onProgress: (progress: any) => void = () => {}) {
 }
 
 describe('오늘의 글감 취소 시 기존 저장본 보존', () => {
+  it('검증된 글감이 하나도 없으면 이전 정상 회차를 빈 결과로 덮지 않는다', async () => {
+    state.agent.mockReset(); state.agent.mockResolvedValue({ provider: 'fixture', reply: '[]' });
+    const result = await run();
+    expect(result.success).toBe(false); expect(result.error).toMatch(/0건.*기존 저장본을 유지/);
+    expect(state.writes).not.toHaveBeenCalled();
+    expect(readLocalBriefs()).toEqual(JSON.parse(state.previous));
+  });
   it('독립 검토 중 취소한 뒤 정상 검토 답변이 돌아와도 부분 결과를 저장하지 않는다', async () => {
     state.agent.mockImplementationOnce(async () => {
       await state.handlers.get('topic-briefs-local-abort')!();

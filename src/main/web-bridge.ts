@@ -22,6 +22,7 @@
 import http from 'http';
 import { radarMeasurementKeys, type RadarAnalysisInput } from './radar-analysis-service';
 import { handleHomefeedRoute, HOMEFEED_ROUTE_PREFIX, type HomefeedBridgeDeps } from './homefeed/bridge-routes';
+import { handleBoardRoute, type BoardBridgeDeps } from './board-bridge-routes';
 
 export const WEB_BRIDGE_PORT = 47615;
 
@@ -40,6 +41,7 @@ const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
 const MAX_BODY_BYTES = 32768;
 
 export interface WebBridgeDeps {
+  boards?: BoardBridgeDeps;
   radarAnalyze?: (input: RadarAnalysisInput) => Promise<unknown>;
   appVersion: string;
   /** 3사 CLI 상태(설치·로그인·가용) — detectAgent 묶음. */
@@ -213,6 +215,7 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
     }
 
     try {
+      if (deps.boards && await handleBoardRoute(req, res, deps.boards, { readBody, json, siteOriginAllowed: (value) => ALLOWED_ORIGINS.has(value) })) return;
       if (deps.homefeed && String(req.url || '').startsWith(HOMEFEED_ROUTE_PREFIX)) {
         await handleHomefeedRoute(req, res, deps.homefeed, { readBody, json });
         return;

@@ -108,7 +108,11 @@ export const BOARDS: readonly WatchedBoard[] = [
     name: '오늘의 추천키워드',
     url: 'https://leaderspro.kr/data/today-picks.json',
     workflow: 'today-picks.yml',
-    rounds: [{ hour: 4, minute: 30, label: '회차' }],
+    rounds: [
+      { hour: 6, minute: 30, label: '오전' },
+      { hour: 13, minute: 30, label: '오후' },
+      { hour: 19, minute: 30, label: '저녁' },
+    ],
     lastBuiltAt: topLevel('builtAt'),
   },
   {

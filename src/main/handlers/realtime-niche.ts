@@ -27,6 +27,8 @@ import type { IssueSlotSerp } from '../../utils/issue-niche-hunter';
 import { analyzeSerp, verdictFor } from '../../utils/serp-winnability';
 import { localSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
 import { EnvironmentManager } from '../../utils/environment-manager';
+import { buildIssueBoardPayload } from '../../utils/issue-niche-board-publish';
+import { atomicBoardWrite, readBoardFile, writeSuccessfulBoard } from '../board-cache';
 
 export const REALTIME_NICHE_PROGRESS_CHANNEL = 'realtime-niche-progress';
 
@@ -37,6 +39,7 @@ const SLOT_MAX = 200;
 
 const DIR = () => path.join(app.getPath('userData'), 'realtime-niche');
 const LATEST = () => path.join(DIR(), 'latest.json');
+const PUBLIC_BOARD = () => path.join(DIR(), 'public-board.json');
 const CACHE = () => path.join(DIR(), 'slot-cache.json');
 const PREFS = () => path.join(DIR(), 'prefs.json');
 
@@ -276,7 +279,13 @@ export async function runRealtimeNiche(
         ? `자리 ${failed}건을 못 쟀습니다${failReasons.length ? ` (${failReasons.join(' · ')})` : ''} — 다시 누르면 채워집니다. LEWORD 창을 두 개 띄우면 브라우저를 다퉈 이렇게 됩니다.`
         : null),
   };
-  writeJson(LATEST(), result);
+  if (abortRequested) throw new Error('실시간 틈새 생성을 취소했습니다. 기존 저장본을 유지합니다.');
+  if (!rows.length) throw new Error('유효한 실측 결과가 없어 기존 저장본을 유지합니다.');
+  const publicSnapshot = buildIssueBoardPayload({
+    generator: 'leword-desktop', generatedAt: result.ranAt, rows: applied.ledgerRows, issues: board.issues,
+  }, readBoardFile(PUBLIC_BOARD()) as any, { nowMs: Date.parse(result.ranAt), carryHours: 48, schedule: '이 PC 앱에서 실측한 회차' }).payload;
+  writeSuccessfulBoard(PUBLIC_BOARD(), 'issue-niche', publicSnapshot);
+  atomicBoardWrite(LATEST(), result);
   report({ phase: 'done', message: `끝 — 틈새 ${result.summary.niche} · 자리 잰 것 ${results.size} · ${result.seconds}초` });
   return result;
 }

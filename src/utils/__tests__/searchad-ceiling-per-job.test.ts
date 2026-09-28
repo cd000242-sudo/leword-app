@@ -32,7 +32,7 @@ const ROUNDS_PER_DAY: Record<string, number> = {
   'preemption-board.yml': 1,   // 월·금 — 최악의 날 기준 1
   'topic-briefs.yml': 3,
   'issue-niche-board.yml': 3,
-  'today-picks.yml': 1,
+  'today-picks.yml': 3,
   'agent-worker.yml': 1,       // 수동 재보강 — 하루 한 번으로 본다
 };
 

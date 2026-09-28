@@ -35,6 +35,7 @@ const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
 const { getNaverSearchAdBidPairs } = require('../src/utils/naver-searchad-api');
 const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-keywords');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
+const { roundAt, cachedMeasurement, canPublish, describeChanges } = require('./today-picks-rounds');
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -79,6 +80,20 @@ async function main() {
   const carryPath = arg('carry') ? path.resolve(arg('carry')) : '';
   let carried = null;
   try { carried = carryPath && fs.existsSync(carryPath) ? JSON.parse(fs.readFileSync(carryPath, 'utf8')) : null; } catch { carried = null; }
+  const startedAt = new Date().toISOString();
+  const round = roundAt(Date.parse(startedAt));
+  if (arg('respectDone') === 'true' && carried?.round?.id === round.id && carried.topics?.some((t) => t.rows?.length)) {
+    console.log(`${round.label} 회차가 이미 발행되어 재측정하지 않습니다.`);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, JSON.stringify(carried, null, 1), 'utf8');
+    return;
+  }
+  // Measurements retain their actual timestamps across rounds. The cache contains no credentials.
+  const cachePath = arg('measurementCache') ? path.resolve(arg('measurementCache')) : '';
+  let measurements = {};
+  try { measurements = cachePath && fs.existsSync(cachePath) ? JSON.parse(fs.readFileSync(cachePath, 'utf8')) : {}; } catch { measurements = {}; }
+  if (!measurements || typeof measurements !== 'object' || Array.isArray(measurements)) measurements = {};
+  measurements = Object.fromEntries(Object.entries(measurements).filter(([, entry]) => cachedMeasurement(entry)));
   const flat = (k) => String(k || '').replace(/\s+/g, '');
   const alreadyShown = new Set(
     (carried && Array.isArray(carried.topics) ? carried.topics : [])
@@ -129,7 +144,8 @@ async function main() {
   console.log(`오늘의 추천키워드 — 창고 ${db.seeds.length.toLocaleString('ko-KR')}개 · 주제 ${topics.length} · 주제당 후보 ${perTopic} · 황금비 ${minRatio}+ 앞 · 나머지 채움 · 시즌 표시(${months.join('·')}월) · 남김 ${keep}`);
   console.log(`  종목 이름 ${listedNames.size}개 확인 · 후보에서 뺀 말 ${listedDropped}개`);
   const result = {
-    builtAt: new Date().toISOString(),
+    builtAt: startedAt,
+    round,
     warehouseBuiltAt: db.builtAt || null,
     perTopic,
     keep,
@@ -138,7 +154,7 @@ async function main() {
     /** 화면이 그대로 옮겨 적을 수 있는 방법 설명 — 숫자의 출처와 한계. */
     method: {
       searchVolume: '검색광고 키워드도구 월간 검색량 실측(PC+모바일)',
-      documentCount: '네이버 블로그 오픈 API 문서수 실측',
+      documentCount: '네이버 블로그 오픈 API 문서수 실측 · 24시간 이내 실측은 재사용(행별 measuredAt)',
       ratio: `검색량 ÷ 문서수 — ${minRatio} 이상(황금 비율)을 앞에(그 안에서는 입찰가 높은 순), 모자라면 나머지를 황금비 순으로 채운다`,
       bid: '네이버 검색광고 파워링크 3위 평균 입찰가 실측(PC · 모바일 중 큰 값) — 70원이면 3위 자리까지 광고 경쟁이 없다',
       season: '이번 달·다음 달 피크인 계절 씨앗은 seasonPeakMonth 로 표시 — 트래픽 몰릴 예정',
@@ -148,6 +164,8 @@ async function main() {
     topics: [],
   };
   let calls = 0;
+  let successes = 0;
+  let reused = 0;
   for (const t of topics) {
     const prev = resumedTopics.get(t);
     if (prev && (prev.golden || 0) >= keep) {
@@ -166,15 +184,27 @@ async function main() {
       // 황금 10개가 차면 그 주제는 그만 잰다 — 호출 아끼기
       if (golden.length >= keep) break;
       let documentCount = null;
-      try { documentCount = await getNaverBlogDocumentCount(c.keyword, { config: openApi }); } catch { documentCount = null; }
-      calls += 1;
-      if (typeof documentCount === 'number' && documentCount > 0) {
+      const key = flat(c.keyword);
+      const cached = cachedMeasurement(measurements[key]);
+      let measuredAt = cached?.measuredAt;
+      if (cached) { documentCount = cached.count; reused += 1; }
+      else {
+        try { documentCount = await getNaverBlogDocumentCount(c.keyword, { config: openApi }); } catch { documentCount = null; }
+        calls += 1;
+        if (Number.isFinite(documentCount) && documentCount >= 0) {
+          successes += 1;
+          measuredAt = new Date().toISOString();
+          measurements[key] = { count: documentCount, measuredAt };
+        }
+      }
+      if (Number.isFinite(documentCount) && documentCount > 0) {
         const ratio = Math.round((c.searchVolume / documentCount) * 100) / 100;
         const peak = seasonPeak(c, months);
         const row = {
           keyword: c.keyword,
           searchVolume: c.searchVolume,
           documentCount,
+          measuredAt,
           ratio,
           depth: typeof c.depth === 'number' ? c.depth : null,
           comp: c.comp || null,
@@ -184,7 +214,7 @@ async function main() {
         if (ratio >= minRatio) golden.push(row);
         else others.push(row);
       }
-      await sleep(gapMs);
+      if (!cached) await sleep(gapMs);
     }
     // 시즌 앞(피크 임박) 비황금을 먼저, 그다음 황금비 순
     others.sort((a, b) => (Number(!!b.seasonPeakMonth) - Number(!!a.seasonPeakMonth)) || (b.ratio - a.ratio));
@@ -202,17 +232,28 @@ async function main() {
     result.topics.push({ topic: t, candidates: cand.length, measured: golden.length + others.length, golden: g.length, rows });
     const repeated = rows.filter((r) => alreadyShown.has(flat(r.keyword))).length;
     console.log(`  ${t.padEnd(8)} 후보 ${String(cand.length).padStart(3)} → 황금 ${String(g.length).padStart(2)} + 채움 ${String(rows.length - g.length).padStart(2)}  (새것 ${rows.length - repeated}/${rows.length} · 누적 호출 ${calls})`);
-    // 중간 저장 — 도중에 죽어도 잰 만큼은 남는다.
+    // Keep partial work separate: a failed run never replaces a previously good public payload.
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, JSON.stringify(result, null, 1), 'utf8');
+    fs.writeFileSync(`${outPath}.partial`, JSON.stringify(result, null, 1), 'utf8');
+    if (cachePath) {
+      fs.mkdirSync(path.dirname(cachePath), { recursive: true });
+      fs.writeFileSync(cachePath, JSON.stringify(measurements), 'utf8');
+    }
   }
+  if (!canPublish(result, carried, calls, successes)) throw new Error('실측 실패 또는 주제 누락 — 직전 발행본을 유지합니다.');
+  result.changes = describeChanges(result, carried);
+  result.measurements = { requested: calls, reused, succeeded: successes };
+  fs.writeFileSync(`${outPath}.partial`, JSON.stringify(result, null, 1), 'utf8');
+  fs.renameSync(`${outPath}.partial`, outPath);
   const total = result.topics.reduce((n, t) => n + t.rows.length, 0);
   const goldenTotal = result.topics.reduce((n, t) => n + t.golden, 0);
   console.log(`끝 — 행 ${total} · 황금 비율 ${goldenTotal} · 채움 ${total - goldenTotal} · 오픈 API 호출 ${calls} → ${outPath}`);
   process.exit(0);
 }
 
-main().catch((error) => {
+module.exports = { main };
+
+if (require.main === module) main().catch((error) => {
   console.error(`오늘의 추천키워드 실패: ${error && error.stack ? error.stack : error}`);
   process.exit(1);
 });

@@ -14,6 +14,7 @@ import { analyzeKeywordDemand } from './keyword-demand-service';
 import { detectAgent } from '../utils/agent-cli/detect';
 import { analyzeRadarViaAgent } from './radar-analysis-service';
 import { createHomefeedHostDeps } from './homefeed/host';
+import { createBoardBridgeDeps } from './board-bridge-host';
 
 const WORKER_REPO = 'cd000242-sudo/leword-app';
 const WORKER_FILE = 'agent-worker.yml';
@@ -51,6 +52,7 @@ async function workerDispatchTest(): Promise<unknown> {
 export function startWebBridgeHost(): void {
   try {
     startWebBridge({
+      boards: createBoardBridgeDeps(),
       appVersion: app.getVersion(),
       getAgentStatuses: async () => {
         const providers = ['claude', 'codex', 'gemini', 'grok'] as const;

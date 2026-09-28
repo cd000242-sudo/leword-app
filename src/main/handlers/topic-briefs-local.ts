@@ -36,6 +36,7 @@ import { getNaverSearchAdKeywordVolume, getNaverSearchAdKeywordSuggestions } fro
 import { measureSeat, seatBlogTabUrl } from '../../utils/seat-measure';
 import { localSerpFetch, closeLocalSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
 import { enrichBriefFacts, normalizeBriefBoard, reviewTopicBriefs } from '../topic-brief-pipeline';
+import { atomicBoardWrite } from '../board-cache';
 
 export const BRIEFS_PROGRESS_CHANNEL = 'topic-briefs-local-progress';
 
@@ -111,7 +112,7 @@ export function readLocalBriefs(): LocalBriefsResult | null {
 
 function writeLocalBriefs(result: LocalBriefsResult): void {
   ensureDir();
-  fs.writeFileSync(LATEST(), JSON.stringify(result, null, 1), 'utf8');
+  atomicBoardWrite(LATEST(), result);
 }
 
 function configOf() {

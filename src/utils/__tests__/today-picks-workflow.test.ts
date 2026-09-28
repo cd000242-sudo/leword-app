@@ -11,11 +11,19 @@ const root = path.join(__dirname, '..', '..', '..');
 const workflow = fs.readFileSync(path.join(root, '.github', 'workflows', 'today-picks.yml'), 'utf8');
 
 describe('오늘의 추천키워드 워크플로', () => {
-    it('매일 아침 — 한 회차에 예약을 세 번 건다(KST 04:30 · 05:30 · 06:30 = UTC 전날 19:30 · 20:30 · 21:30). 먼저 도는 하나만 일한다', () => {
+    it('오전·오후·저녁 회차마다 재시도 틱을 두되 문지기로 중복을 막는다', () => {
         // 2시간 앞당김(2026-09-15) — 예약이 2시간쯤 늦게 떠서 "1시가 넘어도 안 올라온다"던 것.
         expect([...workflow.matchAll(/cron:\s*'([^']+)'/g)].map((m) => m[1])).toEqual([
-            '30 19 * * *', '30 20 * * *', '30 21 * * *',
+            '30 21,22,23 * * *', '30 4,5,6 * * *', '30 10,11,12 * * *',
         ]);
+    });
+
+    it('회차 기준과 캐시 재사용을 명시한다', () => {
+        expect(workflow).toContain('--rounds=06:30,13:30,19:30');
+        expect(workflow).toContain('actions/cache/restore@v4');
+        expect(workflow).toContain('actions/cache/save@v4');
+        expect(workflow).toContain('--measurementCache=.today-picks-cache/documents.json');
+        expect(workflow).toContain('--maxAgeDays=1');
     });
 
     it('문서수 실측용 오픈 API 키와 사이트 배포키를 넘긴다', () => {

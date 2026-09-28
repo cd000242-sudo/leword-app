@@ -295,6 +295,13 @@ for (const testFile of testFiles) {
  * 그래서 vitest 를 한 번 불러 같은 게이트 안에서 막는다.
  */
 const VITEST_SUITES = [
+    'src/utils/__tests__/board-cache.test.ts',
+    'src/utils/__tests__/board-bridge.test.ts',
+    'src/utils/__tests__/board-bridge-host.test.ts',
+    'src/utils/__tests__/brief-title-service.test.ts',
+    'src/utils/__tests__/realtime-board-snapshot.test.ts',
+    'src/utils/__tests__/today-picks-generator.test.ts',
+    'src/utils/__tests__/today-picks-rounds.test.ts',
     // 오늘의 글감 — 질문별 근거, 독립 검토, 보수적인 추천과 앱 표시를 함께 잠근다.
     'src/utils/__tests__/topic-brief-evidence.test.ts',
     'src/utils/__tests__/topic-brief-pipeline.test.ts',
@@ -506,7 +513,7 @@ const NODE_TEST_FILES = [
 ];
 
 console.log('[vitest] 선점 판정계 실행...');
-const vitest = spawnSync('npx', ['vitest', 'run', ...VITEST_SUITES], {
+const vitest = spawnSync('npx', ['vitest', 'run', '--exclude', '.codex-build-cache/**', ...VITEST_SUITES], {
     stdio: 'inherit',
     shell: true,
     cwd: path.join(__dirname, '..'),
