@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: '17 * * * *'
   workflow_dispatch:
+    inputs:
+      max:
+        description: '이번 실행에서 새로 제목을 지을 소재(카드) 수 상한'
+        default: '8'
 
 permissions:
   contents: read
@@ -15,7 +19,8 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 제목 생성은 배치(2장)당 최대 3분 × 4배치 = 12분까지 걸릴 수 있다.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,7 +30,10 @@ jobs:
       - name: Install collector dependencies
         run: npm ci --ignore-scripts
       - name: Test benchmark evidence rules
-        run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs
+        run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs scripts/enrich-benchmark-titles.test.cjs
+      # 소재 1개당 홈판 후킹형 제목 20개는 구독 CLI(클로드코드)가 짓는다 — brief-titles 와 같은 구조.
+      - name: 구독 CLI 폴백 준비
+        uses: ./.github/actions/setup-subscription-agents
       - name: Checkout website
         uses: actions/checkout@v4
         with:
@@ -37,12 +45,22 @@ jobs:
           node scripts/homefeed-benchmarks.cjs
           --output site/spa/public/data/homefeed-benchmarks.json
           --state site/data/homefeed-benchmark-state.json
-      - name: Publish only the benchmark board and observation state
+      # 창고(id 별, 7일)에 없는 카드만 새로 짓고, 창고 제목을 판에 homeTitles 로 얹는다.
+      # AI 가 전부 실패해도 이 단계는 죽지 않는다 — 판은 창고 제목(없으면 빈 목록)으로 나간다.
+      - name: 소재별 홈판 제목 20개 생성·부착
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: >-
+          node scripts/enrich-benchmark-titles.js
+          --board=site/spa/public/data/homefeed-benchmarks.json
+          --store=site/spa/public/data/homefeed-benchmark-titles.json
+          --max=${{ inputs.max || '8' }}
+      - name: Publish only the benchmark board, title store and observation state
         working-directory: site
         run: |
           git config user.name 'leword-bot'
           git config user.email 'bot@leaderspro.kr'
-          git add spa/public/data/homefeed-benchmarks.json data/homefeed-benchmark-state.json
+          git add spa/public/data/homefeed-benchmarks.json spa/public/data/homefeed-benchmark-titles.json data/homefeed-benchmark-state.json
           if git diff --cached --quiet; then
             echo 'No benchmark changes.'
             exit 0

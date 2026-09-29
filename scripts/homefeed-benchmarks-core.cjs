@@ -141,7 +141,8 @@ function buildCandidates(posts, now, previousPosts = []) {
       publishedAt: lead.publishedAt, eventAt: null, capturedAt: lead.capturedAt,
       freshnessLabel: stale?'시점 재검토':recommended?'원문 재확인 후 우선 검토':'원출처 확인 필요', why, summary,
       summaryAttribution: lead.summary?`${lead.name} 공개 요약 발췌 · 사실 확인 전`:'공개 제목에서 발견 · 본문 미확인',
-      seoTitle: `${keyword}, 원문으로 확인할 핵심 내용`, homeTitle: `“무엇을 먼저 확인할까?” ${keyword}`,
+      // 제목은 템플릿으로 채우지 않는다 — enrich-benchmark-titles 가 카드마다 homeTitles(20개)를 얹는다.
+      homeTitles: [],
       writingDirection: `${keyword}를 검색하는 독자의 질문에 답하는 해설을 작성하세요. 위 벤치마크의 주장과 원출처에서 확인한 사실을 구분하고, 새로 확인한 날짜·조건·변경점부터 제시하세요.`,
       mustInclude: [`${keyword}의 원문 링크와 발행일`, '사건 발생일과 지금 다시 다룰 이유', '독자가 직접 확인할 절차 또는 비교 기준'],
       mustAvoid: ['벤치마크의 경험을 직접 경험한 것처럼 쓰기', '확인하지 않은 가격·정책·인물 주장을 사실로 단정', '실측하지 않은 홈판 노출 확률·수익 보장'],

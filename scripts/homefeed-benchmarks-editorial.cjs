@@ -29,7 +29,8 @@ function applyReviewedEditorial(payload, posts, records, now) {
     const base = buildCandidates(matched, now)[0];
     if (!base || base.status === 'stale' || base.flags.includes('sponsored')) continue;
     const patch = {};
-    for (const key of ['keyword','title','category','seoTitle','homeTitle','summary','summaryAttribution','writingDirection']) {
+    // homeTitle 은 편집자가 손으로 고른 한 줄. 검색형(seoTitle)은 폐기 — 홈판 후킹형 20개(homeTitles)가 대신한다.
+    for (const key of ['keyword','title','category','homeTitle','summary','summaryAttribution','writingDirection']) {
       if (typeof record.candidate?.[key] === 'string') patch[key] = plainText(record.candidate[key]).slice(0, 1000);
     }
     for (const key of ['mustInclude','mustAvoid','relatedKeywords','verificationNeeded','why']) {
