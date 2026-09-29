@@ -60,6 +60,7 @@ test('새 날이면 예약→trigger→progress→snapshot→record 순서로 �
   assert.equal(trigger.method, 'POST'); assert.equal(trigger.auth, 'Bearer tok');
   assert.match(trigger.url, /^https:\/\/api\.brightdata\.com\/datasets\/v3\/trigger\?/);
   for (const q of ['dataset_id=gd_lk5ns7kz21pck8jpis', 'type=discover_new', 'discover_by=url', 'include_errors=true']) assert.ok(trigger.url.includes(q), q);
+  assert.ok(!/[?&]notify=/.test(trigger.url), 'notify 는 웹훅 URL 칸 — 값을 넣으면 400(2026-09-30 실측)');
   assert.deepEqual(trigger.body.input.map((i) => i.url), sources.map((s) => s.url));
   assert.equal(trigger.body.input[0].num_of_posts, 3);
   assert.deepEqual(trigger.body.input[0].posts_to_not_include, ['old1'], '이미 읽은 게시물 id 는 제외해 크레딧을 아낀다');
@@ -114,9 +115,12 @@ test('일부만 승인되면 계정당 게시물 수를 줄여서 읽는다', as
 
 test('trigger 가 실패하면 failed 로 남기고 같은 날 최대 3번까지만 다시 시도한다', async () => {
   const bd = fakeBrightData({ triggerStatus: 500 }); const quota = fakeQuota();
-  const first = await run({ cache: null, fetchImpl: bd.fetchImpl, quota });
+  const logged = [];
+  const first = await run({ cache: null, fetchImpl: bd.fetchImpl, quota, log: (line) => logged.push(line) });
   assert.equal(first.cache.snapshotStatus, 'failed'); assert.equal(first.cache.attempts, 1);
   assert.deepEqual(quota.log, [['reserve', 'homefeed', 6]], '실패한 호출은 기록하지 않는다');
+  assert.match(logged.join('\n'), /HTTP 500\)\. 응답: \{"error":"bad"\}/, '응답 본문이 로그에 남아야 원인을 볼 수 있다(첫 회차 400 은 본문이 없어 못 봤다)');
+  assert.equal(first.results.get('wide_story').reason, '인스타 읽기 요청 실패(HTTP 500).', '공개 판에는 상태 코드만');
   const exhausted = await run({ cache: { ...first.cache, attempts: 3 }, fetchImpl: bd.fetchImpl, quota });
   assert.equal(bd.calls.length, 1, '3번 실패한 날은 더 부르지 않는다');
   assert.match(exhausted.results.get('wide_story').reason, /실패/);

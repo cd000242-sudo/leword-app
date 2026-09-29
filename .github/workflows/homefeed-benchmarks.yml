@@ -27,8 +27,16 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - name: Install collector dependencies
-        run: npm ci --ignore-scripts
+      # --ignore-scripts 금지: 제목 엔진(agent-cli/agentRuntime·usageLedger)이 electron 을 import 해서
+      # 바이너리가 없으면 "Electron failed to install correctly" 로 제목 생성이 통째로 죽는다(2026-09-30 첫 회차 실측).
+      # 글감 레인(topic-briefs)과 같은 npm ci 패턴.
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
       - name: Test benchmark evidence rules
         run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs scripts/enrich-benchmark-titles.test.cjs scripts/homefeed-instagram.test.cjs
       # 소재 1개당 홈판 후킹형 제목 20개는 구독 CLI(클로드코드)가 짓는다 — brief-titles 와 같은 구조.

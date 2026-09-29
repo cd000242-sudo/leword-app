@@ -66,7 +66,13 @@ function prunePool(posts, now) {
 
 async function bdJson(fetchImpl, token, url, init = {}) {
   const response = await fetchImpl(url, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers || {}) }, signal: AbortSignal.timeout(60000) });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (!response.ok) {
+    // 원인 진단용 — 본문은 로그에만 남기고(공개 판에는 상태 코드만) 200자로 자른다.
+    const body = typeof response.text === 'function' ? await response.text().catch(() => '') : '';
+    const error = new Error(`HTTP ${response.status}`);
+    error.body = String(body || '').replace(/\s+/g, ' ').slice(0, 200);
+    throw error;
+  }
   return response.json();
 }
 
@@ -75,7 +81,8 @@ async function trigger({ fetchImpl, token, sources, postsPerAccount, pool }) {
     const known = pool.filter((p) => p.sourceId === s.id && p.postId).map((p) => p.postId);
     return { url: s.url, num_of_posts: postsPerAccount, ...(known.length ? { posts_to_not_include: known } : {}) };
   });
-  const query = new URLSearchParams({ dataset_id: POSTS_DATASET, type: 'discover_new', discover_by: 'url', include_errors: 'true', notify: 'false' });
+  // notify 는 웹훅 URL 칸이다 — 'false' 같은 값을 넣으면 400 이 난다(2026-09-30 첫 회차 실측). 폴링만 쓰니 아예 안 보낸다.
+  const query = new URLSearchParams({ dataset_id: POSTS_DATASET, type: 'discover_new', discover_by: 'url', include_errors: 'true' });
   const data = await bdJson(fetchImpl, token, `${API}/trigger?${query}`, { method: 'POST', body: JSON.stringify({ input }) });
   if (!data || typeof data.snapshot_id !== 'string' || !data.snapshot_id) throw new Error('snapshot_id missing');
   return data.snapshot_id;
@@ -158,7 +165,7 @@ async function collectInstagram({ sources, now, cache, token, fetchImpl = fetch,
       log(`[instagram] trigger ${snapshotId} (${sources.length}계정 × ${perAccountGranted}건 예약, 시도 ${attempts})`);
     } catch (error) {
       const reason = `인스타 읽기 요청 실패(${/^HTTP \d+$/.test(error.message) ? error.message : '응답 형식 오류'}).`;
-      log(`[instagram] ${reason}`);
+      log(`[instagram] ${reason}${error.body ? ` 응답: ${error.body}` : ''}`);
       return done({ snapshotStatus: 'failed', attempts, reason }, { status: 'unavailable', reason });
     }
   }
