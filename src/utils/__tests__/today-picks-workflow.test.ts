@@ -39,6 +39,8 @@ describe('오늘의 추천키워드 워크플로', () => {
     it('스크립트가 실재하고, 사이트의 실검 틈새 보드와 같은 폴더에 싣는다', () => {
         expect(fs.existsSync(path.join(root, 'scripts', 'today-picks.js'))).toBe(true);
         expect(workflow).toContain('site/spa/public/data/today-picks.json');
+        // 황금 비중(2026-09-29): 직전 판 황금은 --carry 로, 선점 보드의 황금(BD 자리 실측까지 된 것)은 --goldenBoard 로 합류한다.
+        expect(workflow).toContain('--goldenBoard=site/spa/public/data/preemption-board.json');
     });
 
     it('BD 를 태우지 않는다 — 무료 표다', () => {

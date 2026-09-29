@@ -118,7 +118,9 @@ jobs:
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
         run: node scripts/build-seed-db.js --maxAgeDays=1
 
-      - name: 추천키워드 뽑기 (창고 → 문서수 실측 → 7일 신규 우선 · 황금비 · 입찰가)
+      # 황금 비중(2026-09-29): 직전 판 황금(--carry)과 선점 보드 황금(--goldenBoard, BD 자리 실측까지 된 96행)을
+      # 창고 후보보다 먼저 잰다. 황금은 7일 이력 예외라 날마다 쌓인다. 호출 수는 그대로(황금이 차면 창고는 안 잰다).
+      - name: 추천키워드 뽑기 (직전 판·선점 보드 황금 → 창고 → 문서수 실측 → 황금비 · 입찰가)
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
@@ -127,7 +129,7 @@ jobs:
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
           NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
-        run: node scripts/today-picks.js --out=today-picks.json --perTopic=120 --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }}
+        run: node scripts/today-picks.js --out=today-picks.json --perTopic=120 --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }}
 
       - name: 다음 회차를 위한 실측·씨앗 캐시 저장
         uses: actions/cache/save@v4
