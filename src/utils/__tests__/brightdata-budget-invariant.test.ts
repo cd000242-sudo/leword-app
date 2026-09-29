@@ -18,6 +18,11 @@ import { describe, expect, it } from 'vitest';
  * 쓰기는 제 장부에만 한다 — 동시에 도는 레인이 서로를 덮지 않게(under-count = 유료 유출).
  *
  * 그래서 세 레인이 **같은 숫자**를 쓴다. 그 숫자가 계정 전체의 상한이다.
+ *
+ * ── 3차(2026-09-30): 네 번째 레인 ──
+ * 홈판 벤치마크가 인스타 게시물을 Bright Data 로 읽는다(레코드 1건 = 1크레딧, 같은 계정 풀).
+ * 장부는 site/data/brightdata-quota-homefeed.json. 새 레인은 **남의 PEER_FILES 에도** 들어가야
+ * 이웃이 이 레인 지출을 본다 — 빠지면 그만큼 상한이 거짓말한다.
  */
 const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (name: string) => fs.readFileSync(path.join(ROOT, '.github', 'workflows', `${name}.yml`), 'utf8');
@@ -29,7 +34,7 @@ const ACCOUNT_FREE = 5_000;
 /** 사장님 한도(2026-09-07 "20달러만 안 넘으면 된다"). */
 const BUDGET_USD = 20;
 
-const LANES = ['preemption-board', 'topic-briefs', 'issue-niche-board'] as const;
+const LANES = ['preemption-board', 'topic-briefs', 'issue-niche-board', 'homefeed-benchmarks'] as const;
 
 function envOf(workflow: string, key: string): number | null {
   const m = new RegExp('LEWORD_BRIGHTDATA_' + key + ":\\s*'(\\d+)'").exec(workflow);
@@ -96,14 +101,14 @@ describe('합계로 보려면 이웃 장부를 실제로 읽어야 한다', () =
   it('레인마다 제 장부가 따로다 — 같은 파일을 동시에 쓰면 서로를 덮는다', () => {
     const own = LANES.map((n) => ownLedgerOf(read(n)));
     for (const [i, p] of own.entries()) expect(p, `${LANES[i]} 에 장부 경로가 없다`).not.toBe('');
-    expect(new Set(own.map(baseName)).size).toBe(3);
+    expect(new Set(own.map(baseName)).size).toBe(LANES.length);
   });
 
-  it('레인마다 나머지 둘을 이웃으로 가리킨다 — 하나라도 빠지면 그만큼 더 쓴다', () => {
+  it('레인마다 나머지 전부를 이웃으로 가리킨다 — 하나라도 빠지면 그만큼 더 쓴다', () => {
     const own = LANES.map((n) => baseName(ownLedgerOf(read(n))));
     for (const [i, name] of LANES.entries()) {
       const peers = peersOf(read(name)).map(baseName);
-      expect(peers.length, `${name} 에 이웃 장부가 없다`).toBe(2);
+      expect(peers.length, `${name} 에 이웃 장부가 모자란다`).toBe(LANES.length - 1);
       const expected = own.filter((_, j) => j !== i).sort();
       expect(peers.slice().sort(), `${name} 의 이웃이 틀렸다`).toEqual(expected);
       expect(peers, `${name} 이 제 장부를 이웃으로 센다 — 두 번 세면 일찍 막힌다`).not.toContain(own[i]);

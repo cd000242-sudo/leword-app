@@ -200,7 +200,7 @@ jobs:
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
           LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-issue.json
           # 같은 계정을 쓰는 다른 레인의 장부 — 읽기만 한다(상한을 합계로 보기 위해).
-          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/data/brightdata-quota-state.json,${{ github.workspace }}/site/data/brightdata-quota-briefs.json
+          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/data/brightdata-quota-state.json,${{ github.workspace }}/site/data/brightdata-quota-briefs.json,${{ github.workspace }}/site/data/brightdata-quota-homefeed.json
           # 달 1,100 건에서 기능 자체를 잠근다(12 × 3 × 31 = 1,116 이 이론 최대 — 캐시 재사용으로 실제는 더 적다).
           #
           # ── 계정 무료 5,000 을 레인끼리 나눠 갖는다(2026-09-11) ──

@@ -30,7 +30,7 @@ jobs:
       - name: Install collector dependencies
         run: npm ci --ignore-scripts
       - name: Test benchmark evidence rules
-        run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs scripts/enrich-benchmark-titles.test.cjs
+        run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs scripts/enrich-benchmark-titles.test.cjs scripts/homefeed-instagram.test.cjs
       # 소재 1개당 홈판 후킹형 제목 20개는 구독 CLI(클로드코드)가 짓는다 — brief-titles 와 같은 구조.
       - name: 구독 CLI 폴백 준비
         uses: ./.github/actions/setup-subscription-agents
@@ -40,11 +40,26 @@ jobs:
           repository: cd000242-sudo/naver
           ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
           path: site
+      # 인스타 5계정은 Bright Data Instagram Scraper API 로 읽는다(레코드 1건 = 1크레딧, 계정 공용 무료 5,000/월).
+      # 하루 1회(KST)만 trigger 하고 나머지 회차는 site/data/homefeed-instagram.json 풀을 재사용한다.
+      # 장부(brightdata-quota-homefeed.json)는 사이트 레포에 두고 판과 함께 커밋한다 — 회차마다 새 러너라 파일이 기억이다.
       - name: Collect public benchmark posts
+        env:
+          BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}
+          LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-homefeed.json
+          # 같은 계정을 쓰는 다른 레인의 장부 — 읽기만 한다(상한을 합계로 보기 위해).
+          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/data/brightdata-quota-state.json,${{ github.workspace }}/site/data/brightdata-quota-briefs.json,${{ github.workspace }}/site/data/brightdata-quota-issue.json
+          LEWORD_BRIGHTDATA_FREE_CEILING: '5000'
+          # 다른 세 레인과 같은 숫자여야 한다(brightdata-budget-invariant.test.ts 가 잠근다).
+          LEWORD_BRIGHTDATA_PAID_OVERAGE: '12500'
+          # 5계정 × 8건 × 30일 = 1,200 + 여유. 네 레인 합 17,200 ≤ 17,500.
+          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"homefeed":1500}'
+          LEWORD_IG_POSTS_PER_ACCOUNT: '8'
         run: >-
           node scripts/homefeed-benchmarks.cjs
           --output site/spa/public/data/homefeed-benchmarks.json
           --state site/data/homefeed-benchmark-state.json
+          --instagram site/data/homefeed-instagram.json
       # 창고(id 별, 7일)에 없는 카드만 새로 짓고, 창고 제목을 판에 homeTitles 로 얹는다.
       # AI 가 전부 실패해도 이 단계는 죽지 않는다 — 판은 창고 제목(없으면 빈 목록)으로 나간다.
       - name: 소재별 홈판 제목 20개 생성·부착
@@ -61,6 +76,8 @@ jobs:
           git config user.name 'leword-bot'
           git config user.email 'bot@leaderspro.kr'
           git add spa/public/data/homefeed-benchmarks.json spa/public/data/homefeed-benchmark-titles.json data/homefeed-benchmark-state.json
+          [ -f data/homefeed-instagram.json ] && git add data/homefeed-instagram.json
+          [ -f data/brightdata-quota-homefeed.json ] && git add data/brightdata-quota-homefeed.json
           if git diff --cached --quiet; then
             echo 'No benchmark changes.'
             exit 0

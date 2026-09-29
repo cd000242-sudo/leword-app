@@ -59,6 +59,8 @@ export type BrightDataFeature =
   | 'issue'
   /** 오늘의 글감 자리 실측(블로그탭) — 하루 1회 × 12건, 월 상한은 FEATURE_CAPS 로 400. 사장님 승인 2026-09-09. */
   | 'briefs'
+  /** 홈판 벤치마크 인스타 게시물 읽기(Instagram Scraper API, 레코드 1건=1크레딧) — 하루 1회 × 5계정 × 8건, 월 상한은 FEATURE_CAPS 로 1,500. 사장님 승인 2026-09-30. */
+  | 'homefeed'
   | 'affiliate'
   | 'youtube'
   | 'mindmap'

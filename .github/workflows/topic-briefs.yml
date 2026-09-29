@@ -133,7 +133,7 @@ jobs:
           BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
           LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json
           # 같은 계정을 쓰는 다른 레인의 장부 — 읽기만 한다(상한을 합계로 보기 위해).
-          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/data/brightdata-quota-state.json,${{ github.workspace }}/site/data/brightdata-quota-issue.json
+          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/data/brightdata-quota-state.json,${{ github.workspace }}/site/data/brightdata-quota-issue.json,${{ github.workspace }}/site/data/brightdata-quota-homefeed.json
           # 달 12,000 건에서 기능 자체를 잠근다((80 + 대안 70) × 3회 × 31 = 13,950 이 이론 최대, 실제는 대안 대상이 절반 이하).
           # 사장님 2026-09-09 오후: "글감 자리 실측을 전부 해도 되지 않아? 20달러 내로 가능할 듯" — 황금 회차를 주 1회로 줄여 예산을 옮겼다.
           #

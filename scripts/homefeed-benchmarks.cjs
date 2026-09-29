@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 'use strict';
-// Public, deterministic collection: no AI account, browser session or API secret required.
+// Public, deterministic collection: no AI account or browser session. The only secret is the
+// Bright Data token for Instagram (--instagram cache; hourly runs reuse the daily pool).
 const fs = require('node:fs');
 const path = require('node:path');
 const core = require('./homefeed-benchmarks-core.cjs');
 const registry = require('./homefeed-benchmarks-sources.json');
 
-async function collect(source, now, fetcher = core.fetchText) {
+async function collect(source, now, fetcher = core.fetchText, instagram = null) {
   const base = { id:source.id, platform:source.platform, name:source.name || source.id, url:source.url, capturedAt:now };
-  if (source.platform==='instagram') return { ...base, status:'unavailable', reason:'공개 게시물을 안정적으로 확인할 수 있는 수집 경로가 없어 이번 추천에서 제외했습니다.', posts:[] };
+  if (source.platform==='instagram') {
+    const entry = instagram?.get(source.id);
+    if (!entry) return { ...base, status:'unavailable', reason:'인스타 읽기(Bright Data)가 이 실행에 연결되지 않아 이번 추천에서 제외했습니다.', posts:[] };
+    return { ...base, status:entry.status, ...(entry.reason?{reason:entry.reason}:{}), ...(entry.fetchedAt?{fetchedAt:entry.fetchedAt}:{}), posts:entry.posts };
+  }
   try {
     let result;
     if (source.platform==='naver-blog') result=core.parseRss(await fetcher(source.feedUrl),source,now);
@@ -29,6 +34,18 @@ async function collect(source, now, fetcher = core.fetchText) {
   }
 }
 function readJson(filename) { try { return JSON.parse(fs.readFileSync(filename,'utf8')); } catch { return null; } }
+/** 인스타 출처 전부를 Bright Data 로 한 번에 읽고(하루 1회), 출처별 기준 게시물 묶음과 새 캐시를 돌려준다. */
+async function loadInstagram(sources, now, cacheFile) {
+  const { collectInstagram } = require('./homefeed-instagram.cjs');
+  const { cache, results } = await collectInstagram({ sources, now, cache: readJson(cacheFile), token: process.env.BRIGHTDATA_TOKEN || '', log: (line) => console.log(line) });
+  const bundle = new Map();
+  for (const source of sources) {
+    const entry = results.get(source.id); const { posts } = core.parseInstagram(entry.posts, source, now);
+    if (entry.status==='ok' && !posts.length) bundle.set(source.id, { status:'failed', reason:'응답을 받았지만 유효한 공개 게시물이 없습니다. 페이지 구조 또는 접근 상태를 확인해야 합니다.', posts:[] });
+    else bundle.set(source.id, { ...entry, posts });
+  }
+  return { cache, bundle };
+}
 function atomicWrite(filename, value) {
   const resolved=path.resolve(filename); fs.mkdirSync(path.dirname(resolved),{recursive:true});
   const temp=`${resolved}.${process.pid}.tmp`;
@@ -36,12 +53,15 @@ function atomicWrite(filename, value) {
   finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
 }
 async function main(argv=process.argv.slice(2)) {
-  const args={}; for(let i=0;i<argv.length;i++) { if(!['--output','--state'].includes(argv[i]) || !argv[i+1]) throw new Error('Usage: node scripts/homefeed-benchmarks.cjs --output <public.json> --state <history.json>'); args[argv[i].slice(2)]=argv[++i]; }
+  const args={}; for(let i=0;i<argv.length;i++) { if(!['--output','--state','--instagram'].includes(argv[i]) || !argv[i+1]) throw new Error('Usage: node scripts/homefeed-benchmarks.cjs --output <public.json> --state <history.json> [--instagram <cache.json>]'); args[argv[i].slice(2)]=argv[++i]; }
   if(!args.output || !args.state) throw new Error('--output and --state are required');
-  if(path.resolve(args.output)===path.resolve(args.state)) throw new Error('Output and state must differ');
+  if(new Set([args.output,args.state,args.instagram].filter(Boolean).map(f=>path.resolve(f))).size!==[args.output,args.state,args.instagram].filter(Boolean).length) throw new Error('Output, state and instagram cache must differ');
   const now=new Date().toISOString(); const previous=readJson(args.output); const previousState=readJson(args.state); const results=[];
+  // 인스타는 출처별이 아니라 묶음으로 한 번만 Bright Data 에 청한다(계정 5개를 따로 부르면 5번 과금 창구가 열린다).
+  const instagram=args.instagram?await loadInstagram(registry.sources.filter(s=>s.platform==='instagram'),now,args.instagram):null;
+  if(instagram) atomicWrite(args.instagram,instagram.cache);
   for(let i=0;i<registry.sources.length;i+=3) {
-    const batch=await Promise.all(registry.sources.slice(i,i+3).map(s=>collect(s,now))); results.push(...batch);
+    const batch=await Promise.all(registry.sources.slice(i,i+3).map(s=>collect(s,now,undefined,instagram?.bundle))); results.push(...batch);
     for(const result of batch) console.log(`${result.id}: ${result.status} (${result.posts.length})`);
   }
   let payload=core.buildPayload(results,now,previous,previousState?.observations||[]);

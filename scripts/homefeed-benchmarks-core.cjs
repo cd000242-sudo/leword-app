@@ -9,7 +9,8 @@ const FETCH_PATHS = {
   'www.issuelink.co.kr': /^\/community\/listview\/all\/24\/comment\/_blank\/?$/,
   'news.nate.com': /^\/rank\/emoticon$/,
 };
-const LINK_HOSTS = new Set(['blog.naver.com', 'm.blog.naver.com', 'www.youtube.com', 'www.issuelink.co.kr', 'news.nate.com']);
+// 인스타는 fetchText 로 읽지 않는다(FETCH_PATHS 에 없음) — Bright Data 레코드의 게시물 주소만 링크로 허용한다.
+const LINK_HOSTS = new Set(['blog.naver.com', 'm.blog.naver.com', 'www.youtube.com', 'www.issuelink.co.kr', 'news.nate.com', 'www.instagram.com']);
 function assertFetchUrl(value) {
   const url = new URL(value);
   if (url.protocol !== 'https:' || url.username || url.password || url.port || !FETCH_PATHS[url.hostname]?.test(url.pathname)) throw new Error('Blocked source URL');
@@ -19,7 +20,7 @@ function safeLink(value, base) {
   try {
     const u = new URL(value, base);
     if (u.protocol !== 'https:' || u.username || u.password || u.port || !LINK_HOSTS.has(u.hostname)) return null;
-    const postPaths = { 'blog.naver.com': /^\/[a-zA-Z0-9_-]+\/\d+$/, 'm.blog.naver.com': /^\/[a-zA-Z0-9_-]+\/\d+$/, 'www.youtube.com': /^\/watch$/, 'www.issuelink.co.kr': /^\/community\/go\/[a-zA-Z0-9_-]+\/\d+$/, 'news.nate.com': /^\/view\/\d{8}n\d+$/ };
+    const postPaths = { 'blog.naver.com': /^\/[a-zA-Z0-9_-]+\/\d+$/, 'm.blog.naver.com': /^\/[a-zA-Z0-9_-]+\/\d+$/, 'www.youtube.com': /^\/watch$/, 'www.issuelink.co.kr': /^\/community\/go\/[a-zA-Z0-9_-]+\/\d+$/, 'news.nate.com': /^\/view\/\d{8}n\d+$/, 'www.instagram.com': /^\/(?:p|reel)\/[a-zA-Z0-9_-]+\/?$/ };
     if (!postPaths[u.hostname].test(u.pathname)) return null;
     if (u.hostname==='www.youtube.com' && !/^[a-zA-Z0-9_-]{11}$/.test(u.searchParams.get('v')||'')) return null;
     for (const key of [...u.searchParams.keys()]) if (key !== 'v') u.searchParams.delete(key);
@@ -82,6 +83,16 @@ function parseNate(html, source, capturedAt) {
   $('a.lt1[href*="/view/"]').each((_, el) => { const e = $(el); const url = safeLink(e.attr('href'), source.url); if (!url || seen.has(url) || posts.length >= 30) return; seen.add(url);
     posts.push(basePost({ ...source, name: '네이트 연예 공감순' }, capturedAt, { title: plainText(e.find('.tit').text(),160), url, publishedAt: null, summary: plainText(e.find('.desc').text(),300), metrics: { views: null, likes: null, comments: null }, reactionLabel: plainText(e.find('.rnk-emotion .img').text(),30), reactionCount: count(e.find('.emcnt em').text()) }));
   }); return { name: '네이트 연예 공감순', posts: posts.filter(p => p.title && !p.title.includes('\ufffd')) };
+}
+/** Bright Data 인스타 레코드(homefeed-instagram.cjs 가 정규화한 풀) → 기준 게시물. 첫 줄이 제목, 좋아요·댓글이 지표. */
+function parseInstagram(items, source, capturedAt) {
+  const name = plainText(source.name || source.id, 70);
+  const posts = (items || []).map(item => { const url = safeLink(item.url); if (!url) return null;
+    const text = String(item.description || ''); const title = plainText(text.split(/\r?\n/).find(line => line.trim()) || '', 160);
+    const summary = plainText(text, 300) + (item.paidPartnership ? ' [유료광고 파트너십 표시]' : '');
+    return basePost({ ...source, name }, capturedAt, { title, url, publishedAt: validDate(item.datePosted, capturedAt), summary: summary.slice(0, 300), metrics: { views: Number.isFinite(item.views) ? item.views : null, likes: Number.isFinite(item.likes) ? item.likes : null, comments: Number.isFinite(item.comments) ? item.comments : null } });
+  }).filter(p => p?.title);
+  return { name, posts };
 }
 function reactionGrowth(current, previous) {
   if (!previous || previous.url !== current.url || previous.platform !== current.platform || Date.parse(current.capturedAt) - Date.parse(previous.capturedAt) < 60000) return null;
@@ -161,4 +172,4 @@ function buildPayload(results, now, previous, previousPosts=[]) {
   if (!posts.length && previous?.schemaVersion===1 && Array.isArray(previous.candidates)) return { ...previous, ...base, status:'stale', reason:'이번 수집에서 유효한 게시물을 확보하지 못해 마지막 성공 결과를 유지합니다.' };
   return { ...base, generatedAt:posts.length?now:null, status:posts.length?(sources.every(s=>s.status==='ok')?'fresh':'partial'):'stale', collectedPostCount:posts.length, candidates:buildCandidates(posts,now,previousPosts) };
 }
-module.exports = { assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, reactionGrowth, buildCandidates, buildPayload };
+module.exports = { assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, buildCandidates, buildPayload };

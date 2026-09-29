@@ -451,7 +451,7 @@ jobs:
           LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/data/brightdata-quota-state.json
           # 같은 계정을 쓰는 다른 레인의 장부 — 읽기만 한다(상한을 합계로 보기 위해).
           # 이 잡의 사이트 체크아웃은 BD 단계보다 뒤에 있어서, 장부 읽기용으로 따로 한 벌 받아 둔다.
-          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/quota-peers/data/brightdata-quota-briefs.json,${{ github.workspace }}/quota-peers/data/brightdata-quota-issue.json
+          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/quota-peers/data/brightdata-quota-briefs.json,${{ github.workspace }}/quota-peers/data/brightdata-quota-issue.json,${{ github.workspace }}/quota-peers/data/brightdata-quota-homefeed.json
           # 무료 5,000 을 넘겨 허용할 유료 초과분.
           #
           # 사장님 한도: "10달러까지 상한을 늘려 사용 가능하니까 걱정하지 말고,
