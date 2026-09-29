@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "scope": "leadernam-benchmark",
+  "status": "research-only-not-connected-to-production",
+  "priority": "homefeed-suitability-across-all-categories",
+  "observedOn": "2026-09-28",
+  "sources": [
+    {
+      "platform": "naver-blog",
+      "id": "lovely0477",
+      "url": "https://blog.naver.com/lovely0477",
+      "feedUrl": "https://rss.blog.naver.com/lovely0477.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "11_24m",
+      "url": "https://blog.naver.com/11_24m",
+      "feedUrl": "https://rss.blog.naver.com/11_24m.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "podo_hyoni",
+      "url": "https://blog.naver.com/podo_hyoni",
+      "feedUrl": "https://rss.blog.naver.com/podo_hyoni.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "zumzany",
+      "url": "https://blog.naver.com/zumzany",
+      "feedUrl": "https://rss.blog.naver.com/zumzany.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "hitthemoney",
+      "url": "https://blog.naver.com/hitthemoney",
+      "feedUrl": "https://rss.blog.naver.com/hitthemoney.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "honestpsc17",
+      "url": "https://blog.naver.com/honestpsc17",
+      "feedUrl": "https://rss.blog.naver.com/honestpsc17.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "8winner",
+      "url": "https://blog.naver.com/8winner",
+      "feedUrl": "https://rss.blog.naver.com/8winner.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "tammara",
+      "url": "https://blog.naver.com/tammara",
+      "feedUrl": "https://rss.blog.naver.com/tammara.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "livenoa12",
+      "url": "https://blog.naver.com/livenoa12",
+      "feedUrl": "https://rss.blog.naver.com/livenoa12.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "hellobee2",
+      "url": "https://blog.naver.com/hellobee2",
+      "feedUrl": "https://rss.blog.naver.com/hellobee2.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "chesungmin",
+      "url": "https://blog.naver.com/chesungmin",
+      "feedUrl": "https://rss.blog.naver.com/chesungmin.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "again_2s",
+      "url": "https://blog.naver.com/again_2s",
+      "feedUrl": "https://rss.blog.naver.com/again_2s.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "tmzmfk010",
+      "url": "https://blog.naver.com/tmzmfk010",
+      "feedUrl": "https://rss.blog.naver.com/tmzmfk010.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "starljw90",
+      "url": "https://blog.naver.com/starljw90",
+      "feedUrl": "https://rss.blog.naver.com/starljw90.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "naver-blog",
+      "id": "tnwjd955",
+      "url": "https://blog.naver.com/tnwjd955",
+      "feedUrl": "https://rss.blog.naver.com/tnwjd955.xml",
+      "collectionStatus": "rss-posts-read",
+      "postCount": 20,
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "instagram",
+      "id": "wide_story",
+      "url": "https://www.instagram.com/wide_story/",
+      "collectionStatus": "unavailable",
+      "reason": "connector extraction failed; posts not verified",
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "instagram",
+      "id": "eyesmag",
+      "url": "https://www.instagram.com/eyesmag/",
+      "collectionStatus": "unavailable",
+      "reason": "connector extraction failed; posts not verified",
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "instagram",
+      "id": "_trend_kr",
+      "url": "https://www.instagram.com/_trend_kr/",
+      "collectionStatus": "unavailable",
+      "reason": "connector extraction failed; posts not verified",
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "instagram",
+      "id": "celeb_fashion_magazine",
+      "url": "https://www.instagram.com/celeb_fashion_magazine/",
+      "collectionStatus": "unavailable",
+      "reason": "connector extraction failed; posts not verified",
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "instagram",
+      "id": "uluru.news",
+      "url": "https://www.instagram.com/uluru.news/",
+      "collectionStatus": "unavailable",
+      "reason": "connector extraction failed; posts not verified",
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "youtube",
+      "id": "Behind_Master",
+      "url": "https://www.youtube.com/@Behind_Master",
+      "collectionStatus": "public-videos-read",
+      "reactionHistoryAvailable": false,
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "community-ranking",
+      "id": "issuelink",
+      "url": "https://www.issuelink.co.kr/community/listview/all/24/comment/_blank",
+      "collectionStatus": "public-ranking-read",
+      "metricMeaning": "aggregator displayed comments, not homefeed traffic",
+      "homefeedExposure": "unverified"
+    },
+    {
+      "platform": "news-ranking",
+      "id": "nate-ent",
+      "url": "https://news.nate.com/rank/emoticon?cate=ent",
+      "collectionStatus": "cached-only",
+      "reason": "live connector failed; web cache is five days old; exclude from current ranking",
+      "homefeedExposure": "unverified"
+    }
+  ]
+}

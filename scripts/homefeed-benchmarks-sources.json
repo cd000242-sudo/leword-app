@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "scope": "leadernam-benchmark",
+  "priority": "homefeed-suitability-across-all-categories",
+  "sources": [
+    {
+      "id": "lovely0477",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/lovely0477",
+      "feedUrl": "https://rss.blog.naver.com/lovely0477.xml"
+    },
+    {
+      "id": "11_24m",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/11_24m",
+      "feedUrl": "https://rss.blog.naver.com/11_24m.xml"
+    },
+    {
+      "id": "podo_hyoni",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/podo_hyoni",
+      "feedUrl": "https://rss.blog.naver.com/podo_hyoni.xml"
+    },
+    {
+      "id": "zumzany",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/zumzany",
+      "feedUrl": "https://rss.blog.naver.com/zumzany.xml"
+    },
+    {
+      "id": "hitthemoney",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/hitthemoney",
+      "feedUrl": "https://rss.blog.naver.com/hitthemoney.xml"
+    },
+    {
+      "id": "honestpsc17",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/honestpsc17",
+      "feedUrl": "https://rss.blog.naver.com/honestpsc17.xml"
+    },
+    {
+      "id": "8winner",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/8winner",
+      "feedUrl": "https://rss.blog.naver.com/8winner.xml"
+    },
+    {
+      "id": "tammara",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/tammara",
+      "feedUrl": "https://rss.blog.naver.com/tammara.xml"
+    },
+    {
+      "id": "livenoa12",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/livenoa12",
+      "feedUrl": "https://rss.blog.naver.com/livenoa12.xml"
+    },
+    {
+      "id": "hellobee2",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/hellobee2",
+      "feedUrl": "https://rss.blog.naver.com/hellobee2.xml"
+    },
+    {
+      "id": "chesungmin",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/chesungmin",
+      "feedUrl": "https://rss.blog.naver.com/chesungmin.xml"
+    },
+    {
+      "id": "again_2s",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/again_2s",
+      "feedUrl": "https://rss.blog.naver.com/again_2s.xml"
+    },
+    {
+      "id": "tmzmfk010",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/tmzmfk010",
+      "feedUrl": "https://rss.blog.naver.com/tmzmfk010.xml"
+    },
+    {
+      "id": "starljw90",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/starljw90",
+      "feedUrl": "https://rss.blog.naver.com/starljw90.xml"
+    },
+    {
+      "id": "tnwjd955",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/tnwjd955",
+      "feedUrl": "https://rss.blog.naver.com/tnwjd955.xml"
+    },
+    {
+      "id": "Behind_Master",
+      "platform": "youtube",
+      "url": "https://www.youtube.com/@Behind_Master"
+    },
+    {
+      "id": "issuelink",
+      "platform": "community-ranking",
+      "url": "https://www.issuelink.co.kr/community/listview/all/24/comment/_blank"
+    },
+    {
+      "id": "nate-ent",
+      "platform": "news-ranking",
+      "url": "https://news.nate.com/rank/emoticon?cate=ent"
+    }
+  ]
+}
