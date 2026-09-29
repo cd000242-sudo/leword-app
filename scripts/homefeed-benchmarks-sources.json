@@ -94,6 +94,31 @@
       "feedUrl": "https://rss.blog.naver.com/tnwjd955.xml"
     },
     {
+      "id": "wide_story",
+      "platform": "instagram",
+      "url": "https://www.instagram.com/wide_story/"
+    },
+    {
+      "id": "eyesmag",
+      "platform": "instagram",
+      "url": "https://www.instagram.com/eyesmag/"
+    },
+    {
+      "id": "_trend_kr",
+      "platform": "instagram",
+      "url": "https://www.instagram.com/_trend_kr/"
+    },
+    {
+      "id": "celeb_fashion_magazine",
+      "platform": "instagram",
+      "url": "https://www.instagram.com/celeb_fashion_magazine/"
+    },
+    {
+      "id": "uluru.news",
+      "platform": "instagram",
+      "url": "https://www.instagram.com/uluru.news/"
+    },
+    {
       "id": "Behind_Master",
       "platform": "youtube",
       "url": "https://www.youtube.com/@Behind_Master"
