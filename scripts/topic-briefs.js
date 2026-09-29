@@ -17,7 +17,8 @@ const fs = require('fs');
 const path = require('path');
 const {
   BRIEF_FIELDS, toFactCards, pickFactsForPrompt, buildBriefPrompt, validateBriefs, serpFitOf, markStars, kstToday, applyMeasuredVolumes,
-  roundSlotOf, scheduledRound, roundCounts, todaysRounds, excludeListOf, dropRepeats, carrySeats, pickRelatedKeywords, chooseAlternative,
+  roundSlotOf, scheduledRound, roundCounts, todaysRounds, recentRounds, isSameRound, pruneBriefShelf, rotateFieldsByRound,
+  excludeListOf, dropRepeats, carrySeats, pickRelatedKeywords, chooseAlternative,
 } = require('../src/utils/topic-briefs');
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
@@ -75,11 +76,23 @@ async function main() {
   if (planned) {
     console.log(`예약 '${arg('schedule')}' → ${planned.day} ${slot} 회차로 기록한다(실행 시각으로는 ${clockToday.toISOString().slice(0, 10)} ${roundSlotOf(clockToday)}).`);
   }
-  // --carry: 사이트에 실린 직전 파일. 오늘(KST) 앞 회차를 남기고 이번 회차를 덧붙인다(아침·오후·저녁).
+  /*
+   * --carry: 사이트에 실린 직전 파일. **최근 7일** 회차를 남기고 이번 회차를 덧붙인다(7일 창고).
+   *
+   * 왜(사장님 2026-09-29 "다른 카테고리들도 전부 각 카테고리마다 30개 이상씩"):
+   *   회차 하나는 CI 시간 한도(에이전트 콜당 ~77초) 안에 30~50개가 실측 상한이라 17분야 × 30개를 담을 수 없다.
+   *   오늘의 네이버 추천키워드 보드처럼 회차를 쌓아 분야마다 30개 이상이 되게 한다.
+   *   글감의 '지금·예정' 시기는 7일이면 아직 살아 있다(NOW=최근 5일).
+   * 회차는 day+slot 으로 가른다 — 어제 아침과 오늘 아침은 다른 회차다. 중복 제거·자리 이어 쓰기는 창고 전체를 본다.
+   */
   const carryPath = arg('carry') ? path.resolve(arg('carry')) : '';
   let carried = null;
   try { carried = carryPath && fs.existsSync(carryPath) ? JSON.parse(fs.readFileSync(carryPath, 'utf8')) : null; } catch { carried = null; }
-  const priorRounds = todaysRounds(carried && Array.isArray(carried.rounds) ? carried.rounds : [], today);
+  const SHELF_DAYS = 7;
+  const SHELF_PER_FIELD_CAP = 45; // 파일 용량 상한(브리프 하나 ≈ 3천 자 · 17분야 × 45 ≈ 2.3MB 이하)
+  const day = today.toISOString().slice(0, 10);
+  const shelfRounds = recentRounds(carried && Array.isArray(carried.rounds) ? carried.rounds : [], today, SHELF_DAYS);
+  const priorRounds = todaysRounds(shelfRounds, today);
 
   /*
    * --skipIfSlotDone: 이 회차가 오늘 이미 실렸으면 아무것도 하지 않고 나간다.
@@ -106,7 +119,9 @@ async function main() {
     customerId: cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '',
   };
 
-  console.log(`오늘의 글감 — ${today.toISOString().slice(0, 10)} ${slot} 회차 · 분야 ${BRIEF_FIELDS.length} · 분야당 ${perField}개+ · 자리 실측 ${serpMode} · 앞 회차 ${priorRounds.length}(${priorRounds.map((r) => r.slot).join('·') || '없음'})`);
+  // 창고의 앞 회차(같은 날·같은 회차 이름은 뺀다 — 수동 재실행이면 그 자리를 갈아끼운다).
+  const olderRounds = shelfRounds.filter((r) => !isSameRound(r, { day, slot }));
+  console.log(`오늘의 글감 — ${day} ${slot} 회차 · 분야 ${BRIEF_FIELDS.length} · 분야당 ${perField}개+ · 자리 실측 ${serpMode} · 오늘 앞 회차 ${priorRounds.length}(${priorRounds.map((r) => r.slot).join('·') || '없음'}) · ${SHELF_DAYS}일 창고 ${olderRounds.length}회차 ${olderRounds.reduce((s, r) => s + r.briefs.length, 0)}건`);
 
   // 1) 사실 카드
   const newsItems = async (query) => {
@@ -120,7 +135,8 @@ async function main() {
   };
   const fieldFacts = new Map();
   let newsCalls = 0;
-  const selectedFields = BRIEF_FIELDS.filter(({field}) => policy.allocations.some(item => item.field === field && item.desiredTarget > 0));
+  // 분야 순서를 회차마다 돌린다 — 발굴 시간 한도에 걸리면 뒤 분야가 잘리는데, 늘 같은 분야가 잘리면 창고에서도 영영 안 찬다.
+  const selectedFields = rotateFieldsByRound(BRIEF_FIELDS.filter(({field}) => policy.allocations.some(item => item.field === field && item.desiredTarget > 0)), day, slot);
   if (selectedFields.length === 0) throw new Error('선택한 분야가 없습니다.');
   for (const { field, queries } of selectedFields) {
     const seen = new Set();
@@ -146,7 +162,8 @@ async function main() {
     const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
     inventoryFields.push({ ...policy.allocations.find(item => item.field === field), field, facts, targetCount: perField });
   }
-  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: priorRounds.filter(r => r.slot !== slot), goal: policy.goal,
+  // 시간 한도 55분(기본 40) — 17분야 60개는 에이전트 콜당 ~77초 실측으로 40분에 안 들어간다. 워크플로 timeout-minutes 와 같이 올렸다.
+  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: olderRounds, goal: policy.goal, maxDurationMs: 55 * 60_000,
     run: async (prompt, context) => {
       const result = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
       agentCalls += 1; console.log(`  ${context.field} ${context.stage} → ${result.provider}`); return result.reply;
@@ -163,7 +180,7 @@ async function main() {
   measuredBriefs = measured.briefs;
   const volumes = measured.volumes;
   console.log(`  검색량 실측  정확 값 ${measuredBriefs.filter(b => b.searchVolumeEvidence?.status === 'exact').length} · 공개 범위 ${measuredBriefs.filter(b => b.searchVolumeEvidence?.status === 'range').length} · 나머지 미측정`);
-  const seatedBriefs = carrySeats(measuredBriefs, priorRounds);
+  const seatedBriefs = carrySeats(measuredBriefs, olderRounds);
   all.length = 0; all.push(...seatedBriefs); // 검색량 미측정 시 measuredBriefs === all 이어도 후보를 잃지 않는다.
 
   // 4) 자리 실측 — 아직 안 잰 것만, 검색량 큰 순으로 상한까지
@@ -269,21 +286,23 @@ async function main() {
   const order = { NOW: 0, NEXT: 1, ALWAYS: 2 };
   briefs.sort((a, b) => (order[a.timing] - order[b.timing]) || (Number(b.star) - Number(a.star)) || ((b.searchVolume || 0) - (a.searchVolume || 0)));
   const builtAt = new Date().toISOString();
-  const thisRound = { slot, builtAt, counts: roundCounts(briefs), briefs };
-  const chosenRound = preserveRicherBriefRound(thisRound, priorRounds.find(r => r.slot === slot));
+  const thisRound = { day, slot, builtAt, counts: roundCounts(briefs), briefs };
+  const chosenRound = preserveRicherBriefRound(thisRound, shelfRounds.find(r => isSameRound(r, { day, slot })));
   if (chosenRound !== thisRound) {
     console.log('같은 회차의 더 풍부한 기존 글감을 유지합니다.');
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
-    fs.writeFileSync(outPath, JSON.stringify(normalizeBriefBoard(carried), null, 1), 'utf8');
+    fs.writeFileSync(outPath, JSON.stringify(normalizeBriefBoard(carried)), 'utf8');
     return;
   }
-  // 같은 회차 이름이 오늘 이미 있으면(수동 재실행) 그 자리를 갈아끼운다.
-  const rounds = [...priorRounds.filter((r) => r.slot !== slot).map(normalizeBriefBoard), thisRound];
+  // 같은 날 같은 회차 이름이 이미 있으면(수동 재실행) 그 자리를 갈아끼운다. 창고는 분야별 상한으로 자른다.
+  const rounds = pruneBriefShelf([...olderRounds.map(normalizeBriefBoard), thisRound], SHELF_PER_FIELD_CAP);
   const result = {
     builtAt,
+    day,
     slot,
+    shelfDays: SHELF_DAYS,
     inventory: generated.inventory,
-    // 오늘의 회차들(아침·오후·저녁) — 화면은 이걸 회차 탭으로 그린다. briefs 는 이번 회차(호환용).
+    // 최근 7일 회차들(날짜·아침·오후·저녁) — 화면은 전체 누적을 기본으로 그리고 회차 탭도 이걸로 만든다. briefs 는 이번 회차(호환용).
     rounds,
     method: {
       facts: '뉴스 제목·요약과 지원되는 기사 본문에서 발췌를 대조하고 별도로 근거를 검토한다. 부족한 답은 추가 확인으로 표시한다',
@@ -297,10 +316,12 @@ async function main() {
     dropped: droppedAll.slice(0, 50),
   };
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, JSON.stringify(result, null, 1), 'utf8');
-  const perFieldCounts = BRIEF_FIELDS.map(({ field }) => `${field.split('·')[0]} ${briefs.filter((b) => b.field === field).length}`).join(' · ');
-  console.log(`  분야별: ${perFieldCounts}`);
-  console.log(`끝 — ${slot} 회차 글감 ${briefs.length} (NOW ${result.counts.now} · NEXT ${result.counts.next} · ALWAYS ${result.counts.always} · ★ ${result.counts.star}) · 오늘 누적 ${rounds.reduce((s, r) => s + r.briefs.length, 0)}(${rounds.map((r) => r.slot).join('·')}) · 떨어짐 ${droppedAll.length} · 뉴스 ${newsCalls}콜 · 에이전트 ${agentCalls}콜 → ${outPath}`);
+  // 들여쓰기 없이 쓴다 — 7일 창고는 회차 20개 안팎이라 들여쓰기만 수백 KB 다.
+  fs.writeFileSync(outPath, JSON.stringify(result), 'utf8');
+  const shelfBriefs = rounds.flatMap((r) => r.briefs);
+  const perFieldCounts = BRIEF_FIELDS.map(({ field }) => `${field.split('·')[0]} ${briefs.filter((b) => b.field === field).length}/${shelfBriefs.filter((b) => b.field === field).length}`).join(' · ');
+  console.log(`  분야별(이번/창고): ${perFieldCounts}`);
+  console.log(`끝 — ${day} ${slot} 회차 글감 ${briefs.length} (NOW ${result.counts.now} · NEXT ${result.counts.next} · ALWAYS ${result.counts.always} · ★ ${result.counts.star}) · ${SHELF_DAYS}일 창고 ${shelfBriefs.length}건/${rounds.length}회차 · 떨어짐 ${droppedAll.length} · 뉴스 ${newsCalls}콜 · 에이전트 ${agentCalls}콜 → ${outPath}`);
   process.exit(0);
 }
 

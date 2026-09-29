@@ -50,9 +50,11 @@ describe('오늘의 글감 워크플로', () => {
         expect(workflow).toContain('site/spa/public/data/topic-briefs.json');
         // 앞 회차를 이어받아 아침·오후·저녁을 한 파일에 쌓고, 주제마다 5개 이상
         expect(workflow).toContain('--carry=site/spa/public/data/topic-briefs.json');
-        expect(workflow).toContain('--goal=50');
+        // 17분야 60개 회차 + 7일 창고(2026-09-29) — 발굴 55분 상한이라 잡 한도도 함께 올린다.
+        expect(workflow).toContain('--goal=60');
         expect(workflow).toContain('--perField=4');
         expect(workflow).toContain('--maxAltSerp=70');
+        expect(workflow).toMatch(/timeout-minutes:\s*110/);
     });
 
     it('자리 실측은 BD 로 회차 글감 전부(상한 80, 달 8,000 — 사장님 2026-09-09 오후) — 기능 briefs 장부를 사이트 레포에 두고 표와 함께 커밋한다', () => {

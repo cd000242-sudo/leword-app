@@ -42,6 +42,18 @@ describe('public board projection and successful snapshot', () => {
     expect(JSON.stringify(board)).not.toContain('비공개 기사 전체');
     expect(board.rounds[0].briefs).toHaveLength(1);
   });
+  it('7일 창고 회차를 남기고 day·shelfDays 를 그대로 내보낸다(2026-09-29)', () => {
+    const sixDaysAgo = new Date(now - 6 * 24 * 3600000).toISOString();
+    const nineDaysAgo = new Date(now - 9 * 24 * 3600000).toISOString();
+    const board: any = publicBoard('topic-briefs', { builtAt: stamp, day: '2026-09-28', shelfDays: 7, briefs: [brief], rounds: [
+      { day: '2026-09-19', slot: '아침', builtAt: nineDaysAgo, briefs: [brief] },
+      { day: '2026-09-22', slot: '아침', builtAt: sixDaysAgo, briefs: [brief] },
+      { day: '2026-09-28', slot: '오후', builtAt: stamp, briefs: [brief] },
+    ] }, now);
+    expect(board.day).toBe('2026-09-28');
+    expect(board.shelfDays).toBe(7);
+    expect(board.rounds.map((r: any) => r.day)).toEqual(['2026-09-22', '2026-09-28']);
+  });
   it('rejects malformed, empty, future and expired payloads', () => {
     expect(publicBoard('topic-briefs', { builtAt: stamp, briefs: [] }, now)).toBeNull();
     expect(publicBoard('topic-briefs', { builtAt: new Date(now + 600000).toISOString(), briefs: [brief] }, now)).toBeNull();

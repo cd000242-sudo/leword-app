@@ -59,10 +59,11 @@ export function boardTime(key: BoardKey, board: any): string | null {
 export function publicBoard(key: BoardKey, raw: unknown, nowMs = Date.now()): any | null {
   if (!raw || typeof raw !== 'object') return null;
   if (key === 'topic-briefs') {
-    const data: any = project(raw, { ...fields('builtAt slot'), inventory, briefs: [brief], rounds: [{ ...fields('slot builtAt'), inventory, briefs: [brief] }] });
+    const data: any = project(raw, { ...fields('builtAt day slot shelfDays'), inventory, briefs: [brief], rounds: [{ ...fields('day slot builtAt'), inventory, briefs: [brief] }] });
     if (!fresh(data.builtAt, nowMs, 72)) return null;
     data.briefs = (data.briefs || []).filter((b: any) => typeof b.title === 'string' && typeof b.coreKeyword === 'string' && b.facts?.length);
-    data.rounds = (data.rounds || []).filter((r: any) => fresh(r.builtAt, nowMs, 72)).map((r: any) => ({ ...r, briefs: (r.briefs || []).filter((b: any) => typeof b.title === 'string' && typeof b.coreKeyword === 'string' && b.facts?.length) })).filter((r: any) => r.briefs.length);
+    // 회차는 7일 창고(2026-09-29) — 하루 여유를 둔 8일. 판 자체(builtAt)는 72시간 그대로.
+    data.rounds = (data.rounds || []).filter((r: any) => fresh(r.builtAt, nowMs, 8 * 24)).map((r: any) => ({ ...r, briefs: (r.briefs || []).filter((b: any) => typeof b.title === 'string' && typeof b.coreKeyword === 'string' && b.facts?.length) })).filter((r: any) => r.briefs.length);
     if (!data.briefs.length && !data.rounds.length) return null;
     try { return normalizeBriefBoard(data); } catch { return null; }
   }

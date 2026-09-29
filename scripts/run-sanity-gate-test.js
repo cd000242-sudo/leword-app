@@ -314,6 +314,10 @@ const VITEST_SUITES = [
     'src/utils/__tests__/topic-briefs-local-cancel.test.ts',
     'src/utils/__tests__/daily-pick-brief-readiness.test.ts',
     'src/utils/__tests__/topic-briefs-publishing.test.ts',
+    // 7일 창고(2026-09-29) — 회차 날짜·상한·분야 회전. 깨지면 어제 회차가 통째로 사라지거나 파일이 무한히 자란다.
+    'src/utils/__tests__/topic-brief-shelf.test.ts',
+    'src/utils/__tests__/topic-brief-policy.test.ts',
+    'src/utils/__tests__/topic-brief-inventory.test.ts',
     'src/utils/__tests__/brief-title-hook.test.ts',
     'src/utils/__tests__/brief-title-targets.test.ts',
     'src/utils/__tests__/preemption-gate.test.ts',

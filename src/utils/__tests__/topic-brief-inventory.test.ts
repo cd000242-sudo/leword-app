@@ -34,7 +34,7 @@ describe('bounded topic brief inventory', () => {
     ]));
     const result = await generateBriefInventory({ fields: [{ field: '지원금', facts: [fact()] }, { field: '사업', facts: [fact()] }], today, priorRounds: [round(['지난키워드'])], run });
     expect(result.briefs.map(item => item.coreKeyword)).toEqual(['같은 키워드', 'ＳＡＭＥ']);
-    expect(result.inventory).toMatchObject({ actualCount: 2, targetCount: 50, complete: false, shortfall: 48, refillRounds: 2 });
+    expect(result.inventory).toMatchObject({ actualCount: 2, targetCount: 60, complete: false, shortfall: 58, refillRounds: 2 });
     expect(result.inventory.shortfallReason).toBeTruthy();
     expect(run.mock.calls.filter(call => call[1].stage === 'generate')).toHaveLength(6);
     expect(run.mock.calls[2][0]).toContain('같은 키워드');
@@ -79,7 +79,7 @@ describe('bounded topic brief inventory', () => {
     expect(prompts[1].indexOf('[f2]')).toBeLessThan(prompts[1].indexOf('[f1]'));
     const empty = await generateBriefInventory({ fields: [{ field: '지원금', facts: [] }], today, run: vi.fn(), maxRefillRounds: 0 });
     expect(empty.briefs).toEqual([]);
-    expect(empty.inventory).toMatchObject({ complete: false, actualCount: 0, shortfall: 50 });
+    expect(empty.inventory).toMatchObject({ complete: false, actualCount: 0, shortfall: 60 });
   });
 
   it('caps the edition exactly at its goal, including its first pass', async () => {
@@ -130,24 +130,24 @@ describe('inventory publication guards', () => {
     expect(result.inventory.complete).toBe(false);
     expect(result.inventory.failures[0].reason).toMatch(/시간 한도/);
   });
-  const keywords = Array.from({ length: 50 }, (_, i) => `검색어 ${i}`);
-  it('marks a scheduled slot done only with at least 50 unique rows', () => {
+  const keywords = Array.from({ length: 60 }, (_, i) => `검색어 ${i}`);
+  it('marks a scheduled slot done only with at least 60 unique rows (default goal since 2026-09-29)', () => {
     expect(isBriefRoundComplete(round(keywords))).toBe(true);
-    expect(isBriefRoundComplete(round(keywords.slice(0, 49)))).toBe(false);
-    expect(isBriefRoundComplete(round(Array(50).fill('같은 검색어')))).toBe(false);
+    expect(isBriefRoundComplete(round(keywords.slice(0, 59)))).toBe(false);
+    expect(isBriefRoundComplete(round(Array(60).fill('같은 검색어')))).toBe(false);
     expect(isBriefRoundComplete(undefined)).toBe(false);
   });
-  it('regenerates an old fifty-topic edition when the requested category allocation changes', () => {
+  it('regenerates an old edition when the requested category allocation changes', () => {
     const plan = buildTopicBriefPolicy();
     const old = round(keywords);
-    expect(isBriefRoundComplete(old, 50)).toBe(true);
-    expect(isBriefRoundComplete(old, 50, plan.allocations)).toBe(false);
+    expect(isBriefRoundComplete(old, 60)).toBe(true);
+    expect(isBriefRoundComplete(old, 60, plan.allocations)).toBe(false);
     let index = 0;
     const correct = { ...old, briefs: plan.allocations.flatMap(allocation => Array.from({ length: allocation.desiredTarget }, () => ({ ...row(keywords[index++]), field: allocation.field }))) };
-    expect(isBriefRoundComplete(correct, 50, plan.allocations)).toBe(true);
-    expect(isBriefRoundComplete(correct, 50, buildTopicBriefPolicy({ mainCategories: ['경제·금융'] }).allocations)).toBe(false);
+    expect(isBriefRoundComplete(correct, 60, plan.allocations)).toBe(true);
+    expect(isBriefRoundComplete(correct, 60, buildTopicBriefPolicy({ mainCategories: ['경제·금융'] }).allocations)).toBe(false);
     const aliases = { ...correct, briefs: correct.briefs.map(brief => ({ ...brief, field: brief.field === '생활경제·부동산' ? '부동산·생활경제' : brief.field === '주요 이슈' ? '시사·이슈' : brief.field })) };
-    expect(isBriefRoundComplete(aliases, 50, plan.allocations)).toBe(true);
+    expect(isBriefRoundComplete(aliases, 60, plan.allocations)).toBe(true);
   });
   it('keeps the richer same-day same-slot board and its original timestamp', () => {
     const previous = round(keywords), next = round(keywords.slice(0, 12), '2026-09-28T01:00:00Z');
@@ -158,7 +158,7 @@ describe('inventory publication guards', () => {
   });
 });
 
-describe('weighted fifty-topic editions', () => {
+describe('weighted sixty-topic editions', () => {
   it('uses small batches and enforces category quotas even when a provider floods its reply', async () => {
     const plan = buildTopicBriefPolicy();
     const fields = plan.allocations.map((item, index) => ({ ...item, facts: [fact(`f${index}`, item.field)] }));
@@ -172,7 +172,7 @@ describe('weighted fifty-topic editions', () => {
       }));
     });
     const result = await generateBriefInventory({ fields, today, goal: plan.goal, run });
-    expect(result.briefs).toHaveLength(50);
+    expect(result.briefs).toHaveLength(60);
     expect(result.inventory.byField).toEqual(Object.fromEntries(plan.allocations.map(item => [item.field, item.desiredTarget])));
     expect(result.inventory.shortfallByField).toEqual(Object.fromEntries(plan.allocations.map(item => [item.field, 0])));
     expect(result.inventory.refillRounds).toBe(0);

@@ -7,6 +7,8 @@ import { serpFitOf } from './topic-brief-evidence';
 export type RoundSlot = '아침' | '오후' | '저녁';
 
 export interface BriefRound {
+  /** 회차의 한국 날짜(YYYY-MM-DD). 7일 창고에서 어제 아침과 오늘 아침을 가른다. 옛 파일엔 없다 → builtAt 으로 읽는다. */
+  day?: string;
   slot: RoundSlot;
   builtAt: string;
   counts: { briefs: number; now: number; next: number; always: number; star: number };
@@ -86,10 +88,72 @@ export function roundCounts(briefs: ReadonlyArray<TopicBrief>): BriefRound['coun
 
 const briefKey = (b: Pick<TopicBrief, 'coreKeyword'>) => b.coreKeyword.replace(/\s+/g, '').toLowerCase();
 
-/** 오늘(KST) 앞 회차만 남긴다 — 어제 회차는 표에서 빠진다. */
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** 회차의 한국 날짜. day 가 적혀 있으면 그것(늦게 돈 예약도 제 날짜), 없으면 builtAt 의 KST 날짜(옛 파일). 못 읽으면 ''. */
+export function roundDayOf(round: Pick<BriefRound, 'day' | 'builtAt'> | null | undefined): string {
+  if (!round) return '';
+  if (typeof round.day === 'string' && ISO_DAY.test(round.day)) return round.day;
+  const at = Date.parse(String(round.builtAt || ''));
+  return Number.isFinite(at) ? kstToday(new Date(at)).toISOString().slice(0, 10) : '';
+}
+
+export function isSameRound(round: Pick<BriefRound, 'day' | 'builtAt' | 'slot'>, target: { day: string; slot: RoundSlot }): boolean {
+  return round.slot === target.slot && roundDayOf(round) === target.day;
+}
+
+const SLOT_ORDER: Record<RoundSlot, number> = { 아침: 0, 오후: 1, 저녁: 2 };
+
+/**
+ * 최근 N일(오늘 포함) 회차 — 7일 창고(사장님 2026-09-29 "분야마다 30개 이상").
+ * 회차 하나가 17분야 × 30개를 담을 수 없어(CI 시간 한도에 30~50개) 추천키워드 보드처럼 회차를 누적한다.
+ * 미래 날짜·날짜를 못 읽는 회차는 버리고, 날짜·회차 순으로 세운다.
+ */
+export function recentRounds(previous: ReadonlyArray<BriefRound> | undefined, kstNow: Date, days = 7): BriefRound[] {
+  const todayIso = kstNow.toISOString().slice(0, 10);
+  const first = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), kstNow.getUTCDate() - Math.max(1, days) + 1)).toISOString().slice(0, 10);
+  return (previous || [])
+    .filter((r) => { const day = roundDayOf(r); return day !== '' && day >= first && day <= todayIso; })
+    .sort((a, b) => roundDayOf(a).localeCompare(roundDayOf(b)) || SLOT_ORDER[a.slot] - SLOT_ORDER[b.slot]);
+}
+
+/** 오늘(KST) 앞 회차만 남긴다 — 회차 이름(아침·오후·저녁) 겹침 검사와 같은 회차 재실행 판정에 쓴다. */
 export function todaysRounds(previous: ReadonlyArray<BriefRound> | undefined, kstNow: Date): BriefRound[] {
   const todayIso = kstNow.toISOString().slice(0, 10);
-  return (previous || []).filter((r) => r && r.builtAt && kstToday(new Date(r.builtAt)).toISOString().slice(0, 10) === todayIso);
+  return (previous || []).filter((r) => r && r.builtAt && roundDayOf(r) === todayIso);
+}
+
+/**
+ * 창고 크기 상한 — 분야마다 새 회차부터 perFieldCap 개까지만 남긴다(파일 용량: 브리프 하나 ≈ 3천 자).
+ * 원본 회차는 바꾸지 않고 새 배열을 만든다. 글감이 하나도 안 남은 회차는 지운다.
+ */
+export function pruneBriefShelf(rounds: ReadonlyArray<BriefRound>, perFieldCap: number): BriefRound[] {
+  const cap = Math.max(1, Math.floor(perFieldCap));
+  const kept = new Map<string, number>();
+  const newestFirst = [...rounds].reverse();
+  const pruned = newestFirst.map((round) => {
+    // 회차 안에서도 뒤쪽(나중에 실린) 글감을 먼저 살린다 — 앞뒤 회차와 같은 방향.
+    const briefs = [...round.briefs].reverse().filter((b) => {
+      const count = kept.get(b.field) || 0;
+      if (count >= cap) return false;
+      kept.set(b.field, count + 1);
+      return true;
+    }).reverse();
+    return { ...round, briefs, counts: roundCounts(briefs) };
+  });
+  return pruned.reverse().filter((round) => round.briefs.length > 0);
+}
+
+/**
+ * 분야 순서를 회차마다 돌린다 — 발굴 시간 한도에 걸리면 뒤쪽 분야가 잘리는데, 늘 같은 분야가 잘리면 그 분야는 영영 안 찬다.
+ * 날짜·회차로 정해지므로 같은 회차를 다시 돌려도 같은 순서다.
+ */
+export function rotateFieldsByRound<T>(fields: ReadonlyArray<T>, day: string, slot: RoundSlot): T[] {
+  if (fields.length === 0) return [];
+  const dayIndex = Math.floor(Date.parse(`${day}T00:00:00Z`) / 86_400_000);
+  const seed = Number.isFinite(dayIndex) ? dayIndex * 3 + SLOT_ORDER[slot] : SLOT_ORDER[slot];
+  const offset = ((seed % fields.length) + fields.length) % fields.length;
+  return [...fields.slice(offset), ...fields.slice(0, offset)];
 }
 
 /** 앞 회차에 이미 실은 글감의 제목·검색어 — 프롬프트 제외 목록. */

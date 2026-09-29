@@ -22,7 +22,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   BRIEF_FIELDS, applyMeasuredVolumes, buildBriefPrompt, carrySeats, chooseAlternative, dropRepeats,
-  excludeListOf, kstToday, markStars, pickFactsForPrompt, pickRelatedKeywords, roundCounts, roundSlotOf,
+  excludeListOf, isSameRound, kstToday, markStars, pickFactsForPrompt, pickRelatedKeywords, pruneBriefShelf, recentRounds, rotateFieldsByRound, roundCounts, roundSlotOf,
   serpFitOf, toFactCards, todaysRounds, validateBriefs,
   type BriefAlternative, type BriefRound, type TopicBrief,
 } from '../../utils/topic-briefs';
@@ -47,6 +47,9 @@ export const BRIEFS_PROGRESS_CHANNEL = 'topic-briefs-local-progress';
 const PER_FIELD = 4;
 /** 자리 실측 상한. 사이트는 BD 값 때문에 40 인데 여기는 내 브라우저라 넉넉히 둔다. */
 const CORE_SEAT_CAP = 120;
+/** 7일 창고 — 회차 하나가 17분야 × 30개를 담을 수 없어 회차를 쌓는다. 분야별 상한은 파일 용량 때문(스크립트와 같은 값). */
+const SHELF_DAYS = 7;
+const SHELF_PER_FIELD_CAP = 45;
 /** 같이 넣을 말 자리 상한. 글감당 3개까지 재므로 실제로는 글감 수에 걸린다. */
 const RELATED_SEAT_CAP = 200;
 /** 자동 주기(시간). 사장님 PC 는 늘 켜져 있다 — 켜 두면 저절로 새로 만든다. */
@@ -85,7 +88,10 @@ export interface BriefsProgress {
 
 export interface LocalBriefsResult {
   builtAt: string;
+  /** 회차의 한국 날짜(2026-09-29 7일 창고부터). 옛 저장본엔 없다. */
+  day?: string;
   slot: string;
+  shelfDays?: number;
   source: 'app';
   rounds: BriefRound[];
   counts: Record<string, number>;
@@ -164,7 +170,6 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   const perField = Math.min(4, Math.max(1, options.perField ?? PER_FIELD));
   if (options.mainCategories !== undefined && (!Array.isArray(options.mainCategories) || options.mainCategories.some(name => !BRIEF_FIELDS.some(item => item.field === name)))) throw new Error('알 수 없는 글감 분야입니다.');
   const policy = buildTopicBriefPolicy({goal: options.goal, mainCategories: options.mainCategories, weights: options.mainCategories ? Object.fromEntries(options.mainCategories.map(field => [field, 1])) : undefined});
-  const selectedFields = BRIEF_FIELDS.filter(({field}) => policy.allocations.some(item => item.field === field && item.desiredTarget > 0));
   const wantSeats = options.measureSeats !== false;
   const { openApi, ad } = configOf();
   if (!openApi.clientId || !openApi.clientSecret) {
@@ -172,9 +177,15 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   }
 
   const today = kstToday();
+  const day = today.toISOString().slice(0, 10);
   const slot = roundSlotOf(today);
   const previous = readLocalBriefs();
-  const prior = todaysRounds(previous?.rounds || [], today);
+  // 7일 창고(2026-09-29, 스크립트와 같은 규칙) — 회차는 day+slot 으로 가르고, 중복 제거·자리 이어 쓰기는 창고 전체를 본다.
+  const shelf = recentRounds(previous?.rounds || [], today, SHELF_DAYS);
+  const prior = todaysRounds(shelf, today);
+  const older = shelf.filter((r) => !isSameRound(r, { day, slot }));
+  // 분야 순서를 회차마다 돌린다 — 시간 한도에 늘 같은 뒤 분야가 잘리지 않게.
+  const selectedFields = rotateFieldsByRound(BRIEF_FIELDS.filter(({field}) => policy.allocations.some(item => item.field === field && item.desiredTarget > 0)), day, slot);
 
   // ── 1) 사실 카드 — 분야별 뉴스 실측
   const fieldFacts = new Map<string, ReturnType<typeof toFactCards>>();
@@ -214,7 +225,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     const facts = await enrichBriefFacts(fieldFacts.get(field) || []);
     inventoryFields.push({ ...policy.allocations.find(item => item.field === field), field, facts, targetCount: perField });
   }
-  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: prior.filter(r => r.slot !== slot), goal: policy.goal, cancelled: () => abortRequested,
+  const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: older, goal: policy.goal, maxDurationMs: 55 * 60_000, cancelled: () => abortRequested,
     run: async (prompt, context) => {
       throwIfCancelled();
       const result = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
@@ -234,7 +245,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     onProgress: (done,total) => report({step:'검색량',done,total,message:`검색광고 PC·모바일 응답 확인 ${done}/${total}`})});
   const volumes = measured.volumes;
   let briefs = measured.briefs;
-  briefs = carrySeats(briefs, prior);
+  briefs = carrySeats(briefs, older);
 
   // ── 4) 자리 실측 — 상한이 넉넉하다. 이게 앱 레인의 값이다.
   let seatsMeasured = 0;
@@ -299,18 +310,20 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     || ((b.searchVolume || 0) - (a.searchVolume || 0)));
 
   const builtAt = new Date().toISOString();
-  const thisRound: BriefRound = { slot, builtAt, counts: roundCounts(starred), briefs: starred };
-  if (previous && preserveRicherBriefRound(thisRound, prior.find(r => r.slot === slot)) !== thisRound) {
+  const thisRound: BriefRound = { day, slot, builtAt, counts: roundCounts(starred), briefs: starred };
+  if (previous && preserveRicherBriefRound(thisRound, shelf.find(r => isSameRound(r, { day, slot }))) !== thisRound) {
     report({ step: '정리', done: previous.briefs.length, total: policy.goal, message: '같은 회차의 더 풍부한 기존 글감을 유지했습니다.' });
     return previous;
   }
   const result: LocalBriefsResult = {
     inventory: generated.inventory,
     builtAt,
+    day,
     slot,
+    shelfDays: SHELF_DAYS,
     source: 'app',
-    // 같은 회차 이름이 오늘 이미 있으면 그 자리를 갈아끼운다(수동 재실행).
-    rounds: [...prior.filter((r) => r.slot !== slot).map((r) => normalizeBriefBoard(r)), thisRound],
+    // 같은 날 같은 회차 이름이 이미 있으면 그 자리를 갈아끼운다(수동 재실행). 창고는 분야별 상한으로 자른다.
+    rounds: pruneBriefShelf([...older.map((r) => normalizeBriefBoard(r)), thisRound], SHELF_PER_FIELD_CAP),
     counts: {
       briefs: starred.length,
       now: starred.filter((b) => b.timing === 'NOW').length,

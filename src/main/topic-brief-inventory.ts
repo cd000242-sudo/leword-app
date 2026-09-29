@@ -1,11 +1,11 @@
 /** Shared, bounded inventory generation. Callers supply enriched facts and CLI timeouts. */
 import {
-  buildBriefPrompt, validateBriefs, dropRepeats, excludeListOf, kstToday,
+  buildBriefPrompt, validateBriefs, dropRepeats, excludeListOf, roundDayOf,
   type FactCard, type TopicBrief, type BriefRound,
 } from '../utils/topic-briefs';
 import { tryExtractJson } from '../utils/agent-cli/parse';
 import { reviewTopicBriefs } from './topic-brief-pipeline';
-import { normalizeBriefGoal } from '../utils/topic-brief-policy';
+import { DEFAULT_BRIEF_GOAL, normalizeBriefGoal } from '../utils/topic-brief-policy';
 
 export interface BriefInventoryField {
   field: string;
@@ -75,7 +75,7 @@ const priority = (field: string) => /지원금|복지|정책/.test(field) ? 0 : 
 const uniqueCount = (briefs: readonly TopicBrief[]) => new Set(briefs.filter(brief => typeof brief?.coreKeyword === 'string' && brief.coreKeyword.trim() && brief.title && brief.facts?.length).map(brief => keywordKey(brief.coreKeyword))).size;
 
 /** Duplicated rows do not count toward finishing a scheduled slot. */
-export function isBriefRoundComplete(round: Pick<BriefRound, 'briefs'> | null | undefined, goal = 50,
+export function isBriefRoundComplete(round: Pick<BriefRound, 'briefs'> | null | undefined, goal = DEFAULT_BRIEF_GOAL,
   allocations?: readonly Pick<BriefInventoryField, 'field' | 'desiredTarget'>[]): boolean {
   if (!round || !Array.isArray(round.briefs) || uniqueCount(round.briefs) < goalOf(goal)) return false;
   if (!allocations?.length) return true;
@@ -95,10 +95,10 @@ export function isBriefRoundComplete(round: Pick<BriefRound, 'briefs'> | null | 
 }
 
 /** Keep an existing richer edition without pretending its old evidence was just collected. */
-export function preserveRicherBriefRound<T extends Pick<BriefRound, 'slot' | 'builtAt' | 'briefs'>>(next: T, previous?: T | null): T {
+export function preserveRicherBriefRound<T extends Pick<BriefRound, 'slot' | 'builtAt' | 'briefs' | 'day'>>(next: T, previous?: T | null): T {
   if (!previous || previous.slot !== next.slot || !Number.isFinite(Date.parse(previous.builtAt)) || !Number.isFinite(Date.parse(next.builtAt))) return next;
-  const day = (at: string) => kstToday(new Date(at)).toISOString().slice(0, 10);
-  return day(previous.builtAt) === day(next.builtAt) && uniqueCount(previous.briefs) > uniqueCount(next.briefs) ? previous : next;
+  // 회차 날짜는 day(예약이 정한 날) 우선 — 늦게 돈 예약이 builtAt 으로는 다음 날이어도 제 회차다.
+  return roundDayOf(previous) === roundDayOf(next) && uniqueCount(previous.briefs) > uniqueCount(next.briefs) ? previous : next;
 }
 
 function mergeFacts(fresh: readonly FactCard[], existing: readonly FactCard[]): FactCard[] {

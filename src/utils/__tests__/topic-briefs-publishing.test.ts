@@ -13,14 +13,20 @@ const DAY = new Date('2026-09-13T06:00:00.000Z');
 const draft = { title: '가을 건강 관리 준비할 사항', timing: 'NOW', coreKeyword: '가을 건강', keywords: ['가을 건강'], factIds: ['f1'], value: '가을 건강 관리 안내', primaryIntent: '건강 관리', types: ['가이드형'] };
 const facts = ['f1', 'f2'].map((id) => ({ id, field: '건강', title: '가을 건강 관리 안내', snippet: '', press: 'example.test', link: `https://example.test/${id}`, publishedAt: '2026-09-12T00:00:00.000Z', dates: [] }));
 
-async function runScript(options: { previousCount?: number; fail?: boolean; noFacts?: boolean; claudeProse?: boolean } = {}) {
+// 검색어·의도를 모두 다르게 — 창고 회차와 같은 근거 링크+의도면 이번 글감이 중복(eventKey)으로 걸러진다.
+const shelfRound = (day: string, slot: string, keyword: string) => ({ day, slot, builtAt: `${day}T03:00:00.000Z`, briefs: [{ ...draft, title: `${keyword} 정리`, field: '건강', coreKeyword: keyword, keywords: [keyword], primaryIntent: `${keyword} 안내`, facts }] });
+
+async function runScript(options: { previousCount?: number; fail?: boolean; noFacts?: boolean; claudeProse?: boolean; shelf?: boolean } = {}) {
   const writes = vi.fn();
   const exit = vi.fn();
   const news = vi.fn(async () => ({ ok: true, json: async () => ({ items: [] }) }));
   const claude = vi.fn(async () => { if (options.claudeProse) return '요청하신 글감은 다음과 같습니다.'; throw new Error('weekly limit'); });
   const codex = vi.fn(async () => { throw new Error('not_installed'); });
   const gemini = vi.fn(async () => { if (options.fail) throw new Error('503 unavailable'); return JSON.stringify([draft]); });
-  const previous = options.previousCount == null ? null : { rounds: [{ slot: '아침', builtAt: DAY.toISOString(), briefs: Array.from({length:options.previousCount || 0}, (_, i) => ({...draft,field:'건강',coreKeyword:'기존 검색어 '+i,facts})) }] };
+  const previous = options.shelf
+    // 7일 창고: 8일 전 회차는 버리고, 3일 전 회차는 남는다. 오늘(09-13) 회차는 아직 없다.
+    ? { rounds: [shelfRound('2026-09-05', '오후', '여덟날전 검색어'), shelfRound('2026-09-10', '오후', '사흘전 검색어')] }
+    : options.previousCount == null ? null : { rounds: [{ slot: '아침', builtAt: DAY.toISOString(), briefs: Array.from({length:options.previousCount || 0}, (_, i) => ({...draft,field:'건강',coreKeyword:'기존 검색어 '+i,facts})) }] };
   const mocks: Record<string, unknown> = {
     'ts-node/register/transpile-only': {},
     './load-project-env': { loadProjectEnv() {} },
@@ -35,7 +41,8 @@ async function runScript(options: { previousCount?: number; fail?: boolean; noFa
     // 폴백 체인 답 검사(2026-09-15) — 글감이 JSON 배열이 아니면 다음 엔진으로 넘긴다.
     '../src/utils/agent-cli/replyValidators': { requireJsonArray },
     '../src/utils/naver-searchad-api': {},
-    '../src/utils/topic-brief-policy': { buildTopicBriefPolicy: () => buildTopicBriefPolicy({weights:{'지원금·복지':0,'비즈니스·소상공인':0,'경제·금융':0,'생활경제·부동산':0,'주요 이슈':0,'건강':1},mainCategories:['건강']}) },
+    // 기본 가중치는 17분야 전부(2026-09-29) — 건강만 남기고 모두 0으로 끈다.
+    '../src/utils/topic-brief-policy': { buildTopicBriefPolicy: () => buildTopicBriefPolicy({weights:{...Object.fromEntries(briefs.BRIEF_FIELDS.map(({ field }) => [field, 0])),'건강':1},mainCategories:['건강']}) },
     '../src/main/topic-brief-inventory': { ...inventory, generateBriefInventory: (options: any) => inventory.generateBriefInventory({...options,goal:1,maxRefillRounds:0}) },
     '../src/main/topic-brief-metrics': { measureBriefDocumentCounts: async (rows: unknown) => rows, measureBriefSearchVolumes: async (rows: unknown) => ({briefs:rows,volumes:new Map(),evidenceByKeyword:new Map()}) },
     '../src/main/topic-brief-pipeline': {
@@ -71,11 +78,23 @@ describe('오늘의 글감 발행 경로', () => {
     expect(result.writes).toHaveBeenCalledOnce();
     expect(JSON.parse(result.writes.mock.calls[0][1]).counts.briefs).toBe(1);
   });
-  it('50개 이상 게시된 회차는 API를 다시 호출하지 않는다', async () => {
-    const result = await runScript({ previousCount: 50 });
+  it('목표(60개) 이상 게시된 회차는 API를 다시 호출하지 않는다', async () => {
+    const result = await runScript({ previousCount: 60 });
     expect(result.news).not.toHaveBeenCalled();
     expect(result.gemini).not.toHaveBeenCalled();
     expect(result.writes).not.toHaveBeenCalled();
+  });
+  it('7일 창고 — 지난 회차를 날짜별로 쌓고 8일 지난 회차는 버리며 이번 회차에 day 를 적는다(2026-09-29)', async () => {
+    const result = await runScript({ shelf: true });
+    expect(result.writes).toHaveBeenCalledOnce();
+    const written = JSON.parse(result.writes.mock.calls[0][1]);
+    expect(written.day).toBe('2026-09-13');
+    expect(written.shelfDays).toBe(7);
+    expect(written.rounds.map((r: any) => [r.day, r.briefs.map((b: any) => b.coreKeyword)])).toEqual([
+      ['2026-09-10', ['사흘전 검색어']],
+      ['2026-09-13', ['가을 건강']],
+    ]);
+    expect(result.writes.mock.calls[0][1]).not.toContain('\n'); // 들여쓰기 없는 compact JSON
   });
   it.each([{ fail: true }, { noFacts: true }])('생성할 수 없으면 실패하고 기존 게시본을 덮어쓰지 않는다: %j', async (options) => {
     const result = await runScript(options);
