@@ -8,6 +8,17 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { rankExposureGrowthSeeds } from '../../utils/exposure-growth-loop';
 import { transformNaverRequest } from '../../utils/naver-api-hub';
+import { pickMeasuredKeywords, pickRelatedKeywords, type RelatedKeyword } from '../../utils/exposure-keyword-picker';
+import {
+  exactSearchAdTotal,
+  getNaverSearchAdKeywordSuggestions,
+  getNaverSearchAdKeywordVolume,
+  type NaverSearchAdConfig,
+} from '../../utils/naver-searchad-api';
+import { getNaverAutocompleteQuick } from '../../utils/naver-autocomplete';
+import { readSerpStructure, trustedSections } from '../../utils/naver-serp-structure';
+import { closeLocalSerpFetch, localSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
+import { NAVER_TABS } from '../../utils/naver-serp-rank';
 
 interface BlogPost {
   url: string;
@@ -32,6 +43,27 @@ interface TrackedKeyword {
    * 나중에 다시 재면 자리가 이미 변해 있어서 무엇이 갈랐는지 알 수 없다.
    */
   pick?: PickFacts;
+  /**
+   * 이 검색어의 네이버 통합검색 구획 배치(위→아래). 순위를 재는 회차에 함께 잰다.
+   * 사장님 2026-09-30: "배치순서를 보여줫으면좋겠어 예를 들면 AI 답변 뉴스 지식인 블로그 카페".
+   */
+  serp?: SerpFacts;
+}
+
+/** 통합검색 화면에서 실측한 구획 배치. 세대(sectionMarkerVersion)가 다르면 화면은 '안 잼'으로 다룬다. */
+interface SerpFacts {
+  sections: string[];
+  sectionMarkerVersion: number;
+  hasAiBriefing: boolean;
+  adCount: number;
+  measuredAt: string;
+}
+
+/** 씨앗 검색어 하나의 실측 연관 검색어 묶음(related.json 한 줄). */
+interface RelatedRecord {
+  seed: string;
+  related: RelatedKeyword[];
+  measuredAt: string;
 }
 
 /** 고를 때 잰 값 — leword-proof.ts 의 PickFacts 와 같은 모양이다. */
@@ -55,6 +87,18 @@ const STORAGE_DIR = () => path.join(app.getPath('userData'), 'exposure-tracking'
 const FILE_CONFIG = () => path.join(STORAGE_DIR(), 'config.json');
 const FILE_TRACKED = () => path.join(STORAGE_DIR(), 'tracked.json');
 const FILE_KEYWORD_HISTORY = () => path.join(STORAGE_DIR(), 'keyword-history.json');
+const FILE_RELATED = () => path.join(STORAGE_DIR(), 'related.json');
+/** 제목을 검색광고에 물어 본 글(주소 → 물은 시각). 검색량이 안 잡힌 글도 적어 두어 다시 묻지 않는다. */
+const FILE_MEASURED_POSTS = () => path.join(STORAGE_DIR(), 'measured-posts.json');
+
+/** 구획 배치는 하루 한 번만 다시 잰다 — 순위 회차마다 통합검색을 또 받으면 차단만 빨라진다. */
+const SERP_SECTIONS_TTL_MS = 24 * 60 * 60 * 1000;
+/** 연관 검색어는 이레에 한 번 — 검색광고 연관어는 천천히 변한다. */
+const RELATED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** 검색광고 키워드도구는 한 번에 5개씩 받는다(blog-class-rank 와 같은 규격). */
+const VOLUME_BATCH = 5;
+
+const compactKey = (s: string) => String(s || '').toLowerCase().replace(/\s+/g, '');
 
 function ensureDir(): void {
   const dir = STORAGE_DIR();
@@ -129,93 +173,72 @@ function matchKeywordToTitle(keyword: string, title: string): boolean {
   return hits / tokens.length >= 0.8;
 }
 
-// v2.42.83: 글 제목에서 핵심 키워드 후보 자동 추출 (휴리스틱 — 한국어 형태소 분석 없음)
-function extractCoreKeywords(title: string, maxCandidates = 3): string[] {
-  if (!title) return [];
-  let clean = title
-    .replace(/\[[^\]]*\]/g, ' ')
-    .replace(/\([^)]*\)/g, ' ')
-    .replace(/\{[^}]*\}/g, ' ')
-    .replace(/["""''『』「」<>《》]/g, ' ')
-    .replace(/[…⋯—–]/g, ' ')
-    .replace(/[^ 가-힣a-zA-Z0-9% ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+/*
+ * 2026-09-30: 제목을 잘라 만든 조각(extractCoreKeywords)은 걷어냈다.
+ * 추적 319쌍 중 307쌍이 그 조각이었고 검색광고에 물은 12건이 전부 "모름"이었다 —
+ * 아무도 안 치는 말에서 1위 하는 건 쉽다(사장님 "추적하는 키워드가 잘못되었어").
+ * 이제 후보는 내 블로그 체급이 쓰는 같은 후보기(title-candidates)로 만들고,
+ * 검색광고가 검색량을 아는 것만 남긴다. 판정은 exposure-keyword-picker 가 한다.
+ */
+function searchAdConfig(): NaverSearchAdConfig | null {
+  const { EnvironmentManager } = require('../../utils/environment-manager');
+  const cfg = EnvironmentManager.getInstance().getConfig() as any;
+  const accessLicense = cfg.naverSearchAdAccessLicense || process.env.NAVER_SEARCH_AD_ACCESS_LICENSE || '';
+  const secretKey = cfg.naverSearchAdSecretKey || process.env.NAVER_SEARCH_AD_SECRET_KEY || '';
+  if (!accessLicense || !secretKey) return null;
+  const customerId = cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '';
+  return customerId ? { accessLicense, secretKey, customerId } : { accessLicense, secretKey };
+}
 
-  // 광범위 불용어 (조사/어미/형용사/일반 단어)
-  const STOPS = new Set([
-    // 매체 라벨
-    '단독', '종합', '속보', '경향', '뉴스', '취재', '인터뷰', '화보',
-    // 일반 형용/명사
-    '추천', '리뷰', '후기', '소식', '공개', '발표', '경악', '충격', '폭로', '주목',
-    // 의문/지시
-    '왜', '어떻게', '무엇', '내가', '내', '그', '이', '저', '나의', '우리',
-    '오늘', '어제', '내일', '지금', '드디어', '결국', '바로',
-    '진짜', '정말', '드디어', '갑자기', '함께', '먼저',
-    // 의미 없는 일반어
-    '방법', '이유', '결과', '비밀', '주의', '필독', '필수', '관련', '대상',
-    '분들', '여러분', '직접', '실제', '여전히', '예전',
-    // 조사 단독 (혹시)
-    '에서', '으로', '에게', '한테', '부터', '까지',
-  ]);
-
-  // 끝이 조사/어미로 보이는 토큰은 제외
-  const ENDING_JOSA = /(는|은|이|가|을|를|와|과|에|의|도|만|와|과|로|으로|이라|이라고|에서|에게|부터|까지|일까|할까|것|까)$/;
-  // 끝이 동사·서술형 어미
-  const ENDING_VERB = /(했다|한다|됐다|된다|있다|없다|이다|아니다|줍니다|입니다|했어|놓친|않은|어요|에요|예요)$/;
-
-  const isMeaningfulToken = (t: string): boolean => {
-    if (t.length < 2 || t.length > 12) return false;
-    if (STOPS.has(t)) return false;
-    if (/^\d+%?$/.test(t)) return false;
-    if (/^\d+(분|시간|일|초|월|년|만원|원|배)$/.test(t)) return false;
-    if (ENDING_VERB.test(t)) return false;
-    // 끝 조사 — 길이 3+ 일 때만 조사 의심
-    if (t.length >= 3 && ENDING_JOSA.test(t)) {
-      // 조사 떼면 의미 명사 남는지 확인 — 안 떼고 그냥 차단
-      return false;
+/** 검색광고 키워드도구에 5개씩 물어 {keyword, total} 로 돌려준다. 모르는 말은 total null. */
+async function measureVolumes(config: NaverSearchAdConfig, keywords: string[]): Promise<Array<{ keyword: string; total: number | null }>> {
+  const byKey = new Map<string, number | null>();
+  for (let i = 0; i < keywords.length; i += VOLUME_BATCH) {
+    const batch = keywords.slice(i, i + VOLUME_BATCH);
+    try {
+      const rows = await getNaverSearchAdKeywordVolume(config, batch);
+      for (const row of rows) byKey.set(compactKey(row.keyword), exactSearchAdTotal(row));
+    } catch (err: any) {
+      // 쿼터 소진·네트워크 실패는 "모름"이다 — 0 으로 적지 않는다.
+      console.warn('[EXPOSURE-TRACKING] 검색량 실측 실패:', err?.message);
     }
-    return true;
+  }
+  return keywords.map((keyword) => ({ keyword, total: byKey.get(compactKey(keyword)) ?? null }));
+}
+
+/**
+ * 통합검색 화면을 이 PC 크로미엄으로 받아 구획 배치를 읽는다. 못 받으면 null(없는 것과 못 본 것을 섞지 않는다).
+ * 순위 재기(오픈 API)와 별개의 요청이라 검색어당 하루 한 번만 한다.
+ */
+async function measureSerpSections(keyword: string): Promise<SerpFacts | null> {
+  const allTab = NAVER_TABS.find((t) => t.id === 'all');
+  if (!allTab) return null;
+  const result = await localSerpFetch(allTab.url(encodeURIComponent(keyword.slice(0, 80))));
+  if (!result.ok) return null;
+  const structure = readSerpStructure(result.body);
+  if (!structure) return null;
+  return {
+    sections: structure.sections,
+    sectionMarkerVersion: structure.sectionMarkerVersion,
+    hasAiBriefing: structure.hasAiBriefing,
+    adCount: structure.adCount,
+    measuredAt: new Date().toISOString(),
   };
+}
 
-  const tokens = clean.split(/\s+/).filter(isMeaningfulToken);
-  if (tokens.length === 0) return [];
+function isFresh(iso: string | undefined, ttlMs: number): boolean {
+  const t = new Date(String(iso || '')).getTime();
+  return Number.isFinite(t) && Date.now() - t < ttlMs;
+}
 
-  // 후보 생성: 2~3 토큰 인접 조합 + 단일 토큰 (4자+)
-  const candidates: string[] = [];
-  for (let len = 3; len >= 2; len--) {
-    for (let i = 0; i + len <= tokens.length; i++) {
-      candidates.push(tokens.slice(i, i + len).join(' '));
-    }
+/** related.json → growth-loop 가 받는 모양(씨앗 compact 키 → 연관어 문자열). 오래된 것은 뺀다. */
+function relatedExpansions(records: Record<string, RelatedRecord>): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [key, rec] of Object.entries(records || {})) {
+    if (!rec || !Array.isArray(rec.related) || !isFresh(rec.measuredAt, RELATED_TTL_MS)) continue;
+    out[key] = rec.related.map((r) => r.keyword);
   }
-  for (const t of tokens) {
-    if (t.length >= 4) candidates.push(t);
-  }
-
-  // 중복 제거 + 너무 짧은 거 (5자 미만) 제외
-  const seen = new Set<string>();
-  const unique = candidates.filter(c => {
-    if (seen.has(c)) return false;
-    seen.add(c);
-    return c.replace(/\s+/g, '').length >= 5;
-  });
-
-  // 정렬: 의미 명사 점수 — "지원금/혜택/신청/방법/조회" 같은 도메인 명사 가산점
-  const DOMAIN_BIAS = /(지원금|혜택|신청|조회|방법|기준|대상|결과|비교|순위|추천|후기|레시피|증상|치료|예방|관리|효과|가격|할인|쿠폰|이벤트|시세|매물|투자|수익|재테크|면접|자격증|연봉|이직|취업)/;
-  const scored = unique.map(c => {
-    let s = 0;
-    if (DOMAIN_BIAS.test(c)) s += 10;
-    // 토큰 수 2개일 때 약간 우대 (짧고 명확)
-    const tk = c.split(/\s+/).length;
-    if (tk === 2) s += 3;
-    if (tk === 3) s += 1;
-    // 글자수 적당 (8~14자) 우대
-    const len = c.replace(/\s+/g, '').length;
-    if (len >= 7 && len <= 14) s += 2;
-    return { c, s };
-  }).sort((a, b) => b.s - a.s);
-
-  return scored.slice(0, maxCandidates).map(x => x.c);
+  return out;
 }
 
 // v2.42.89: 모바일 SERP는 차단 빈번 → 데스크탑 search.naver.com 사용 (200 OK 안정)
@@ -456,6 +479,7 @@ export function setupExposureTrackingHandlers(): void {
           const prevKwHistory = readJson<any[]>(FILE_KEYWORD_HISTORY(), []);
           cleared.keywordHistory = prevKwHistory.length;
           writeJson(FILE_KEYWORD_HISTORY(), []);
+          writeJson(FILE_MEASURED_POSTS(), {});
           console.log(`[EXPOSURE-TRACKING] 블로그 변경: ${previousUrl} → ${normalized}, 이전 데이터 클리어 (tracked=${cleared.tracked}, history=${cleared.keywordHistory})`);
         }
 
@@ -508,10 +532,10 @@ export function setupExposureTrackingHandlers(): void {
     });
   }
 
-  // 4. RSS 글 ↔ 키워드 매칭 (v2.42.83 강화)
+  // 4. RSS 글 ↔ 키워드 매칭
   //    1차: LEWORD history 매칭 (홈판/마인드맵에서 발굴한 키워드와 글 제목 토큰 80%+ 매칭)
-  //    2차: 제목에서 핵심 키워드 자동 추출 → 글마다 최대 N개 페어 자동 등록
-  //    이로써 LEWORD history 가 비어있어도 작동
+  //    2차(2026-09-30): 제목 후보 중 **검색광고가 검색량을 아는 말**만 글마다 최대 N개 등록.
+  //    검색광고 키가 없으면 2차는 건너뛰고 그 사실을 note 로 알린다 — 조각을 대신 넣지 않는다.
   if (!ipcMain.listenerCount('exposure-auto-match')) {
     ipcMain.handle('exposure-auto-match', async (_e, payload?: { autoExtract?: boolean; perPost?: number }) => {
       try {
@@ -527,6 +551,7 @@ export function setupExposureTrackingHandlers(): void {
 
         let historyMatches = 0;
         let autoExtractMatches = 0;
+        let note: string | null = null;
 
         // 1차: LEWORD history 매칭
         for (const post of posts) {
@@ -547,24 +572,40 @@ export function setupExposureTrackingHandlers(): void {
           }
         }
 
-        // 2차: 글 제목 자체에서 핵심 키워드 자동 추출
+        // 2차: 제목 후보 → 검색광고 실측 → 검색량이 잡힌 말만
         if (autoExtract) {
-          for (const post of posts) {
-            const candidates = extractCoreKeywords(post.title, perPost);
-            for (const kw of candidates) {
-              const k = `${kw}|${post.url}`;
-              if (existingKey.has(k)) continue;
-              tracked.push({
-                keyword: kw,
-                postUrl: post.url,
-                postTitle: post.title,
-                category: 'auto-extracted',
-                registeredAt: new Date().toISOString(),
-                history: [],
-              });
-              existingKey.add(k);
-              autoExtractMatches++;
+          const adConfig = searchAdConfig();
+          if (!adConfig) {
+            note = '검색광고 API 키가 없어 제목에서 검색어를 고르지 못했습니다(환경설정에서 등록)';
+          } else {
+            // 한 번 물은 글은 다시 묻지 않는다(검색량이 하나도 안 잡힌 글 포함) — 검색광고 호출은 글당 한 번.
+            const measuredPosts = readJson<Record<string, string>>(FILE_MEASURED_POSTS(), {});
+            for (const post of posts) {
+              if (measuredPosts[post.url]) continue;
+              const picked = await pickMeasuredKeywords(
+                post.title,
+                (keywords) => measureVolumes(adConfig, keywords),
+                { perPost, candidateLimit: 8 },
+              );
+              const measuredAt = new Date().toISOString();
+              measuredPosts[post.url] = measuredAt;
+              for (const { keyword, searchVolume } of picked) {
+                const k = `${keyword}|${post.url}`;
+                if (existingKey.has(k)) continue;
+                tracked.push({
+                  keyword,
+                  postUrl: post.url,
+                  postTitle: post.title,
+                  category: 'title-measured',
+                  registeredAt: measuredAt,
+                  history: [],
+                  pick: { source: 'title-measured', searchVolume, documentCount: null, seat: null, facing: null, measuredAt },
+                });
+                existingKey.add(k);
+                autoExtractMatches++;
+              }
             }
+            writeJson(FILE_MEASURED_POSTS(), measuredPosts);
           }
         }
 
@@ -575,6 +616,7 @@ export function setupExposureTrackingHandlers(): void {
           historyMatches,
           autoExtractMatches,
           totalTracked: tracked.length,
+          note,
         };
       } catch (err: any) { return { success: false, error: err?.message }; }
     });
@@ -593,12 +635,32 @@ export function setupExposureTrackingHandlers(): void {
         const maxItems = Math.min(payload?.maxItems || 50, sorted.length);
         const targets = sorted.slice(0, maxItems);
 
-        let checked = 0, exposed = 0, blocked = 0, errored = 0;
+        let checked = 0, exposed = 0, blocked = 0, errored = 0, sectionsMeasured = 0;
         const ts = new Date().toISOString();
         let blockedStreak = 0;
+        // 구획 배치는 검색어마다 한 번(같은 검색어가 여러 글에 걸려도). 하루 안에 잰 것은 그대로 쓴다.
+        const sectionsByKeyword = new Map<string, SerpFacts | null>();
+        for (const t of tracked) {
+          if (t.serp && isFresh(t.serp.measuredAt, SERP_SECTIONS_TTL_MS)) sectionsByKeyword.set(compactKey(t.keyword), t.serp);
+        }
+        let sectionsStopped = false;
 
         for (const t of targets) {
           const r = await checkSerpRank(t.keyword, t.postUrl);
+
+          // 통합검색 구획 배치 — 사장님 "AI 답변 뉴스 지식인 블로그 카페" 순서를 그대로 보여 주기 위해 잰다.
+          const kk = compactKey(t.keyword);
+          if (!sectionsStopped && !sectionsByKeyword.has(kk)) {
+            const facts = await measureSerpSections(t.keyword);
+            sectionsByKeyword.set(kk, facts);
+            if (facts) sectionsMeasured++;
+            if (localSerpStats().consecutiveBlocked >= 5) {
+              console.warn('[EXPOSURE-TRACKING] 통합검색 5건 연속 차단 → 이번 회차 구획 실측 중단');
+              sectionsStopped = true;
+            }
+          }
+          const facts = sectionsByKeyword.get(kk);
+          if (facts) t.serp = facts;
           const inTop30 = r.status === 'found' && r.rank !== null && r.rank <= 30;
           const inTop10 = r.status === 'found' && r.rank !== null && r.rank <= 10;
           const check: SerpCheck = {
@@ -628,23 +690,33 @@ export function setupExposureTrackingHandlers(): void {
             blockedStreak = 0;
           }
 
-          try { event.sender.send('exposure-progress', { checked, blocked, errored, total: targets.length, exposed }); } catch {}
+          try { event.sender.send('exposure-progress', { checked, blocked, errored, total: targets.length, exposed, sectionsMeasured }); } catch {}
 
           // 요청 간격 1.2~1.8초 (랜덤) — IP 차단 회피
           await new Promise(res => setTimeout(res, 1200 + Math.random() * 600));
         }
 
+        // 같은 검색어를 단 다른 글에도 이번에 잰 배치를 붙인다 — 배치는 글이 아니라 검색어의 사실이다.
+        for (const t of tracked) {
+          const facts = sectionsByKeyword.get(compactKey(t.keyword));
+          if (facts) t.serp = facts;
+        }
+        await closeLocalSerpFetch();
+
         writeJson(FILE_TRACKED(), tracked);
         return {
           success: true,
-          checked, exposed, blocked, errored,
+          checked, exposed, blocked, errored, sectionsMeasured,
           hitRate30: checked > 0 ? Math.round((exposed / checked) * 100) : 0,
           blockedHit: blockedStreak >= 5,
           message: blockedStreak >= 5
             ? '⚠️ 네이버가 일시 차단 (IP 보호) — 10~30분 후 다시 시도하세요'
             : (blocked > 0 ? `${blocked}건 차단됨 (재시도 필요)` : null),
         };
-      } catch (err: any) { return { success: false, error: err?.message }; }
+      } catch (err: any) {
+        await closeLocalSerpFetch().catch(() => undefined);
+        return { success: false, error: err?.message };
+      }
     });
   }
 
@@ -658,6 +730,8 @@ export function setupExposureTrackingHandlers(): void {
 
         const items = tracked.map(t => {
           const latest = t.history[t.history.length - 1];
+          // 구획 배치: 세대가 다르면 null(안 잼) — 옛 세대 값을 지금 화면처럼 보이게 하지 않는다.
+          const sections = trustedSections(t.serp);
           return {
             keyword: t.keyword,
             postUrl: t.postUrl,
@@ -665,6 +739,10 @@ export function setupExposureTrackingHandlers(): void {
             category: t.category,
             registeredAt: t.registeredAt,
             lastCheckedAt: t.lastCheckedAt,
+            searchVolume: t.pick?.searchVolume ?? null,
+            sections,
+            hasAiBriefing: sections ? !!t.serp?.hasAiBriefing : null,
+            serpMeasuredAt: sections ? t.serp?.measuredAt ?? null : null,
             currentRank: latest?.rank ?? null,
             currentInTop10: !!latest?.inTop10,
             currentInTop30: !!latest?.inTop30,
@@ -703,7 +781,13 @@ export function setupExposureTrackingHandlers(): void {
         const totalExposed10 = items.filter(i => i.currentInTop10).length;
         const checkedPairs = checkedItems.length;
         const uncheckedPairs = items.length - checkedPairs;
-        const expansionSeeds = rankExposureGrowthSeeds(tracked, { limit: 12, expansionLimit: 6 });
+        // 연관 검색어는 related.json 의 실측만 붙는다. 아직 안 잰 씨앗은 빈 칩으로 나가고 화면이 '안 잼'이라 적는다.
+        const relatedRecords = readJson<Record<string, RelatedRecord>>(FILE_RELATED(), {});
+        const expansionSeeds = rankExposureGrowthSeeds(tracked, {
+          limit: 12,
+          expansionLimit: 6,
+          expansions: relatedExpansions(relatedRecords),
+        });
 
         return {
           success: true,
@@ -724,6 +808,10 @@ export function setupExposureTrackingHandlers(): void {
           },
           byCategory,
           expansionSeeds,
+          // 칩마다 출처(검색광고 연관어 / 자동완성)를 밝히기 위한 원본. 씨앗 compact 키로 찾는다.
+          related: Object.fromEntries(
+            Object.entries(relatedRecords).filter(([, rec]) => rec && isFresh(rec.measuredAt, RELATED_TTL_MS)),
+          ),
           items: items.sort((a, b) => (b.totalChecks - a.totalChecks)),
         };
       } catch (err: any) { return { success: false, error: err?.message }; }
@@ -738,6 +826,8 @@ export function setupExposureTrackingHandlers(): void {
         const k = readJson<any[]>(FILE_KEYWORD_HISTORY(), []);
         writeJson(FILE_TRACKED(), []);
         writeJson(FILE_KEYWORD_HISTORY(), []);
+        writeJson(FILE_MEASURED_POSTS(), {});
+        writeJson(FILE_RELATED(), {});
         return { success: true, cleared: { tracked: t.length, keywordHistory: k.length } };
       } catch (err: any) { return { success: false, error: err?.message }; }
     });
@@ -915,6 +1005,56 @@ export function setupExposureTrackingHandlers(): void {
     });
   }
 
+  /*
+   * 9. 연관 검색어 실측(2026-09-30).
+   *
+   * 씨앗(노출이 검증된 검색어)마다 검색광고 연관어 1회 + 자동완성 1회를 물어 related.json 에 이레 동안 둔다.
+   * 예전엔 '조건·자격·신청기간' 접미사를 붙여 만들었는데 그 말들은 사람들이 치는 말이 아니었다
+   * (사장님 "연관키워드가 잘못되었어"). 씨앗을 안 주면 지금 화면의 씨앗 카드를 그대로 쓴다.
+   */
+  if (!ipcMain.listenerCount('exposure-measure-related')) {
+    ipcMain.handle('exposure-measure-related', async (_e, p?: { seeds?: string[]; force?: boolean; maxSeeds?: number }) => {
+      try {
+        const adConfig = searchAdConfig();
+        const tracked = readJson<TrackedKeyword[]>(FILE_TRACKED(), []);
+        const seeds = (Array.isArray(p?.seeds) && p!.seeds!.length > 0
+          ? p!.seeds!
+          : rankExposureGrowthSeeds(tracked, { limit: 12, expansionLimit: 6 }).map(s => s.keyword)
+        ).map(s => String(s || '').replace(/\s+/g, ' ').trim()).filter(Boolean)
+          .slice(0, Math.max(1, Math.min(24, p?.maxSeeds || 12)));
+
+        const records = readJson<Record<string, RelatedRecord>>(FILE_RELATED(), {});
+        let measured = 0, skipped = 0, failed = 0;
+        for (const seed of seeds) {
+          const key = compactKey(seed);
+          if (!p?.force && records[key] && isFresh(records[key].measuredAt, RELATED_TTL_MS)) { skipped++; continue; }
+          try {
+            // 검색광고 키가 없으면 연관어는 못 받고 자동완성만 남는다 — 그 사실은 칩 출처로 드러난다.
+            const suggestions = adConfig
+              ? await getNaverSearchAdKeywordSuggestions(adConfig, seed, 60, { maxWaitMs: 30000 }).catch(() => [])
+              : [];
+            const autocomplete = await getNaverAutocompleteQuick(seed).catch(() => []);
+            const related = pickRelatedKeywords(seed, {
+              suggestions: suggestions.map(s => ({ keyword: s.keyword, searchVolume: exactSearchAdTotal(s) })),
+              autocomplete,
+            }, 6);
+            records[key] = { seed, related, measuredAt: new Date().toISOString() };
+            measured++;
+          } catch (err: any) {
+            failed++;
+            console.warn('[EXPOSURE-TRACKING] 연관 검색어 실측 실패:', seed, err?.message);
+          }
+        }
+        writeJson(FILE_RELATED(), records);
+        return {
+          success: true,
+          seeds: seeds.length, measured, skipped, failed,
+          note: adConfig ? null : '검색광고 API 키가 없어 자동완성만 실측했습니다',
+        };
+      } catch (err: any) { return { success: false, error: err?.message }; }
+    });
+  }
+
   // 8. 페어 삭제
   if (!ipcMain.listenerCount('exposure-remove-pair')) {
     ipcMain.handle('exposure-remove-pair', async (_e, p: { keyword: string; postUrl: string }) => {
@@ -927,5 +1067,5 @@ export function setupExposureTrackingHandlers(): void {
     });
   }
 
-  console.log('[KEYWORD-MASTER] ✅ exposure-tracking 핸들러 8종 등록 완료');
+  console.log('[KEYWORD-MASTER] ✅ exposure-tracking 핸들러 9종 등록 완료');
 }

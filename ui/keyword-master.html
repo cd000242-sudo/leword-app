@@ -11891,11 +11891,21 @@
           const hit = item.totalChecks > 0 ? Math.round((item.top10Count / item.totalChecks) * 100) + '%' : '—';
           const kwSafe = String(item.keyword || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
           const urlSafe = String(item.postUrl || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          // 검색량은 검색광고 실측(pick.searchVolume)만 — 옛 조각 기록에는 없어 빈칸.
+          const volume = typeof item.searchVolume === 'number'
+            ? '<div style="font-size:10.5px; color:#64748b; font-weight:400; margin-top:2px;">월 ' + Number(item.searchVolume).toLocaleString('ko-KR') + '회</div>'
+            : '';
+          // 통합검색 구획 배치(위→아래). 사장님 "AI 답변 뉴스 지식인 블로그 카페" — 잰 그대로, 못 잰 것은 '안 잼'.
+          const sections = Array.isArray(item.sections) && item.sections.length > 0
+            ? item.sections.map((s) => '<span style="display:inline-block; padding:2px 6px; border-radius:6px; font-size:10.5px; background:'
+                + (s === 'AI브리핑' ? 'rgba(168,85,247,0.18); color:#d8b4fe;' : 'rgba(255,255,255,0.06); color:#cbd5e1;') + '">' + rankEsc(s) + '</span>').join('<span style="color:#475569; font-size:10px;"> → </span>')
+            : '<span style="color:#64748b; font-size:11px;">' + (item.totalChecks === 0 ? '자리를 재면 함께 잽니다' : '안 잼') + '</span>';
           return '<tr style="border-top:1px solid rgba(255,255,255,0.06); color:#e2e8f0;">'
-            + '<td style="padding:9px 10px; font-weight:600;">' + rankEsc(item.keyword) + '</td>'
+            + '<td style="padding:9px 10px; font-weight:600;">' + rankEsc(item.keyword) + volume + '</td>'
             + '<td style="padding:9px 10px; color:#94a3b8; max-width:280px;">'
             + '<a href="#" onclick="event.preventDefault(); lewordOpenExternal(\'' + urlSafe + '\')" style="color:#67e8f9; text-decoration:none; word-break:keep-all;">' + rankEsc(item.postTitle || item.postUrl) + '</a></td>'
             + '<td style="padding:9px 10px; text-align:right; font-weight:700; color:' + rankColor + '; font-variant-numeric:tabular-nums;">' + rankEsc(rankText) + '</td>'
+            + '<td style="padding:9px 10px; line-height:1.9; max-width:320px;">' + sections + '</td>'
             + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:#94a3b8;">' + rankEsc(hit) + '</td>'
             + '<td style="padding:9px 10px; text-align:right; font-variant-numeric:tabular-nums; color:#64748b;">' + item.totalChecks + '</td>'
             + '<td style="padding:9px 6px; text-align:right;">'
@@ -11905,10 +11915,22 @@
         }
 
         function rankSeedCard(seed) {
-          const expansions = (seed.suggestedExpansions || []).slice(0, 6).map((k) =>
-            '<span onclick="searchKeyword(\'' + String(k).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', true)" '
-            + 'style="display:inline-block; padding:4px 9px; border-radius:999px; font-size:11.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); color:#94a3b8; cursor:pointer;">'
-            + rankEsc(k) + '</span>').join(' ');
+          // 연관어는 실측(검색광고 연관어·자동완성)만 온다. 칩마다 출처와 검색량(검색광고만 있음)을 밝힌다.
+          const relatedRec = (rankView && rankView.related && rankView.related[String(seed.keyword || '').toLowerCase().replace(/\s+/g, '')]) || null;
+          const bySource = {};
+          (relatedRec && relatedRec.related || []).forEach((r) => { bySource[String(r.keyword || '').replace(/\s+/g, '')] = r; });
+          const expansions = (seed.suggestedExpansions || []).slice(0, 6).map((k) => {
+            const r = bySource[String(k).replace(/\s+/g, '')];
+            const isAd = r && r.source === 'searchad';
+            const meta = isAd && typeof r.searchVolume === 'number'
+              ? ' <span style="color:#64748b;">월 ' + Number(r.searchVolume).toLocaleString('ko-KR') + '</span>'
+              : (r && r.source === 'autocomplete' ? ' <span style="color:#64748b;">자동완성</span>' : '');
+            return '<span onclick="searchKeyword(\'' + String(k).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\', true)" '
+              + 'title="' + (isAd ? '검색광고 연관어 실측' : '네이버 자동완성 실측') + '" '
+              + 'style="display:inline-block; padding:4px 9px; border-radius:999px; font-size:11.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); color:#94a3b8; cursor:pointer;">'
+              + rankEsc(k) + meta + '</span>';
+          }).join(' ');
+          const noExpansions = '<span style="font-size:11px; color:#64748b;">연관 검색어 안 잼</span>';
           const best = seed.bestRank == null ? '—' : seed.bestRank + '위';
           return '<div style="padding:12px 14px; background:#111c31; border:1px solid rgba(255,255,255,0.09); border-radius:12px; margin-bottom:8px;">'
             + '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px;">'
@@ -11917,7 +11939,7 @@
             + '<span style="font-size:11.5px; color:#94a3b8; font-variant-numeric:tabular-nums;">가장 좋았던 자리 ' + rankEsc(best)
             + ' · 1페이지 ' + Math.round(seed.top10Rate || 0) + '% (' + seed.exposedChecks + '/' + seed.totalChecks + ')</span>'
             + '</div>'
-            + (expansions ? '<div style="display:flex; flex-wrap:wrap; gap:5px;">' + expansions + '</div>' : '')
+            + '<div style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;">' + (expansions || noExpansions) + '</div>'
             + (seed.latestPostTitle ? '<div style="font-size:10.5px; color:#64748b; margin-top:6px;">최근 글: ' + rankEsc(seed.latestPostTitle) + '</div>' : '')
             + '</div>';
         }
@@ -11949,7 +11971,7 @@
           seeds.innerHTML = seedRows.length === 0 ? '' : ''
             + '<div style="padding:12px 14px 4px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px 12px 0 0; border-bottom:0;">'
             + '<div style="font-size:14px; font-weight:700; color:#e2e8f0; margin-bottom:4px;">🌱 다음에 쓸 것</div>'
-            + '<div style="font-size:11.5px; color:#64748b; margin-bottom:10px;">이미 자리를 잡아 본 검색어입니다. 옆의 말들은 같은 줄기로 뻗을 수 있는 것 — 누르면 그 말로 발굴합니다.</div>'
+            + '<div style="font-size:11.5px; color:#64748b; margin-bottom:10px;">이미 자리를 잡아 본 검색어입니다. 옆의 말들은 검색광고 연관어와 네이버 자동완성에서 실제로 잰 것 — 누르면 그 말로 발굴합니다.</div>'
             + '</div>'
             + '<div style="padding:0 14px 12px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-top:0; border-radius:0 0 12px 12px; margin-bottom:12px;">'
             + seedRows.map(rankSeedCard).join('') + '</div>';
@@ -11958,11 +11980,12 @@
           body.innerHTML = items.length === 0
             ? '<div style="padding:26px 14px; text-align:center; color:#64748b; font-size:12.5px; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">추적 중인 것이 없습니다. [글에서 키워드 뽑기] 를 눌러 시작하세요.</div>'
             : '<div style="overflow-x:auto; background:#0f172a; border:1px solid rgba(255,255,255,0.09); border-radius:12px;">'
-              + '<table style="width:100%; min-width:720px; border-collapse:collapse; font-size:12.5px;">'
+              + '<table style="width:100%; min-width:960px; border-collapse:collapse; font-size:12.5px;">'
               + '<thead><tr style="background:rgba(255,255,255,0.04); color:#94a3b8; font-size:11px;">'
               + '<th style="text-align:left; padding:9px 10px; font-weight:500;">검색어</th>'
               + '<th style="text-align:left; padding:9px 10px; font-weight:500;">내 글</th>'
               + '<th style="text-align:right; padding:9px 10px; font-weight:500;">지금 자리</th>'
+              + '<th style="text-align:left; padding:9px 10px; font-weight:500;" title="네이버 통합검색에 뜨는 구획을 위에서 아래 순서로 잰 것">배치 순서 (위→아래)</th>'
               + '<th style="text-align:right; padding:9px 10px; font-weight:500;">1페이지 적중</th>'
               + '<th style="text-align:right; padding:9px 10px; font-weight:500;">잰 횟수</th>'
               + '<th style="padding:9px 6px;"></th></tr></thead><tbody>'
@@ -12022,12 +12045,22 @@
             if (proof && proof.success) window.renderProof(proof.proof);
           } catch { /* 성적표를 못 그려도 아래 표는 보여 준다 */ }
           try {
-            const res = await window.electronAPI.invoke('exposure-get-stats');
+            let res = await window.electronAPI.invoke('exposure-get-stats');
             if (!res || !res.success) return;
             rankView = res;
             const input = document.getElementById('rankRssInput');
             if (input && res.rssUrl && !input.value) input.value = res.rssUrl;
             window.renderRankBoard();
+            // 씨앗 카드에 연관 검색어가 아직 없으면 한 번만 잰다(검색광고 연관어 + 자동완성, 씨앗당 2회). 세션에 한 번.
+            const unmeasured = (res.expansionSeeds || []).filter((s) => s.expansionSource !== 'measured').map((s) => s.keyword);
+            if (unmeasured.length > 0 && !window.__rankRelatedTried) {
+              window.__rankRelatedTried = true;
+              const measured = await window.electronAPI.invoke('exposure-measure-related', { seeds: unmeasured });
+              if (measured && measured.success && measured.measured > 0) {
+                res = await window.electronAPI.invoke('exposure-get-stats');
+                if (res && res.success) { rankView = res; window.renderRankBoard(); }
+              }
+            }
           } catch (error) {
             const status = document.getElementById('rankStatus');
             if (status) status.innerHTML = '<span style="color:#fca5a5;">' + rankEsc((error && error.message) || error) + '</span>';
@@ -12053,13 +12086,14 @@
           const btn = document.getElementById('rankMatchBtn');
           const prog = document.getElementById('rankProgress');
           btn.disabled = true; btn.style.opacity = '0.6';
-          if (prog) prog.textContent = 'RSS 에서 글을 받아 검색어를 뽑는 중…';
+          if (prog) prog.textContent = 'RSS 에서 글을 받아 제목 후보를 검색광고에 묻는 중… (글마다 검색량이 잡힌 말만 남깁니다)';
           try {
             const res = await window.electronAPI.invoke('exposure-auto-match', { autoExtract: true, perPost: 3 });
             if (prog) {
               prog.textContent = (res && res.success)
                 ? '새로 ' + (res.newMatches || 0) + '쌍 (지난 검색어에서 ' + (res.historyMatches || 0)
-                  + ' · 제목에서 뽑은 것 ' + (res.autoExtractMatches || 0) + ') · 추적 합계 ' + (res.totalTracked || 0) + '쌍'
+                  + ' · 제목에서 검색량 실측으로 고른 것 ' + (res.autoExtractMatches || 0) + ') · 추적 합계 ' + (res.totalTracked || 0) + '쌍'
+                  + (res.note ? ' · ' + res.note : '')
                 : ((res && res.error) || '뽑지 못했습니다');
             }
             await window.loadRankBoard();
@@ -12074,18 +12108,21 @@
           const btn = document.getElementById('rankCheckBtn');
           const prog = document.getElementById('rankProgress');
           btn.disabled = true; btn.style.opacity = '0.6';
-          if (prog) prog.textContent = '네이버에서 내 글 자리를 세는 중… (건당 약 2초)';
+          if (prog) prog.textContent = '네이버에서 내 글 자리와 통합검색 배치를 세는 중… (검색어당 약 4초)';
           if (window.__rankOff) { try { window.__rankOff(); } catch {} }
           try {
             window.__rankOff = window.electronAPI.on('exposure-progress', (p) => {
-              if (p && prog) prog.textContent = (p.message || '') + (p.done != null ? ' ' + p.done + '/' + (p.total || '?') : '');
+              // 핸들러가 보내는 값은 {checked, blocked, errored, total, exposed, sectionsMeasured} 다.
+              if (p && prog) prog.textContent = '자리 ' + (p.checked || 0) + '/' + (p.total || '?')
+                + ' · 배치 ' + (p.sectionsMeasured || 0) + '개 검색어' + (p.blocked ? ' · 막힘 ' + p.blocked : '');
             });
           } catch { /* 구독이 막혀도 본 작업은 돈다 */ }
           try {
             const res = await window.electronAPI.invoke('exposure-run-serp-check', { maxItems: 60 });
             if (prog) {
               prog.textContent = (res && res.success)
-                ? '끝 — 잰 것 ' + (res.checked || 0) + ' · 1페이지 ' + (res.exposed || 0) + (res.blocked ? ' · 막힘 ' + res.blocked : '')
+                ? '끝 — 잰 것 ' + (res.checked || 0) + ' · 1페이지 ' + (res.exposed || 0)
+                  + ' · 배치 순서 ' + (res.sectionsMeasured || 0) + '개 검색어' + (res.blocked ? ' · 막힘 ' + res.blocked : '')
                 : ((res && res.error) || '재지 못했습니다');
             }
             await window.loadRankBoard();

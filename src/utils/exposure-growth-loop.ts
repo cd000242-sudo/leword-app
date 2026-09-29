@@ -1,5 +1,9 @@
-import { buildPracticalIntentExpansions } from './keyword-expansion-ranker';
-
+/*
+ * 연관 검색어는 여기서 만들지 않는다(2026-09-30).
+ * 예전엔 '조건·자격·신청기간' 접미사를 붙여 합성했는데, 사장님이 "연관키워드가 잘못되었어" 라고 했다 —
+ * 그 말들은 사람들이 실제로 치는 말이 아니었다. 이제는 검색광고 연관어·자동완성 실측을
+ * options.expansions 로 받아 그대로 붙이기만 한다. 실측이 없으면 빈 채로 둔다.
+ */
 export interface ExposureHistoryEntry {
   checkedAt?: string;
   ts?: number;
@@ -33,6 +37,8 @@ export interface ExposureGrowthSeed {
   latestPostTitle: string;
   latestPostUrl: string;
   suggestedExpansions: string[];
+  /** 'measured' = 검색광고 연관어·자동완성 실측, 'none' = 아직 안 잼(합성하지 않는다). */
+  expansionSource: 'measured' | 'none';
   nextAction: string;
   reasons: string[];
 }
@@ -40,6 +46,8 @@ export interface ExposureGrowthSeed {
 export interface ExposureGrowthOptions {
   limit?: number;
   expansionLimit?: number;
+  /** 씨앗 검색어(공백 제거 소문자) → 실측 연관 검색어. 없는 씨앗은 빈 배열로 나간다. */
+  expansions?: Record<string, string[]>;
 }
 
 function normalizeKeyword(value: string): string {
@@ -68,15 +76,16 @@ function gradeExposureSeed(score: number, bestRank: number | null, top30Rate: nu
   return 'WATCH';
 }
 
-function buildSuggestedExpansions(keyword: string, limit: number): string[] {
+function pickMeasuredExpansions(keyword: string, measured: Record<string, string[]> | undefined, limit: number): string[] {
   const baseKey = compactKeyword(keyword);
+  const rows = measured?.[baseKey] || [];
   const out: string[] = [];
   const seen = new Set<string>([baseKey]);
-  for (const candidate of buildPracticalIntentExpansions(keyword, Math.max(limit + 4, 12))) {
+  for (const candidate of rows) {
     const key = compactKeyword(candidate);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    out.push(candidate);
+    out.push(normalizeKeyword(candidate));
     if (out.length >= limit) break;
   }
   return out;
@@ -207,7 +216,8 @@ export function rankExposureGrowthSeeds(
       postCount: item.postCount,
       latestPostTitle: item.latestPostTitle,
       latestPostUrl: item.latestPostUrl,
-      suggestedExpansions: buildSuggestedExpansions(item.keyword, expansionLimit),
+      suggestedExpansions: pickMeasuredExpansions(item.keyword, options.expansions, expansionLimit),
+      expansionSource: (options.expansions?.[compactKeyword(item.keyword)] || []).length > 0 ? 'measured' : 'none',
       nextAction: growthGrade === 'S+'
         ? '마인드맵으로 같은 주제 롱테일을 즉시 확장'
         : growthGrade === 'S'

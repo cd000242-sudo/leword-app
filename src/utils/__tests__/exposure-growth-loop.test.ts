@@ -59,7 +59,14 @@ const seeds = rankExposureGrowthSeeds([
     category: 'manual',
     history: [],
   },
-], { limit: 5, expansionLimit: 5 });
+], {
+  limit: 5,
+  expansionLimit: 5,
+  // 실측 연관어만 붙는다 — 씨앗 키는 공백 제거 소문자. 연예 씨앗은 일부러 안 준다(안 잰 것은 빈 채).
+  expansions: {
+    '민생회복지원금대상': ['민생회복지원금 사용처', '민생회복지원금 신청', '민생회복지원금 대상', '민생회복지원금 대상 조회'],
+  },
+});
 
 const policy = seeds.find(seed => seed.keyword === '민생회복지원금 대상');
 const celeb = seeds.find(seed => seed.keyword === '장원영 프로필');
@@ -70,13 +77,15 @@ assert('exposure growth ranks proven top10/top30 keyword first',
 assert('exposure growth merges duplicate keyword evidence across posts',
   !!policy && policy.postCount === 2 && policy.totalChecks === 4 && policy.top30Rate === 100,
   JSON.stringify(policy));
-assert('exposure growth attaches practical expansion seeds for winning policy keyword',
+assert('exposure growth attaches only measured expansions, seed itself removed, in given order',
   !!policy
-    && policy.suggestedExpansions.some(k => /지급일|신청기간|조건|자격/.test(k))
+    && policy.expansionSource === 'measured'
+    && JSON.stringify(policy.suggestedExpansions) === JSON.stringify(['민생회복지원금 사용처', '민생회복지원금 신청', '민생회복지원금 대상 조회'])
     && policy.nextAction.includes('마인드맵'),
   JSON.stringify(policy?.suggestedExpansions));
-assert('exposure growth keeps weaker but repeated top30 star keyword as expansion target',
-  !!celeb && ['S', 'A'].includes(celeb.growthGrade) && celeb.suggestedExpansions.some(k => /인스타|출연|나이/.test(k)),
+assert('exposure growth keeps weaker but repeated top30 star keyword without inventing expansions',
+  !!celeb && ['S', 'A'].includes(celeb.growthGrade)
+    && celeb.suggestedExpansions.length === 0 && celeb.expansionSource === 'none',
   JSON.stringify(celeb));
 assert('exposure growth excludes unmeasured and never-exposed keywords',
   !seeds.some(seed => seed.keyword === '아이폰 색상' || seed.keyword === '미측정 키워드'),
