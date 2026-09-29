@@ -28,8 +28,18 @@ describe('황금 후보의 현재 이슈 공급', () => {
   expect(collectCurrentSeeds({signals,nowMs:now}).map((r:any)=>r.keyword)).toEqual(['금리 인하']);
   expect(collectCurrentSeeds({signals:{...signals,collectedAt:date(2)},nowMs:now})).toEqual([]);
  });
- it('동적 씨앗이 정적 씨앗 예산을 대체하고 총 씨앗 수는 늘리지 않는다',()=>{
-  expect(reserveCurrentSeeds(['기존1','기존2','기존3'],['신규','기존1'],2)).toEqual(['신규','기존1','기존2']);
+ it('동적 씨앗은 기존 씨앗에 더해지고 창고·계절 씨앗을 밀어내지 않는다(사장님 2026-09-29 정정)',()=>{
+  // 09-28 판은 existing.length 로 잘라 '기존3'(꼬리의 창고·계절 씨앗)을 버렸다
+  expect(reserveCurrentSeeds(['기존1','기존2','기존3'],['신규','기존1'],2)).toEqual(['신규','기존1','기존2','기존3']);
+  expect(reserveCurrentSeeds(['기존1'],['신규1','신규2','신규3'],2)).toEqual(['신규1','신규2','기존1']);
+  expect(reserveCurrentSeeds(['기존1','기존2'],[],12)).toEqual(['기존1','기존2']);
+ });
+ it('발굴 스크립트는 비즈니스·경제 창고 몫을 두 배로 파고 계절 갈래를 현재 이슈와 같은 앞줄에 세운다',()=>{
+  const script=fs.readFileSync(path.join(__dirname,'../../../scripts/preemption-candidates.js'),'utf8');
+  expect(script).toContain("topic === '비즈니스·경제' ? dbSeedsPerTopic * ECONOMY_SEED_MULTIPLIER : dbSeedsPerTopic");
+  expect(script).toContain('const ECONOMY_SEED_MULTIPLIER = 2;');
+  expect(script).toContain("startsWith('current-') || row.seedKind === 'seasonal'");
+  expect(script).toContain('.sort((a, b) => frontLane(b) - frontLane(a)');
  });
  it('지원금이 앞에 15개 있어도 경제·비즈니스·주거 후보에 측정 자리를 남긴다',()=>{
   const support=Array.from({length:15},(_,i)=>brief(`지원금 ${i}`));

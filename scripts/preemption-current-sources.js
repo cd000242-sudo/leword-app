@@ -69,13 +69,20 @@ function collectCurrentSeeds({ briefs, signals, nowMs = Date.now() } = {}) {
   return ordered;
 }
 
-// Replace slots inside the existing budget; do not enlarge source/API fan-out.
+/*
+ * 현재 이슈 씨앗은 기존 씨앗에 **더한다**, 대체하지 않는다(사장님 정정 2026-09-29).
+ *
+ * 09-28 판은 앞에 현재 씨앗을 넣고 existing.length 로 잘라, 뒤쪽 창고·계절 씨앗이
+ * 그만큼 밀려났다 — "기존 발굴에서 비즈니스·경제 비중을 늘려달라"는 뜻은 창고
+ * 몫을 지키면서 현재 이슈를 얹으라는 것이다. 늘어나는 호출은 주제당 최대 maxCurrent
+ * 씨앗(연관어 1회 + 자동완성)뿐이고, 현재 씨앗이 없는 주제는 예전과 같다.
+ */
 function reserveCurrentSeeds(existing, current, maxCurrent = 12) {
   const seen = new Set();
   return [...current.slice(0, maxCurrent), ...existing].filter(word => {
     const key=compact(word); if (!key || seen.has(key)) return false;
     seen.add(key); return true;
-  }).slice(0, existing.length);
+  });
 }
 function prioritizeCurrentSample(sample, current, cap) {
   const seen = new Set();

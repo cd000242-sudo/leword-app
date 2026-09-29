@@ -391,6 +391,8 @@ async function main() {
    */
   const seedDb = loadSeedDb();
   const dbSeedsPerTopic = Number(arg('dbSeeds')) || 12;
+  /** 비즈니스·경제 창고 몫 배수 — 주제 순환 안에서 이 주제만 씨앗을 두 배로 판다. */
+  const ECONOMY_SEED_MULTIPLIER = 2;
   if (seedDb) {
     const age = seedDbAgeDays(seedDb);
     const stale = typeof age === 'number' && age > 3;
@@ -487,8 +489,14 @@ async function main() {
      * 같은 회차에 여섯 주제가 동시에 도는데 전부 같은 씨앗을 받으면 헛일이다.
      */
     const topicIndex = topics.indexOf(topic);
+    /*
+     * 비즈니스·경제는 창고 몫을 두 배로(사장님 2026-09-29 "기존 발굴에서 비즈니스·경제 비중을
+     * 늘려달라"). 실측(09-28 보드): 145행 중 경제 2행. 현재 이슈 씨앗을 얹는 것만으로는 그 주제의
+     * 창고 구간이 넓어지지 않는다 — 씨앗 수 자체가 늘어야 후보 수가 는다. 다른 주제는 그대로.
+     */
+    const dbSeedsForTopic = topic === '비즈니스·경제' ? dbSeedsPerTopic * ECONOMY_SEED_MULTIPLIER : dbSeedsPerTopic;
     const pickOptions = {
-      limit: dbSeedsPerTopic,
+      limit: dbSeedsForTopic,
       minVolume,
       topic, // 이 주제로 매핑된 업종 씨앗만 — 자동차에 페키니즈분양이 가지 않게
       exclude: [...coverage.seedTerms, ...seasonalSeeds],
@@ -502,11 +510,11 @@ async function main() {
      * (50개 × PC · 모바일)라 검색량 실측 수천 회에 비하면 티도 안 난다. 못 재면 예전 그대로 검색량 순이다.
      */
     if (isMoneyTopic(topic) && dbSeeds.length > 0) {
-      const wide = pickSeeds(seedDb, { ...pickOptions, limit: dbSeedsPerTopic * 8 });
+      const wide = pickSeeds(seedDb, { ...pickOptions, limit: dbSeedsForTopic * 8 });
       try {
         const bids = await getNaverSearchAdBidPairs(searchAd, wide);
         if (bids.size > 0) {
-          dbSeeds = orderSeedsByBid(wide, bids).slice(0, dbSeedsPerTopic);
+          dbSeeds = orderSeedsByBid(wide, bids).slice(0, dbSeedsForTopic);
           const priced = dbSeeds.slice(0, 6).map((seed) => {
             const value = bidValue(bids.get(bidKey(seed)));
             return value === null ? seed : `${seed}(${value.toLocaleString('ko-KR')}원)`;
@@ -737,11 +745,18 @@ async function main() {
      * 씨앗을 5개 넣은 의미가 사라지고, 한 주제가 한 소재로만 채워진다.
      */
     const bySeed = new Map();
+    /*
+     * 앞줄에 서는 갈래: 현재 이슈(current-*)와 **계절 씨앗**. 09-28 판은 현재 이슈만 앞세워
+     * 계절 갈래가 검색량 오름차순 꼬리로 밀렸다 — 이 보드가 노리는 시즌성 황금이 정원(perTopic × scanWidth)
+     * 밖으로 나갈 수 있는 자리였다(사장님 2026-09-29 "시즌성이 중요하거든"). 둘은 같은 우선순위,
+     * 그 안과 나머지는 예전대로 롱테일(검색량 낮은 순) 우선.
+     */
+    const frontLane = (row) => Number(String(row.seedKind).startsWith('current-') || row.seedKind === 'seasonal');
     const shortlist = phraseList
       .map((row) => ({ ...row, searchVolume: volumes.get(row.keyword.replace(/\s+/g, '')) ?? null }))
       .filter((row) => (row.searchVolume || 0) >= minVolume)
-      .sort((a, b) => Number(String(b.seedKind).startsWith('current-')) - Number(String(a.seedKind).startsWith('current-'))
-        || (a.searchVolume || 0) - (b.searchVolume || 0))  // 현재 이슈 측정 몫부터, 나머지는 롱테일 우선
+      .sort((a, b) => frontLane(b) - frontLane(a)
+        || (a.searchVolume || 0) - (b.searchVolume || 0))
       .filter((row) => {
         const used = bySeed.get(row.seed) || 0;
         if (used >= perSeed) return false;
