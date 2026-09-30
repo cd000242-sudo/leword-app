@@ -30,6 +30,10 @@ describe("'오늘 쓸 글' 판 배선", () => {
     expect(handler).toContain("from './seat-measure'");
     expect(handler).toContain('measureKeywords(');
     expect(handler).toContain('collectTodayTitles(');
+    // 제목 사실 재료는 이슈 재료 창구(오픈 API 뉴스 · 자동완성 · 검색광고 연관어) 그대로 — 심층 자동완성은 끈다(회차당 호출 ~20건)
+    expect(handler).toContain('collectIssueContexts(');
+    expect(handler).toContain('factsFromContexts(');
+    expect(handler).toContain('deepAutocomplete: false');
     expect(handler).toContain('setAdvisorDailyAfterCollect(');
     expect(handler).not.toMatch(/Math\.random/);
     expect(handler).not.toMatch(/brightdata|brightDataFetch/i);

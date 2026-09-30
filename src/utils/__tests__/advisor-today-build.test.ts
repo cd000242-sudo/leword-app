@@ -65,6 +65,24 @@ describe('buildTodayPlan', () => {
     expect(plan.notes).toEqual(['검색량 실측 실패: 검색광고 키 없음', '자리 실측 실패: 브라우저 못 열음']);
   });
 
+  it('제목 재료 실측기는 골라진 10개만 받고, 카드에 재료를 붙인다 — 죽으면 전부 재료 없음(facts 빈 배열) + 사유', async () => {
+    const factCalls: string[][] = [];
+    const seenFacts: (string[] | undefined)[][] = [];
+    const { deps: d } = deps({
+      facts: async (keywords) => { factCalls.push(keywords); return new Map(keywords.map((k) => [k, { autocomplete: [`${k} 조건`], related: [], headlines: [] }])); },
+      titles: async (cards) => { seenFacts.push(cards.map((c) => c.facts)); return { status: 'ok', provider: 'claude', items: [] }; },
+    });
+    const plan = await buildTodayPlan(record, pattern, d);
+    expect(factCalls[0]).toEqual(plan.keywords.map((row) => row.keyword));
+    expect(seenFacts[0]).toEqual(plan.keywords.map(() => []));
+    expect(plan.notes).toEqual([]);
+
+    const broken = deps({ facts: async () => { throw new Error('오픈 API 키 없음'); }, titles: async (cards) => { seenFacts.push(cards.map((c) => c.facts)); return { status: 'ok', provider: null, items: [] }; } });
+    const plan2 = await buildTodayPlan(record, pattern, broken.deps);
+    expect(seenFacts[1]).toEqual(plan2.keywords.map(() => []));
+    expect(plan2.notes).toEqual(['제목 재료 수집 실패: 오픈 API 키 없음']);
+  });
+
   it('후보가 없으면 실측기를 부르지 않고 빈 판', async () => {
     const { deps: d, calls } = deps();
     const plan = await buildTodayPlan({ ...record, popularKeywords: null, topicKeywords: [] }, pattern, d);

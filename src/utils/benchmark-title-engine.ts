@@ -24,6 +24,11 @@ export interface BenchmarkTitleCard {
   summary: string;
   sourceTitles: string[];
   relatedKeywords: string[];
+  /**
+   * 사실 재료 — 그 말의 최근 기사 제목 같은 실측 문장. 있으면(빈 배열이라도) 제목에 서브 재료 하나가
+   * 보여야 한다(NO_SUB). '오늘 쓸 글' 판이 채우고, 벤치마크 판은 비워 둔다(undefined → 검사 안 함).
+   */
+  facts?: string[];
 }
 
 export interface BenchmarkTitleResult {
@@ -43,6 +48,28 @@ export const BENCHMARK_TITLE_BATCH = 2;
 
 /** AI 가 쓴 티 — 콜론 라벨 · 세로줄 · 이모지 · 느낌표 연타 · 강의체. 네이버 봇이 제목에서 잡으면 노출이 죽는다. */
 const AI_TELL_RE = /[:：]\s|\s\|\s|\p{Extended_Pictographic}|[!！]{2,}|알아보겠습니다|알아봅시다|알아보자|꿀팁|대방출|모든\s*것|a\s*to\s*z|가이드|파헤치|공개합니다/iu;
+
+/**
+ * 껍데기 후킹 — 사실 없이 "궁금하지?"만 파는 말. 2026-09-30 '오늘 쓸 글' 판 20개 중
+ * "반응이 갈리네요" 5 · "이유가 있네요" 4 · "말이 달라진다" 등 — 사장님: "AI 같잖아요". 사람은 낚시로 바로 안다.
+ */
+export const HOLLOW_HOOK_RE = /반응이\s*(갈리|다르|두\s*갈래)|이유가\s*(있|따로)|말이\s*(달라|많아|나온)|분위기가\s*(달라|바뀌)|마음이\s*복잡|타이밍이\s*다르|뜻밖이네요|좀\s*다르네요|달라진다(더라고요|네요|대요)/u;
+
+/**
+ * 제목 끝맺음 갈래 — 같은 갈래가 한 판에 몰리면 AI 티다(같은 판 20개 전부 ~네요·~더라고요였다).
+ * 끝의 문장부호·따옴표를 벗기고 마지막 두 글자로 가른다(네요 · 고요 · 데요 · 대요 · 어요 · 나요 · 까요 · 니다 · 이유…).
+ */
+export function titleEndingKey(title: string): string {
+  const core = String(title || '').replace(/[\s"'“”‘’?？!！.…~]+$/u, '');
+  const tail = core.slice(-2);
+  return /[가-힣]{2}/u.test(tail) ? tail : '';
+}
+
+/** 따옴표로 시작하는 '반응 한 마디' 틀인가 — 키워드마다 하나씩 기계적으로 배정되던 틀. */
+export const isQuoteStarter = (title: string): boolean => /^["“‘']/u.test(String(title || '').trim());
+
+/** 한 판 안에서 같은 끝맺음·따옴표 스타터를 몇 개까지 두나 — 교리 "같은 틀 3개 넘게 반복 금지". */
+export const TITLE_FRAME_REPEAT_CAP = 3;
 
 const runDefault = (prompt: string) => runWithAnyAgent(prompt, createDefaultAgentChain({ claudeModel: 'opus' }), { timeoutMs: 180_000, validate: requireJsonArray() });
 
@@ -94,8 +121,10 @@ export function checkBenchmarkTitle(title: string, card: BenchmarkTitleCard): st
   if (AI_TELL_RE.test(value)) reasons.push('AI_TELL');
   // 쉼표 이분법은 앞말 길이와 무관하게 금지 — "…박나래 매니저, 순서가 뒤집혔네요" 도 같은 틀이다.
   if (/[,，]\s*\S/u.test(value)) reasons.push('COMMA_SPLIT');
+  if (HOLLOW_HOOK_RE.test(value)) reasons.push('HOLLOW_HOOK');
 
-  const material = [card.title, card.summary, card.keyword, ...card.sourceTitles];
+  const facts = card.facts || [];
+  const material = [card.title, card.summary, card.keyword, ...card.sourceTitles, ...facts, ...card.relatedKeywords];
   const hypeUsed = value.match(new RegExp(HYPE_WORDS_RE.source, 'gu')) || [];
   if (hypeUsed.some((word) => !material.some((line) => line.includes(word)))) reasons.push('HYPE_WORD');
 
@@ -103,12 +132,26 @@ export function checkBenchmarkTitle(title: string, card: BenchmarkTitleCard): st
   if (numberTokens(value).some((token) => numberCore(token) && !allowedNumbers.has(numberCore(token)))) reasons.push('UNSUPPORTED_NUMBER');
 
   const tokens = titleTokens(value);
-  const overlaps = card.sourceTitles.map((sample) => jaccard(tokens, titleTokens(sample))).filter((score): score is number => score !== null);
+  // 기사 제목(사실 재료)도 베끼면 실패 — 사실만 가져오고 문장은 새로 지어야 한다.
+  const overlaps = [...card.sourceTitles, ...facts].map((sample) => jaccard(tokens, titleTokens(sample))).filter((score): score is number => score !== null);
   if (overlaps.length > 0 && Math.max(...overlaps) >= 0.5) reasons.push('ARTICLE_COPY');
 
   const key = compactKey(value);
   const anchors = anchorTokens(card);
   if (anchors.length > 0 && !anchors.some((anchor) => key.includes(compactKey(anchor)))) reasons.push('NO_ANCHOR');
+
+  /*
+   * 서브 재료 — 사실 재료가 붙은 카드(facts 정의)는 사람들이 붙여 묻는 말이나 기사 속 말 하나가 제목에 보여야 한다.
+   * "포켓몬고 위치정보 오류 이러니까 바로 풀리네요"가 먹히는 건 '위치정보 오류'라는 실제 상황이 들어서다.
+   */
+  if (card.facts) {
+    const anchorKeys = new Set(anchors.map(compactKey));
+    const subs = [...card.relatedKeywords, ...facts]
+      .flatMap((line) => [...titleTokens(line)])
+      .map((token) => compactKey(token))
+      .filter((token) => token.length >= 2 && !/^\d+$/.test(token) && !anchorKeys.has(token) && !anchors.some((anchor) => compactKey(anchor).includes(token)));
+    if (subs.length > 0 && !subs.some((sub) => key.includes(sub))) reasons.push('NO_SUB');
+  }
   return reasons;
 }
 
@@ -116,7 +159,10 @@ export function checkBenchmarkTitle(title: string, card: BenchmarkTitleCard): st
 export function homefeedTitleRuleLines(maxChars: number = BENCHMARK_TITLE_MAX_CHARS): string[] {
   return [
     '규칙 — 하나라도 어기면 그 제목은 버려진다:',
-    '- 공식: ① 기준어(제목만 봐도 무슨 이야기인지 — 검색어의 앞말) ② 서브 키워드 하나(상황·대상·조건) ③ 멈추게 하는 후킹 ④ 사람 냄새(~네요 · ~더라고요 · ~였대요 · ~라는데).',
+    '- 공식: ① 기준어(제목만 봐도 무슨 이야기인지 — 검색어의 앞말) ② 서브 키워드 하나(재료에 실제로 있는 상황·대상·조건) ③ 멈추게 하는 후킹 ④ 사람이 옆에서 말하듯 — 구어체.',
+    '- 끝맺음을 한 가지로 통일하지 마라. "~네요 · ~더라고요 · ~던데요 · ~대요" 같은 어미가 줄줄이 이어지면 기계 냄새다. 질문으로 끝나는 것 · 명사로 툭 끊는 것 · 반말로 끝나는 것 · 서술형을 섞어라. 같은 끝맺음 3개 넘게 반복 금지.',
+    '- 껍데기 후킹 금지: "반응이 갈리네요" · "이유가 있네요" · "말이 달라진다" · "분위기가 달라졌다" · "타이밍이 다르네요" 처럼 무엇이 어떻게인지 없는 문장은 전부 실패다. 사실 없는 전언("~라는 말이 많네요")도 같다.',
+    '- 재료에 있는 사실 하나(사람들이 붙여 묻는 말 · 기사 속 상황 · 숫자)가 제목에 그대로 보여야 한다. 재료에 없으면 그 키워드는 비워 두고 지어내지 마라.',
     '- 기준어는 문장 속에 녹여라. 제목 안에 쉼표(,)를 쓰면 무조건 실패다("장기전세 만기, 확인할 것" · "…매니저, 순서가 뒤집혔네요" 전부 금지). 한 호흡 문장으로 써라.',
     '- 답은 숨긴다. 결론·해결책·결과 수치를 제목에 다 쓰지 마라. 끝까지 읽어야 답이 나올 것 같아야 한다.',
     '- 첫 10~15자 안에 걸리는 말(뜻밖의 사실 · 긴장 · 반전 조짐)이 오게. 뒤에서 한 번 더 당겨라.',

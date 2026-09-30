@@ -14,7 +14,7 @@ import {
   type TodaySeat,
   type TodayTimeFacts,
 } from './today-plan';
-import { cardsForTodayKeywords, type TodayTitles } from './today-titles';
+import { cardsForTodayKeywords, type TodayTitleFacts, type TodayTitles } from './today-titles';
 
 export const TODAY_KEYWORD_COUNT = 10;
 /** 자리 실측은 한 건에 몇 초씩 걸려 앞줄만 잰다(근거 개수·검색량 순). */
@@ -25,6 +25,11 @@ export interface TodayPlanDeps {
   searchVolume: (keywords: string[]) => Promise<Map<string, number | null>>;
   /** 키워드 → 자리 실측(못 잰 것은 null). */
   measureSeats: (keywords: string[]) => Promise<Map<string, TodaySeat | null>>;
+  /**
+   * 골라진 키워드 → 제목 사실 재료(자동완성 · 연관검색어 · 뉴스 제목). 없으면 재료 없이 청한다(옛 동작).
+   * 실측기가 죽으면 빈 Map — 그러면 모든 키워드가 '재료 없음'으로 비고 notes 에 사유가 남는다(지어내지 않는다).
+   */
+  facts?: (keywords: string[]) => Promise<Map<string, TodayTitleFacts>>;
   titles: (cards: BenchmarkTitleCard[]) => Promise<TodayTitles>;
 }
 
@@ -79,7 +84,10 @@ export async function buildTodayPlan(record: AdvisorDailyRecord, pattern: Homefe
   const withSeat = withVolume.map((row) => ({ ...row, seat: lookup(seats, row.keyword) ?? null }));
 
   const keywords = rankTodayKeywords(withSeat, TODAY_KEYWORD_COUNT);
-  const titles = await deps.titles(cardsForTodayKeywords(keywords, record));
+  const facts = deps.facts
+    ? await attempt('제목 재료 수집', () => deps.facts!(keywords.map((row) => row.keyword)), notes)
+    : undefined;
+  const titles = await deps.titles(cardsForTodayKeywords(keywords, record, facts));
   return {
     ...base,
     keywords,

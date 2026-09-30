@@ -13,8 +13,15 @@ import * as path from 'path';
 import { buildTodayPlan, type TodayPlan, type TodayPlanDeps } from '../../utils/advisor/today-build';
 import type { AdvisorDailyRecord } from '../../utils/advisor/daily-summary';
 import type { TodaySeat } from '../../utils/advisor/today-plan';
-import { collectTodayTitles } from '../../utils/advisor/today-titles';
+import {
+  TODAY_FACT_AUTOCOMPLETE_CAP,
+  TODAY_FACT_HEADLINE_CAP,
+  TODAY_FACT_RELATED_CAP,
+  collectTodayTitles,
+  factsFromContexts,
+} from '../../utils/advisor/today-titles';
 import { EnvironmentManager } from '../../utils/environment-manager';
+import { collectIssueContexts, resolveSearchAdConfigFromEnv } from '../../utils/issue-context';
 import { exactSearchAdTotal, getNaverSearchAdKeywordVolume } from '../../utils/naver-searchad-api';
 import { readAdvisorDailyView, setAdvisorDailyAfterCollect } from './advisor-daily';
 import { measureKeywords } from './seat-measure';
@@ -35,10 +42,14 @@ function writePlan(plan: TodayPlan): void {
   fs.writeFileSync(FILE(), JSON.stringify(plan, null, 2), 'utf8');
 }
 
-function searchAdConfig() {
+function appConfig(): any {
   const manager: any = typeof (EnvironmentManager as any).getInstance === 'function'
     ? (EnvironmentManager as any).getInstance() : new (EnvironmentManager as any)();
-  const cfg = manager.getConfig() || {};
+  return manager.getConfig() || {};
+}
+
+function searchAdConfig() {
+  const cfg = appConfig();
   return {
     accessLicense: cfg.naverSearchAdAccessLicense || process.env.NAVER_SEARCH_AD_ACCESS_LICENSE || '',
     secretKey: cfg.naverSearchAdSecretKey || process.env.NAVER_SEARCH_AD_SECRET_KEY || '',
@@ -48,9 +59,27 @@ function searchAdConfig() {
 
 const compact = (value: string) => String(value || '').toLowerCase().replace(/\s+/g, '');
 
-/** 실측기 셋 — 검색광고(정확한 총검색량만) · 자리 실측기(기존 판정기) · 에이전트 CLI 제목. */
+/**
+ * 실측기 넷 — 검색광고(정확한 총검색량만) · 자리 실측기(기존 판정기) · 제목 사실 재료(이슈 재료 창구 그대로:
+ * 오픈 API 뉴스 · 자동완성 · 검색광고 연관어, 심층 자동완성은 끔) · 에이전트 CLI 제목.
+ */
 function realDeps(): TodayPlanDeps {
   return {
+    facts: async (keywords) => {
+      const cfg = appConfig();
+      const clientId = cfg.naverClientId || process.env.NAVER_CLIENT_ID || '';
+      const clientSecret = cfg.naverClientSecret || process.env.NAVER_CLIENT_SECRET || '';
+      if (!clientId || !clientSecret) throw new Error('네이버 오픈 API 키 없음(설정 → API 키)');
+      const contexts = await collectIssueContexts(keywords, {
+        config: { clientId, clientSecret },
+        searchAd: resolveSearchAdConfigFromEnv(),
+        deepAutocomplete: false,
+        headlineLimit: TODAY_FACT_HEADLINE_CAP,
+        autocompleteLimit: TODAY_FACT_AUTOCOMPLETE_CAP,
+        relatedLimit: TODAY_FACT_RELATED_CAP,
+      });
+      return factsFromContexts(contexts);
+    },
     searchVolume: async (keywords) => {
       const rows = await getNaverSearchAdKeywordVolume(searchAdConfig(), keywords);
       const byKey = new Map(rows.map((row: any) => [compact(row.relKeyword || row.keyword), row]));

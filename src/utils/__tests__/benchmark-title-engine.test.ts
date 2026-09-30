@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   BENCHMARK_TITLE_COUNT,
+  TITLE_FRAME_REPEAT_CAP,
   buildBenchmarkTitlePrompt,
   cardsFromBenchmarks,
   checkBenchmarkTitle,
+  isQuoteStarter,
   parseBenchmarkTitleReply,
+  titleEndingKey,
   titlesForCards,
   type BenchmarkTitleCard,
 } from '../benchmark-title-engine';
@@ -47,6 +50,33 @@ describe('checkBenchmarkTitle', () => {
   });
   it('길이 상한을 넘으면 떨어진다', () => {
     expect(checkBenchmarkTitle('장기전세 만기가 다가오는데 연장이 되는지 분양전환이 되는지 이주 지원까지 전부 알아봤더니 생각과 달랐어요', card)).toContain('TOO_LONG');
+  });
+  it('무엇이 어떻게인지 없는 껍데기 후킹은 떨어진다(2026-09-30 첫 판 20개 전부)', () => {
+    expect(checkBenchmarkTitle('장기전세 만기 두고 반응이 갈리네요', card)).toContain('HOLLOW_HOOK');
+    expect(checkBenchmarkTitle('장기전세 연장 안 되는 이유가 있네요', card)).toContain('HOLLOW_HOOK');
+    expect(checkBenchmarkTitle('장기전세 만기 앞두고 분위기가 달라졌대요', card)).toContain('HOLLOW_HOOK');
+    expect(checkBenchmarkTitle('장기전세 만기 지나면 말이 달라지더라고요', card)).toContain('HOLLOW_HOOK');
+  });
+  it('사실 재료(facts)가 붙은 카드는 붙여 묻는 말·기사 속 말 하나가 제목에 있어야 한다 — 벤치마크 판(facts 없음)은 그대로', () => {
+    const withFacts: BenchmarkTitleCard = { ...card, relatedKeywords: ['장기전세 분양전환', '장기전세 이주지원'], facts: ['서울시 장기전세 만기 가구 이주 상담 시작'] };
+    expect(checkBenchmarkTitle('장기전세 20년 살고 나면 어디로 가야 하나 싶더라고요', withFacts)).toContain('NO_SUB');
+    expect(checkBenchmarkTitle('장기전세 20년 살고 나면 이주 상담부터 받게 되더라고요', withFacts)).toEqual([]);
+    expect(checkBenchmarkTitle('장기전세 분양전환 되는 집은 따로 있었네요', withFacts)).toEqual([]);
+    expect(checkBenchmarkTitle('장기전세 20년 살고 나면 어디로 가야 하나 싶더라고요', card)).toEqual([]);
+    // 기사 제목을 베끼면 재료여도 실패
+    expect(checkBenchmarkTitle('서울시 장기전세 만기 가구 이주 상담 시작', withFacts)).toContain('ARTICLE_COPY');
+  });
+});
+
+describe('titleEndingKey · isQuoteStarter — 판 전체 틀 상한(3개)의 재료', () => {
+  it('끝 두 글자(문장부호 제외)와 따옴표 스타터를 읽는다', () => {
+    expect(titleEndingKey('장기전세 만기 앞두고 이주 상담 받더라고요')).toBe('고요');
+    expect(titleEndingKey('장기전세 만기 이주 상담 받았네요?')).toBe('네요');
+    expect(titleEndingKey('장기전세 만기 뒤 이주 지원 조건')).toBe('조건');
+    expect(titleEndingKey('장기전세 만기 after 20y')).toBe('');
+    expect(isQuoteStarter('"이러니까 바로 풀리네요" 장기전세 만기 이주 상담')).toBe(true);
+    expect(isQuoteStarter('장기전세 만기 "이러니까" 상담')).toBe(false);
+    expect(TITLE_FRAME_REPEAT_CAP).toBe(3);
   });
 });
 

@@ -10492,12 +10492,13 @@
             const rows = items.map((it) => {
               const got = it.titles.map((x) => '<div>' + esc(x) + '</div>').join('');
               const rej = (it.rejected || []).map((rj) => '<div style="color:#64748b; font-size:11.5px;">✗ ' + esc(rj.title) + ' <span style="color:#475569;">(' + esc(rj.reasons.join(', ')) + ')</span></div>').join('');
-              return '<tr>' + td('<b>' + esc(it.keyword) + '</b>') + td((got || '<span style="color:#64748b;">검사 통과한 제목 없음</span>') + rej) + '</tr>';
+              const empty = it.note ? esc(it.note) : '검사 통과한 제목 없음';
+              return '<tr>' + td('<b>' + esc(it.keyword) + '</b>') + td((got || '<span style="color:#64748b;">' + empty + '</span>') + rej) + '</tr>';
             }).join('');
             titleInner = (items.length ? table(th('키워드') + th('제목(검사 통과 ' + passed + ')'), rows) : '<div style="color:#64748b; margin-top:6px;">제목을 만들 키워드가 없어요.</div>')
               + (tt.provider ? '<div style="margin-top:4px; font-size:11.5px; color:#64748b;">엔진: ' + esc(tt.provider) + '</div>' : '');
           }
-          html += section('3. 제목(키워드당 2)', '내 글·오늘 홈판 제목을 따라 쓰지 않게 하고 홈판 제목 규칙(AI 티·쉼표 이분법·과장어·근거 없는 숫자)으로 검사. 미통과는 사유와 함께 빈 칸.', titleInner);
+          html += section('3. 제목(키워드당 2)', '키워드마다 실측 재료(사람들이 붙여 묻는 말 · 최근 뉴스 제목)를 주고 그 사실 하나가 제목에 보여야 통과. 껍데기 후킹·같은 끝맺음 반복·AI 티·쉼표 이분법·과장어·근거 없는 숫자는 사유와 함께 빈 칸. 재료가 없는 키워드는 지어내지 않고 비워 둔다.', titleInner);
 
           if (plan.notes && plan.notes.length) html += '<div style="margin-top:10px; font-size:11.5px; color:#64748b;">' + plan.notes.map((n) => esc(n)).join('<br>') + '</div>';
           body.innerHTML = html;
