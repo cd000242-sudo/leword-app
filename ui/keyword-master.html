@@ -10127,6 +10127,20 @@
                   <button onclick="openNaverAdvisor()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">네이버 로그인 창 열기</button>
                   <button onclick="clearNaverSession()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #94a3b8; font-size: 12.5px; cursor: pointer;">로그아웃</button>
                 </div>
+                <!--
+                  홈판 유입 실측(2026-09-30, A 층) — 로그인 세션으로 새벽에 한 번 어드바이저 창구를 돌려 쌓은 판.
+                  표 셋: 내 글 홈판 실적 · 내 유입 주제(판 크기 옆에) · 오늘 홈판 탄 글 전체(제목 낱말 셈).
+                  전부 실측 값과 단순 셈만. 못 받은 창구는 '미측정'으로 남기고 0 으로 채우지 않는다. 확률·예상 트래픽 없음.
+                -->
+                <div id="advisorDailyPanel" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
+                  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">📊 홈판 유입 실측</h4>
+                    <span id="advisorDailyMeta" style="font-size: 12px; color: #94a3b8;">불러오는 중…</span>
+                    <span style="flex: 1;"></span>
+                    <button id="advisorDailyRunBtn" onclick="runAdvisorDailyNow()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">지금 수집</button>
+                  </div>
+                  <div id="advisorDailyBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
+                </div>
               </div>
               <!--
                 트렌드 CSV 들이기(2026-09-10) — 네이버 크리에이터 어드바이저가 주는 '주제별 유입 검색어'를
@@ -10214,6 +10228,7 @@
           refreshSeatWatch();
           loadBlogClass();
           refreshNaverSession();
+          refreshAdvisorDaily();
           loadTrendImport();
         };
 
@@ -10256,6 +10271,106 @@
           }
           refreshNaverSession();
         };
+
+        /*
+         * 홈판 유입 실측 판 — 메인 프로세스가 쌓은 하루 기록(advisor-daily)을 그대로 표로 옮긴다.
+         * 여기서 값을 새로 계산하지 않는다(정렬·낱말 빈도 같은 단순 셈만). 못 받은 창구는 '미측정'.
+         */
+        window.refreshAdvisorDaily = async function refreshAdvisorDaily() {
+          const meta = document.getElementById('advisorDailyMeta');
+          const body = document.getElementById('advisorDailyBody');
+          if (!meta || !body) return;
+          try {
+            const res = await window.electronAPI.invoke('advisor-daily-view');
+            if (!res || !res.success) { meta.textContent = '판을 읽지 못했어요'; return; }
+            renderAdvisorDaily(res, meta, body);
+          } catch (e) {
+            meta.textContent = '판을 읽지 못했어요: ' + (e && e.message ? e.message : e);
+          }
+        };
+
+        window.runAdvisorDailyNow = async function runAdvisorDailyNow() {
+          const btn = document.getElementById('advisorDailyRunBtn');
+          if (btn) { btn.disabled = true; btn.textContent = '수집 중…(약 20초)'; }
+          try {
+            const res = await window.electronAPI.invoke('advisor-daily-run-now');
+            if (res && res.success) showToast('홈판 유입 실측을 새로 받았어요', 'success');
+            else showToast((res && (res.reason || res.error)) || '수집하지 못했어요', 'error');
+          } catch (e) {
+            showToast('수집하지 못했어요: ' + (e && e.message ? e.message : e), 'error');
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '지금 수집'; }
+            refreshAdvisorDaily();
+          }
+        };
+
+        function renderAdvisorDaily(view, meta, body) {
+          const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+          const r = view.latest;
+          const st = view.state || {};
+          const th = (t, right) => '<th style="text-align:' + (right ? 'right' : 'left') + '; padding:7px 9px; color:#94a3b8; font-size:11.5px; font-weight:600;">' + t + '</th>';
+          const td = (t, right, color) => '<td style="text-align:' + (right ? 'right' : 'left') + '; padding:6px 9px; border-top:1px solid rgba(255,255,255,0.06); color:' + (color || '#e2e8f0') + '; font-variant-numeric: tabular-nums;">' + t + '</td>';
+          const table = (head, rows) => '<div style="overflow-x:auto; margin-top:6px; border:1px solid rgba(255,255,255,0.1); border-radius:10px;"><table style="width:100%; border-collapse:collapse; font-size:12.5px;"><thead><tr style="background:rgba(255,255,255,0.05);">' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+          const section = (title, note, inner) => '<div style="margin-top:12px;"><div style="font-weight:700; color:#ffffff; font-size:13px;">' + title + '</div>' + (note ? '<div style="font-size:11.5px; color:#64748b; margin-top:2px;">' + note + '</div>' : '') + inner + '</div>';
+          const kstTime = (iso) => { const ms = Date.parse(iso || ''); if (!Number.isFinite(ms)) return '—'; const d = new Date(ms + 9 * 3600 * 1000); return String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + String(d.getUTCDate()).padStart(2, '0') + ' ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+
+          if (!r) {
+            meta.textContent = st.lastSkip ? '아직 판이 없어요 · 마지막 건너뜀: ' + st.lastSkip.reason : '아직 판이 없어요. 네이버 로그인 뒤 새벽 ' + String(view.runHour).padStart(2, '0') + ':00 이 지나면 한 번 받아요(또는 [지금 수집]).';
+            body.innerHTML = '';
+            return;
+          }
+          meta.textContent = r.day + ' 통계 · 글 ' + r.posts.length + '편 · 쌓인 날 ' + view.days + ' · 못 받은 창구 ' + r.missing.length + (st.lastSkip ? ' · 마지막 건너뜀: ' + st.lastSkip.reason : '');
+
+          // 1) 내 글 홈판 실적 — 홈판 건수 내림차순. referrer-domain 을 못 받은 글은 '미측정'(0 아님).
+          const posts = r.posts.slice().sort((a, b) => ((b.homefeed && b.homefeed.count) || 0) - ((a.homefeed && a.homefeed.count) || 0));
+          const postRows = posts.map((p) => '<tr>'
+            + td(esc(p.title) || '<span style="color:#64748b;">(제목 없음)</span>')
+            + td(kstTime(p.publishedAt), true, '#94a3b8')
+            + td(p.views, true)
+            + (p.homefeed ? td(p.homefeed.count > 0 ? '<b style="color:#fbbf24;">' + p.homefeed.count + '</b>' : '0', true) + td(p.homefeed.ratio > 0 ? Math.round(p.homefeed.ratio * 100) + '%' : '—', true, '#94a3b8') : td('미측정', true, '#64748b') + td('—', true, '#64748b'))
+            + td(p.searchCount == null ? '미측정' : p.searchCount, true, p.searchCount == null ? '#64748b' : '#e2e8f0')
+            + '</tr>').join('');
+          const hit = posts.filter((p) => p.homefeed && p.homefeed.count > 0).length;
+          const measured = posts.filter((p) => p.homefeed).length;
+          let html = section('1. 내 글 홈판 실적', '어제 유입 있던 글 ' + posts.length + '편 중 홈판 실측 ' + measured + '편, 그중 홈판 탄 글 <b style="color:#fbbf24;">' + hit + '편</b>. "네이버 메인_모바일_홈판" 유입 건수 그대로.',
+            posts.length ? table(th('글') + th('발행', true) + th('조회', true) + th('홈판', true) + th('비율', true) + th('검색', true), postRows) : '<div style="color:#64748b; margin-top:6px;">어제 유입 있던 글이 없어요.</div>');
+
+          // 홈판 탄 날 패턴 — 실측된 글만. 없으면 규칙을 지어내지 않고 사실 한 줄.
+          const pat = view.pattern || {};
+          const patLine = pat.daysWithHomefeed > 0
+            ? '홈판 탄 날 ' + pat.daysWithHomefeed + '/' + pat.daysMeasured + '일 · 그날 홈판 탄 글 ' + pat.postsPerDay.join(', ') + '편 · 발행 시(KST) ' + pat.hours.map((h) => String(h.hour).padStart(2, '0') + '시×' + h.posts).join(' ') + (pat.gapsMinutes.length ? ' · 같은 날 간격 ' + pat.gapsMinutes.map((m) => Math.round(m / 60 * 10) / 10 + 'h').join(', ') : '')
+            : '홈판 탄 글이 아직 실측되지 않아 발행 시각·간격 패턴이 없어요(쌓인 날 ' + (pat.daysMeasured || 0) + ').';
+          const myTop = r.myHours.slice().sort((a, b) => b.yesterday - a.yesterday).slice(0, 3).filter((h) => h.yesterday > 0);
+          html += '<div style="margin-top:6px; font-size:12px; color:#cbd5e1;">' + esc(patLine) + (myTop.length ? '<br>어제 내 유입 많은 시각: ' + myTop.map((h) => String(h.hour).padStart(2, '0') + '시 ' + h.yesterday).join(' · ') : '') + '</div>';
+
+          // 2) 내 유입 주제 — d1-ranks 옆에 32주제 비교(판 크기)를 나란히. 두 숫자만.
+          const sizeOf = (topic) => { const m = r.categoryComparison.find((c) => c.topic === topic); return m ? m.value : null; };
+          const weekOf = (topic) => { const m = r.topicsWeek.find((c) => c.topic === topic); return m ? m.value : null; };
+          const topicRows = r.topicsDay.map((t) => '<tr>' + td(esc(t.topic)) + td(t.value, true) + td(weekOf(t.topic) == null ? '—' : weekOf(t.topic), true, '#94a3b8') + td(sizeOf(t.topic) == null ? '미측정' : sizeOf(t.topic).toLocaleString(), true, sizeOf(t.topic) == null ? '#64748b' : '#e2e8f0') + '</tr>').join('');
+          const kw = r.popularKeywords;
+          const kwLine = kw && kw.items.length ? '<div style="margin-top:6px; font-size:12px;"><span style="color:#94a3b8;">' + esc(kw.topic) + ' 인기 검색어(지난주):</span> ' + kw.items.map((k) => esc(k.keyword)).join(' · ') + '</div>' : '';
+          const rising = r.topicKeywords.filter((k) => k.rankChange != null && k.rankChange > 0).slice(0, 20);
+          const risingLine = rising.length ? '<div style="margin-top:4px; font-size:12px;"><span style="color:#94a3b8;">어제 순위 오른 검색어:</span> ' + rising.map((k) => esc(k.keyword) + '<span style="color:#22c55e;">↑' + k.rankChange + '</span>').join(' · ') + '</div>' : '';
+          // 판 크기는 네이버가 주는 상대 지수 — 가장 큰 주제가 100(실측: 맛집 100 · 자동차 31). 절대 조회수가 아니다.
+          const biggest = r.categoryComparison.slice().sort((a, b) => b.value - a.value)[0];
+          html += section('2. 내 유입 주제', '내 어제·지난주 유입(어드바이저 d1) 옆에 그 주제 전체 판 크기 지수' + (biggest ? '(' + esc(biggest.topic) + '=100 기준)' : '') + '.',
+            (r.topicsDay.length ? table(th('주제') + th('어제 유입', true) + th('지난주', true) + th('판 크기 지수', true), topicRows) : '<div style="color:#64748b; margin-top:6px;">' + (r.missing.indexOf('d1RanksDay') >= 0 ? '주제 창구를 못 받았어요' : '어제 주제별 유입이 없어요') + '.</div>') + kwLine + risingLine);
+
+          // 3) 오늘 홈판 탄 글(전체) — 제목 목록 + 낱말 빈도(두 글자 이상, 단순 셈). 임의 분류 없음.
+          const titles = r.homefeedTitles;
+          const freq = new Map();
+          titles.forEach((t) => String(t.title || '').split(/[\s,.!?~()\[\]'"·…]+/).forEach((w) => { if (w.length >= 2) freq.set(w, (freq.get(w) || 0) + 1); }));
+          const topWords = [...freq.entries()].filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).slice(0, 15);
+          const wordLine = topWords.length ? '<div style="margin-top:6px; font-size:12px;"><span style="color:#94a3b8;">두 번 이상 나온 낱말:</span> ' + topWords.map(([w, n]) => esc(w) + '<span style="color:#64748b;">×' + n + '</span>').join(' · ') + '</div>' : '';
+          const titleRows = titles.map((t) => '<tr>' + td(t.url ? '<a href="' + esc(t.url) + '" target="_blank" style="color:#e2e8f0; text-decoration:none;">' + esc(t.title) + '</a>' : esc(t.title)) + '</tr>').join('');
+          const wr = r.weeklyRecommendation;
+          const wrLine = wr && wr.titles.length ? '<div style="margin-top:6px; font-size:12px;"><span style="color:#94a3b8;">주간 추천(' + esc(wr.category) + '):</span> ' + wr.titles.slice(0, 5).map((t) => esc(t)).join(' · ') + '</div>' : '';
+          html += section('3. ' + r.day + ' 홈판 탄 글(전체 블로그)', '네이버가 어드바이저에 싣는 그날 홈판 유입 상위 글 제목 그대로(main-inflow-content-ranks).',
+            (titles.length ? table(th('제목'), titleRows) : '<div style="color:#64748b; margin-top:6px;">' + (r.missing.indexOf('mainInflowContentRanks') >= 0 ? '창구를 못 받았어요' : '이날 목록이 비어 있어요') + '.</div>') + wordLine + wrLine);
+
+          if (r.missing.length) html += '<div style="margin-top:10px; font-size:11.5px; color:#64748b;">못 받은 창구 ' + r.missing.length + ': ' + esc(r.missing.slice(0, 8).join(', ')) + (r.missing.length > 8 ? ' …' : '') + '</div>';
+          body.innerHTML = html;
+        }
 
         /*
          * 내 블로그 카드 — 사실을 초보자 말로.
