@@ -6,6 +6,9 @@ import { app } from 'electron';
 import type { MyBlogBridgeDeps } from './my-blog-bridge-routes';
 import { advisorFetch, naverSessionStatus, openAdvisorWindow } from './handlers/naver-session';
 import { readBlogClassForView } from './handlers/blog-class';
+import { readAdvisorDailyView } from './handlers/advisor-daily';
+import { readTodayPlan } from './handlers/advisor-today';
+import { advisorDailySyncView, todayPlanSyncView } from '../utils/advisor/sync-view';
 
 export function createMyBlogBridgeDeps(): MyBlogBridgeDeps {
   return {
@@ -23,5 +26,8 @@ export function createMyBlogBridgeDeps(): MyBlogBridgeDeps {
     },
     openLogin: async () => { openAdvisorWindow(); },
     blogClassGet: async () => readBlogClassForView(),
+    // 사이트 동기화 재료 — 채널 id·글 id·창구 목록을 뺀 판(sync-view)만 넘긴다.
+    advisorDailyGet: async () => advisorDailySyncView(readAdvisorDailyView().latest),
+    todayPlanGet: async () => todayPlanSyncView(readTodayPlan()),
   };
 }

@@ -30,6 +30,12 @@ export interface MyBlogBridgeDeps {
    * 39개 창구가 무엇을 주는지 실측하는 용도라 설치판(호스트가 안 넘김)엔 없다. 출처 붙은 요청은 거절한다.
    */
   advisorFetch?: (pathAndQuery: string, extraHeaders?: Record<string, string>) => Promise<{ status: number; body: string }>;
+  /**
+   * 사이트 동기화용(플랜 B, 2026-09-30) — 어드바이저 하루 요약(계정 필드 없음)과 '오늘 쓸 글 10' 판.
+   * 사이트가 이걸 비밀번호 유도 키로 잠가 워커에 올린다. 없으면 null(안 잰 것도 정상).
+   */
+  advisorDailyGet?: () => Promise<unknown | null>;
+  todayPlanGet?: () => Promise<unknown | null>;
 }
 
 /** 어드바이저 상대경로만 — 절대 URL·상위 경로 탈출은 거절. */
@@ -70,6 +76,17 @@ export async function handleMyBlogRoute(req: IncomingMessage, res: ServerRespons
     if (route === 'POST session/open') { await deps.openLogin(); io.json(res, 200, { ok: true, result: { opened: true } }); return true; }
     // result 를 null 로 주면 사이트 bridgeCall 이 오류로 읽는다 — 안 잰 상태도 정상이라 record 로 감싼다.
     if (route === 'GET class') { io.json(res, 200, { ok: true, result: { record: await deps.blogClassGet() } }); return true; }
+    // 동기화 재료 — 기능이 없는 빌드면 404(사이트는 '앱 구버전'으로 읽는다). 없는 기록은 null 로 감싼다.
+    if (route === 'GET advisor-daily') {
+      if (!deps.advisorDailyGet) { io.json(res, 404, { ok: false, error: '이 버전엔 없는 경로입니다.' }); return true; }
+      io.json(res, 200, { ok: true, result: { record: await deps.advisorDailyGet() } });
+      return true;
+    }
+    if (route === 'GET today-plan') {
+      if (!deps.todayPlanGet) { io.json(res, 404, { ok: false, error: '이 버전엔 없는 경로입니다.' }); return true; }
+      io.json(res, 200, { ok: true, result: { plan: await deps.todayPlanGet() } });
+      return true;
+    }
     io.json(res, 404, { ok: false, error: '지원하지 않는 내 블로그 경로입니다.' });
   } catch {
     // 앱 쪽 오류엔 파일 경로가 실릴 수 있다 — 사유는 넘기지 않는다.

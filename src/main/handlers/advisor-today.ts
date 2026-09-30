@@ -25,6 +25,11 @@ function readPlan(): TodayPlan | null {
   try { return JSON.parse(fs.readFileSync(FILE(), 'utf8')) as TodayPlan; } catch { return null; }
 }
 
+/** 마지막으로 만든 판 — 사이트 동기화 브리지가 읽는다. 없으면 null. */
+export function readTodayPlan(): TodayPlan | null {
+  return readPlan();
+}
+
 function writePlan(plan: TodayPlan): void {
   fs.mkdirSync(path.dirname(FILE()), { recursive: true });
   fs.writeFileSync(FILE(), JSON.stringify(plan, null, 2), 'utf8');

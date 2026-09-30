@@ -65,6 +65,28 @@ describe('내 블로그 브리지', () => {
       await new Promise<void>(resolve => dev.close(() => resolve()));
     }
   });
+  it('동기화 재료(advisor-daily·today-plan)는 기능이 없으면 404, 있으면 record/plan 으로 감싸 준다(없는 기록도 null 로 정상)', async () => {
+    expect((await fetch(base + '/v1/bridge/my-blog/advisor-daily')).status).toBe(404);
+    expect((await fetch(base + '/v1/bridge/my-blog/today-plan')).status).toBe(404);
+    const advisorDailyGet = vi.fn(async () => ({ day: '2026-09-29', posts: [], missingCount: 0 }));
+    const todayPlanGet = vi.fn(async () => null);
+    const synced = createWebBridge({ appVersion: 'test', getAgentStatuses: async () => [], forgeInsights: async () => null,
+      myBlog: { sessionStatus, openLogin, blogClassGet, advisorDailyGet, todayPlanGet } } as any);
+    await new Promise<void>(resolve => synced.listen(0, '127.0.0.1', resolve));
+    const syncedBase = `http://127.0.0.1:${(synced.address() as AddressInfo).port}`;
+    try {
+      const daily = await fetch(syncedBase + '/v1/bridge/my-blog/advisor-daily', { headers: { Origin: 'https://leaderspro.kr' } });
+      expect(daily.status).toBe(200);
+      expect((await daily.json()).result).toEqual({ record: { day: '2026-09-29', posts: [], missingCount: 0 } });
+      const plan = await fetch(syncedBase + '/v1/bridge/my-blog/today-plan', { headers: { Origin: 'https://leaderspro.kr' } });
+      expect(plan.status).toBe(200);
+      expect((await plan.json()).result).toEqual({ plan: null });
+      // 확장 프로그램 출처는 여기도 막힌다.
+      expect((await fetch(syncedBase + '/v1/bridge/my-blog/today-plan', { headers: { Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop' } })).status).toBe(403);
+    } finally {
+      await new Promise<void>(resolve => synced.close(() => resolve()));
+    }
+  });
   it('앱 쪽이 실패하면 503 으로 사유 없이 알린다', async () => {
     sessionStatus.mockRejectedValueOnce(new Error('C:\\Users\\secret\\path'));
     const res = await fetch(base + '/v1/bridge/my-blog/session');
