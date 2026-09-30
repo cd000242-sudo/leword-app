@@ -15,13 +15,19 @@
  * 다음 단계(1단계 수집기)는 여기서 실측한 창구를 같은 파티션의 session.fetch 로 하루 한 번 부른다.
  */
 import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  ADVISOR_API_PREFIX,
   ADVISOR_HOME_URL,
+  ADVISOR_HOST,
+  ADVISOR_KEY_COOKIE,
+  advisorSecretFromCookie,
   browserLikeUserAgent,
   isNaverLoggedIn,
   shouldCaptureAdvisorCall,
+  signAdvisorRequest,
   summarizeProbeLines,
   type ProbeLine,
 } from '../../utils/naver-advisor-probe';
@@ -94,7 +100,7 @@ export async function naverSessionStatus(): Promise<NaverSessionStatus> {
  */
 function attachProbe(win: BrowserWindow): void {
   const contents = win.webContents;
-  const pending = new Map<string, { method: string; url: string; postDataHead?: string; status: number; mimeType: string }>();
+  const pending = new Map<string, { method: string; url: string; postDataHead?: string; signHeaders?: Record<string, string>; status: number; mimeType: string }>();
   try {
     contents.debugger.attach('1.3');
   } catch (error: any) {
@@ -109,6 +115,8 @@ function attachProbe(win: BrowserWindow): void {
         method: request.method,
         url: request.url,
         postDataHead: typeof request.postData === 'string' ? request.postData.slice(0, BODY_HEAD_CHARS) : undefined,
+        // 화면이 붙이는 서명 헤더만(X-CA-*) — 쿠키·인증 헤더는 남기지 않는다. 서명 규칙 대조용.
+        signHeaders: Object.fromEntries(Object.entries((request.headers || {}) as Record<string, string>).filter(([k]) => /^x-ca-/i.test(k))),
         status: 0,
         mimeType: '',
       });
@@ -143,6 +151,7 @@ function attachProbe(win: BrowserWindow): void {
           bodyBytes,
           bodyHead,
           ...(entry.postDataHead ? { postDataHead: entry.postDataHead } : {}),
+          ...(entry.signHeaders && Object.keys(entry.signHeaders).length ? { signHeaders: entry.signHeaders } : {}),
         });
       } catch (error: any) {
         console.warn('[NAVER-SESSION] 기록 실패:', error?.message);
@@ -180,6 +189,50 @@ export function openAdvisorWindow(): void {
   win.loadURL(ADVISOR_HOME_URL).catch((error: any) => {
     console.warn('[NAVER-SESSION] 어드바이저 화면을 열지 못했다:', error?.message);
   });
+}
+
+/**
+ * 로그인 세션(쿠키)으로 어드바이저 `/api/v6` 창구를 직접 부른다 — 창을 띄우지 않는다.
+ * 0단계 실측용이자 1단계 수집기의 바탕. 응답은 문자열 그대로(해석은 부르는 쪽).
+ */
+export async function advisorFetch(pathAndQuery: string, extraHeaders: Record<string, string> = {}): Promise<{ status: number; body: string; signed: boolean }> {
+  const ses = session.fromPartition(NAVER_SESSION_PARTITION);
+  ses.setUserAgent(browserLikeUserAgent(app.userAgentFallback));
+  // 화면은 요청마다 instanceId(세션당 UUID) 를 붙이고, 계정 창구가 그 요청에 서명 비밀을 심는다 — 같은 값을 계속 쓴다.
+  // Referer 는 화면 주소여야 한다 — 루트 `/` 면 서명이 맞아도 403이고, 내 채널 창구(integrated-analysis·inflow-analysis·
+  // revenue·dashboard·header)는 `/naver_blog/<channelId>` 까지 있어야 200(2026-09-30 실측 52건 403→200).
+  const channelId = new URL(ADVISOR_API_PREFIX + pathAndQuery, ADVISOR_HOME_URL).searchParams.get('channelId') || '';
+  const base = { Accept: 'application/json', Referer: `${ADVISOR_HOME_URL}naver_blog/${encodeURIComponent(channelId)}`, instanceId: advisorInstanceId, ...extraHeaders };
+  const call = async (target: string, extra: Record<string, string>) => {
+    try {
+      return await ses.fetch(`https://${ADVISOR_HOST}${ADVISOR_API_PREFIX}${target}`, { headers: { ...base, ...extra } });
+    } catch (error: any) {
+      // 개발판 대조용: 어떤 헤더가 거절됐는지 보이게 사유를 담아 다시 던진다.
+      throw new Error(`advisor fetch 실패: ${error?.message || error}`);
+    }
+  };
+  const refreshSecret = async () => {
+    await call('/accounts/channels', {}).catch(() => undefined);
+    return advisorSecret(ses);
+  };
+  // 데이터 창구는 서명 없이는 403 — 비밀 쿠키가 없으면 계정 창구를 한 번 불러 심게 한다(화면 번들과 같은 순서).
+  let secret = (await advisorSecret(ses)) || (await refreshSecret());
+  const signedCall = async () => call(pathAndQuery, secret ? signAdvisorRequest({ secret, method: 'GET', pathAndQuery }) : {});
+  let response = await signedCall();
+  // 화면과 같은 재시도 한 번: 403 이면 비밀을 새로 받아 다시 부른다(키 만료·다른 instanceId 로 받은 키).
+  if (response.status === 403) {
+    secret = await refreshSecret();
+    response = await signedCall();
+  }
+  return { status: response.status, body: await response.text(), signed: !!secret };
+}
+
+const advisorInstanceId = randomUUID();
+
+/** 비밀 쿠키 — 도메인 필터는 상위 도메인(.naver.com) 쿠키를 놓치므로 주소 기준으로 찾는다. */
+async function advisorSecret(ses: Electron.Session): Promise<string | null> {
+  const cookies = await ses.cookies.get({ url: ADVISOR_HOME_URL, name: ADVISOR_KEY_COOKIE });
+  return advisorSecretFromCookie(cookies[0]?.value);
 }
 
 export async function clearNaverSession(): Promise<void> {

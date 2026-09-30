@@ -44,6 +44,27 @@ describe('내 블로그 브리지', () => {
     expect((await fetch(base + '/v1/bridge/my-blog/session', { headers: { Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop' } })).status).toBe(403);
     expect((await fetch(base + '/v1/bridge/my-blog/probe-file')).status).toBe(404);
   });
+  it('창구 직접 호출(advisor)은 개발판 전용 — 기능이 없으면 404, 출처가 있으면 403, 있으면 경로를 그대로 넘긴다', async () => {
+    expect((await fetch(base + '/v1/bridge/my-blog/advisor?p=%2Fhome%2Fyesterday-summary')).status).toBe(404);
+    const advisorFetch = vi.fn(async (p: string) => ({ status: 200, body: `{"path":"${p}"}` }));
+    const dev = createWebBridge({ appVersion: 'test', getAgentStatuses: async () => [], forgeInsights: async () => null,
+      myBlog: { sessionStatus, openLogin, blogClassGet, advisorFetch } } as any);
+    await new Promise<void>(resolve => dev.listen(0, '127.0.0.1', resolve));
+    const devBase = `http://127.0.0.1:${(dev.address() as AddressInfo).port}`;
+    try {
+      const res = await fetch(devBase + '/v1/bridge/my-blog/advisor?p=%2Fhome%2Fyesterday-summary%3Fservice%3Dnaver_blog');
+      expect(res.status).toBe(200);
+      expect((await res.json()).result).toEqual({ status: 200, body: '{"path":"/home/yesterday-summary?service=naver_blog"}' });
+      expect(advisorFetch).toHaveBeenCalledWith('/home/yesterday-summary?service=naver_blog', {});
+      // 사이트·확장이 원본 창구를 그대로 빨아가면 안 된다 — 출처가 붙은 요청은 거절.
+      expect((await fetch(devBase + '/v1/bridge/my-blog/advisor?p=%2Fhome%2Fyesterday-summary', { headers: { Origin: 'https://leaderspro.kr' } })).status).toBe(403);
+      // 경로는 / 로 시작하는 어드바이저 상대경로만.
+      expect((await fetch(devBase + '/v1/bridge/my-blog/advisor?p=https%3A%2F%2Fevil')).status).toBe(400);
+      expect(advisorFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      await new Promise<void>(resolve => dev.close(() => resolve()));
+    }
+  });
   it('앱 쪽이 실패하면 503 으로 사유 없이 알린다', async () => {
     sessionStatus.mockRejectedValueOnce(new Error('C:\\Users\\secret\\path'));
     const res = await fetch(base + '/v1/bridge/my-blog/session');

@@ -25,6 +25,16 @@ export interface MyBlogBridgeDeps {
   openLogin: () => Promise<void>;
   /** 앱이 마지막으로 잰 내 블로그 기록(렌더러용 판). 안 쟀으면 null. */
   blogClassGet: () => Promise<unknown | null>;
+  /**
+   * 어드바이저 창구 직접 호출(개발판 전용, 2026-09-30) — 로그인 세션으로 `/api/v6` 아래 상대경로를 부른다.
+   * 39개 창구가 무엇을 주는지 실측하는 용도라 설치판(호스트가 안 넘김)엔 없다. 출처 붙은 요청은 거절한다.
+   */
+  advisorFetch?: (pathAndQuery: string, extraHeaders?: Record<string, string>) => Promise<{ status: number; body: string }>;
+}
+
+/** 어드바이저 상대경로만 — 절대 URL·상위 경로 탈출은 거절. */
+function isAdvisorPath(value: string): boolean {
+  return value.startsWith('/') && !value.startsWith('//') && !value.includes('..');
 }
 
 type Io = {
@@ -38,8 +48,24 @@ export async function handleMyBlogRoute(req: IncomingMessage, res: ServerRespons
   res.setHeader('Cache-Control', 'no-store');
   const origin = String(req.headers.origin || '');
   if (origin && !io.siteOriginAllowed(origin)) { io.json(res, 403, { ok: false, error: '사이트에서만 읽을 수 있습니다.' }); return true; }
-  const route = `${req.method} ${url.slice(MY_BLOG_ROUTE_PREFIX.length)}`;
+  const parsed = new URL(url, 'http://127.0.0.1');
+  const route = `${req.method} ${parsed.pathname.slice(MY_BLOG_ROUTE_PREFIX.length)}`;
   try {
+    if (route === 'GET advisor') {
+      if (!deps.advisorFetch) { io.json(res, 404, { ok: false, error: '개발판에서만 쓰는 경로입니다.' }); return true; }
+      if (origin) { io.json(res, 403, { ok: false, error: '이 PC 안에서만 부를 수 있습니다.' }); return true; }
+      const target = parsed.searchParams.get('p') || '';
+      if (!isAdvisorPath(target)) { io.json(res, 400, { ok: false, error: '창구는 / 로 시작하는 상대경로만 됩니다.' }); return true; }
+      // h: 실측 대조용 추가 헤더(JSON). 개발판·이 PC 안에서만 닿는 경로라 사유도 그대로 보여 준다.
+      let extra: Record<string, string> = {};
+      try { extra = JSON.parse(parsed.searchParams.get('h') || '{}'); } catch { /* 없는 셈 */ }
+      try {
+        io.json(res, 200, { ok: true, result: await deps.advisorFetch(target, extra) });
+      } catch (error: any) {
+        io.json(res, 502, { ok: false, error: String(error?.message || error) });
+      }
+      return true;
+    }
     if (route === 'GET session') { io.json(res, 200, { ok: true, result: await deps.sessionStatus() }); return true; }
     if (route === 'POST session/open') { await deps.openLogin(); io.json(res, 200, { ok: true, result: { opened: true } }); return true; }
     // result 를 null 로 주면 사이트 bridgeCall 이 오류로 읽는다 — 안 잰 상태도 정상이라 record 로 감싼다.

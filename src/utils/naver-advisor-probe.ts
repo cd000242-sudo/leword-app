@@ -11,6 +11,7 @@
  *
  * 절대 기록하지 않는 것: 로그인 페이지(nid.naver.com) 요청. 비밀번호·OTP 가 본문에 실린다.
  */
+import { createHmac, randomUUID } from 'crypto';
 
 /** 어드바이저 화면 호스트. 이 호스트의 XHR/Fetch 만 기록한다. */
 export const ADVISOR_HOST = 'creator-advisor.naver.com';
@@ -18,8 +19,45 @@ export const ADVISOR_HOST = 'creator-advisor.naver.com';
 /** 어드바이저 첫 화면. 로그인이 없으면 네이버가 nid 로 보낸 뒤 여기로 돌려준다. */
 export const ADVISOR_HOME_URL = `https://${ADVISOR_HOST}/`;
 
+/** 창구 경로 앞머리. 서명은 이 접두어를 포함한 pathname 으로 만든다(화면 번들 fJ 함수 실측). */
+export const ADVISOR_API_PREFIX = '/api/v6';
+
+/** 서명 비밀이 든 쿠키. 값 "비밀.나머지" 꼴이며 /accounts/channels 응답이 심는다. */
+export const ADVISOR_KEY_COOKIE = '__ca_key';
+
 /** 크롬 개발자 프로토콜이 붙이는 요청 종류 중 데이터 창구로 볼 것. */
 const DATA_RESOURCE_TYPES = new Set(['XHR', 'Fetch']);
+
+/**
+ * 데이터 창구(홈·트렌드·유입분석·수익·대시보드)는 서명 없이는 전부 403 이다 — 2026-09-30 실측 45/45.
+ * 화면 번들이 하는 그대로: 비밀 = __ca_key 쿠키의 '.' 앞 마디, 서명 = HMAC-SHA256(비밀, "METHOD|pathname|ts|nonce") 16진수.
+ * pathname 에는 쿼리가 안 들어가고, /api/v6 접두어는 들어간다.
+ */
+export function advisorSecretFromCookie(value: string | undefined): string | null {
+  // 화면(js-cookie)과 똑같이: 겉따옴표 벗기고 %XX 를 푼다.
+  const raw = (value || '').replace(/^"|"$/g, '').replace(/(%[\dA-F]{2})+/gi, (m) => { try { return decodeURIComponent(m); } catch { return m; } });
+  const [secret] = raw.split('.');
+  return secret || null;
+}
+
+export interface AdvisorSignInput {
+  secret: string;
+  method: string;
+  /** `/api/v6` 뒤의 상대경로(쿼리 포함 가능). */
+  pathAndQuery: string;
+  ts?: string;
+  nonce?: string;
+}
+
+export function signAdvisorRequest(input: AdvisorSignInput): Record<'X-CA-Nonce' | 'X-CA-Ts' | 'X-CA-Sig', string> {
+  const pathname = new URL(ADVISOR_API_PREFIX + input.pathAndQuery, ADVISOR_HOME_URL).pathname;
+  const ts = input.ts ?? String(Date.now());
+  const nonce = input.nonce ?? randomUUID();
+  const sig = createHmac('sha256', input.secret)
+    .update(`${input.method.toUpperCase()}|${pathname}|${ts}|${nonce}`)
+    .digest('hex');
+  return { 'X-CA-Nonce': nonce, 'X-CA-Ts': ts, 'X-CA-Sig': sig };
+}
 
 /** 기록 한 줄. 응답 본문은 머리만 남긴다 — 구조를 보는 데는 충분하고 파일이 붓지 않는다. */
 export interface ProbeLine {
@@ -32,6 +70,8 @@ export interface ProbeLine {
   bodyHead: string;
   /** POST 본문 머리. 어드바이저 호스트만 기록하므로 자격증명이 실릴 일은 없다. */
   postDataHead?: string;
+  /** 화면이 붙인 서명 헤더(X-CA-*)만. 서명 규칙 대조용. */
+  signHeaders?: Record<string, string>;
 }
 
 /** 창구별 요약 한 줄 — 실측 뒤 사람이 읽는 표. */
