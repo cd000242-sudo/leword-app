@@ -134,7 +134,11 @@ export function cardsForTodayKeywords(
   });
 }
 
-export function buildTodayTitlePrompt(cards: readonly BenchmarkTitleCard[]): string {
+/**
+ * exemplars — 최근 7일 실제 홈판에 오른 제목(advisor/homefeed-exemplars 가 고른 것). 틀·호흡·끝맺음의 본보기로만 싣고,
+ * 재료로 쓰지 못하게 못 박는다(그 안의 숫자·이름은 재료가 아니다 → 검사에서 UNSUPPORTED_NUMBER · ARTICLE_COPY).
+ */
+export function buildTodayTitlePrompt(cards: readonly BenchmarkTitleCard[], exemplars: readonly string[] = []): string {
   return [
     '너는 네이버 블로그 홈판(피드)에 뜰 글의 제목을 쓰는 사람이다. 검색용 제목이 아니다 — 피드를 넘기던 손가락을 멈추게 하는 제목이다.',
     `아래 검색어마다 오늘 쓸 글의 제목 후보 ${TODAY_TITLE_ASK}개를 만들어라.`,
@@ -146,6 +150,11 @@ export function buildTodayTitlePrompt(cards: readonly BenchmarkTitleCard[]): str
     '',
     ...homefeedTitleRuleLines(BENCHMARK_TITLE_MAX_CHARS),
     '',
+    ...(exemplars.length ? [
+      '최근 7일 실제 홈판에 오른 제목 — 틀·호흡·끝맺음만 배워라. 이 제목들의 말·숫자·순서를 옮기면 실패다(재료가 아니다):',
+      ...exemplars.map((title, index) => `${index + 1}. ${title}`),
+      '',
+    ] : []),
     'JSON 배열로만 출력한다: [{"id":"검색어 그대로","titles":["...","..."]}]',
     '',
     ...cards.map((card, index) => [
@@ -164,12 +173,12 @@ export function buildTodayTitlePrompt(cards: readonly BenchmarkTitleCard[]): str
  * 판 전체의 틀 집계 — 같은 끝맺음 갈래·구어 어미·따옴표 스타터가 상한을 넘으면 다음 후보로 넘어간다.
  * 구어 어미·따옴표 상한은 판 크기(청한 칸 수)의 몫이다 — 홈판 실측 하루 20건 중 구어 어미 최대 2 · 따옴표 스타터 중앙 8.
  */
-interface FrameTally { endings: ReadonlyMap<string, number>; quotes: number; spoken: number; quoteCap: number; spokenCap: number }
+export interface FrameTally { endings: ReadonlyMap<string, number>; quotes: number; spoken: number; quoteCap: number; spokenCap: number }
 
-const tallyFor = (expected: number): FrameTally =>
+export const tallyFor = (expected: number): FrameTally =>
   ({ endings: new Map(), quotes: 0, spoken: 0, quoteCap: quoteStarterCap(expected), spokenCap: spokenEndingCap(expected) });
 
-function frameReason(title: string, tally: FrameTally): string | null {
+export function frameReason(title: string, tally: FrameTally): string | null {
   const ending = titleEndingKey(title);
   if (ending && (tally.endings.get(ending) || 0) >= TITLE_FRAME_REPEAT_CAP) return 'ENDING_REPEAT';
   if (isSpokenEnding(title) && tally.spoken >= tally.spokenCap) return 'SPOKEN_REPEAT';
@@ -177,23 +186,25 @@ function frameReason(title: string, tally: FrameTally): string | null {
   return null;
 }
 
-function tallyWith(tally: FrameTally, title: string): FrameTally {
+export function tallyWith(tally: FrameTally, title: string): FrameTally {
   const ending = titleEndingKey(title);
   const endings = new Map(tally.endings);
   if (ending) endings.set(ending, (endings.get(ending) || 0) + 1);
   return { ...tally, endings, quotes: tally.quotes + (isQuoteStarter(title) ? 1 : 0), spoken: tally.spoken + (isSpokenEnding(title) ? 1 : 0) };
 }
 
-function itemFor(card: BenchmarkTitleCard, offered: string[] | undefined, tally: FrameTally): { item: TodayTitleItem; tally: FrameTally } {
+function itemFor(card: BenchmarkTitleCard, offered: string[] | undefined, tally: FrameTally, exemplars: readonly string[]): { item: TodayTitleItem; tally: FrameTally } {
   const seen = new Set<string>();
   const titles: string[] = [];
   const rejected: TodayTitleItem['rejected'] = [];
+  // 본보기는 베끼기 검사에만 — 재료(sourceTitles·facts)에 섞으면 그 숫자·과장어가 허용돼 버린다
+  const checked = exemplars.length ? { ...card, avoidTitles: [...exemplars] } : card;
   let next = tally;
   for (const title of offered || []) {
     const key = compactKey(title);
     if (!key || seen.has(key)) continue;
     seen.add(key);
-    const reasons = checkBenchmarkTitle(title, card);
+    const reasons = checkBenchmarkTitle(title, checked);
     if (reasons.length > 0) { rejected.push({ title, reasons }); continue; }
     if (titles.length >= TODAY_TITLES_PER_KEYWORD) continue;
     const frame = frameReason(title, next);
@@ -204,21 +215,28 @@ function itemFor(card: BenchmarkTitleCard, offered: string[] | undefined, tally:
   return { item: { keyword: card.keyword, titles, rejected }, tally: next };
 }
 
-/** 재료 있는 카드만 한 번에 청하고 카드마다 거른다. 청할 카드가 없으면 엔진을 부르지 않는다. */
-export async function collectTodayTitles(cards: readonly BenchmarkTitleCard[], runAgent: TodayTitleRunner = runDefault): Promise<TodayTitles> {
+/**
+ * 재료 있는 카드만 한 번에 청하고 카드마다 거른다. 청할 카드가 없으면 엔진을 부르지 않는다.
+ * exemplars(최근 7일 홈판 본보기)는 프롬프트에 싣고, 베낀 제목은 ARTICLE_COPY 로 떨어진다.
+ */
+export async function collectTodayTitles(
+  cards: readonly BenchmarkTitleCard[],
+  runAgent: TodayTitleRunner = runDefault,
+  exemplars: readonly string[] = [],
+): Promise<TodayTitles> {
   const asked = cards.filter(hasTitleMaterial);
   const skipped = (card: BenchmarkTitleCard): TodayTitleItem => ({ keyword: card.keyword, titles: [], rejected: [], note: TODAY_NO_FACTS_NOTE });
   if (asked.length === 0) return { status: 'ok', provider: null, items: cards.map(skipped) };
   let run: { reply: string; provider: string };
   try {
-    run = await runAgent(buildTodayTitlePrompt(asked));
+    run = await runAgent(buildTodayTitlePrompt(asked, exemplars));
   } catch (error) {
     return { status: 'no-engine', reason: error instanceof Error ? error.message : String(error) };
   }
   const parsed = parseBenchmarkTitleReply(run.reply);
   const items = cards.reduce<{ items: TodayTitleItem[]; tally: FrameTally }>((acc, card) => {
     if (!hasTitleMaterial(card)) return { items: [...acc.items, skipped(card)], tally: acc.tally };
-    const { item, tally } = itemFor(card, parsed.get(card.id), acc.tally);
+    const { item, tally } = itemFor(card, parsed.get(card.id), acc.tally, exemplars);
     return { items: [...acc.items, item], tally };
   }, { items: [], tally: tallyFor(asked.length * TODAY_TITLES_PER_KEYWORD) }).items;
   return { status: 'ok', provider: run.provider, items };

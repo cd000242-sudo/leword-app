@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ADVISOR_DAILY_POST_CAP,
   ADVISOR_DAILY_TOPIC_CAP,
+  ADVISOR_HOMEFEED_WEEK_DAYS,
   baseProbes,
   followUpProbes,
   lastCompletedWeekMonday,
@@ -50,6 +51,13 @@ describe('기본 창구 목록', () => {
     expect(byKey.soaringContents).toContain('/home/soaring-contents?');
     expect(byKey.mainInflowContentRanks).toBe('/trend/main-inflow-content-ranks?service=naver_blog&interval=day&date=2026-09-28');
     expect(byKey.impressionClickRanks).toContain('/revenue/impression-click-ranks?');
+  });
+
+  it('전체 홈판 상위 20 은 어제에 더해 그 전 6일도 받는다(오늘 쓸 글 본보기용 최근 7일) — 날짜마다 한 요청, 키에 날짜가 붙는다', () => {
+    expect(ADVISOR_HOMEFEED_WEEK_DAYS).toBe(6);
+    const days = ['2026-09-27', '2026-09-26', '2026-09-25', '2026-09-24', '2026-09-23', '2026-09-22'];
+    for (const d of days) expect(byKey[`mainInflowContentRanks:${d}`]).toBe(`/trend/main-inflow-content-ranks?service=naver_blog&interval=day&date=${d}`);
+    expect(probes.filter((p) => p.key.startsWith('mainInflowContentRanks:'))).toHaveLength(ADVISOR_HOMEFEED_WEEK_DAYS);
   });
 
   it('uv-count·visit-count 처럼 contentType 을 넣으면 400 나는 창구엔 안 넣고, 로그인 페이지는 절대 없다', () => {
@@ -107,6 +115,16 @@ function sampleResults() {
     categoryComparison: ok([{ id: '엔터테인먼트·예술', name: '엔터테인먼트·예술', categories: [{ id: '드라마', name: '드라마', metricValue: 12, averageDuration: 177398 }] }]),
     soaringContents: ok([{ title: '펠리세이드 블랙잉크, 계약 전 캘리그래피와 가격 차이', contentId: POST_A, rank: 1, metricValue: 25, metricDeltaValue: 20, createdAt: 1790653318020 }]),
     mainInflowContentRanks: ok([{ title: '’79세’ 윤여정, 조용히 전해진 소식… 눈물 바다', url: 'http://blog.naver.com/jungbo125/224416910697' }]),
+    // 그 전 6일 — 응답 항목은 {title,url} 뿐이라 rank 는 순서에서 나온다. 하루는 못 받았고(429), 하루는 비었다.
+    'mainInflowContentRanks:2026-09-27': ok([
+      { title: '아이오닉9 리콜 통지서 받고 서비스센터 가 보니 보인 것', url: 'http://blog.naver.com/carlog/1' },
+      { title: '"그 집 또 갔다" 이번엔 줄이 반대편까지 이어진 사정', url: 'http://blog.naver.com/foodlog/2' },
+    ]),
+    'mainInflowContentRanks:2026-09-26': ok([{ title: '’79세’ 윤여정, 조용히 전해진 소식… 눈물 바다', url: 'http://blog.naver.com/jungbo125/224416910697' }]),
+    'mainInflowContentRanks:2026-09-25': ok([]),
+    'mainInflowContentRanks:2026-09-24': ok([{ title: '투싼 하이브리드 계약하고 두 달 기다린 끝에 받은 안내', url: 'http://blog.naver.com/carlog/3' }]),
+    'mainInflowContentRanks:2026-09-23': { status: 429, body: 'Too Many Requests' },
+    'mainInflowContentRanks:2026-09-22': ok([{ title: '가을 이사 앞두고 장판 먼저 걷어 본 집의 바닥 상태', url: 'http://blog.naver.com/homelog/4' }]),
     impressionClickRanks: { status: 200, body: JSON.stringify({ parameters: { channelId: 'leadernam-' }, clickData: { data: [] }, impressionData: { data: [{ rank: 1, title: '펠리세이드 …', click: 0, impression: 0.375, contentId: POST_A }] } }) },
     'trendCategory:자동차': ok([{ category: '자동차', queryList: [{ keyword: '투싼', rank: 1, rankChange: 3 }, { query: '사이버트럭', rank: 2, rankChange: -1 }] }]),
     'categoryHour:자동차': ok([{ category: '자동차', metricList: [{ hour: '09', ratio: 0.08 }, { hour: '21', ratio: 0.1 }] }]),
@@ -152,8 +170,15 @@ describe('응답 → 하루 기록', () => {
     expect(record.topicHours).toEqual([{ topic: '자동차', hours: [{ hour: 9, ratio: 0.08 }, { hour: 21, ratio: 0.1 }] }]);
   });
 
+  it('최근 7일 전체 홈판 제목은 어제 → 그 전 날짜 내림차순, rank 는 응답 순서(응답에 rank 칸이 없다), 못 받은 날·빈 날은 행이 없다', () => {
+    expect(record.homefeedWeek.map((r) => `${r.day}#${r.rank}`)).toEqual(['2026-09-28#1', '2026-09-27#1', '2026-09-27#2', '2026-09-26#1', '2026-09-24#1', '2026-09-22#1']);
+    expect(record.homefeedWeek[2]).toEqual({ day: '2026-09-27', rank: 2, title: '"그 집 또 갔다" 이번엔 줄이 반대편까지 이어진 사정', url: 'http://blog.naver.com/foodlog/2' });
+    // 어제 것만 담는 homefeedTitles 는 그대로다(옛 화면·카드가 읽는다)
+    expect(record.homefeedTitles).toHaveLength(1);
+  });
+
   it('실패한 창구는 missing 에 이름만 남기고 나머지는 그대로 만든다', () => {
-    expect(record.missing).toEqual([`referrerDomain:${POST_B}`]);
+    expect(record.missing).toEqual(['mainInflowContentRanks:2026-09-23', `referrerDomain:${POST_B}`]);
     expect(record.adImpressions[0]).toEqual({ contentId: POST_A, click: 0, impression: 0.375 });
   });
 

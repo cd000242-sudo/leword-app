@@ -229,3 +229,46 @@ describe('collectTodayTitles + facts', () => {
     expect(out.items[3].titles).toEqual([]);
   });
 });
+
+/**
+ * 최근 7일 홈판 본보기(2026-09-30 4단계) — 실제 홈판에 오른 제목을 프롬프트에 넣어 틀·호흡·끝맺음을 배우게 한다.
+ * 본보기는 재료가 아니다: 베끼면 ARTICLE_COPY, 본보기 속 숫자·과장어를 가져오면 그대로 UNSUPPORTED_NUMBER·HYPE_WORD 다.
+ */
+describe('collectTodayTitles + 최근 7일 홈판 본보기', () => {
+  const exemplars = [
+    '엔진오일 경고등 켜지기 전에 먼저 오는 신호',
+    '전기차 세금 혜택 2029년 끝난다는 말에 계약자들이 먼저 보는 것',
+  ];
+
+  it('본보기는 프롬프트에 번호 목록으로 실리고 "옮기면 실패"라고 못 박는다 — 없으면 그 블록이 없다', async () => {
+    const cards = cardsForTodayKeywords([row('엔진오일 교환주기')], record, facts);
+    expect(buildTodayTitlePrompt(cards)).not.toContain('최근 7일 실제 홈판에 오른 제목');
+    const prompt = buildTodayTitlePrompt(cards, exemplars);
+    expect(prompt).toContain('최근 7일 실제 홈판에 오른 제목');
+    expect(prompt).toContain('1. 엔진오일 경고등 켜지기 전에 먼저 오는 신호');
+    expect(prompt).toContain('2. 전기차 세금 혜택 2029년 끝난다는 말에 계약자들이 먼저 보는 것');
+    let seen = '';
+    await collectTodayTitles(cards, async (p) => { seen = p; return { reply: '[]', provider: 'x' }; }, exemplars);
+    expect(seen).toContain('2. 전기차 세금 혜택 2029년');
+  });
+
+  it('본보기를 베낀 제목은 ARTICLE_COPY, 본보기의 숫자는 재료가 아니라 UNSUPPORTED_NUMBER — 본보기 없이는 둘 다 통과', async () => {
+    const cards = cardsForTodayKeywords([row('엔진오일 교환주기')], record, facts);
+    const reply = JSON.stringify([{ id: '엔진오일 교환주기', titles: [
+      '엔진오일 경고등 켜지기 전에 먼저 오는 신호',                       // 본보기 그대로
+      '엔진오일 경고등 뜬 차 2029년 세금 얘기에 정비사가 먼저 묻는 것',     // 본보기 속 숫자
+      '엔진오일 교환주기 1만km 얘기에 정비사가 고개를 젓던 순간',
+    ] }]);
+    const out = await collectTodayTitles(cards, async () => ({ reply, provider: 'claude' }), exemplars);
+    if (out.status !== 'ok') throw new Error(out.reason);
+    expect(out.items[0].titles).toEqual(['엔진오일 교환주기 1만km 얘기에 정비사가 고개를 젓던 순간']);
+    expect(out.items[0].rejected).toEqual([
+      { title: '엔진오일 경고등 켜지기 전에 먼저 오는 신호', reasons: ['ARTICLE_COPY'] },
+      { title: '엔진오일 경고등 뜬 차 2029년 세금 얘기에 정비사가 먼저 묻는 것', reasons: ['UNSUPPORTED_NUMBER'] },
+    ]);
+    const plain = await collectTodayTitles(cards, async () => ({ reply, provider: 'claude' }));
+    if (plain.status !== 'ok') throw new Error(plain.reason);
+    expect(plain.items[0].titles).toEqual(['엔진오일 경고등 켜지기 전에 먼저 오는 신호', '엔진오일 교환주기 1만km 얘기에 정비사가 고개를 젓던 순간']);
+    expect(plain.items[0].rejected).toEqual([{ title: '엔진오일 경고등 뜬 차 2029년 세금 얘기에 정비사가 먼저 묻는 것', reasons: ['UNSUPPORTED_NUMBER'] }]);
+  });
+});

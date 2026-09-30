@@ -90,5 +90,32 @@ describe('buildTodayPlan', () => {
     expect(calls.volume).toEqual([]);
     expect(calls.seat).toEqual([]);
     expect(plan.titles).toEqual({ status: 'ok', provider: null, items: [] });
+    // 빈 판에도 홈판 실측 칸은 있다(개수 0)
+    expect(plan.homefeed).toEqual({ yesterdayTotal: 0, myTopicYesterday: 0, weekTotal: 0, exemplars: [] });
+  });
+
+  /**
+   * 최근 7일 홈판 본보기(2026-09-30 4단계) — 기록의 homefeedWeek 에서 고른 제목이 제목 실측기의 두 번째 인자로 간다.
+   * 판에는 어제 상위 20 중 내 주제 해당 수와 넣은 본보기가 실린다 — 전부 실측 개수·매칭 사실, 추정치 없음.
+   */
+  const homefeedWeek = [
+    { day: '2026-09-29', rank: 1, title: '투싼 하이브리드 계약하고 두 달 기다린 끝에 받은 안내', url: 'http://blog.naver.com/carlog/3' },
+    { day: '2026-09-29', rank: 2, title: '"그 집 또 갔다" 이번엔 줄이 반대편까지 이어진 사정', url: 'http://blog.naver.com/foodlog/2' },
+    { day: '2026-09-28', rank: 1, title: '가을 이사 앞두고 장판 먼저 걷어 본 집의 바닥 상태', url: 'http://blog.naver.com/homelog/4' },
+  ];
+
+  it('최근 7일 홈판 본보기를 골라 제목 실측기에 같이 넘기고, 판에 어제 실측 개수·내 주제 해당 수를 싣는다', async () => {
+    const seenExemplars: string[][] = [];
+    const { deps: d } = deps({
+      titles: async (cards, exemplars) => { seenExemplars.push([...exemplars]); return { status: 'ok', provider: 'claude', items: cards.map((c) => ({ keyword: c.keyword, titles: [], rejected: [] })) }; },
+    });
+    const withWeek = { ...record, popularKeywords: { topic: '자동차', items: [{ keyword: '투싼', ratio: 0.3 }, ...record.popularKeywords!.items] }, homefeedWeek } as unknown as AdvisorDailyRecord;
+    const plan = await buildTodayPlan(withWeek, pattern, d);
+    expect(plan.homefeed.yesterdayTotal).toBe(2);
+    expect(plan.homefeed.myTopicYesterday).toBe(1);
+    expect(plan.homefeed.weekTotal).toBe(3);
+    expect(plan.homefeed.exemplars.map((row) => `${row.day}#${row.rank}${row.myTopic ? '*' : ''}`)).toEqual(['2026-09-29#1*', '2026-09-29#2', '2026-09-28#1']);
+    expect(seenExemplars[0]).toEqual(plan.homefeed.exemplars.map((row) => row.title));
+    expect(plan.notes).toEqual([]);
   });
 });

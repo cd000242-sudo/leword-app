@@ -96,7 +96,7 @@ function realDeps(): TodayPlanDeps {
       }
       return out;
     },
-    titles: (cards) => collectTodayTitles(cards),
+    titles: (cards, exemplars) => collectTodayTitles(cards, undefined, exemplars),
   };
 }
 

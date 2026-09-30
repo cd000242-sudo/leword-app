@@ -40,6 +40,8 @@ export interface AdvisorDailyRecord {
   popularKeywords: { topic: string; items: { keyword: string; ratio: number }[] } | null;
   topicKeywords: { topic: string; keyword: string; rank: number; rankChange: number | null }[];
   homefeedTitles: { title: string; url: string }[];
+  /** 어제 + 그 전 6일 홈판 상위 20(main-inflow-content-ranks). rank 는 응답 순서(응답에 rank 칸이 없다). 날짜 내림차순. */
+  homefeedWeek: { day: string; rank: number; title: string; url: string }[];
   weeklyRecommendation: { category: string; titles: string[] } | null;
   categoryComparison: { group: string; topic: string; value: number; averageDuration: number }[];
   soaring: { contentId: string; title: string; value: number; delta: number | null }[];
@@ -166,6 +168,23 @@ function adImpressions(results: Results): AdvisorDailyRecord['adImpressions'] {
   })).filter((row) => row.contentId);
 }
 
+const HOMEFEED_KEY = 'mainInflowContentRanks';
+
+function homefeedRows(results: Results, key: string, day: string): AdvisorDailyRecord['homefeedWeek'] {
+  return list(parsed(results, key)?.data)
+    .map((item, index) => ({ day, rank: index + 1, title: str(item?.title), url: str(item?.url) }))
+    .filter((row) => row.title);
+}
+
+/** 어제(기본 키) 다음에 날짜 붙은 키(그 전 6일)를 최근 날짜부터 — 못 받은 날·빈 날은 행이 없다. */
+function homefeedWeek(results: Results, day: string): AdvisorDailyRecord['homefeedWeek'] {
+  const past = keysWithPrefix(results, `${HOMEFEED_KEY}:`)
+    .map((key) => key.slice(HOMEFEED_KEY.length + 1))
+    .sort((a, b) => b.localeCompare(a))
+    .flatMap((pastDay) => homefeedRows(results, `${HOMEFEED_KEY}:${pastDay}`, pastDay));
+  return [...homefeedRows(results, HOMEFEED_KEY, day), ...past];
+}
+
 function missingKeys(results: Results): string[] {
   const base = BASE_KEYS.filter((key) => parsed(results, key) === undefined);
   const followUps = Object.keys(results).filter((key) => !(BASE_KEYS as readonly string[]).includes(key) && parsed(results, key) === undefined);
@@ -185,6 +204,7 @@ export function buildDailyRecord(ctx: AdvisorDailyContext & { collectedAt: Date 
     popularKeywords: popularKeywords(results),
     topicKeywords: topicKeywordRows(results),
     homefeedTitles: list(parsed(results, 'mainInflowContentRanks')?.data).map((item) => ({ title: str(item?.title), url: str(item?.url) })).filter((row) => row.title),
+    homefeedWeek: homefeedWeek(results, yesterday(ctx.now)),
     weeklyRecommendation: weeklyRecommendation(results),
     categoryComparison: categoryComparison(results),
     soaring: soaring(results),

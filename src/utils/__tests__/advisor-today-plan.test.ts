@@ -38,6 +38,7 @@ function record(over: Partial<AdvisorDailyRecord> = {}): AdvisorDailyRecord {
       { topic: '자동차', keyword: '엔진오일 교환주기', rank: 15, rankChange: null },
     ],
     homefeedTitles: [{ title: '테슬라 모델Y 주니퍼 실구매 후기', url: 'u1' }, { title: '엔진오일 5000km 마다? 정비사 말', url: 'u2' }],
+    homefeedWeek: [],
     weeklyRecommendation: null,
     categoryComparison: [{ group: '취미', topic: '자동차', value: 31, averageDuration: 1 }],
     soaring: [],

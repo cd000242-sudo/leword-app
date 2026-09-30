@@ -29,6 +29,11 @@ export interface BenchmarkTitleCard {
    * 보여야 한다(NO_SUB). '오늘 쓸 글' 판이 채우고, 벤치마크 판은 비워 둔다(undefined → 검사 안 함).
    */
   facts?: string[];
+  /**
+   * 베끼기(ARTICLE_COPY)만 검사하는 제목 — 재료가 아니라서 숫자·과장어 허용에는 쓰지 않는다.
+   * '오늘 쓸 글' 판이 프롬프트에 넣은 최근 7일 홈판 본보기가 여기 온다(틀은 배우되 말·순서는 옮기지 말라는 뜻).
+   */
+  avoidTitles?: string[];
 }
 
 export interface BenchmarkTitleResult {
@@ -153,18 +158,25 @@ function anchorTokens(card: BenchmarkTitleCard): string[] {
   return card.keyword.split(/\s+/).map((token) => token.replace(/[^0-9A-Za-z가-힣]/g, '')).filter((token) => token.length >= 2 && !/^\d/.test(token)).slice(0, 6);
 }
 
-/** 표면 규칙 검사 — 빈 배열이면 통과. 이유 코드는 titles.ts 와 같은 말을 쓴다. */
-export function checkBenchmarkTitle(title: string, card: BenchmarkTitleCard): string[] {
-  const reasons: string[] = [];
+/** 카드 없이 제목만 보는 표면 규칙 — 길이 · 상투구 · AI 티 · 껍데기 후킹. 홈판 본보기 고르기와 카드 검사가 같이 쓴다. */
+export function homefeedTitleSurfaceReasons(title: string): string[] {
   const value = text(title, 200);
+  const reasons: string[] = [];
   if (value.length < 8) reasons.push('TOO_SHORT');
   if (value.length > BENCHMARK_TITLE_MAX_CHARS) reasons.push('TOO_LONG');
   if (TITLE_CLICHES.test(value)) reasons.push('CLICHE');
   if (AI_TELL_RE.test(value)) reasons.push('AI_TELL');
+  if (HOLLOW_HOOK_RE.test(value)) reasons.push('HOLLOW_HOOK');
+  return reasons;
+}
+
+/** 표면 규칙 검사 — 빈 배열이면 통과. 이유 코드는 titles.ts 와 같은 말을 쓴다. */
+export function checkBenchmarkTitle(title: string, card: BenchmarkTitleCard): string[] {
+  const value = text(title, 200);
+  const reasons = homefeedTitleSurfaceReasons(value);
   const anchors = anchorTokens(card);
   // 쉼표는 두 틀만 막는다(라벨형 · 구어 꼬리) — 앞말 길이와 무관하게 "…박나래 매니저, 순서가 뒤집혔네요" 도 같은 틀이다.
   if (isCommaSplit(value, anchors)) reasons.push('COMMA_SPLIT');
-  if (HOLLOW_HOOK_RE.test(value)) reasons.push('HOLLOW_HOOK');
 
   const facts = card.facts || [];
   const material = [card.title, card.summary, card.keyword, ...card.sourceTitles, ...facts, ...card.relatedKeywords];
@@ -175,8 +187,8 @@ export function checkBenchmarkTitle(title: string, card: BenchmarkTitleCard): st
   if (numberTokens(value).some((token) => numberCore(token) && !allowedNumbers.has(numberCore(token)))) reasons.push('UNSUPPORTED_NUMBER');
 
   const tokens = titleTokens(value);
-  // 기사 제목(사실 재료)도 베끼면 실패 — 사실만 가져오고 문장은 새로 지어야 한다.
-  const overlaps = [...card.sourceTitles, ...facts].map((sample) => jaccard(tokens, titleTokens(sample))).filter((score): score is number => score !== null);
+  // 기사 제목(사실 재료)도, 프롬프트에 넣어 준 홈판 본보기도 베끼면 실패 — 사실·틀만 가져오고 문장은 새로 지어야 한다.
+  const overlaps = [...card.sourceTitles, ...facts, ...(card.avoidTitles || [])].map((sample) => jaccard(tokens, titleTokens(sample))).filter((score): score is number => score !== null);
   if (overlaps.length > 0 && Math.max(...overlaps) >= 0.5) reasons.push('ARTICLE_COPY');
 
   const key = compactKey(value);

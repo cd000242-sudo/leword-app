@@ -6,6 +6,7 @@
  */
 import type { BenchmarkTitleCard } from '../benchmark-title-engine';
 import type { AdvisorDailyRecord, HomefeedDayPattern } from './daily-summary';
+import { selectHomefeedExemplars, type HomefeedExemplarSet } from './homefeed-exemplars';
 import {
   rankTodayKeywords,
   todayKeywordCandidates,
@@ -30,7 +31,8 @@ export interface TodayPlanDeps {
    * 실측기가 죽으면 빈 Map — 그러면 모든 키워드가 '재료 없음'으로 비고 notes 에 사유가 남는다(지어내지 않는다).
    */
   facts?: (keywords: string[]) => Promise<Map<string, TodayTitleFacts>>;
-  titles: (cards: BenchmarkTitleCard[]) => Promise<TodayTitles>;
+  /** exemplars = 최근 7일 실제 홈판 제목(틀 본보기). 프롬프트에 싣고 베낀 제목은 떨어뜨린다. */
+  titles: (cards: BenchmarkTitleCard[], exemplars: string[]) => Promise<TodayTitles>;
 }
 
 export interface TodayPlan {
@@ -43,6 +45,8 @@ export interface TodayPlan {
   /** 값이 실제로 온 수 — 청한 수가 아니다. */
   measured: { searchVolume: number; seat: number };
   time: TodayTimeFacts;
+  /** 최근 7일 홈판 실측 수와 제목 본보기 — 화면에 그대로 보인다(추정치 아님). */
+  homefeed: HomefeedExemplarSet;
   titles: TodayTitles;
   /** 실측기 실패 사유 — 화면에 그대로. */
   notes: string[];
@@ -71,7 +75,8 @@ export async function buildTodayPlan(record: AdvisorDailyRecord, pattern: Homefe
   const notes: string[] = [];
   const time = todayTimeFacts(record, pattern);
   const candidates = todayKeywordCandidates(record);
-  const base = { day: record.day, builtAt: now.toISOString(), channelId: record.channelId, candidatesTotal: candidates.length, time, notes };
+  const homefeed = selectHomefeedExemplars(record);
+  const base = { day: record.day, builtAt: now.toISOString(), channelId: record.channelId, candidatesTotal: candidates.length, time, homefeed, notes };
   if (candidates.length === 0) {
     return { ...base, keywords: [], measured: { searchVolume: 0, seat: 0 }, titles: { status: 'ok', provider: null, items: [] } };
   }
@@ -87,7 +92,7 @@ export async function buildTodayPlan(record: AdvisorDailyRecord, pattern: Homefe
   const facts = deps.facts
     ? await attempt('제목 재료 수집', () => deps.facts!(keywords.map((row) => row.keyword)), notes)
     : undefined;
-  const titles = await deps.titles(cardsForTodayKeywords(keywords, record, facts));
+  const titles = await deps.titles(cardsForTodayKeywords(keywords, record, facts), homefeed.exemplars.map((row) => row.title));
   return {
     ...base,
     keywords,

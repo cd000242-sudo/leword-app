@@ -6,6 +6,7 @@ import {
   buildBenchmarkTitlePrompt,
   cardsFromBenchmarks,
   checkBenchmarkTitle,
+  homefeedTitleSurfaceReasons,
   isQuoteStarter,
   isSpokenEnding,
   parseBenchmarkTitleReply,
@@ -53,6 +54,13 @@ describe('checkBenchmarkTitle', () => {
     expect(checkBenchmarkTitle('20년 살면 내 집이 되는 줄 알았는데요', card)).toContain('NO_ANCHOR');
     expect(checkBenchmarkTitle('20년 만기 앞둔 장기전세 연장·분양전환·이주 지원은 어떻게 다를까', card)).toContain('ARTICLE_COPY');
   });
+  it('avoidTitles(홈판 본보기)는 베끼기만 잡는다 — 그 안의 숫자·과장어는 재료가 아니다', () => {
+    const withAvoid = { ...card, avoidTitles: ['"그 집 또 갔다" 이번엔 줄이 반대편까지 이어진 사정', '전기차 세금 혜택 2029년 끝난다는 말에 계약자들이 먼저 보는 것'] };
+    expect(checkBenchmarkTitle('"그 집 또 갔다" 이번엔 줄이 반대편까지 이어진 사정', withAvoid)).toContain('ARTICLE_COPY');
+    expect(checkBenchmarkTitle('장기전세 만기 2029년 이주 상담 받아 보니 다른 조건', withAvoid)).toContain('UNSUPPORTED_NUMBER');
+    // 본보기가 없으면(옛 카드) 같은 제목이 베끼기로 잡히지 않는다
+    expect(checkBenchmarkTitle('"그 집 또 갔다" 이번엔 줄이 반대편까지 이어진 사정', card)).not.toContain('ARTICLE_COPY');
+  });
   it('홈판 어투의 쉼표는 둔다 — 인용 속 쉼표 · 기준어가 아닌 사실 마디 뒤 쉼표(홈판 실측 90일: 쉼표 든 제목 30%)', () => {
     expect(checkBenchmarkTitle('"연장 되는 줄 알았는데, 아니었다" 장기전세 만기 이주 상담 후기', card)).toEqual([]);
     expect(checkBenchmarkTitle('장기전세 만기 가구 이주 상담 시작, 분양전환은 따로 있었다', card)).toEqual([]);
@@ -77,6 +85,25 @@ describe('checkBenchmarkTitle', () => {
     expect(checkBenchmarkTitle('장기전세 20년 살고 나면 어디로 가야 하나 싶더라고요', card)).toEqual([]);
     // 기사 제목을 베끼면 재료여도 실패
     expect(checkBenchmarkTitle('서울시 장기전세 만기 가구 이주 상담 시작', withFacts)).toContain('ARTICLE_COPY');
+  });
+});
+
+describe('homefeedTitleSurfaceReasons — 카드 없이 제목만 보는 표면 규칙(홈판 본보기 고르기가 쓴다)', () => {
+  it('길이 · 상투구 · AI 티 · 껍데기 후킹만 본다 — 기준어·재료·쉼표는 카드가 있어야 하니 안 본다', () => {
+    expect(homefeedTitleSurfaceReasons('"그 집 또 갔다" 이번엔 줄이 반대편까지 이어진 사정')).toEqual([]);
+    expect(homefeedTitleSurfaceReasons('짧다')).toEqual(['TOO_SHORT']);
+    expect(homefeedTitleSurfaceReasons('장기전세 만기 총정리 한눈에 보기')).toEqual(['CLICHE']);
+    expect(homefeedTitleSurfaceReasons('장기전세 만기: 이주 상담 안내')).toEqual(['AI_TELL']);
+    expect(homefeedTitleSurfaceReasons('장기전세 만기 두고 반응이 갈리네요')).toEqual(['HOLLOW_HOOK']);
+    expect(homefeedTitleSurfaceReasons('장기전세 만기가 다가오는데 연장이 되는지 분양전환이 되는지 이주 지원까지 전부 알아봤더니 생각과 달랐어요')).toEqual(['TOO_LONG']);
+    // 쉼표 라벨형 · 과장어 · 기준어 없음은 여기서 안 잡힌다
+    expect(homefeedTitleSurfaceReasons('장기전세 만기, 연장 방법 충격')).toEqual([]);
+  });
+  it('checkBenchmarkTitle 과 같은 이유 코드를 낸다 — 두 검사가 갈라지지 않는다', () => {
+    for (const title of ['장기전세 만기 총정리 한눈에 보기', '장기전세 만기: 이주 상담 안내', '장기전세 만기 두고 반응이 갈리네요']) {
+      const surface = homefeedTitleSurfaceReasons(title);
+      expect(checkBenchmarkTitle(title, card).filter((reason) => surface.includes(reason))).toEqual(surface);
+    }
   });
 });
 

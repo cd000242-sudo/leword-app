@@ -10439,6 +10439,21 @@
           const m = plan.measured || { searchVolume: 0, seat: 0 };
           meta.textContent = plan.day + ' 기록 바탕 · 만든 시각 ' + kstTime(plan.builtAt) + ' · 후보 ' + plan.candidatesTotal + ' · 검색량 실측 ' + m.searchVolume + ' · 자리 실측 ' + m.seat + (running ? ' · 지금 다시 만드는 중…' : '');
 
+          // 0) 어제 홈판 상위 20 · 최근 7일 본보기 — 제목 프롬프트에 실제로 들어간 표본을 그대로 보여 준다(추정치 없음).
+          const hf = plan.homefeed;
+          let hfBlock = '';
+          if (hf) {
+            const exs = hf.exemplars || [];
+            const exRows = exs.map((r) => '<div style="padding:4px 0; border-top:1px solid rgba(255,255,255,0.06); color:#cbd5e1;">'
+              + '<span style="color:#64748b;">' + esc(r.day) + ' · ' + r.rank + '위</span> '
+              + (r.myTopic ? '<span style="color:#fbbf24;">내 주제</span> ' : '')
+              + esc(r.title) + '</div>').join('');
+            hfBlock = '<div style="margin-top:10px; padding:8px 10px; border:1px solid rgba(255,255,255,0.1); border-radius:10px; font-size:12px; color:#cbd5e1;">'
+              + '어제 홈판 상위 ' + hf.yesterdayTotal + ' 중 내 주제 해당 <b style="color:#fbbf24;">' + hf.myTopicYesterday + '</b>건 · 최근 7일 본보기 ' + exs.length + '건(제목 프롬프트에 틀·호흡 표본으로 넣음)'
+              + (exs.length ? '<details style="margin-top:4px;"><summary style="cursor:pointer; color:#94a3b8; font-size:11.5px;">본보기 보기</summary><div style="margin-top:4px;">' + exRows + '</div></details>' : '')
+              + '</div>';
+          }
+
           // 1) 키워드 10 — 자리 열린 것 → 근거 많은 것 → 검색량. 순위는 메인이 매긴 순서 그대로.
           const kwRows = (plan.keywords || []).map((k, i) => {
             const s = k.seat;
@@ -10461,7 +10476,7 @@
               + td(k.homefeedTitleMatches > 0 ? k.homefeedTitleMatches : '0', true, k.homefeedTitleMatches > 0 ? '#e2e8f0' : '#64748b')
               + '</tr>';
           }).join('');
-          let html = section('1. 오늘 쓸 키워드 ' + (plan.keywords || []).length, '내 주제의 인기·트렌드 검색어 후보 ' + plan.candidatesTotal + '개에서 검색량(검색광고)·자리(내 브라우저)를 재서 자리 열린 것 → 근거 많은 것 → 검색량 순. 확률 없음.',
+          let html = hfBlock + section('1. 오늘 쓸 키워드 ' + (plan.keywords || []).length, '내 주제의 인기·트렌드 검색어 후보 ' + plan.candidatesTotal + '개에서 검색량(검색광고)·자리(내 브라우저)를 재서 자리 열린 것 → 근거 많은 것 → 검색량 순. 확률 없음.',
             kwRows ? table(th('#', true) + th('키워드') + th('주제') + th('검색량', true) + th('자리') + th('근거', true) + th('내 글', true) + th('오늘 홈판 같은 말', true), kwRows) : '<div style="color:#64748b; margin-top:6px;">후보가 없어요(내 주제 인기·트렌드 검색어 창구를 못 받았거나 비어 있음).</div>');
 
           // 2) 시간대·간격 — 실측 세 줄 + 홈판 탄 날 내 발행 패턴. 없으면 사실 한 줄.

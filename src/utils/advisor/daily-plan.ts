@@ -5,7 +5,7 @@
  * - interval=week 는 date 가 월요일, month 는 1일. day 는 어제(오늘 값은 아직 채워지는 중).
  * - categories 는 한글 주제명("자동차"). 코드(CAR)는 200 이지만 빈 목록을 준다.
  * - uv-count·visit-count 는 contentType 을 넣으면 400 → 이 판은 쓰지 않는다.
- * 요청 수 = 기본 11 + 주제 3×2 + 글 30 = 최대 47. 비용 0(로그인 세션).
+ * 요청 수 = 기본 11 + 홈판 지난 6일 6 + 주제 3×2 + 글 30 = 최대 53. 비용 0(로그인 세션).
  */
 
 export interface AdvisorDailyContext {
@@ -24,6 +24,8 @@ export interface AdvisorProbeSpec {
 export const ADVISOR_DAILY_POST_CAP = 30;
 /** 인기 검색어·독자 시간대를 붙일 내 상위 유입 주제 상한. */
 export const ADVISOR_DAILY_TOPIC_CAP = 3;
+/** 전체 홈판 상위 20 을 어제 앞으로 더 받는 날수 — '오늘 쓸 글' 제목 본보기(최근 7일). 날짜마다 한 요청. */
+export const ADVISOR_HOMEFEED_WEEK_DAYS = 6;
 /** cv-ranks 한 번에 받는 글 수. */
 const CV_RANKS_LIMIT = 50;
 
@@ -78,6 +80,11 @@ export function baseProbes(ctx: AdvisorDailyContext): AdvisorProbeSpec[] {
     { key: 'soaringContents', path: `/home/soaring-contents?${query({ ...mine, interval: 'day', date: day })}` },
     { key: 'mainInflowContentRanks', path: `/trend/main-inflow-content-ranks?${query({ service, interval: 'day', date: day })}` },
     { key: 'impressionClickRanks', path: `/revenue/impression-click-ranks?${query({ ...mine, interval: 'day', date: day, contentType: 'text', clickLimit: 20, impressionLimit: 20 })}` },
+    // 그 전 6일 홈판 상위 20 — 키에 날짜가 붙어 기록 판(homefeedWeek)이 날짜별로 다시 모은다
+    ...Array.from({ length: ADVISOR_HOMEFEED_WEEK_DAYS }, (_, i) => {
+      const past = localDay(shiftDays(ctx.now, -(2 + i)));
+      return { key: `mainInflowContentRanks:${past}`, path: `/trend/main-inflow-content-ranks?${query({ service, interval: 'day', date: past })}` };
+    }),
   ];
 }
 
