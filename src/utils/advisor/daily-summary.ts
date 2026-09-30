@@ -210,7 +210,7 @@ export interface HomefeedDayPattern {
   hours: { hour: number; posts: number }[];
   /** 홈판 탄 날마다 그날 홈판 탄 글 편수(기록 순서). */
   postsPerDay: number[];
-  /** 같은 날 홈판 탄 글이 둘 이상일 때 발행 시각 간격(분). */
+  /** 같은 통계일에 홈판 유입이 잡힌 글이 둘 이상일 때, 그 글들의 발행 시각 간격(분). 발행일은 서로 다를 수 있다(실측 30h 도 있었다). */
   gapsMinutes: number[];
 }
 

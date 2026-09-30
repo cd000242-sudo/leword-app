@@ -100,6 +100,12 @@ function pickPostIds(results: Record<string, AdvisorProbeResult>): string[] {
 
 let running = false;
 
+/** 수집이 끝난 직후 이어서 할 일(D 판 '오늘 쓸 글' 조립). 여기서 today 를 import 하면 순환이라 밖에서 건다. */
+let afterCollect: ((record: AdvisorDailyRecord) => void) | null = null;
+export function setAdvisorDailyAfterCollect(fn: ((record: AdvisorDailyRecord) => void) | null): void {
+  afterCollect = fn;
+}
+
 export type AdvisorDailyRunResult =
   | { success: true; record: AdvisorDailyRecord }
   | { success: false; skipped: true; reason: string }
@@ -140,6 +146,9 @@ export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: {
       lastSkip: null,
     });
     console.log(`[ADVISOR-DAILY] ${reason} 수집 끝 — ${record.day} · 글 ${record.posts.length} · 창구 ${Object.keys(results).length} · 못 받은 ${record.missing.length}`);
+    if (afterCollect) {
+      try { afterCollect(record); } catch (error: any) { console.warn('[ADVISOR-DAILY] 후속 작업 실패:', error?.message); }
+    }
     return { success: true, record };
   } catch (error: any) {
     console.warn('[ADVISOR-DAILY] 수집 실패:', error?.message);

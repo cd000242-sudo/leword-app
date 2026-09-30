@@ -10141,6 +10141,20 @@
                   </div>
                   <div id="advisorDailyBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
                 </div>
+                <!--
+                  오늘 쓸 글 10(2026-09-30, D 판) — 위 하루 기록의 내 주제 인기·트렌드 검색어를 후보로,
+                  검색량(검색광고)·자리(내 브라우저)를 재고 근거 개수로 줄 세운 10개 + 시간대 사실 + 제목(에이전트 CLI, 교리 검사).
+                  확률·예상 트래픽 없음. 제목 검사 미통과는 빈 칸, 엔진이 없으면 'AI 엔진 연결 전' 한 줄 — 템플릿으로 채우지 않는다.
+                -->
+                <div id="advisorTodayPanel" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
+                  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">✍️ 오늘 쓸 글 10</h4>
+                    <span id="advisorTodayMeta" style="font-size: 12px; color: #94a3b8;">불러오는 중…</span>
+                    <span style="flex: 1;"></span>
+                    <button id="advisorTodayRunBtn" onclick="runAdvisorTodayNow()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">지금 만들기</button>
+                  </div>
+                  <div id="advisorTodayBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
+                </div>
               </div>
               <!--
                 트렌드 CSV 들이기(2026-09-10) — 네이버 크리에이터 어드바이저가 주는 '주제별 유입 검색어'를
@@ -10229,6 +10243,7 @@
           loadBlogClass();
           refreshNaverSession();
           refreshAdvisorDaily();
+          refreshAdvisorToday();
           loadTrendImport();
         };
 
@@ -10338,7 +10353,7 @@
           // 홈판 탄 날 패턴 — 실측된 글만. 없으면 규칙을 지어내지 않고 사실 한 줄.
           const pat = view.pattern || {};
           const patLine = pat.daysWithHomefeed > 0
-            ? '홈판 탄 날 ' + pat.daysWithHomefeed + '/' + pat.daysMeasured + '일 · 그날 홈판 탄 글 ' + pat.postsPerDay.join(', ') + '편 · 발행 시(KST) ' + pat.hours.map((h) => String(h.hour).padStart(2, '0') + '시×' + h.posts).join(' ') + (pat.gapsMinutes.length ? ' · 같은 날 간격 ' + pat.gapsMinutes.map((m) => Math.round(m / 60 * 10) / 10 + 'h').join(', ') : '')
+            ? '홈판 탄 날 ' + pat.daysWithHomefeed + '/' + pat.daysMeasured + '일 · 그날 홈판 탄 글 ' + pat.postsPerDay.join(', ') + '편 · 발행 시(KST) ' + pat.hours.map((h) => String(h.hour).padStart(2, '0') + '시×' + h.posts).join(' ') + (pat.gapsMinutes.length ? ' · 홈판 탄 글끼리 발행 간격 ' + pat.gapsMinutes.map((m) => Math.round(m / 60 * 10) / 10 + 'h').join(', ') : '')
             : '홈판 탄 글이 아직 실측되지 않아 발행 시각·간격 패턴이 없어요(쌓인 날 ' + (pat.daysMeasured || 0) + ').';
           const myTop = r.myHours.slice().sort((a, b) => b.yesterday - a.yesterday).slice(0, 3).filter((h) => h.yesterday > 0);
           html += '<div style="margin-top:6px; font-size:12px; color:#cbd5e1;">' + esc(patLine) + (myTop.length ? '<br>어제 내 유입 많은 시각: ' + myTop.map((h) => String(h.hour).padStart(2, '0') + '시 ' + h.yesterday).join(' · ') : '') + '</div>';
@@ -10369,6 +10384,122 @@
             (titles.length ? table(th('제목'), titleRows) : '<div style="color:#64748b; margin-top:6px;">' + (r.missing.indexOf('mainInflowContentRanks') >= 0 ? '창구를 못 받았어요' : '이날 목록이 비어 있어요') + '.</div>') + wordLine + wrLine);
 
           if (r.missing.length) html += '<div style="margin-top:10px; font-size:11.5px; color:#64748b;">못 받은 창구 ' + r.missing.length + ': ' + esc(r.missing.slice(0, 8).join(', ')) + (r.missing.length > 8 ? ' …' : '') + '</div>';
+          body.innerHTML = html;
+        }
+
+        /*
+         * 오늘 쓸 글 10(D 판) — 메인 프로세스가 만든 today-plan.json 을 그대로 표로. 여기서 값을 새로 셈하지 않는다.
+         * 검색량·자리는 실측 아니면 '미측정', 제목은 검사 통과한 것만(빈 칸은 빈 칸), 엔진이 없으면 'AI 엔진 연결 전'.
+         */
+        window.refreshAdvisorToday = async function refreshAdvisorToday() {
+          const meta = document.getElementById('advisorTodayMeta');
+          const body = document.getElementById('advisorTodayBody');
+          if (!meta || !body) return;
+          try {
+            const res = await window.electronAPI.invoke('advisor-today-view');
+            if (!res || !res.success) { meta.textContent = '판을 읽지 못했어요'; return; }
+            renderAdvisorToday(res.plan, res.running, meta, body);
+          } catch (e) {
+            meta.textContent = '판을 읽지 못했어요: ' + (e && e.message ? e.message : e);
+          }
+        };
+
+        window.runAdvisorTodayNow = async function runAdvisorTodayNow() {
+          const btn = document.getElementById('advisorTodayRunBtn');
+          if (btn) { btn.disabled = true; btn.textContent = '만드는 중…(몇 분)'; }
+          try {
+            const res = await window.electronAPI.invoke('advisor-today-run-now');
+            if (res && res.success) showToast('오늘 쓸 글 판을 새로 만들었어요', 'success');
+            else showToast((res && (res.reason || res.error)) || '판을 만들지 못했어요', 'error');
+          } catch (e) {
+            showToast('판을 만들지 못했어요: ' + (e && e.message ? e.message : e), 'error');
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '지금 만들기'; }
+            refreshAdvisorToday();
+          }
+        };
+
+        function renderAdvisorToday(plan, running, meta, body) {
+          const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+          const th = (t, right) => '<th style="text-align:' + (right ? 'right' : 'left') + '; padding:7px 9px; color:#94a3b8; font-size:11.5px; font-weight:600;">' + t + '</th>';
+          const td = (t, right, color) => '<td style="text-align:' + (right ? 'right' : 'left') + '; padding:6px 9px; border-top:1px solid rgba(255,255,255,0.06); color:' + (color || '#e2e8f0') + '; font-variant-numeric: tabular-nums;">' + t + '</td>';
+          const table = (head, rows) => '<div style="overflow-x:auto; margin-top:6px; border:1px solid rgba(255,255,255,0.1); border-radius:10px;"><table style="width:100%; border-collapse:collapse; font-size:12.5px;"><thead><tr style="background:rgba(255,255,255,0.05);">' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+          const section = (title, note, inner) => '<div style="margin-top:12px;"><div style="font-weight:700; color:#ffffff; font-size:13px;">' + title + '</div>' + (note ? '<div style="font-size:11.5px; color:#64748b; margin-top:2px;">' + note + '</div>' : '') + inner + '</div>';
+          const kstTime = (iso) => { const ms = Date.parse(iso || ''); if (!Number.isFinite(ms)) return '—'; const d = new Date(ms + 9 * 3600 * 1000); return String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + String(d.getUTCDate()).padStart(2, '0') + ' ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+          const hh = (h) => String(h).padStart(2, '0') + '시';
+          // 창구 이름을 초보자 말로. 새 이름이 오면 그대로 찍는다(숨기지 않음).
+          const evidenceName = { popularWeek: '인기 검색어', trendDay: '트렌드', risingDay: '순위 상승', myTopic: '내 주제', myPost: '내 글', homefeedTitle: '오늘 홈판' };
+          const seatColor = { '열림': '#22c55e', '반열림': '#fbbf24', '잠김': '#f87171', '카드답': '#94a3b8', '자료없음': '#64748b' };
+
+          if (!plan) {
+            meta.textContent = running ? '만드는 중…' : '아직 판이 없어요. 하루 기록이 생기면 바로 이어서 만들어요(또는 [지금 만들기]).';
+            body.innerHTML = '';
+            return;
+          }
+          const m = plan.measured || { searchVolume: 0, seat: 0 };
+          meta.textContent = plan.day + ' 기록 바탕 · 만든 시각 ' + kstTime(plan.builtAt) + ' · 후보 ' + plan.candidatesTotal + ' · 검색량 실측 ' + m.searchVolume + ' · 자리 실측 ' + m.seat + (running ? ' · 지금 다시 만드는 중…' : '');
+
+          // 1) 키워드 10 — 자리 열린 것 → 근거 많은 것 → 검색량. 순위는 메인이 매긴 순서 그대로.
+          const kwRows = (plan.keywords || []).map((k, i) => {
+            const s = k.seat;
+            const seatCell = s
+              ? '<b style="color:' + (seatColor[s.verdict] || '#e2e8f0') + ';">' + esc(s.verdict) + '</b>' + (s.verdict === '자료없음' ? '' : ' <span style="color:#94a3b8;">정면 ' + s.facing + (s.vacancy == null ? '' : ' · 빈자리 ' + s.vacancy) + ' · 본 ' + s.sampled + '</span>')
+              : '<span style="color:#64748b;">미측정</span>';
+            const mine = k.myPosts || { count: 0, homefeedHits: 0, unmeasured: 0 };
+            const mineCell = mine.count > 0
+              ? mine.count + '편' + (mine.homefeedHits > 0 ? ' · 홈판 <b style="color:#fbbf24;">' + mine.homefeedHits + '</b>' : '') + (mine.unmeasured > 0 ? ' <span style="color:#64748b;">(미측정 ' + mine.unmeasured + ')</span>' : '')
+              : '<span style="color:#64748b;">없음</span>';
+            const ev = (k.evidence || []).map((e) => esc(evidenceName[e] || e)).join(' · ');
+            return '<tr>'
+              + td(i + 1, true, '#94a3b8')
+              + td('<b>' + esc(k.keyword) + '</b>' + (k.rankChange != null && k.rankChange > 0 ? ' <span style="color:#22c55e;">↑' + k.rankChange + '</span>' : ''))
+              + td(esc(k.topic), false, '#94a3b8')
+              + td(k.searchVolume == null ? '미측정' : k.searchVolume.toLocaleString(), true, k.searchVolume == null ? '#64748b' : '#e2e8f0')
+              + td(seatCell)
+              + td((k.evidence || []).length + '<span style="color:#64748b; font-size:11px;"> ' + ev + '</span>', true)
+              + td(mineCell, true)
+              + td(k.homefeedTitleMatches > 0 ? k.homefeedTitleMatches : '0', true, k.homefeedTitleMatches > 0 ? '#e2e8f0' : '#64748b')
+              + '</tr>';
+          }).join('');
+          let html = section('1. 오늘 쓸 키워드 ' + (plan.keywords || []).length, '내 주제의 인기·트렌드 검색어 후보 ' + plan.candidatesTotal + '개에서 검색량(검색광고)·자리(내 브라우저)를 재서 자리 열린 것 → 근거 많은 것 → 검색량 순. 확률 없음.',
+            kwRows ? table(th('#', true) + th('키워드') + th('주제') + th('검색량', true) + th('자리') + th('근거', true) + th('내 글', true) + th('오늘 홈판 같은 말', true), kwRows) : '<div style="color:#64748b; margin-top:6px;">후보가 없어요(내 주제 인기·트렌드 검색어 창구를 못 받았거나 비어 있음).</div>');
+
+          // 2) 시간대·간격 — 실측 세 줄 + 홈판 탄 날 내 발행 패턴. 없으면 사실 한 줄.
+          const t = plan.time || {};
+          // 주제 전체 시간대는 네이버가 비율(하루 합=1)로 준다 — 전부 1 이하면 % 로 찍는다(단순 산술). 내 유입은 건수 그대로.
+          const fmtVal = (arr, v) => arr.every((h) => h.value <= 1) ? (Math.round(v * 1000) / 10) + '%' : (Math.round(v * 10) / 10).toLocaleString();
+          const hourLine = (label, arr) => arr && arr.length ? '<div>' + label + ': ' + arr.map((h) => hh(h.hour) + ' ' + fmtVal(arr, h.value)).join(' · ') + '</div>' : '<div>' + label + ': <span style="color:#64748b;">미측정</span></div>';
+          const hp = t.homefeedPublish;
+          const hpLine = hp && hp.daysWithHomefeed > 0
+            ? '홈판 탄 날 ' + hp.daysWithHomefeed + '/' + hp.daysMeasured + '일 · 그날 홈판 탄 글 ' + hp.postsPerDay.join(', ') + '편 · 내 발행 시각 ' + hp.hours.map((h) => hh(h.hour) + '×' + h.posts).join(' ') + (hp.gapsMinutes.length ? ' · 홈판 탄 글끼리 발행 간격 ' + hp.gapsMinutes.map((g) => Math.round(g / 60 * 10) / 10 + 'h').join(', ') : '')
+            : '홈판 탄 날의 내 발행 시각·간격은 아직 실측이 없어요(쌓인 날 ' + (hp ? hp.daysMeasured : 0) + '). 간격은 지어내지 않아요.';
+          html += section('2. 시간대·간격', '어드바이저 시간대 유입 실측(값 있는 시각만, 큰 순).',
+            '<div style="margin-top:6px; font-size:12px; color:#cbd5e1; line-height:1.7;">'
+            + hourLine('어제 내 유입', t.myHoursYesterday)
+            + hourLine('이번 달 내 유입', t.myHoursMonth)
+            + (t.topicHours ? hourLine(esc(t.topicHours.topic) + ' 주제 전체', t.topicHours.hours) : '<div>주제 전체 시간대: <span style="color:#64748b;">미측정</span></div>')
+            + '<div style="margin-top:4px;">' + esc(hpLine) + '</div>'
+            + '</div>');
+
+          // 3) 제목 — 키워드당 2. 검사 통과분만, 빈 칸은 빈 칸. 엔진이 없으면 한 줄.
+          const tt = plan.titles;
+          let titleInner;
+          if (!tt || tt.status === 'no-engine') {
+            titleInner = '<div style="color:#64748b; margin-top:6px;">AI 엔진 연결 전' + (tt && tt.reason ? ' — ' + esc(tt.reason) : '') + '. [설정 → AI 엔진]에서 연결하면 다음 판부터 제목이 붙어요.</div>';
+          } else {
+            const items = tt.items || [];
+            const passed = items.reduce((n, it) => n + it.titles.length, 0);
+            const rows = items.map((it) => {
+              const got = it.titles.map((x) => '<div>' + esc(x) + '</div>').join('');
+              const rej = (it.rejected || []).map((rj) => '<div style="color:#64748b; font-size:11.5px;">✗ ' + esc(rj.title) + ' <span style="color:#475569;">(' + esc(rj.reasons.join(', ')) + ')</span></div>').join('');
+              return '<tr>' + td('<b>' + esc(it.keyword) + '</b>') + td((got || '<span style="color:#64748b;">검사 통과한 제목 없음</span>') + rej) + '</tr>';
+            }).join('');
+            titleInner = (items.length ? table(th('키워드') + th('제목(검사 통과 ' + passed + ')'), rows) : '<div style="color:#64748b; margin-top:6px;">제목을 만들 키워드가 없어요.</div>')
+              + (tt.provider ? '<div style="margin-top:4px; font-size:11.5px; color:#64748b;">엔진: ' + esc(tt.provider) + '</div>' : '');
+          }
+          html += section('3. 제목(키워드당 2)', '내 글·오늘 홈판 제목을 따라 쓰지 않게 하고 홈판 제목 규칙(AI 티·쉼표 이분법·과장어·근거 없는 숫자)으로 검사. 미통과는 사유와 함께 빈 칸.', titleInner);
+
+          if (plan.notes && plan.notes.length) html += '<div style="margin-top:10px; font-size:11.5px; color:#64748b;">' + plan.notes.map((n) => esc(n)).join('<br>') + '</div>';
           body.innerHTML = html;
         }
 
