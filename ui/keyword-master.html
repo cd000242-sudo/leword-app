@@ -10116,6 +10116,17 @@
                   <button id="blogClassRunBtn" onclick="runBlogClassMeasure()" style="padding: 8px 14px; border-radius: 8px; border: 0; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">내 블로그 보기</button>
                 </div>
                 <div id="blogClassBody" style="margin-top: 12px; font-size: 13.5px; color: #cbd5e1;">아직 안 봤어요. 블로그 주소를 넣고 [내 블로그 보기]를 눌러 주세요.</div>
+                <!--
+                  네이버 로그인(2026-09-30, C 0단계) — 글별로 홈판·추천에서 왔는지는 로그인해야 보이는 크리에이터 어드바이저에만 있다.
+                  창은 앱이 띄우고 로그인은 사장님이 직접 한다. 비밀번호는 앱이 보지 않고 세션만 남는다.
+                  지금은 어드바이저가 부르는 창구를 기록하는 단계 — 화면에 유입 표는 아직 없다.
+                -->
+                <div id="naverSessionRow" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: #94a3b8;">
+                  <span id="naverSessionState">네이버 로그인: 확인 중…</span>
+                  <span style="flex: 1;"></span>
+                  <button onclick="openNaverAdvisor()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">네이버 로그인 창 열기</button>
+                  <button onclick="clearNaverSession()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #94a3b8; font-size: 12.5px; cursor: pointer;">로그아웃</button>
+                </div>
               </div>
               <!--
                 트렌드 CSV 들이기(2026-09-10) — 네이버 크리에이터 어드바이저가 주는 '주제별 유입 검색어'를
@@ -10202,7 +10213,48 @@
           wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.style.display = 'none'; });
           refreshSeatWatch();
           loadBlogClass();
+          refreshNaverSession();
           loadTrendImport();
+        };
+
+        /*
+         * 네이버 로그인 상태 — 쿠키 두 개(NID_AUT·NID_SES)가 다 있으면 로그인. 그리고 오늘 잡힌 어드바이저 창구 수.
+         * 문구는 사실만: 로그인 여부·잡힌 창구 수. "유입 분석 가능" 같은 약속은 실측 뒤에 붙인다.
+         */
+        window.refreshNaverSession = async function refreshNaverSession() {
+          const el = document.getElementById('naverSessionState');
+          if (!el) return;
+          try {
+            const res = await window.electronAPI.invoke('naver-session-status');
+            if (!res || !res.success) { el.textContent = '네이버 로그인: 상태를 읽지 못했어요'; return; }
+            const s = res.status;
+            const captured = s.capturedToday > 0 ? ' · 오늘 잡힌 어드바이저 창구 ' + s.endpoints.length + '종(' + s.capturedToday + '건)' : '';
+            el.textContent = s.loggedIn
+              ? '네이버 로그인: 되어 있어요' + captured + (s.windowOpen ? ' · 창 열림' : '')
+              : '네이버 로그인: 안 되어 있어요. [네이버 로그인 창 열기]에서 직접 로그인해 주세요' + captured;
+          } catch {
+            el.textContent = '네이버 로그인: 상태를 읽지 못했어요';
+          }
+        };
+
+        window.openNaverAdvisor = async function openNaverAdvisor() {
+          try {
+            const res = await window.electronAPI.invoke('naver-session-open');
+            if (!res || !res.success) showToast((res && res.error) || '로그인 창을 열지 못했어요', 'error');
+          } catch (e) {
+            showToast('로그인 창을 열지 못했어요: ' + (e && e.message ? e.message : e), 'error');
+          }
+          setTimeout(refreshNaverSession, 1500);
+        };
+
+        window.clearNaverSession = async function clearNaverSession() {
+          try {
+            const res = await window.electronAPI.invoke('naver-session-clear');
+            if (!res || !res.success) showToast((res && res.error) || '로그아웃하지 못했어요', 'error');
+          } catch (e) {
+            showToast('로그아웃하지 못했어요: ' + (e && e.message ? e.message : e), 'error');
+          }
+          refreshNaverSession();
         };
 
         /*

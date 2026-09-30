@@ -17,6 +17,7 @@ import { setupAgentCliHandlers } from './handlers/agent-cli-handlers';
 import { setupSeatMeasureHandlers } from './handlers/seat-measure';
 import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler } from './handlers/seat-watch';
 import { setupBlogClassHandlers } from './handlers/blog-class';
+import { setupNaverSessionHandlers } from './handlers/naver-session';
 import { setupGoldenWritingKitHandlers } from './handlers/golden-writing-kit';
 // 홈판 신호(2026-09-17) — 앱이 계산하는데 정작 앱 화면이 없어 사이트로 가야 했다.
 import { registerHomefeedHandlers } from './handlers/homefeed-handlers';
@@ -195,6 +196,8 @@ export function setupKeywordMasterHandlers() {
   startSeatWatchScheduler();
   // 내 블로그 체급(앱 전용, 2026-09-10) — 내 블로그 사실을 초보자 말로 읽어 준다.
   setupBlogClassHandlers();
+  // 네이버 로그인 창(앱 전용, 2026-09-30) — 어드바이저 유입 실측의 첫 단계. 비밀번호는 앱이 보지 않고, 세션만 파티션에 남는다.
+  setupNaverSessionHandlers();
   // 글감 한 벌(앱 전용, 2026-09-10) — 발굴 줄을 펴면 제목 후보와 같이 넣을 말이 나온다.
   setupGoldenWritingKitHandlers();
   // 오늘의 글감(앱 전용, 2026-09-10) — 깃허브 예약을 기다리지 않는다. 누르면 이 PC 에서 만든다.

@@ -246,6 +246,11 @@ function forRenderer(record: BlogClassRecord | null) {
   return { ...light, postsAvailable: posts.length, band: buildNearBand(light.wonRows || []) };
 }
 
+/** 사이트 '내 블로그' 탭(브리지)이 읽는 마지막 기록 — 화면용 판 그대로(2026-09-30). */
+export function readBlogClassForView() {
+  return forRenderer(readLatest());
+}
+
 export function setupBlogClassHandlers(): void {
   if (!ipcMain.listenerCount('blog-class-get')) {
     ipcMain.handle('blog-class-get', async () => {

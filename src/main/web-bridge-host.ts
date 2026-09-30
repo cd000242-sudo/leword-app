@@ -15,6 +15,7 @@ import { detectAgent } from '../utils/agent-cli/detect';
 import { analyzeRadarViaAgent } from './radar-analysis-service';
 import { createHomefeedHostDeps } from './homefeed/host';
 import { createBoardBridgeDeps } from './board-bridge-host';
+import { createMyBlogBridgeDeps } from './my-blog-bridge-host';
 
 const WORKER_REPO = 'cd000242-sudo/leword-app';
 const WORKER_FILE = 'agent-worker.yml';
@@ -53,6 +54,7 @@ export function startWebBridgeHost(): void {
   try {
     startWebBridge({
       boards: createBoardBridgeDeps(),
+      myBlog: createMyBlogBridgeDeps(),
       appVersion: app.getVersion(),
       getAgentStatuses: async () => {
         const providers = ['claude', 'codex', 'gemini', 'grok'] as const;
