@@ -141,19 +141,47 @@ function flagsFor(post, now) {
   if (!post.summary) flags.push('headline-only');
   return flags;
 }
-function buildCandidates(posts, now, previousPosts = []) {
-  const groups = [];
+/*
+ * 소재 묶기 — 결과는 예전(모든 묶음을 차례로 훑던 방식)과 같고 속도만 다르다(2026-10-01).
+ * 출처 188곳 · 게시물 2천 개에서 예전 방식은 96초가 걸렸다: 비교할 때마다 제목을 다시 풀었고(normalized → cheerio)
+ * 모든 묶음과 견줬다. 이제 게시물마다 한 번만 풀고, 같은 주소 · 같은 제목은 표로 찾고, 같은 소재 후보는
+ * 두 글자 조각을 하나라도 나눠 가진 묶음만 견준다(겹침 · 포함 관계는 반드시 두 글자 조각을 나눠 갖는다).
+ * '먼저 만든 묶음이 이긴다'는 예전 규칙을 그대로 지키려고 후보를 만든 순서대로 본다.
+ */
+const MAX_CARDS = 300;
+function bigrams(token) { const out = []; for (let i = 0; i + 1 < token.length; i += 1) out.push(token.slice(i, i + 2)); return out; }
+function groupPosts(posts) {
+  const groups = []; const byUrl = new Map(); const byNorm = new Map(); const byGram = new Map();
+  const remember = (map, key, index) => { if (!map.has(key)) map.set(key, index); };
   for (const post of posts.filter(p => p.title && safeLink(p.url) && !/ㅇㅎ[)\s]|후방주의|여캠시절|노출사진/.test(p.title))) {
-    const terms = groupTokens(post.title); let group = groups.find(g => g.posts.some(p => p.url === post.url || normalized(p.title) === normalized(post.title)));
-    if (!group && terms.length >= 2) group = groups.find(g => sameStory(terms, g.terms));
-    if (group) { if (!group.posts.some(p => p.url===post.url)) group.posts.push(post); }
-    else groups.push({ posts: [post], terms });
+    const norm = normalized(post.title); const terms = groupTokens(post.title);
+    const exact = [byUrl.get(post.url), byNorm.get(norm)].filter((i) => i !== undefined);
+    let index = exact.length ? Math.min(...exact) : -1;
+    if (index < 0 && terms.length >= 2) {
+      const seen = new Set();
+      for (const t of terms) for (const g of bigrams(t)) for (const i of byGram.get(g) || []) seen.add(i);
+      for (const i of [...seen].sort((a, b) => a - b)) if (sameStory(terms, groups[i].terms)) { index = i; break; }
+    }
+    if (index >= 0) {
+      const group = groups[index];
+      // 예전 규칙과 같게 — 같은 주소가 이미 있으면 넣지 않고, 넣지 않은 게시물의 제목은 표에 올리지 않는다.
+      if (!group.urls.has(post.url)) { group.posts.push(post); group.urls.add(post.url); group.norms.set(post, norm); remember(byUrl, post.url, index); remember(byNorm, norm, index); }
+    } else {
+      index = groups.length;
+      groups.push({ posts: [post], terms, urls: new Set([post.url]), norms: new Map([[post, norm]]) });
+      for (const t of terms) for (const g of new Set(bigrams(t))) { if (!byGram.has(g)) byGram.set(g, []); byGram.get(g).push(index); }
+      remember(byUrl, post.url, index); remember(byNorm, norm, index);
+    }
   }
+  return groups;
+}
+function buildCandidates(posts, now, previousPosts = []) {
+  const groups = groupPosts(posts);
   // A community headline alone is a discovery signal, not an adequately sourced writing brief.
   return groups.filter(group=>group.posts.some(p=>p.platform!=='community-ranking' && p.summary)).map(group => {
     const sorted = [...group.posts].sort((a,b) => Number(Boolean(b.summary))-Number(Boolean(a.summary)) || (Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)); const lead = sorted[0];
     const flags = [...new Set(sorted.flatMap(p=>flagsFor(p,now)))];
-    if (sorted.length>1 && sorted.some((p,i)=> sorted.slice(i+1).some(q=>normalized(p.title)===normalized(q.title)))) flags.push('possible-syndication');
+    if (sorted.length>1 && sorted.some((p,i)=> sorted.slice(i+1).some(q=>group.norms.get(p)===group.norms.get(q)))) flags.push('possible-syndication');
     const age = lead.publishedAt ? (Date.parse(now)-Date.parse(lead.publishedAt))/DAY : Infinity;
     const stale = age > 7 && Boolean(lead.publishedAt) || flags.includes('recycled-material');
     const platforms = new Set(sorted.map(p=>p.platform));
@@ -196,7 +224,9 @@ function buildCandidates(posts, now, previousPosts = []) {
   })
     // 30장 상한을 없앴다 — 최근 48시간 소재는 전부 싣는다(사장님 2026-09-30). 발행일을 모르는 것은 이번 수집에서 본 것이라 남긴다.
     .filter((c)=>!c.publishedAt || Date.parse(now)-Date.parse(c.publishedAt) <= 2*DAY)
-    .sort((a,b)=>Number(b.recommended)-Number(a.recommended) || b.priority-a.priority || a.id.localeCompare(b.id));
+    .sort((a,b)=>Number(b.recommended)-Number(a.recommended) || b.priority-a.priority || (Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0) || a.sources[0].url.localeCompare(b.sources[0].url))
+    // 출처 188곳이면 48시간 카드가 1,600장을 넘는다(판 6MB). 추천이 앞에 서 있으니 앞에서 300장 — 추천은 전부 들어간다.
+    .slice(0, MAX_CARDS);
 }
 function buildPayload(results, now, previous, previousPosts=[]) {
   const posts = results.flatMap(r=>r.status==='ok'?r.posts:[]);
