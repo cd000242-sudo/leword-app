@@ -30,3 +30,8 @@ test('editorial cannot inject metrics, identity, unsafe sources or exposure clai
  const result=applyReviewedEditorial(board,[post],[{...record,candidate:{...record.candidate,metrics:{searchVolume:9999},homefeedExposure:'confirmed'},officialSources:[{title:'bad',url:'javascript:alert(1)'}]}],now);
  assert.equal(result.candidates[0].metrics.searchVolume,null); assert.equal(result.candidates[0].homefeedExposure,'unverified'); assert.equal(result.candidates[0].officialSources.length,0);
 });
+// 2026-09-30 — 수집기가 최근 48시간 소재를 전부 싣기로 했다. 편집 단계가 다시 30장으로 자르면 그 결정이 무효가 된다.
+test('편집 단계는 카드 수를 자르지 않는다',()=>{
+ const many={...board,candidates:Array.from({length:45},(_,i)=>({id:`c${i}`,status:'verify',recommended:false,flags:[],sources:[{url:`https://blog.naver.com/x/${i}`}]}))};
+ assert.equal(applyReviewedEditorial(many,[],[],now).candidates.length,45);
+});

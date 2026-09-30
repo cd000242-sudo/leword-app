@@ -102,6 +102,30 @@ function reactionGrowth(current, previous) {
 }
 function normalized(title) { return plainText(title,160).toLowerCase().replace(/[^가-힣a-z0-9]/g,''); }
 function tokens(title) { return [...new Set(plainText(title,160).replace(/["'“”‘’!?.,()[\]…]/g,' ').split(/\s+/).filter(s => s.length >= 2 && !/^(현재|지금|오늘|정리|이유|근황|화제|논란|확인|모음|후기|jpg|ㄷㄷ|ㅎㄷㄷ)/i.test(s)))]; }
+/*
+ * 소재 묶기용 낱말(2026-09-30). 실측: 판 30장이 전부 채널 1곳짜리였다 — '디올과 원영의 만남' 과
+ * '디올원영 어떤데?' 가 조사·붙여쓰기 때문에 겹치는 낱말 0으로 갈렸다. 조사를 떼고, 날짜 숫자·
+ * 계정 핸들·'인스타그램' 같은 공통어는 빼고, 붙여 쓴 말은 포함 관계로 겹침을 센다.
+ */
+const PARTICLE = /(에서|으로|까지|부터|처럼|보다|에게|한테|이랑|과|와|의|이|가|은|는|을|를|도|만|로|에)$/;
+// 나라 이름 · 질문 틀('원작과 뭐가 다를까') · 시간 말은 소재가 아니다 — 실채널 첫 실행에서 이것들로 잘못 묶였다.
+const GROUP_STOP = /^(인스타그램|인스타|유튜브|사진|영상|공개|광고|근황|소식|정리|이유|오늘|지금|현재|최근|진짜|요즘|결국|반응|한국|중국|일본|미국|해외|국내|한국인|한국인들|원작|뭐가|다를까|무슨|일이|있었나|이렇게|그동안|동안|만에|하루|벌써|드디어|생각|차이|어디|누구|얼마|알고|보니|이후|이제|다시|직접|모두|가장|처음|제일|이번|지난)$/;
+function groupTokens(title) {
+  return [...new Set(tokens(title)
+    .map((t) => t.replace(/^#/, '').replace(/[^가-힣a-zA-Z0-9]/g, '').toLowerCase())
+    .map((t) => (t.length >= 3 && PARTICLE.test(t) ? t.replace(PARTICLE, '') : t))
+    .filter((t) => t.length >= 2 && !/^\d+$/.test(t) && !/^[a-z0-9_.]{6,}$/.test(t) && !GROUP_STOP.test(t)))];
+}
+function sharedTokens(a, b) {
+  // 포함 관계('디올원영' ⊃ '원영')는 숫자 없는 말끼리만 — '2년' 이 '12년' 에 들어간다고 같은 소재가 아니다.
+  const contains = (t, u) => !/\d/.test(t) && !/\d/.test(u) && t.length >= 2 && u.length >= 2 && (t.includes(u) || u.includes(t));
+  return a.filter((t) => b.some((u) => t === u || contains(t, u))).length;
+}
+function sameStory(a, b) {
+  // 양쪽에서 센다 — '디올원영' 한 낱말이 '디올'·'원영' 둘을 덮으므로 한쪽에서만 세면 1이 된다.
+  const shared = Math.max(sharedTokens(a, b), sharedTokens(b, a));
+  return shared >= 2 && shared / Math.min(a.length, b.length) >= 0.5;
+}
 function category(title) {
   for (const [name, pattern] of [['생활경제·주거', /전세|주택|아파트|대출|지원금|연금|세금|청약|금리|부동산|소상공인|보조금|저축/],['패션·뷰티', /패션|코디|착장|가방|샤넬|데님|세럼|화장품|여행룩/],['여행·생활', /여행|숙소|호텔|런던|공항|맛집|날씨|교통/],['스포츠·게임', /야구|축구|선수|아시안게임|올림픽|게임|메달|홈런/],['문화·연예', /배우|가수|아이돌|방송|드라마|영화|콘서트|아이브|카즈하|고윤정|카리나|트로트/]]) if (pattern.test(title)) return name;
   return '사회·이슈';
@@ -120,8 +144,8 @@ function flagsFor(post, now) {
 function buildCandidates(posts, now, previousPosts = []) {
   const groups = [];
   for (const post of posts.filter(p => p.title && safeLink(p.url) && !/ㅇㅎ[)\s]|후방주의|여캠시절|노출사진/.test(p.title))) {
-    const terms = tokens(post.title); let group = groups.find(g => g.posts.some(p => p.url === post.url || normalized(p.title) === normalized(post.title)));
-    if (!group && terms.length >= 3) group = groups.find(g => { const shared = terms.filter(t => g.terms.includes(t)); return shared.length >= 3 && shared.length/Math.min(terms.length,g.terms.length) >= .6; });
+    const terms = groupTokens(post.title); let group = groups.find(g => g.posts.some(p => p.url === post.url || normalized(p.title) === normalized(post.title)));
+    if (!group && terms.length >= 2) group = groups.find(g => sameStory(terms, g.terms));
     if (group) { if (!group.posts.some(p => p.url===post.url)) group.posts.push(post); }
     else groups.push({ posts: [post], terms });
   }
@@ -136,7 +160,13 @@ function buildCandidates(posts, now, previousPosts = []) {
     const reaction = sorted.some(p=>Number(p.metrics?.comments)>0 || Number(p.metrics?.views)>0 || Number(p.reactionCount)>0);
     const growth = sorted.map(p=>reactionGrowth(p,previousPosts.find(prev=>prev.url===p.url))).find(Boolean) || null;
     const positiveGrowth = Boolean(growth && Object.entries(growth).some(([key,g])=>g.change >= ({views:100,likes:5,comments:10}[key]||Infinity)));
-    const recommended = age <= 2 && !flags.some(f=>['sponsored','sensitive-claim','recycled-material','possible-syndication'].includes(f)) && Boolean(lead.summary) && ((platforms.size>=2 && reaction) || positiveGrowth);
+    /*
+     * 채널 두 곳 이상이 같은 소재를 다뤘으면 추천이다(2026-09-30 사장님 선택). 벤치마크 23곳 중 15곳이
+     * 네이버 블로그인데 블로그 RSS 엔 반응 수치가 없어, '플랫폼 2곳 + 반응' 만으로는 블로그 소재가 영원히 추천이 안 됐다.
+     * 제목이 똑같이 퍼 나른 것(possible-syndication)은 여전히 독립 근거가 아니라 막힌다.
+     */
+    const channels = new Set(sorted.map(p=>p.sourceId)).size;
+    const recommended = age <= 2 && !flags.some(f=>['sponsored','sensitive-claim','recycled-material','possible-syndication'].includes(f)) && Boolean(lead.summary) && (channels>=2 || (platforms.size>=2 && reaction) || positiveGrowth);
     const keyword = tokens(lead.title).slice(0,5).join(' ').slice(0,55) || lead.title.slice(0,55);
     const why = [lead.publishedAt ? `벤치마크 발행 ${lead.publishedAt.slice(0,10)} · 사건 발생일은 별도 확인` : '발행일을 확인하지 못해 최신 사건으로 판단하지 않았습니다.'];
     if (sorted.length>1) why.push(`${new Set(sorted.map(p=>p.sourceId)).size}개 채널에서 관련 제목 발견 · 독립 사실 확인과는 다릅니다.`);
@@ -148,7 +178,7 @@ function buildCandidates(posts, now, previousPosts = []) {
     return {
       id: crypto.createHash('sha256').update(lead.url).digest('hex').slice(0,16), keyword, title: lead.title, category: category(lead.title),
       status: stale?'stale':recommended?'review-now':'verify', recommended,
-      priority: Math.max(0, (age<=1?30:age<=2?24:age<=7?12:0) + (lead.summary?10:0) + (platforms.size>=2?15:0) + (reaction?10:0) + (positiveGrowth?10:0) - (flags.includes('sponsored')?25:0) - (stale?30:0) - (flags.includes('sensitive-claim')?20:0)),
+      priority: Math.max(0, (age<=1?30:age<=2?24:age<=7?12:0) + (lead.summary?10:0) + Math.min(24,(channels-1)*8) + (platforms.size>=2?15:0) + (reaction?10:0) + (positiveGrowth?10:0) - (flags.includes('sponsored')?25:0) - (stale?30:0) - (flags.includes('sensitive-claim')?20:0)),
       publishedAt: lead.publishedAt, eventAt: null, capturedAt: lead.capturedAt,
       freshnessLabel: stale?'시점 재검토':recommended?'원문 재확인 후 우선 검토':'원출처 확인 필요', why, summary,
       summaryAttribution: lead.summary?`${lead.name} 공개 요약 발췌 · 사실 확인 전`:'공개 제목에서 발견 · 본문 미확인',
@@ -163,7 +193,10 @@ function buildCandidates(posts, now, previousPosts = []) {
       metrics: { searchVolume: null, documentCount: null, rankingPossibility:'unmeasured', reactionGrowth: growth }, homefeedExposure:'unverified',
       sources: sorted.slice(0,5).map(p=>({ id:p.sourceId, platform:p.platform, name:p.name, title:p.title, url:p.url, publishedAt:p.publishedAt, summary:plainText(p.summary,140), metrics:p.metrics, ...(p.reactionCount!=null?{reactionCount:p.reactionCount,reactionLabel:p.reactionLabel}:{}), ...(p.metricNote?{metricNote:p.metricNote}:{}), discoveryOnly:true })), flags,
     };
-  }).sort((a,b)=>Number(b.recommended)-Number(a.recommended) || b.priority-a.priority || a.id.localeCompare(b.id)).slice(0,30);
+  })
+    // 30장 상한을 없앴다 — 최근 48시간 소재는 전부 싣는다(사장님 2026-09-30). 발행일을 모르는 것은 이번 수집에서 본 것이라 남긴다.
+    .filter((c)=>!c.publishedAt || Date.parse(now)-Date.parse(c.publishedAt) <= 2*DAY)
+    .sort((a,b)=>Number(b.recommended)-Number(a.recommended) || b.priority-a.priority || a.id.localeCompare(b.id));
 }
 function buildPayload(results, now, previous, previousPosts=[]) {
   const posts = results.flatMap(r=>r.status==='ok'?r.posts:[]);

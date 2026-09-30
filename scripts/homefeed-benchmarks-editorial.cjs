@@ -42,6 +42,7 @@ function applyReviewedEditorial(payload, posts, records, now) {
     reviewed.push({...base,...patch,status:'review-now',recommended:true,reviewedAt:record.reviewedAt,reviewedUntil:record.expiresAt,officialSources,flags:[...base.flags,'editor-reviewed']});
   }
   const matchedUrls = new Set(reviewed.flatMap(candidate => candidate.sources.map(source => canonical(source.url))));
-  return {...payload,candidates:[...reviewed,...candidates.filter(candidate => !candidate.sources?.some(source => matchedUrls.has(canonical(source.url))))].slice(0,30)};
+  // 30장 상한 없음(2026-09-30) — 수집기가 최근 48시간 소재를 전부 싣는다. 여기서 다시 자르면 그 결정이 무효가 된다.
+  return {...payload,candidates:[...reviewed,...candidates.filter(candidate => !candidate.sources?.some(source => matchedUrls.has(canonical(source.url))))]};
 }
 module.exports = { applyReviewedEditorial };
