@@ -8,6 +8,8 @@ const FETCH_PATHS = {
   'www.youtube.com': /^\/(?:@[a-zA-Z0-9_-]+|feeds\/videos\.xml)$/,
   'www.issuelink.co.kr': /^\/community\/listview\/all\/24\/comment\/_blank\/?$/,
   'news.nate.com': /^\/rank\/emoticon$/,
+  // 블로그 글 공감 수(여러 글 한 번에) — 반응 상승을 재려고 쓴다(2026-10-01).
+  'blog.like.naver.com': /^\/v1\/search\/contents$/,
 };
 // 인스타는 fetchText 로 읽지 않는다(FETCH_PATHS 에 없음) — Bright Data 레코드의 게시물 주소만 링크로 허용한다.
 const LINK_HOSTS = new Set(['blog.naver.com', 'm.blog.naver.com', 'www.youtube.com', 'www.issuelink.co.kr', 'news.nate.com', 'www.instagram.com']);
@@ -31,7 +33,7 @@ async function fetchText(value, { fetchImpl = fetch, maxBytes = 4000000, timeout
   let url = assertFetchUrl(value).href;
   const signal = AbortSignal.timeout(timeoutMs);
   for (let redirects = 0; redirects <= 2; redirects++) {
-    const response = await fetchImpl(url, { redirect: 'manual', signal, headers: { 'User-Agent': 'LEWORD-PublicBenchmark/1.0', Accept: 'text/html,application/rss+xml,application/atom+xml;q=0.9' } });
+    const response = await fetchImpl(url, { redirect: 'manual', signal, headers: { 'User-Agent': 'LEWORD-PublicBenchmark/1.0', Accept: 'text/html,application/rss+xml,application/atom+xml;q=0.9,application/json;q=0.8' } });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       await response.body?.cancel();
       if (redirects === 2) throw new Error('Too many redirects');
@@ -100,6 +102,21 @@ function reactionGrowth(current, previous) {
   for (const key of ['views', 'likes', 'comments']) { const a = previous.metrics?.[key], b = current.metrics?.[key]; if (Number.isFinite(a) && Number.isFinite(b) && b >= a) result[key] = { change: b-a, elapsedMinutes: Math.round((Date.parse(current.capturedAt)-Date.parse(previous.capturedAt))/60000) }; }
   return Object.keys(result).length ? result : null;
 }
+/** 네이버 블로그 글 주소 → 공감 창구의 글 아이디('아이디_글번호'). 블로그 글이 아니면 null. */
+function likeContentsId(url) {
+  const m = String(url || '').match(/^https:\/\/(?:m\.)?blog\.naver\.com\/([a-zA-Z0-9_-]+)\/(\d+)$/);
+  return m ? `${m[1]}_${m[2]}` : null;
+}
+/** 공감 창구 응답 → 글 아이디별 공감 합계(모든 반응 종류를 더한 값 — 블로그 화면의 '공감' 숫자). 모양이 아니면 빈 표. */
+function parseLikes(json) {
+  const out = new Map();
+  for (const item of Array.isArray(json?.contents) ? json.contents : []) {
+    if (!item || typeof item.contentsId !== 'string' || !Array.isArray(item.reactions)) continue;
+    const total = item.reactions.reduce((sum, r) => sum + (Number.isFinite(r?.count) ? r.count : 0), 0);
+    out.set(item.contentsId, total);
+  }
+  return out;
+}
 function normalized(title) { return plainText(title,160).toLowerCase().replace(/[^가-힣a-z0-9]/g,''); }
 function tokens(title) { return [...new Set(plainText(title,160).replace(/["'“”‘’!?.,()[\]…]/g,' ').split(/\s+/).filter(s => s.length >= 2 && !/^(현재|지금|오늘|정리|이유|근황|화제|논란|확인|모음|후기|jpg|ㄷㄷ|ㅎㄷㄷ)/i.test(s)))]; }
 /*
@@ -116,15 +133,31 @@ function groupTokens(title) {
     .map((t) => (t.length >= 3 && PARTICLE.test(t) ? t.replace(PARTICLE, '') : t))
     .filter((t) => t.length >= 2 && !/^\d+$/.test(t) && !/^[a-z0-9_.]{6,}$/.test(t) && !GROUP_STOP.test(t)))];
 }
-function sharedTokens(a, b) {
-  // 포함 관계('디올원영' ⊃ '원영')는 숫자 없는 말끼리만 — '2년' 이 '12년' 에 들어간다고 같은 소재가 아니다.
+/*
+ * 일반어 — 겹쳐도 같은 소재라는 근거가 못 되는 말(2026-10-01, 출처 188곳 첫 실수집의 오묶음에서 뽑았다:
+ * '그랜저'+'정신', '얼굴' 하나로 다른 글이 한 카드가 됐다). 나이 · 순위 · 금액 같은 숫자 단위 말도 일반어다.
+ */
+const GENERIC = new Set(['패션', '스타일', '코디', '얼굴', '몸매', '미모', '비주얼', '연예인', '배우', '여배우', '남배우', '아이돌', '가수', '스타', '셀럽', '화보', '공항', '공항패션', '반전', '레전드', '충격', '대박', '난리', '정체', '방법', '후기', '정보', '추천', '비교', '가격', '신차', '출시', '발표', '사람들', '남자들', '여자들', '여자', '남자', '정신', '모습', '포인트', '느낌', '분위기', '매력', '인기', '순위', '역대', '최고', '최초', '완전', '하는', '되는', '있는', '없는', '보니', '같은', '이유가', '누구', '앞두고', '달라진', '몰라보게', '되더니', '했더니', '결혼', '명품', '가방', '명품백', '신상', '할인', '일정', '이벤트']);
+const isGeneric = (token) => GENERIC.has(token) || /^\d{1,2}(대|세|살)$/.test(token) || /^\d+(위|명|개|원|만원|천만원|억|억원|km|%)$/.test(token);
+/**
+ * 겹친 말(단위) — 같은 말이면 그 말, 포함 관계('디올원영' ⊃ '원영')면 짧은 쪽이 단위다. 단위는 한 번만 센다:
+ * '얼굴' 하나가 '얼굴경락' · '작은얼굴관리' 둘에 들어가도 1 이다(예전엔 2로 셌다). 포함 관계는 숫자 없는 말끼리만.
+ */
+function sharedUnits(a, b) {
   const contains = (t, u) => !/\d/.test(t) && !/\d/.test(u) && t.length >= 2 && u.length >= 2 && (t.includes(u) || u.includes(t));
-  return a.filter((t) => b.some((u) => t === u || contains(t, u))).length;
+  const units = new Set();
+  for (const t of a) for (const u of b) {
+    if (t === u) units.add(t);
+    else if (contains(t, u)) units.add(t.length <= u.length ? t : u);
+  }
+  return [...units];
 }
 function sameStory(a, b) {
-  // 양쪽에서 센다 — '디올원영' 한 낱말이 '디올'·'원영' 둘을 덮으므로 한쪽에서만 세면 1이 된다.
-  const shared = Math.max(sharedTokens(a, b), sharedTokens(b, a));
-  return shared >= 2 && shared / Math.min(a.length, b.length) >= 0.5;
+  const units = sharedUnits(a, b);
+  const specific = units.filter((u) => !isGeneric(u)).length;
+  const ratio = units.length / Math.min(a.length, b.length);
+  // 구체어(사람 · 제품 · 작품 이름 등)가 둘 이상 겹치고, 겹친 말이 짧은 쪽의 절반 이상일 때만(0.25 로 풀었더니 188곳에서 거의 전부 묶였다).
+  return specific >= 2 && ratio >= 0.5;
 }
 function category(title) {
   for (const [name, pattern] of [['생활경제·주거', /전세|주택|아파트|대출|지원금|연금|세금|청약|금리|부동산|소상공인|보조금|저축/],['패션·뷰티', /패션|코디|착장|가방|샤넬|데님|세럼|화장품|여행룩/],['여행·생활', /여행|숙소|호텔|런던|공항|맛집|날씨|교통/],['스포츠·게임', /야구|축구|선수|아시안게임|올림픽|게임|메달|홈런/],['문화·연예', /배우|가수|아이돌|방송|드라마|영화|콘서트|아이브|카즈하|고윤정|카리나|트로트/]]) if (pattern.test(title)) return name;
@@ -177,6 +210,8 @@ function groupPosts(posts) {
 }
 function buildCandidates(posts, now, previousPosts = []) {
   const groups = groupPosts(posts);
+  // 이전 관측은 주소로 찾는다(같은 주소가 여럿이면 먼저 것 — 예전 find 와 같다).
+  const prevByUrl = new Map(); for (const prev of previousPosts) if (prev && prev.url && !prevByUrl.has(prev.url)) prevByUrl.set(prev.url, prev);
   // A community headline alone is a discovery signal, not an adequately sourced writing brief.
   return groups.filter(group=>group.posts.some(p=>p.platform!=='community-ranking' && p.summary)).map(group => {
     const sorted = [...group.posts].sort((a,b) => Number(Boolean(b.summary))-Number(Boolean(a.summary)) || (Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)); const lead = sorted[0];
@@ -186,7 +221,8 @@ function buildCandidates(posts, now, previousPosts = []) {
     const stale = age > 7 && Boolean(lead.publishedAt) || flags.includes('recycled-material');
     const platforms = new Set(sorted.map(p=>p.platform));
     const reaction = sorted.some(p=>Number(p.metrics?.comments)>0 || Number(p.metrics?.views)>0 || Number(p.reactionCount)>0);
-    const growth = sorted.map(p=>reactionGrowth(p,previousPosts.find(prev=>prev.url===p.url))).find(Boolean) || null;
+    const growthOf = new Map(sorted.map(p=>[p.url, reactionGrowth(p, prevByUrl.get(p.url))]));
+    const growth = sorted.map(p=>growthOf.get(p.url)).find(Boolean) || null;
     const positiveGrowth = Boolean(growth && Object.entries(growth).some(([key,g])=>g.change >= ({views:100,likes:5,comments:10}[key]||Infinity)));
     /*
      * 채널 두 곳 이상이 같은 소재를 다뤘으면 추천이다(2026-09-30 사장님 선택). 벤치마크 23곳 중 15곳이
@@ -219,7 +255,7 @@ function buildCandidates(posts, now, previousPosts = []) {
       verificationNeeded: ['원출처의 실제 사건 날짜와 최신 변경 사항', '사진 원작자와 재사용 조건', ...(flags.includes('sensitive-claim')?['당사자·공식 자료 확인 전 인물 관련 의혹 제외']:[]), ...(flags.includes('sponsored')?['상업적 관계와 홍보성 주장 확인']:[])],
       imageGuide: { url: lead.url, instruction: `${lead.name} 원문에서 이미지의 원출처를 먼저 확인하세요. 원본 게시물의 제목·게시일·관련 장면을 확인한 뒤 사용 조건에 맞게 캡처하고 출처를 남기세요. 벤치마크 사진 자체의 재사용 허용 여부는 미확인입니다.` },
       metrics: { searchVolume: null, documentCount: null, rankingPossibility:'unmeasured', reactionGrowth: growth }, homefeedExposure:'unverified',
-      sources: sorted.slice(0,5).map(p=>({ id:p.sourceId, platform:p.platform, name:p.name, title:p.title, url:p.url, publishedAt:p.publishedAt, summary:plainText(p.summary,140), metrics:p.metrics, ...(p.reactionCount!=null?{reactionCount:p.reactionCount,reactionLabel:p.reactionLabel}:{}), ...(p.metricNote?{metricNote:p.metricNote}:{}), discoveryOnly:true })), flags,
+      sources: sorted.slice(0,5).map(p=>({ id:p.sourceId, platform:p.platform, name:p.name, title:p.title, url:p.url, publishedAt:p.publishedAt, summary:plainText(p.summary,140), metrics:p.metrics, ...(p.reactionCount!=null?{reactionCount:p.reactionCount,reactionLabel:p.reactionLabel}:{}), ...(p.metricNote?{metricNote:p.metricNote}:{}), ...(growthOf.get(p.url)?{growth:growthOf.get(p.url)}:{}), discoveryOnly:true })), flags,
     };
   })
     // 30장 상한을 없앴다 — 최근 48시간 소재는 전부 싣는다(사장님 2026-09-30). 발행일을 모르는 것은 이번 수집에서 본 것이라 남긴다.
@@ -235,4 +271,4 @@ function buildPayload(results, now, previous, previousPosts=[]) {
   if (!posts.length && previous?.schemaVersion===1 && Array.isArray(previous.candidates)) return { ...previous, ...base, status:'stale', reason:'이번 수집에서 유효한 게시물을 확보하지 못해 마지막 성공 결과를 유지합니다.' };
   return { ...base, generatedAt:posts.length?now:null, status:posts.length?(sources.every(s=>s.status==='ok')?'fresh':'partial'):'stale', collectedPostCount:posts.length, candidates:buildCandidates(posts,now,previousPosts) };
 }
-module.exports = { assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, buildCandidates, buildPayload };
+module.exports = { assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, likeContentsId, parseLikes, buildCandidates, buildPayload };

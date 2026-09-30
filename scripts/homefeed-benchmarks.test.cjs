@@ -124,3 +124,72 @@ test('카드는 300장까지 — 추천이 먼저 들어간다', () => {
   assert.equal(result.length, 300);
   assert.equal(result[0].recommended, true);
 });
+/*
+ * 반응 상승(2026-10-01 사장님 "1번 2번 3번 전부"): 블로그 RSS 엔 반응 수치가 없어 증가를 못 쟀다.
+ * 네이버 공감 창구(blog.like.naver.com, 여러 글 한 번에)로 매시 공감 수를 재 이전 수집과 비교한다.
+ */
+test('공감 창구 응답에서 글별 공감 합계를 뽑는다', () => {
+  const json = { contents: [
+    { contentsId: 'lovely0477_224426618920', reactions: [{ reactionType: 'like', count: 23 }, { reactionType: 'thanks', count: 2 }] },
+    { contentsId: 'bad', reactions: 'x' },
+  ] };
+  const likes = core.parseLikes(json);
+  assert.equal(likes.get('lovely0477_224426618920'), 25);
+  assert.equal(likes.has('bad'), false);
+  assert.equal(core.parseLikes(null).size, 0);
+  assert.equal(core.likeContentsId('https://blog.naver.com/lovely0477/224426618920'), 'lovely0477_224426618920');
+  assert.equal(core.likeContentsId('https://www.youtube.com/watch?v=abcdefghijk'), null);
+});
+test('공감이 이전 수집보다 5 이상 늘면 채널 한 곳이어도 추천이고, 출처에 증가가 남는다', () => {
+  const earlier = '2026-09-28T13:00:00.000Z';
+  const current = other('a', '디올과 원영의 만남 🎀', { metrics: { views: null, likes: 30, comments: null } });
+  const previous = [{ url: current.url, platform: current.platform, capturedAt: earlier, metrics: { views: null, likes: 12, comments: null } }];
+  const card = core.buildCandidates([current], now, previous)[0];
+  assert.equal(card.recommended, true);
+  assert.equal(card.metrics.reactionGrowth.likes.change, 18);
+  assert.equal(card.sources[0].growth.likes.change, 18);
+  assert.ok(card.why.some((w) => w.includes('공개 반응이 이전 수집보다 늘었습니다')));
+});
+test('공감이 조금만 늘면(5 미만) 추천이 아니다', () => {
+  const current = other('a', '디올과 원영의 만남 🎀', { metrics: { views: null, likes: 14, comments: null } });
+  const previous = [{ url: current.url, platform: current.platform, capturedAt: '2026-09-28T13:00:00.000Z', metrics: { views: null, likes: 12, comments: null } }];
+  assert.equal(core.buildCandidates([current], now, previous)[0].recommended, false);
+});
+test('공감 붙이기 — 24시간 안 블로그 글만, 원본은 그대로, 실패해도 계속', async () => {
+  const { withBlogLikes } = require('./homefeed-benchmarks.cjs');
+  const fresh = post({ url: 'https://blog.naver.com/sample/111', publishedAt: '2026-09-28T12:00:00.000Z' });
+  const old = post({ url: 'https://blog.naver.com/sample/222', publishedAt: '2026-09-26T12:00:00.000Z' });
+  const broken = post({ url: 'https://blog.naver.com/sample/333', publishedAt: '2026-09-28T13:00:00.000Z' });
+  const results = [{ id: 'sample', status: 'ok', posts: [fresh, old, broken] }];
+  const asked = [];
+  const fetcher = async (url) => {
+    asked.push(url);
+    if (url.includes('sample_333')) throw new Error('HTTP 500');
+    return JSON.stringify({ contents: [{ contentsId: 'sample_111', reactions: [{ count: 7 }] }] });
+  };
+  const out = await withBlogLikes(results, now, fetcher);
+  assert.equal(asked.length, 2, '48시간 전 글은 묻지 않는다');
+  assert.equal(out[0].posts[0].metrics.likes, 7);
+  assert.equal(out[0].posts[2].metrics.likes, null, '실패한 글은 빈 칸');
+  assert.equal(results[0].posts[0].metrics.likes, null, '원본은 바꾸지 않는다');
+});
+/*
+ * 출처 188곳 첫 실수집(2026-10-01)에서 일반어로 잘못 묶인 실례 — '그랜저'+'정신', '얼굴' 하나로 다른 글이 한 카드가 됐다.
+ * 겹친 말 중 구체적인 말(사람 · 제품 · 작품 이름 등)이 하나는 있어야 같은 소재다. 일반어 · 숫자 단위 말은 구체어가 아니다.
+ */
+test('일반어로만 · 구체어 하나로만 겹치면 다른 소재다(188곳 실수집 오묶음)', () => {
+  const pairs = [
+    ['그랜저 계약 취소각? 정신 차리고 바뀐 디자인 BMW 알피나.', '"드디어 정신차렷나" 실물 공개에 그랜저 취소합니다'],
+    ['공룡 얼굴 복원도 근황.jpg', '요즘 2030 여자들이 목숨건다는 동안 얼굴 포인트'],
+    ['한채영 미모는 회춘했는데... 아쉬운 패션 스타일 근황', '순간 ‘지디인 줄’.. 살 붙고 확 달라진 연예인 공항패션'],
+    ['전지현 맞아? 민낯→란제리룩 반전 생로랑 패션 스타일', '쌩얼로 등장... 레전드 찍은 오늘자 전지현 공항 패션'],
+  ];
+  for (const [a, b] of pairs) assert.equal(core.buildCandidates([other('a', a), other('bb', b)], now).length, 2, `${a} / ${b}`);
+});
+test('구체어가 둘 겹치면 일반어가 섞여도 같은 소재다', () => {
+  const pairs = [
+    ['전지현 생로랑 파리 패션쇼 착장 공개', '쌩얼로 등장... 전지현 생로랑 공항 패션'],
+    ['왜 슬슬 기어나와... 제발 유행 안 됐으면 하는 2000년대 패션', '패션은 돌고 돈다지만... 제발 다시 유행 안했으면 하는 2000년대 룩'],
+  ];
+  for (const [a, b] of pairs) assert.equal(core.buildCandidates([other('a', a), other('bb', b)], now).length, 1, `${a} / ${b}`);
+});

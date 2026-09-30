@@ -44,6 +44,28 @@ describe('advisorDailySyncView', () => {
   it('기록이 없으면 null', () => {
     expect(advisorDailySyncView(null)).toBeNull();
   });
+  /*
+   * 2026-10-01 사장님 "1번 2번 3번 전부": 벤치마크 판에서 ① 실제 홈판 상위에 오른 소재와 맞대고 ③ 내 블로그가
+   * 홈판 유입을 받았던 소재를 표시한다. 재료는 어드바이저 실측 — 최근 7일 홈판 상위 20 과 여러 날의 글별 홈판 유입.
+   */
+  it('최근 7일 홈판 상위 제목을 그대로 싣는다', () => {
+    const week = [{ day: '2026-09-29', rank: 1, title: '홈판 1위 제목', url: 'https://blog.naver.com/y/2' }];
+    expect(advisorDailySyncView({ ...record, homefeedWeek: week } as AdvisorDailyRecord)!.homefeedWeek).toEqual(week);
+    expect(advisorDailySyncView(record)!.homefeedWeek).toEqual([]);
+  });
+  it('여러 날 기록에서 내 글의 홈판 유입을 모은다 — 0 은 빼고, 같은 글은 큰 값 · 최근 날짜, 최신순', () => {
+    const older = { ...record, day: '2026-09-27', posts: [
+      { contentId: '1', title: '쏘렌토 하이브리드 실연비', views: 50, publishedAt: null, homefeed: { count: 30, ratio: 0.5 }, searchCount: 1 },
+      { contentId: '2', title: '카니발 하이리무진', views: 9, publishedAt: null, homefeed: { count: 4, ratio: 0.4 }, searchCount: 1 },
+      { contentId: '3', title: '홈판 못 받은 글', views: 3, publishedAt: null, homefeed: { count: 0, ratio: 0 }, searchCount: 1 },
+    ] } as AdvisorDailyRecord;
+    const hits = advisorDailySyncView(record, [older, record])!.myHomefeedHits;
+    expect(hits).toEqual([
+      { title: '쏘렌토 하이브리드 실연비', day: '2026-09-29', count: 80 },
+      { title: '카니발 하이리무진', day: '2026-09-27', count: 4 },
+    ]);
+    expect(JSON.stringify(hits)).not.toContain('224385098124');
+  });
 });
 
 describe('todayPlanSyncView', () => {

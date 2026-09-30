@@ -19,12 +19,38 @@ export interface AdvisorDailySyncView {
   popularKeywords: AdvisorDailyRecord['popularKeywords'];
   topicKeywords: AdvisorDailyRecord['topicKeywords'];
   homefeedTitles: AdvisorDailyRecord['homefeedTitles'];
+  /** 최근 7일 홈판 유입 상위 20(날짜 · 순위 · 제목 · 주소) — 벤치마크 판이 '실제 홈판에 오른 소재'와 맞댄다(2026-10-01). */
+  homefeedWeek: AdvisorDailyRecord['homefeedWeek'];
+  /** 여러 날 기록에서 모은 '홈판 유입을 받은 내 글'(제목 · 날짜 · 유입 수) — 벤치마크 판의 '내 블로그 홈판 소재' 표시. */
+  myHomefeedHits: { title: string; day: string; count: number }[];
   weeklyRecommendation: AdvisorDailyRecord['weeklyRecommendation'];
   /** 못 받은 창구 수만 — 이름(창구 목록)은 넘기지 않는다. */
   missingCount: number;
 }
 
-export function advisorDailySyncView(record: AdvisorDailyRecord | null | undefined): AdvisorDailySyncView | null {
+const MY_HOMEFEED_HITS_MAX = 60;
+
+/** 같은 글(제목)은 가장 큰 유입 수 · 가장 최근 날짜로 하나만. 유입 0 은 뺀다. 최신 날짜 → 유입 많은 순. */
+function myHomefeedHits(records: readonly AdvisorDailyRecord[]): AdvisorDailySyncView['myHomefeedHits'] {
+  const byTitle = new Map<string, { title: string; day: string; count: number }>();
+  for (const record of records) {
+    for (const post of record.posts || []) {
+      const count = post.homefeed?.count ?? 0;
+      if (!post.title || !(count > 0)) continue;
+      const seen = byTitle.get(post.title);
+      byTitle.set(post.title, {
+        title: post.title,
+        day: !seen || record.day > seen.day ? record.day : seen.day,
+        count: Math.max(count, seen?.count ?? 0),
+      });
+    }
+  }
+  return [...byTitle.values()]
+    .sort((a, b) => b.day.localeCompare(a.day) || b.count - a.count)
+    .slice(0, MY_HOMEFEED_HITS_MAX);
+}
+
+export function advisorDailySyncView(record: AdvisorDailyRecord | null | undefined, history: readonly AdvisorDailyRecord[] = []): AdvisorDailySyncView | null {
   if (!record) return null;
   return {
     day: record.day,
@@ -43,6 +69,8 @@ export function advisorDailySyncView(record: AdvisorDailyRecord | null | undefin
     popularKeywords: record.popularKeywords || null,
     topicKeywords: record.topicKeywords || [],
     homefeedTitles: record.homefeedTitles || [],
+    homefeedWeek: record.homefeedWeek || [],
+    myHomefeedHits: myHomefeedHits([...history, record]),
     weeklyRecommendation: record.weeklyRecommendation || null,
     missingCount: (record.missing || []).length,
   };
