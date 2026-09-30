@@ -17,7 +17,8 @@ import type {
 } from './types';
 import { clip, compactKey, jaccard, numberCore, numberTokens, shortHash, titleTokens } from './text';
 
-export const TITLE_MAX_CHARS = 38;
+/** 홈판 실측(상위 20 × 90일, 1,293 제목) 길이 중앙 40 · 상위 75% 47 — 옛 38은 실제 홈판 제목의 57%를 떨어뜨렸다. benchmark-title-engine 과 같은 값. */
+export const TITLE_MAX_CHARS = 50;
 export const TITLE_TRIGGERS: readonly HomefeedTriggerType[] = [
   'direct_quote', 'number_conflict', 'relation_shift', 'expectation_break', 'result_first', 'identity_hide', 'object_price', 'before_after',
 ];

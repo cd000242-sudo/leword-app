@@ -181,16 +181,51 @@ describe('collectTodayTitles + facts', () => {
     expect(out).toEqual({ status: 'ok', provider: null, items: [{ keyword: '투싼', titles: [], rejected: [], note: TODAY_NO_FACTS_NOTE }] });
   });
 
-  it('판 전체에서 같은 끝맺음은 3개까지 — 4번째는 ENDING_REPEAT 로 밀리고 다른 후보가 자리를 채운다', async () => {
-    const keywords = ['키워드 하나', '키워드 둘', '키워드 셋', '키워드 넷'];
-    const many = new Map<string, TodayTitleFacts>(keywords.map((k) => [k, { autocomplete: [`${k} 조건`], related: [], headlines: [] }]));
+  /**
+   * 판 전체 틀 상한 — 홈판 실측(상위 20 × 90일, 1,293 제목)에서 세었다.
+   * 같은 끝맺음 갈래는 하루 최다 중앙 2 · 최대 5(cap 3 유지), 구어 어미(~네요류)는 1.2% · 하루 최대 2(판의 다섯에 하나),
+   * 따옴표 스타터는 41.7% · 하루 중앙 8(판의 절반). 4키워드 × 2 = 8칸 판이면 구어 2 · 따옴표 4 다.
+   */
+  const keywords = ['키워드 하나', '키워드 둘', '키워드 셋', '키워드 넷'];
+  const many = new Map<string, TodayTitleFacts>(keywords.map((k) => [k, { autocomplete: [`${k} 조건`], related: [], headlines: [] }]));
+  const nounTails = ['것은 뭘까', '자리', '순서', '숫자'];
+
+  it('판 전체에서 같은 끝맺음은 3개까지 — 4번째 "이유" 는 ENDING_REPEAT 로 밀리고 다른 후보가 자리를 채운다', async () => {
     const cards = cardsForTodayKeywords(keywords.map((k) => row(k)), record, many);
-    const tails = ['것은 뭘까', '것', '이유', '자리'];
-    const reply = JSON.stringify(keywords.map((k, i) => ({ id: k, titles: [`${k} 조건 맞춰 봤더니 생각보다 다르더라고요`, `${k} 조건 바뀐 뒤에 남는 ${tails[i]}`] })));
+    const reply = JSON.stringify(keywords.map((k, i) => ({ id: k, titles: [`${k} 조건 바뀐 뒤에 남는 이유`, `${k} 조건 맞춰 봤더니 생각보다 다른 ${nounTails[i]}`] })));
     const out = await collectTodayTitles(cards, async () => ({ reply, provider: 'claude' }));
     if (out.status !== 'ok') throw new Error(out.reason);
     expect(out.items.slice(0, 3).map((item) => item.titles.length)).toEqual([2, 2, 2]);
-    expect(out.items[3].titles).toEqual(['키워드 넷 조건 바뀐 뒤에 남는 자리']);
-    expect(out.items[3].rejected).toEqual([{ title: '키워드 넷 조건 맞춰 봤더니 생각보다 다르더라고요', reasons: ['ENDING_REPEAT'] }]);
+    expect(out.items[3].titles).toEqual(['키워드 넷 조건 맞춰 봤더니 생각보다 다른 숫자']);
+    expect(out.items[3].rejected).toEqual([{ title: '키워드 넷 조건 바뀐 뒤에 남는 이유', reasons: ['ENDING_REPEAT'] }]);
+  });
+
+  it('구어 어미(~고요·~네요·~대요·~죠)는 갈래가 달라도 판의 다섯에 하나까지 — 8칸 판에서 3번째부터 SPOKEN_REPEAT', async () => {
+    const cards = cardsForTodayKeywords(keywords.map((k) => row(k)), record, many);
+    const spoken = ['생각보다 다르더라고요', '생각보다 달랐네요', '생각보다 크대요', '생각보다 크죠'];
+    const reply = JSON.stringify(keywords.map((k, i) => ({ id: k, titles: [`${k} 조건 맞춰 봤더니 ${spoken[i]}`, `${k} 조건 바뀐 뒤에 남는 ${nounTails[i]}`] })));
+    const out = await collectTodayTitles(cards, async () => ({ reply, provider: 'claude' }));
+    if (out.status !== 'ok') throw new Error(out.reason);
+    expect(out.items.slice(0, 2).map((item) => item.titles.length)).toEqual([2, 2]);
+    expect(out.items[2].titles).toEqual(['키워드 셋 조건 바뀐 뒤에 남는 순서']);
+    expect(out.items[2].rejected).toEqual([{ title: '키워드 셋 조건 맞춰 봤더니 생각보다 크대요', reasons: ['SPOKEN_REPEAT'] }]);
+    expect(out.items[3].rejected).toEqual([{ title: '키워드 넷 조건 맞춰 봤더니 생각보다 크죠', reasons: ['SPOKEN_REPEAT'] }]);
+  });
+
+  it('따옴표 스타터는 판의 절반까지 — 8칸 판이면 4개(옛 상한 3 넘김), 5번째부터 QUOTE_REPEAT', async () => {
+    const cards = cardsForTodayKeywords(keywords.map((k) => row(k)), record, many);
+    const secondTails = ['방향', '금액', '시점', '기준'];
+    const reply = JSON.stringify(keywords.map((k, i) => ({ id: k, titles: [
+      `"이게 먼저였네" ${k} 조건 바뀐 뒤에 남는 ${nounTails[i]}`,
+      `"그건 아니었다" ${k} 조건 맞춰 봤더니 생각보다 다른 ${secondTails[i]}`,
+    ] })));
+    const out = await collectTodayTitles(cards, async () => ({ reply, provider: 'claude' }));
+    if (out.status !== 'ok') throw new Error(out.reason);
+    expect(out.items.slice(0, 2).map((item) => item.titles.length)).toEqual([2, 2]);
+    expect(out.items[2]).toEqual({ keyword: '키워드 셋', titles: [], rejected: [
+      { title: '"이게 먼저였네" 키워드 셋 조건 바뀐 뒤에 남는 순서', reasons: ['QUOTE_REPEAT'] },
+      { title: '"그건 아니었다" 키워드 셋 조건 맞춰 봤더니 생각보다 다른 시점', reasons: ['QUOTE_REPEAT'] },
+    ] });
+    expect(out.items[3].titles).toEqual([]);
   });
 });

@@ -17,7 +17,10 @@ import {
   checkBenchmarkTitle,
   homefeedTitleRuleLines,
   isQuoteStarter,
+  isSpokenEnding,
   parseBenchmarkTitleReply,
+  quoteStarterCap,
+  spokenEndingCap,
   titleEndingKey,
   type BenchmarkTitleCard,
 } from '../benchmark-title-engine';
@@ -157,15 +160,20 @@ export function buildTodayTitlePrompt(cards: readonly BenchmarkTitleCard[]): str
   ].join('\n');
 }
 
-/** 판 전체의 틀 집계 — 같은 끝맺음·따옴표 스타터가 상한을 넘으면 다음 후보로 넘어간다. */
-interface FrameTally { endings: ReadonlyMap<string, number>; quotes: number }
+/**
+ * 판 전체의 틀 집계 — 같은 끝맺음 갈래·구어 어미·따옴표 스타터가 상한을 넘으면 다음 후보로 넘어간다.
+ * 구어 어미·따옴표 상한은 판 크기(청한 칸 수)의 몫이다 — 홈판 실측 하루 20건 중 구어 어미 최대 2 · 따옴표 스타터 중앙 8.
+ */
+interface FrameTally { endings: ReadonlyMap<string, number>; quotes: number; spoken: number; quoteCap: number; spokenCap: number }
 
-const emptyTally: FrameTally = { endings: new Map(), quotes: 0 };
+const tallyFor = (expected: number): FrameTally =>
+  ({ endings: new Map(), quotes: 0, spoken: 0, quoteCap: quoteStarterCap(expected), spokenCap: spokenEndingCap(expected) });
 
 function frameReason(title: string, tally: FrameTally): string | null {
   const ending = titleEndingKey(title);
   if (ending && (tally.endings.get(ending) || 0) >= TITLE_FRAME_REPEAT_CAP) return 'ENDING_REPEAT';
-  if (isQuoteStarter(title) && tally.quotes >= TITLE_FRAME_REPEAT_CAP) return 'QUOTE_REPEAT';
+  if (isSpokenEnding(title) && tally.spoken >= tally.spokenCap) return 'SPOKEN_REPEAT';
+  if (isQuoteStarter(title) && tally.quotes >= tally.quoteCap) return 'QUOTE_REPEAT';
   return null;
 }
 
@@ -173,7 +181,7 @@ function tallyWith(tally: FrameTally, title: string): FrameTally {
   const ending = titleEndingKey(title);
   const endings = new Map(tally.endings);
   if (ending) endings.set(ending, (endings.get(ending) || 0) + 1);
-  return { endings, quotes: tally.quotes + (isQuoteStarter(title) ? 1 : 0) };
+  return { ...tally, endings, quotes: tally.quotes + (isQuoteStarter(title) ? 1 : 0), spoken: tally.spoken + (isSpokenEnding(title) ? 1 : 0) };
 }
 
 function itemFor(card: BenchmarkTitleCard, offered: string[] | undefined, tally: FrameTally): { item: TodayTitleItem; tally: FrameTally } {
@@ -212,6 +220,6 @@ export async function collectTodayTitles(cards: readonly BenchmarkTitleCard[], r
     if (!hasTitleMaterial(card)) return { items: [...acc.items, skipped(card)], tally: acc.tally };
     const { item, tally } = itemFor(card, parsed.get(card.id), acc.tally);
     return { items: [...acc.items, item], tally };
-  }, { items: [], tally: emptyTally }).items;
+  }, { items: [], tally: tallyFor(asked.length * TODAY_TITLES_PER_KEYWORD) }).items;
   return { status: 'ok', provider: run.provider, items };
 }

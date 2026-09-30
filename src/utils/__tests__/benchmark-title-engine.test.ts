@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   BENCHMARK_TITLE_COUNT,
+  BENCHMARK_TITLE_MAX_CHARS,
   TITLE_FRAME_REPEAT_CAP,
   buildBenchmarkTitlePrompt,
   cardsFromBenchmarks,
   checkBenchmarkTitle,
   isQuoteStarter,
+  isSpokenEnding,
   parseBenchmarkTitleReply,
+  quoteStarterCap,
+  spokenEndingCap,
   titleEndingKey,
   titlesForCards,
   type BenchmarkTitleCard,
@@ -39,6 +43,7 @@ describe('checkBenchmarkTitle', () => {
   });
   it('쉼표 이분법·라벨형·콜론·과장어·재료 밖 숫자는 떨어진다', () => {
     expect(checkBenchmarkTitle('장기전세 만기, 연장 방법', card)).toContain('COMMA_SPLIT');
+    expect(checkBenchmarkTitle('장기전세 만기 앞두고 이주 상담 받았는데, 결과가 달랐네요', card)).toContain('COMMA_SPLIT');
     expect(checkBenchmarkTitle('장기전세 만기 총정리 한눈에 보기', card)).toContain('CLICHE');
     expect(checkBenchmarkTitle('장기전세 만기: 이주 상담 안내', card)).toContain('AI_TELL');
     expect(checkBenchmarkTitle('장기전세 만기 충격 반전 이주 상담', card)).toContain('HYPE_WORD');
@@ -48,8 +53,15 @@ describe('checkBenchmarkTitle', () => {
     expect(checkBenchmarkTitle('20년 살면 내 집이 되는 줄 알았는데요', card)).toContain('NO_ANCHOR');
     expect(checkBenchmarkTitle('20년 만기 앞둔 장기전세 연장·분양전환·이주 지원은 어떻게 다를까', card)).toContain('ARTICLE_COPY');
   });
-  it('길이 상한을 넘으면 떨어진다', () => {
+  it('홈판 어투의 쉼표는 둔다 — 인용 속 쉼표 · 기준어가 아닌 사실 마디 뒤 쉼표(홈판 실측 90일: 쉼표 든 제목 30%)', () => {
+    expect(checkBenchmarkTitle('"연장 되는 줄 알았는데, 아니었다" 장기전세 만기 이주 상담 후기', card)).toEqual([]);
+    expect(checkBenchmarkTitle('장기전세 만기 가구 이주 상담 시작, 분양전환은 따로 있었다', card)).toEqual([]);
+  });
+  it('길이 상한(홈판 실측 중앙 40자 · 상위 75% 47자 → 50자)을 넘으면 떨어진다', () => {
+    expect(BENCHMARK_TITLE_MAX_CHARS).toBe(50);
     expect(checkBenchmarkTitle('장기전세 만기가 다가오는데 연장이 되는지 분양전환이 되는지 이주 지원까지 전부 알아봤더니 생각과 달랐어요', card)).toContain('TOO_LONG');
+    // 49자 — 옛 38자 상한이면 떨어졌을 홈판 어투 길이
+    expect(checkBenchmarkTitle('장기전세 만기 앞두고 이주 상담 먼저 받으라는데 분양전환 조건은 왜 아무도 말을 안 할까', card)).not.toContain('TOO_LONG');
   });
   it('무엇이 어떻게인지 없는 껍데기 후킹은 떨어진다(2026-09-30 첫 판 20개 전부)', () => {
     expect(checkBenchmarkTitle('장기전세 만기 두고 반응이 갈리네요', card)).toContain('HOLLOW_HOOK');
@@ -68,7 +80,7 @@ describe('checkBenchmarkTitle', () => {
   });
 });
 
-describe('titleEndingKey · isQuoteStarter — 판 전체 틀 상한(3개)의 재료', () => {
+describe('titleEndingKey · isQuoteStarter · isSpokenEnding — 판 전체 틀 상한의 재료', () => {
   it('끝 두 글자(문장부호 제외)와 따옴표 스타터를 읽는다', () => {
     expect(titleEndingKey('장기전세 만기 앞두고 이주 상담 받더라고요')).toBe('고요');
     expect(titleEndingKey('장기전세 만기 이주 상담 받았네요?')).toBe('네요');
@@ -77,6 +89,19 @@ describe('titleEndingKey · isQuoteStarter — 판 전체 틀 상한(3개)의 �
     expect(isQuoteStarter('"이러니까 바로 풀리네요" 장기전세 만기 이주 상담')).toBe(true);
     expect(isQuoteStarter('장기전세 만기 "이러니까" 상담')).toBe(false);
     expect(TITLE_FRAME_REPEAT_CAP).toBe(3);
+  });
+  it('구어 어미(~네요·~고요·~대요·~죠…)는 끝의 문장부호·따옴표를 벗기고 본다 — 명사 끊기는 아니다', () => {
+    expect(isSpokenEnding('장기전세 만기 이주 상담 받았네요?')).toBe(true);
+    expect(isSpokenEnding('장기전세 만기 앞두고 이주 상담 받더라고요')).toBe(true);
+    expect(isSpokenEnding('"이러니까 바로 풀리네요" 장기전세 만기 이주 상담이죠')).toBe(true);
+    expect(isSpokenEnding('장기전세 만기 뒤 이주 지원 조건')).toBe(false);
+    expect(isSpokenEnding('장기전세 만기 뒤 남는 것은 뭘까')).toBe(false);
+  });
+  it('따옴표 스타터는 판의 절반(홈판 실측 하루 20건 중 중앙 8), 구어 어미는 판의 다섯에 하나(실측 최대 2) — 작은 판은 바닥값', () => {
+    expect(quoteStarterCap(20)).toBe(10);
+    expect(quoteStarterCap(4)).toBe(TITLE_FRAME_REPEAT_CAP);
+    expect(spokenEndingCap(20)).toBe(4);
+    expect(spokenEndingCap(6)).toBe(2);
   });
 });
 

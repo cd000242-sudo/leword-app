@@ -41,8 +41,12 @@ export interface BenchmarkTitleResult {
 export const BENCHMARK_TITLE_COUNT = 20;
 /** 검사에서 몇 개 떨어져도 20개가 남게 넉넉히 청한다(첫 실주행: 26개 중 쉼표 이분법으로 6~9개 탈락). */
 export const BENCHMARK_TITLE_ASK = 30;
-/** 홈판 제목 길이 상한(titles.ts 의 TITLE_MAX_CHARS 와 같다). */
-export const BENCHMARK_TITLE_MAX_CHARS = 38;
+/**
+ * 홈판 제목 길이 상한(titles.ts 의 TITLE_MAX_CHARS 와 같다).
+ * 홈판 유입 상위 20 × 90일 실측(2026-07-02~09-29, 고유 1,293 제목): 길이 중앙 40 · 상위 75% 47 · 상위 90% 56.
+ * 옛 38자 상한은 실제 홈판 제목의 57%를 떨어뜨렸다. 50자면 16%(최근 30일 12%)만 넘는다.
+ */
+export const BENCHMARK_TITLE_MAX_CHARS = 50;
 /** 한 번에 보낼 카드 수 — 카드마다 26개라 둘이면 이미 50줄이다. */
 export const BENCHMARK_TITLE_BATCH = 2;
 
@@ -55,21 +59,59 @@ const AI_TELL_RE = /[:：]\s|\s\|\s|\p{Extended_Pictographic}|[!！]{2,}|알아�
  */
 export const HOLLOW_HOOK_RE = /반응이\s*(갈리|다르|두\s*갈래)|이유가\s*(있|따로)|말이\s*(달라|많아|나온)|분위기가\s*(달라|바뀌)|마음이\s*복잡|타이밍이\s*다르|뜻밖이네요|좀\s*다르네요|달라진다(더라고요|네요|대요)/u;
 
+/** 끝의 문장부호·따옴표를 벗긴 본문 — 끝맺음 판정(갈래 · 구어 어미)의 공통 재료. */
+const endingCore = (title: string): string => String(title || '').replace(/[\s"'“”‘’?？!！.…~]+$/u, '');
+
 /**
  * 제목 끝맺음 갈래 — 같은 갈래가 한 판에 몰리면 AI 티다(같은 판 20개 전부 ~네요·~더라고요였다).
  * 끝의 문장부호·따옴표를 벗기고 마지막 두 글자로 가른다(네요 · 고요 · 데요 · 대요 · 어요 · 나요 · 까요 · 니다 · 이유…).
  */
 export function titleEndingKey(title: string): string {
-  const core = String(title || '').replace(/[\s"'“”‘’?？!！.…~]+$/u, '');
-  const tail = core.slice(-2);
+  const tail = endingCore(title).slice(-2);
   return /[가-힣]{2}/u.test(tail) ? tail : '';
 }
+
+/**
+ * 구어 어미 — ~네요 · ~고요 · ~대요 · ~죠 · ~더라 류. 홈판 실측 1,293 제목 중 1.2%(하루 20건 중 최대 2건).
+ * 홈판 주류는 명사로 툭 끊는 제목(예인 · 배우 · 이유 · 근황 · 정체)이다 — 갈래가 달라도 구어 어미가 몰리면 기계 냄새다.
+ */
+const SPOKEN_ENDING_RE = /(네요|고요|데요|대요|어요|아요|나요|까요|세요|죠|잖아요|거든요|더라|더니)$/u;
+export const isSpokenEnding = (title: string): boolean => SPOKEN_ENDING_RE.test(endingCore(title));
 
 /** 따옴표로 시작하는 '반응 한 마디' 틀인가 — 키워드마다 하나씩 기계적으로 배정되던 틀. */
 export const isQuoteStarter = (title: string): boolean => /^["“‘']/u.test(String(title || '').trim());
 
-/** 한 판 안에서 같은 끝맺음·따옴표 스타터를 몇 개까지 두나 — 교리 "같은 틀 3개 넘게 반복 금지". */
+/** 한 판 안에서 같은 끝맺음 갈래를 몇 개까지 두나 — 교리 "같은 틀 3개 넘게 반복 금지". 홈판 실측 하루 최다 갈래 중앙 2 · 최대 5. */
 export const TITLE_FRAME_REPEAT_CAP = 3;
+/** 따옴표 스타터 몫 — 홈판 실측 41.7%, 하루 20건 중 중앙 8 · 상위 90% 11. 판의 절반까지(작은 판은 TITLE_FRAME_REPEAT_CAP 바닥). */
+export const QUOTE_STARTER_SHARE_CAP = 0.5;
+/** 구어 어미 몫 — 홈판 실측 1.2%, 하루 최대 2. 판의 다섯에 하나까지(바닥 2). */
+export const SPOKEN_ENDING_SHARE_CAP = 0.2;
+
+const shareCap = (expected: number, share: number, floor: number): number => Math.max(floor, Math.ceil(Math.max(0, Number(expected) || 0) * share));
+/** 판 크기(청한 칸 수)에 따른 따옴표 스타터 상한. */
+export const quoteStarterCap = (expected: number): number => shareCap(expected, QUOTE_STARTER_SHARE_CAP, TITLE_FRAME_REPEAT_CAP);
+/** 판 크기에 따른 구어 어미 상한. */
+export const spokenEndingCap = (expected: number): number => shareCap(expected, SPOKEN_ENDING_SHARE_CAP, 2);
+
+/** 따옴표 안의 쉼표를 공백으로 — 인용 속 쉼표("연장 되는 줄 알았는데, 아니었다")는 이분법이 아니다. */
+const stripQuotedCommas = (title: string): string =>
+  title.replace(/["“][^"”]*["”]|['‘][^'’]*['’]/gu, (span) => span.replace(/[,，]/gu, ' '));
+
+/**
+ * 쉼표 이분법 — 홈판 실측 90일에서 쉼표 든 제목은 30%다(인용 속 · 사실 마디 뒤 · 나열). 쉼표를 전부 막으면 실제 홈판 제목 셋 중 하나가 죽는다.
+ * AI 틀은 두 가지뿐이다: ① 라벨형 — 따옴표 밖 첫 쉼표 앞이 기준어만("장기전세 만기, 연장 방법")
+ * ② 구어 꼬리 — 따옴표 밖 쉼표 뒤 마지막 마디가 구어 어미로 끝남("…받았는데, 결과가 달랐네요"). 실측 343건 중 3건이 이 틀이었다.
+ */
+function isCommaSplit(title: string, anchors: readonly string[]): boolean {
+  const outside = stripQuotedCommas(title);
+  if (!/[,，]\s*\S/u.test(outside)) return false;
+  const parts = outside.split(/[,，]/u);
+  const anchorKeys = anchors.map(compactKey).filter(Boolean);
+  const head = [...titleTokens(parts[0])].map(compactKey);
+  const labelHead = head.length > 0 && head.every((token) => anchorKeys.some((anchor) => anchor.includes(token) || token.includes(anchor)));
+  return labelHead || isSpokenEnding(parts[parts.length - 1]);
+}
 
 const runDefault = (prompt: string) => runWithAnyAgent(prompt, createDefaultAgentChain({ claudeModel: 'opus' }), { timeoutMs: 180_000, validate: requireJsonArray() });
 
@@ -119,8 +161,9 @@ export function checkBenchmarkTitle(title: string, card: BenchmarkTitleCard): st
   if (value.length > BENCHMARK_TITLE_MAX_CHARS) reasons.push('TOO_LONG');
   if (TITLE_CLICHES.test(value)) reasons.push('CLICHE');
   if (AI_TELL_RE.test(value)) reasons.push('AI_TELL');
-  // 쉼표 이분법은 앞말 길이와 무관하게 금지 — "…박나래 매니저, 순서가 뒤집혔네요" 도 같은 틀이다.
-  if (/[,，]\s*\S/u.test(value)) reasons.push('COMMA_SPLIT');
+  const anchors = anchorTokens(card);
+  // 쉼표는 두 틀만 막는다(라벨형 · 구어 꼬리) — 앞말 길이와 무관하게 "…박나래 매니저, 순서가 뒤집혔네요" 도 같은 틀이다.
+  if (isCommaSplit(value, anchors)) reasons.push('COMMA_SPLIT');
   if (HOLLOW_HOOK_RE.test(value)) reasons.push('HOLLOW_HOOK');
 
   const facts = card.facts || [];
@@ -137,7 +180,6 @@ export function checkBenchmarkTitle(title: string, card: BenchmarkTitleCard): st
   if (overlaps.length > 0 && Math.max(...overlaps) >= 0.5) reasons.push('ARTICLE_COPY');
 
   const key = compactKey(value);
-  const anchors = anchorTokens(card);
   if (anchors.length > 0 && !anchors.some((anchor) => key.includes(compactKey(anchor)))) reasons.push('NO_ANCHOR');
 
   /*
@@ -160,19 +202,19 @@ export function homefeedTitleRuleLines(maxChars: number = BENCHMARK_TITLE_MAX_CH
   return [
     '규칙 — 하나라도 어기면 그 제목은 버려진다:',
     '- 공식: ① 기준어(제목만 봐도 무슨 이야기인지 — 검색어의 앞말) ② 서브 키워드 하나(재료에 실제로 있는 상황·대상·조건) ③ 멈추게 하는 후킹 ④ 사람이 옆에서 말하듯 — 구어체.',
-    '- 끝맺음을 한 가지로 통일하지 마라. "~네요 · ~더라고요 · ~던데요 · ~대요" 같은 어미가 줄줄이 이어지면 기계 냄새다. 질문으로 끝나는 것 · 명사로 툭 끊는 것 · 반말로 끝나는 것 · 서술형을 섞어라. 같은 끝맺음 3개 넘게 반복 금지.',
+    '- 끝맺음은 명사로 툭 끊는 것이 기본이다 — 실제 홈판에 오른 제목(90일 1,293건)은 "…의 정체 · …근황 · …이유 · …순서" 처럼 끊고, "~네요 · ~더라고요 · ~대요" 같은 구어 어미는 100개 중 1개다. 구어 어미는 판의 다섯에 하나 이하로만. 질문으로 끝나는 것 · 명사로 툭 끊는 것 · 반말로 끝나는 것 · 서술형을 섞어라. 같은 끝맺음 3개 넘게 반복 금지.',
     '- 껍데기 후킹 금지: "반응이 갈리네요" · "이유가 있네요" · "말이 달라진다" · "분위기가 달라졌다" · "타이밍이 다르네요" 처럼 무엇이 어떻게인지 없는 문장은 전부 실패다. 사실 없는 전언("~라는 말이 많네요")도 같다.',
     '- 재료에 있는 사실 하나(사람들이 붙여 묻는 말 · 기사 속 상황 · 숫자)가 제목에 그대로 보여야 한다. 재료에 없으면 그 키워드는 비워 두고 지어내지 마라.',
-    '- 기준어는 문장 속에 녹여라. 제목 안에 쉼표(,)를 쓰면 무조건 실패다("장기전세 만기, 확인할 것" · "…매니저, 순서가 뒤집혔네요" 전부 금지). 한 호흡 문장으로 써라.',
+    '- 기준어는 문장 속에 녹여라. 쉼표(,) 이분법 두 가지는 실패다 — 기준어만 떼어 놓고 쉼표("장기전세 만기, 확인할 것") · 쉼표 뒤를 구어 어미로 끝내기("…매니저, 순서가 뒤집혔네요"). 사실 마디 뒤 쉼표 하나("…이주 상담 시작, 분양전환은 따로 있었다") · 인용 속 쉼표는 홈판 제목 셋 중 하나가 쓰는 어투라 괜찮다.',
     '- 답은 숨긴다. 결론·해결책·결과 수치를 제목에 다 쓰지 마라. 끝까지 읽어야 답이 나올 것 같아야 한다.',
     '- 첫 10~15자 안에 걸리는 말(뜻밖의 사실 · 긴장 · 반전 조짐)이 오게. 뒤에서 한 번 더 당겨라.',
-    `- ${maxChars}자 이내. 구어체. 기사 제목처럼 딱딱하면 실패다.`,
+    `- ${maxChars}자 이내(홈판 실측 중앙 40자 · 상위 75% 47자 — 짧게 자르려고 사실을 빼지 마라). 사람이 옆에서 말하듯 — 반응 한 마디 인용 · 질문 · 반말. 기사 제목처럼 딱딱하면 실패다.`,
     '- 재료의 제목을 조금 바꾼 제목 금지 — 어휘·말 순서가 비슷하면 실패다.',
     '- AI 티 금지: 콜론(:) 라벨 · 세로줄(|) · 이모지 · 느낌표 연타 · "알아보겠습니다" · "꿀팁" · "총정리 · 핵심 정리 · 한눈에 · 완벽 가이드" 같은 라벨형 · 앞뒤가 대칭인 문장. 사람이 툭 던진 말처럼 써라.',
     '- 과장어 금지(충격 · 경악 · 발칵 · 역대급 · 전말 · 소름 · 폭로 · 대박 · 미쳤).',
     '',
     '틀을 골고루 섞어라(같은 틀 3개 넘게 반복 금지): 결과 먼저·이유 숨김 / 예상 밖 / 숫자 충돌(재료에 있는 숫자만) / 전후 비교 / 정체 숨김("그 사람이") /',
-    '  상황 공감("저만 몰랐나요") / 질문형·답 숨김 / 손실 암시·예방 / 맞수 비교 / 짧은 따옴표 스타터("이러니까 바로 풀리네요" 같은 반응 한 마디 — 실제 발언처럼 출처를 꾸미지 마라).',
+    '  상황 공감("저만 몰랐나요") / 질문형·답 숨김 / 손실 암시·예방 / 맞수 비교 / 짧은 따옴표 스타터("이러니까 바로 풀리네요" 같은 반응 한 마디 — 실제 발언처럼 출처를 꾸미지 마라. 홈판 제목 열에 넷이 이 틀이라 판의 절반까지는 괜찮다).',
   ];
 }
 
