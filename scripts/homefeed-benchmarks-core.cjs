@@ -58,7 +58,7 @@ function plainText(value, length = 300) {
 function serialize(value) { return JSON.stringify(value, null, 2).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029'); }
 function validDate(value, now) { if (!value) return null; const ms = Date.parse(value); return Number.isFinite(ms) && ms <= Date.parse(now) + 300000 ? new Date(ms).toISOString() : null; }
 function count(value) { const text = String(value || '').replace(/,/g, '').trim(); return /^\d+$/.test(text) ? Number(text) : null; }
-function basePost(source, capturedAt, data) { return { sourceId: source.id, platform: source.platform, name: plainText(source.name || source.id, 70), eventAt: null, capturedAt, metrics: { views: null, likes: null, comments: null }, ...data }; }
+function basePost(source, capturedAt, data) { return { sourceId: source.id, platform: source.platform, name: plainText(source.name || source.id, 70), topic: source.topic || null, eventAt: null, capturedAt, metrics: { views: null, likes: null, comments: null }, ...data }; }
 function parseRss(xml, source, capturedAt) {
   const $ = cheerio.load(xml, { xmlMode: true }); const name = plainText($('channel > title').first().text(), 70) || source.id;
   const posts = $('item').toArray().slice(0, 20).map(el => { const e = $(el); const url = safeLink(e.find('link').first().text()); if (!url || !['blog.naver.com', 'm.blog.naver.com'].includes(new URL(url).hostname)) return null;
@@ -159,9 +159,28 @@ function sameStory(a, b) {
   // 구체어(사람 · 제품 · 작품 이름 등)가 둘 이상 겹치고, 겹친 말이 짧은 쪽의 절반 이상일 때만(0.25 로 풀었더니 188곳에서 거의 전부 묶였다).
   return specific >= 2 && ratio >= 0.5;
 }
-function category(title) {
-  for (const [name, pattern] of [['생활경제·주거', /전세|주택|아파트|대출|지원금|연금|세금|청약|금리|부동산|소상공인|보조금|저축/],['패션·뷰티', /패션|코디|착장|가방|샤넬|데님|세럼|화장품|여행룩/],['여행·생활', /여행|숙소|호텔|런던|공항|맛집|날씨|교통/],['스포츠·게임', /야구|축구|선수|아시안게임|올림픽|게임|메달|홈런/],['문화·연예', /배우|가수|아이돌|방송|드라마|영화|콘서트|아이브|카즈하|고윤정|카리나|트로트/]]) if (pattern.test(title)) return name;
-  return '사회·이슈';
+/**
+ * 분야(2026-10-01 사장님 "자동차 IT 는 안 보여") — 제목 단서가 먼저, 없으면 출처 블로그 주제(운영자가 목록에 적은 구역)의 다수결,
+ * 그것도 없으면 사회·이슈. 예전엔 제목 단서만 봐서 자동차 · IT 분야가 아예 없었고 판 300장 중 225장이 사회·이슈였다.
+ * 규칙은 사이트 homefeedLive.mjs 와 같아야 한다(같은 사례를 양쪽 테스트가 잠갔다).
+ */
+const TOPIC_CATEGORY = { 'IT/차테크': '자동차·IT', 'IT·컴퓨터': '자동차·IT', '자동차': '자동차·IT', '재테크 라이프': '생활경제·주거', '비즈니스·경제': '생활경제·주거', '연예인 패션': '패션·뷰티', '패션·미용': '패션·뷰티', '미용·패션': '패션·뷰티', '방송 이슈': '문화·연예', '방송': '문화·연예', '드라마': '문화·연예', '스타·연예인': '문화·연예', '스포츠': '스포츠·게임', '건강 상식': '건강', '건강·의학': '건강', '리빙 라이프': '여행·생활', '인테리어·DIY': '여행·생활', '요리·레시피': '여행·생활', '맛집': '여행·생활', '육아·결혼': '여행·생활' };
+const CATEGORY_PATTERNS = [
+  ['생활경제·주거', /전세|주택|아파트|대출|지원금|연금|세금|청약|금리|부동산|소상공인|보조금|저축/],
+  ['자동차·IT', /자동차|신차|전기차|하이브리드|SUV|세단|차량|운전|주차|과태료|벌점|깜빡이|타이어|연비|현대차|기아(?!\s*타이거즈)|제네시스|테슬라|벤츠|BMW|아우디|그랜저|쏘렌토|카니발|아이오닉|스마트폰|아이폰|갤럭시|노트북|태블릿|인공지능|챗GPT|요금제|통신사/],
+  ['건강', /건강|다이어트|위고비|비만|혈압|혈당|당뇨|콜레스테롤|영양제|비타민|검진|위암|유방암|폐암|갑상선|두통|불면/],
+  ['패션·뷰티', /패션|코디|착장|가방|샤넬|데님|세럼|화장품|여행룩/],
+  ['여행·생활', /여행|숙소|호텔|런던|공항|맛집|날씨|교통/],
+  ['스포츠·게임', /야구|축구|선수|아시안게임|올림픽|게임|메달|홈런/],
+  ['문화·연예', /배우|가수|아이돌|방송|드라마|영화|콘서트|아이브|카즈하|고윤정|카리나|트로트/],
+];
+function category(title, topics = []) {
+  for (const [name, pattern] of CATEGORY_PATTERNS) if (pattern.test(title)) return name;
+  const counts = new Map();
+  for (const topic of topics) { const name = TOPIC_CATEGORY[topic]; if (name) counts.set(name, (counts.get(name) || 0) + 1); }
+  let best = null;
+  for (const [name, n] of counts) if (!best || n > best[1]) best = [name, n];
+  return best ? best[0] : '사회·이슈';
 }
 function flagsFor(post, now) {
   const text = `${post.title} ${post.summary}`; const flags = [];
@@ -240,7 +259,7 @@ function buildCandidates(posts, now, previousPosts = []) {
     if (stale) why.push('과거 자료 또는 발행 7일 경과: 새 사실 확보 전 작성 우선순위를 낮춥니다.');
     const summary = lead.summary ? plainText(lead.summary,140) : '제목과 공개 목록만 확인했습니다. 사건 내용은 원문 확인 후 작성하세요.';
     return {
-      id: crypto.createHash('sha256').update(lead.url).digest('hex').slice(0,16), keyword, title: lead.title, category: category(lead.title),
+      id: crypto.createHash('sha256').update(lead.url).digest('hex').slice(0,16), keyword, title: lead.title, category: category(lead.title, sorted.map(p=>p.topic)),
       status: stale?'stale':recommended?'review-now':'verify', recommended,
       priority: Math.max(0, (age<=1?30:age<=2?24:age<=7?12:0) + (lead.summary?10:0) + Math.min(24,(channels-1)*8) + (platforms.size>=2?15:0) + (reaction?10:0) + (positiveGrowth?10:0) - (flags.includes('sponsored')?25:0) - (stale?30:0) - (flags.includes('sensitive-claim')?20:0)),
       publishedAt: lead.publishedAt, eventAt: null, capturedAt: lead.capturedAt,
@@ -271,4 +290,4 @@ function buildPayload(results, now, previous, previousPosts=[]) {
   if (!posts.length && previous?.schemaVersion===1 && Array.isArray(previous.candidates)) return { ...previous, ...base, status:'stale', reason:'이번 수집에서 유효한 게시물을 확보하지 못해 마지막 성공 결과를 유지합니다.' };
   return { ...base, generatedAt:posts.length?now:null, status:posts.length?(sources.every(s=>s.status==='ok')?'fresh':'partial'):'stale', collectedPostCount:posts.length, candidates:buildCandidates(posts,now,previousPosts) };
 }
-module.exports = { assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, likeContentsId, parseLikes, buildCandidates, buildPayload };
+module.exports = { category, assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, likeContentsId, parseLikes, buildCandidates, buildPayload };

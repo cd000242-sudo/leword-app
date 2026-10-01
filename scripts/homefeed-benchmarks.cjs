@@ -18,7 +18,7 @@ async function fetchRetry(fetcher, url, tries = 3, waitMs = 800) {
 }
 
 async function collect(source, now, fetcher = core.fetchText, instagram = null) {
-  const base = { id:source.id, platform:source.platform, name:source.name || source.id, url:source.url, capturedAt:now };
+  const base = { id:source.id, platform:source.platform, name:source.name || source.id, url:source.url, capturedAt:now, ...(source.topic?{topic:source.topic}:{}) };
   if (source.platform==='instagram') {
     const entry = instagram?.get(source.id);
     if (!entry) return { ...base, status:'unavailable', reason:'인스타 읽기(Bright Data)가 이 실행에 연결되지 않아 이번 추천에서 제외했습니다.', posts:[] };

@@ -124,11 +124,6 @@
       "url": "https://www.youtube.com/@Behind_Master"
     },
     {
-      "id": "issuelink",
-      "platform": "community-ranking",
-      "url": "https://www.issuelink.co.kr/community/listview/all/24/comment/_blank"
-    },
-    {
       "id": "nate-ent",
       "platform": "news-ranking",
       "url": "https://news.nate.com/rank/emoticon?cate=ent"
@@ -1176,14 +1171,6 @@
       "feedUrl": "https://rss.blog.naver.com/shitttcoin.xml",
       "name": "콩스 엔비에-이",
       "topic": "스포츠"
-    },
-    {
-      "id": "kjw927777",
-      "platform": "naver-blog",
-      "url": "https://blog.naver.com/kjw927777",
-      "feedUrl": "https://rss.blog.naver.com/kjw927777.xml",
-      "name": "안녕하세요 다이빙선수 김찌룩입니다~!",
-      "topic": "미분류"
     },
     {
       "id": "just_do_it_bunny",

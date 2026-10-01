@@ -213,3 +213,26 @@ test('유튜브 RSS 는 404 · 500 이 섞여 온다(2026-10-01 실측: 같은 �
   assert.equal(failed.status, 'failed');
   assert.equal(rssCalls, -7);
 });
+
+test('분야 — 자동차·IT · 건강을 따로 가르고, 제목에 단서가 없으면 출처 블로그 주제로(사이트 homefeedLive 와 같은 사례, 2026-10-01)', () => {
+  assert.equal(core.category('그랜저 하이브리드 연비 실제로 타보니'), '자동차·IT');
+  assert.equal(core.category('아이폰 18 프로 출시일과 가격 정리'), '자동차·IT');
+  assert.equal(core.category('이제 과태료에 벌점까지 깜빡이 키셨나요'), '자동차·IT');
+  assert.equal(core.category('위고비 끊고 26일 만에 10kg 뺀 식단'), '건강');
+  assert.equal(core.category('요즘 다들 이렇게 한다는 그것', ['IT/차테크', 'IT/차테크', '스포츠']), '자동차·IT');
+  assert.equal(core.category('요즘 다들 이렇게 한다는 그것', ['건강 상식']), '건강');
+  assert.equal(core.category('요즘 다들 이렇게 한다는 그것'), '사회·이슈');
+  // 제목 단서가 출처 주제보다 먼저다 — 차테크 블로거가 쓴 축구 글은 스포츠
+  assert.equal(core.category('손흥민 결승골 터진 순간 아시안게임', ['IT/차테크']), '스포츠·게임');
+  assert.equal(core.category('41홈런으로 홈런왕 굳히나 기아타이거즈 김도영'), '스포츠·게임');
+});
+test('출처 주제가 게시물과 판 출처 목록에 실린다 — 실시간 판이 같은 분야를 매기려면 필요하다', async () => {
+  const { collect } = require('./homefeed-benchmarks.cjs');
+  const rss = '<rss><channel><title>차 블로그</title><item><title>그랜저 연비</title><link>https://blog.naver.com/car1/111</link><description>요약</description><pubDate>Mon, 28 Sep 2026 10:00:00 +0900</pubDate></item></channel></rss>';
+  const result = await collect({ id: 'car1', platform: 'naver-blog', url: 'https://blog.naver.com/car1', feedUrl: 'https://rss.blog.naver.com/car1.xml', topic: 'IT/차테크' }, now, async () => rss);
+  assert.equal(result.topic, 'IT/차테크');
+  assert.equal(result.posts[0].topic, 'IT/차테크');
+  const payload = core.buildPayload([result], now, null, []);
+  assert.equal(payload.sources[0].topic, 'IT/차테크');
+  assert.equal(payload.candidates[0].category, '자동차·IT');
+});
