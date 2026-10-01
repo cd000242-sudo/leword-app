@@ -793,6 +793,7 @@
         <button role="tab" data-screen="homefeed" aria-selected="false" onclick="showScreen('homefeed')"><span class="k">14</span>홈판 신호<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">15</span>사이트에서 보기 ↗</button>
         <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">16</span>설정 · 키</button>
+        <button role="tab" data-screen="assistant" aria-selected="false" onclick="showScreen('assistant')"><span class="k">17</span>AI 비서</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -2050,6 +2051,112 @@
         </div>
       </section>
 
+      <!-- 화면 17: AI 비서(2026-10-01) — 사용자 본인 구독 AI 로 사용법 · 결과 해석 · 문제 해결. 사이트 비서와 같은 함수(assistant-chat). -->
+      <section class="leword-screen" data-screen="assistant">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <h2 style="margin: 0; font-size: 19px; font-weight: 700; color: #e2e8f0;">AI 비서</h2>
+          <span style="font-size: 11.5px; color: #94a3b8;">내 구독 AI로 답합니다 · 운영자 일은 1:1 문의로 연결</span>
+        </div>
+        <p style="margin: 0 0 12px; font-size: 12.5px; line-height: 1.7; color: #94a3b8;">LEWORD 사용법 · 결과 해석 · 문제 해결을 도와드립니다. 글 본문은 쓰지 않습니다. AI 는 설정의 AI 연결(Claude · ChatGPT · 구글 계정)로 돕니다.</p>
+        <div id="assistantLog" style="display: flex; flex-direction: column; gap: 10px; min-height: 260px; max-height: 58vh; overflow-y: auto; padding: 14px; background: #0f172a; border: 1px solid rgba(255,255,255,0.09); border-radius: 12px;"></div>
+        <div style="display: flex; gap: 8px; margin-top: 10px;">
+          <textarea id="assistantInput" rows="2" maxlength="1500" placeholder="무엇이든 물어보세요 (Enter 보내기 · Shift+Enter 줄바꿈)"
+            style="flex: 1; resize: none; background: #101828; color: #e2e8f0; border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px;"></textarea>
+          <button id="assistantSendBtn" onclick="assistantSend()"
+            style="padding: 0 18px; background: #433069; border: 1px solid #aa88ed; border-radius: 8px; color: #f3e8ff; font-size: 13px; cursor: pointer;">보내기</button>
+        </div>
+      </section>
+      <script>
+        (function () {
+          // 대화는 앱이 켜져 있는 동안만 — 저장하지 않는다.
+          const turns = [];
+          const INQUIRY = 'https://open.kakao.com/o/sPcaslwh';
+          const ENGINE = { claude: 'Claude', codex: 'Codex', gemini: 'Antigravity', grok: 'Grok' };
+          const STARTERS = ['0명 글 부검은 어떻게 보나요?', 'AI 연결은 어떻게 하나요?', '네이버 로그인(어드바이저)은 왜 하나요?'];
+          let busy = false;
+          const log = () => document.getElementById('assistantLog');
+          function bubble(role, text, extra) {
+            const el = document.createElement('div');
+            const me = role === 'user';
+            Object.assign(el.style, {
+              alignSelf: me ? 'flex-end' : 'flex-start', maxWidth: me ? '80%' : '90%', whiteSpace: 'pre-wrap', fontSize: '13px', lineHeight: '1.65', padding: '8px 12px',
+              background: me ? '#3d2b63' : '#152035', border: '1px solid ' + (me ? '#6d5b93' : (extra && extra.failed ? '#92400e' : 'rgba(255,255,255,0.12)')),
+              borderRadius: me ? '12px 12px 2px 12px' : '12px 12px 12px 2px', color: extra && extra.failed ? '#fcd9aa' : '#e2e8f0',
+            });
+            el.textContent = text;
+            if (extra && extra.escalate) {
+              const a = document.createElement('button');
+              a.textContent = '운영자에게 1:1 문의';
+              Object.assign(a.style, { display: 'block', marginTop: '8px', background: '#fee500', color: '#191919', fontWeight: '700', border: 'none', borderRadius: '8px', padding: '5px 12px', fontSize: '12px', cursor: 'pointer' });
+              a.onclick = () => { try { (window.electronAPI && window.electronAPI.openExternal ? window.electronAPI.openExternal(INQUIRY) : window.open(INQUIRY, '_blank')); } catch (e) { window.open(INQUIRY, '_blank'); } };
+              el.appendChild(a);
+            }
+            if (extra && extra.provider) {
+              const tag = document.createElement('div');
+              tag.textContent = (ENGINE[extra.provider] || extra.provider) + ' · 내 구독';
+              Object.assign(tag.style, { marginTop: '4px', fontSize: '10px', color: '#7c8aa0' });
+              el.appendChild(tag);
+            }
+            log().appendChild(el);
+            log().scrollTop = log().scrollHeight;
+            return el;
+          }
+          function starters() {
+            if (!log() || log().childElementCount) return;
+            const wrap = document.createElement('div');
+            Object.assign(wrap.style, { display: 'flex', flexWrap: 'wrap', gap: '6px' });
+            STARTERS.forEach((q) => {
+              const b = document.createElement('button');
+              b.textContent = q;
+              Object.assign(b.style, { background: '#152035', border: '1px solid rgba(255,255,255,0.14)', color: '#cbd5e1', borderRadius: '16px', padding: '5px 11px', fontSize: '12px', cursor: 'pointer' });
+              b.onclick = () => { document.getElementById('assistantInput').value = q; window.assistantSend(); };
+              wrap.appendChild(b);
+            });
+            log().appendChild(wrap);
+          }
+          window.loadAssistantScreen = function loadAssistantScreen() {
+            starters();
+            const input = document.getElementById('assistantInput');
+            if (input && !input.__assistantKeys) {
+              input.__assistantKeys = true;
+              input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); window.assistantSend(); } });
+            }
+            if (input) input.focus();
+          };
+          window.assistantSend = async function assistantSend() {
+            const input = document.getElementById('assistantInput');
+            const question = String(input && input.value || '').trim();
+            if (!question || busy) return;
+            if (typeof (window.electronAPI && window.electronAPI.assistantChat) !== 'function') { bubble('assistant', '이 앱 버전에는 비서가 없습니다 — 앱을 업데이트해 주세요.', { failed: true }); return; }
+            busy = true;
+            input.value = '';
+            const btn = document.getElementById('assistantSendBtn');
+            if (btn) btn.disabled = true;
+            turns.push({ role: 'user', content: question });
+            bubble('user', question);
+            const wait = bubble('assistant', '답을 쓰는 중… (보통 5~15초)');
+            try {
+              const res = await window.electronAPI.assistantChat({ turns: turns.slice(-10), page: 'LEWORD 앱' });
+              wait.remove();
+              if (res && res.success && res.result) {
+                turns.push({ role: 'assistant', content: res.result.answer });
+                bubble('assistant', res.result.answer, { escalate: res.result.escalate, provider: res.result.provider });
+              } else {
+                turns.pop();
+                bubble('assistant', (res && res.error) || '답을 받지 못했습니다.', { failed: true });
+              }
+            } catch (e) {
+              wait.remove();
+              turns.pop();
+              bubble('assistant', '답을 받지 못했습니다 — 잠시 뒤 다시 물어봐 주세요.', { failed: true });
+            } finally {
+              busy = false;
+              if (btn) btn.disabled = false;
+            }
+          };
+        })();
+      </script>
+
       <!-- 모달 컨테이너 (동적으로 생성) -->
       <div id="modalContainer"></div>
 
@@ -2086,6 +2193,8 @@
           adsense: { open: 'openAdsenseHunterModal', root: 'adsenseHunterModal' },
           mate: { open: 'openNaverMateKeywordModal', root: 'naverHomeHunterModal' },
           settings: { open: 'openKeywordSettingsModal', root: 'keywordSettingsModal', reopen: true },
+          // AI 비서 — 열 때 입력칸에 초점, 첫 화면이면 예시 질문을 놓는다(AI 는 보낼 때만 부른다).
+          assistant: { load: 'loadAssistantScreen' },
         };
 
         window.activateScreen = function activateScreen(id) {

@@ -8,6 +8,7 @@ import { advisorFetch, naverSessionStatus, openAdvisorWindow } from './handlers/
 import { readBlogClassForView } from './handlers/blog-class';
 import { readAdvisorAutopsyHistory, readAdvisorDailyView, readDailyRecords } from './handlers/advisor-daily';
 import { autopsyFacts } from '../utils/advisor/autopsy-history';
+import { runAssistant } from './assistant-service';
 import { readTodayPlan } from './handlers/advisor-today';
 import { advisorDailySyncView, todayPlanSyncView } from '../utils/advisor/sync-view';
 
@@ -31,5 +32,7 @@ export function createMyBlogBridgeDeps(): MyBlogBridgeDeps {
     // 여러 날 기록을 함께 넘긴다 — 사이트 벤치마크 판이 '홈판 유입을 받은 내 글'을 여러 날에서 모은다(2026-10-01).
     advisorDailyGet: async () => advisorDailySyncView(readAdvisorDailyView().latest, readDailyRecords(), autopsyFacts(readAdvisorAutopsyHistory(), new Date())),
     todayPlanGet: async () => todayPlanSyncView(readTodayPlan()),
+    // LEWORD 비서 — 앱 화면과 같은 실행 함수(사용자 본인 구독, 클로드는 Sonnet).
+    assistantChat: (input) => runAssistant(input),
   };
 }

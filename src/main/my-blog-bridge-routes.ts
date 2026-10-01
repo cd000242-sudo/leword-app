@@ -8,6 +8,7 @@
  * 넘기지 않는 것: 기록 파일 경로·창구 목록(probeFile·endpoints). 사이트가 알 이유가 없다.
  */
 import type { IncomingMessage, ServerResponse } from 'http';
+import { sanitizeAssistantInput, type AssistantInput } from '../utils/assistant/assistant-prompt';
 
 export const MY_BLOG_ROUTE_PREFIX = '/v1/bridge/my-blog/';
 
@@ -36,6 +37,25 @@ export interface MyBlogBridgeDeps {
    */
   advisorDailyGet?: () => Promise<unknown | null>;
   todayPlanGet?: () => Promise<unknown | null>;
+  /**
+   * LEWORD 비서(2026-10-01) — 대화와 화면 자료만 받는다. 규칙 · 설명서는 앱이 붙인다(임의 프롬프트 통로가 아니다).
+   * 사용자 본인 구독(Claude Sonnet → Codex → agy)으로 돈다. 없으면 경로가 404.
+   */
+  assistantChat?: (input: AssistantInput) => Promise<{ answer: string; escalate: boolean; provider: string }>;
+}
+
+/** 대화 본문 상한 — 10턴 × 1,500자 + 화면 자료 3,000자에 넉넉히. */
+const ASSISTANT_BODY_LIMIT = 64 * 1024;
+
+async function readJsonBody(req: IncomingMessage, limit: number): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length;
+    if (size > limit) throw new Error('too-large');
+    chunks.push(chunk as Buffer);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
 /** 어드바이저 상대경로만 — 절대 URL·상위 경로 탈출은 거절. */
@@ -85,6 +105,20 @@ export async function handleMyBlogRoute(req: IncomingMessage, res: ServerRespons
     if (route === 'GET today-plan') {
       if (!deps.todayPlanGet) { io.json(res, 404, { ok: false, error: '이 버전엔 없는 경로입니다.' }); return true; }
       io.json(res, 200, { ok: true, result: { plan: await deps.todayPlanGet() } });
+      return true;
+    }
+    if (route === 'POST assistant') {
+      if (!deps.assistantChat) { io.json(res, 404, { ok: false, error: '이 버전엔 없는 경로입니다.' }); return true; }
+      let raw: unknown;
+      try { raw = await readJsonBody(req, ASSISTANT_BODY_LIMIT); } catch { io.json(res, 400, { ok: false, error: '대화 본문을 읽지 못했습니다.' }); return true; }
+      const input = sanitizeAssistantInput(raw);
+      if ('error' in input) { io.json(res, 400, { ok: false, error: input.error }); return true; }
+      try {
+        io.json(res, 200, { ok: true, result: await deps.assistantChat(input) });
+      } catch {
+        // 엔진 실패 사유엔 경로 · 계정 정보가 섞일 수 있다 — 고칠 방법만 말한다.
+        io.json(res, 502, { ok: false, error: 'AI 엔진이 답하지 못했습니다 — 앱의 AI 연결(처음 설정 마법사)을 확인해 주세요.' });
+      }
       return true;
     }
     io.json(res, 404, { ok: false, error: '지원하지 않는 내 블로그 경로입니다.' });

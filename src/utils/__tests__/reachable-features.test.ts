@@ -33,6 +33,8 @@ const EXPECTED_NAV: Array<[string, string]> = [
     ['homefeed', '홈판 신호'],
     ['sites', '사이트에서 보기 ↗'],
     ['settings', '설정 · 키'],
+    // 2026-10-01 사장님 "비서는 너가 앱이나 사이트에 있어서 나 대신 사람들을 도와주는 거야" — 사이트 비서와 같은 함수.
+    ['assistant', 'AI 비서'],
 ];
 
 function sliceBetween(source: string, startMarker: string, endMarker: string): string {

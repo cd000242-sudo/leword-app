@@ -240,6 +240,8 @@ export type BloggerApi = {
    * 홈판 신호 — 이 PC 가 10분마다 쌓은 스토리 목록과 수동 수집(2026-09-17).
    * 계산은 브리지가 쓰던 서비스 그대로다. 앱에 화면이 없어 사이트로 가야 했던 것을 연다.
    */
+  /** LEWORD 비서 — 대화와 화면 자료. 답 { answer, escalate, provider } 또는 { success:false, error }. */
+  assistantChat(input: unknown): Promise<{ success: boolean; result?: { answer: string; escalate: boolean; provider: string }; error?: string }>;
   homefeedStories(): Promise<any>;
   homefeedCollect(): Promise<any>;
   homefeedStory(input: { id: string }): Promise<any>;
@@ -554,6 +556,9 @@ const api: BloggerApi = {
   // 키워드 마인드맵(자동완성 + 검색광고 연관어 + 데이터랩, 깊이 3단) — 핸들러는 있었는데 창구가 없어 놀고 있었다.
   generateKeywordMindmap: (keyword: string, options?: { maxDepth?: number; maxKeywordsPerLevel?: number; maxTotalKeywords?: number }) =>
     ipcRenderer.invoke('generate-keyword-mindmap', keyword, options || {}),
+
+  // LEWORD 비서(2026-10-01) — 대화와 화면 자료만 넘긴다. 규칙 · 설명서는 메인이 붙인다.
+  assistantChat: (input: unknown) => ipcRenderer.invoke('assistant-chat', input),
 
   // 홈판 신호 — 앱 화면이 쓰는 창구(2026-09-17). 그전에는 사이트만 브리지로 볼 수 있었다.
   homefeedStories: () => ipcRenderer.invoke('homefeed-stories'),

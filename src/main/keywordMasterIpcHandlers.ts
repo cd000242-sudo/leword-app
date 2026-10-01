@@ -19,6 +19,7 @@ import { setupSeatWatchHandlers, startSeatWatchScheduler, stopSeatWatchScheduler
 import { setupBlogClassHandlers } from './handlers/blog-class';
 import { setupNaverSessionHandlers } from './handlers/naver-session';
 import { setupAdvisorDailyHandlers, startAdvisorDailyScheduler, stopAdvisorDailyScheduler } from './handlers/advisor-daily';
+import { setupAssistantHandlers } from './handlers/assistant-handlers';
 import { setupAdvisorTodayHandlers } from './handlers/advisor-today';
 import { setupGoldenWritingKitHandlers } from './handlers/golden-writing-kit';
 // 홈판 신호(2026-09-17) — 앱이 계산하는데 정작 앱 화면이 없어 사이트로 가야 했다.
@@ -206,6 +207,8 @@ export function setupKeywordMasterHandlers() {
   startAdvisorDailyScheduler();
   // '오늘 쓸 글 10'(D 판) — 수집 직후 이어서 키워드 10·시간대·제목 20 을 실측으로 조립한다.
   setupAdvisorTodayHandlers();
+  // LEWORD 비서(2026-10-01) — 사용자 본인 구독 AI 로 사용법 · 결과 해석 · 문제 해결을 돕는다. 사이트 브리지와 같은 함수.
+  setupAssistantHandlers();
   // 글감 한 벌(앱 전용, 2026-09-10) — 발굴 줄을 펴면 제목 후보와 같이 넣을 말이 나온다.
   setupGoldenWritingKitHandlers();
   // 오늘의 글감(앱 전용, 2026-09-10) — 깃허브 예약을 기다리지 않는다. 누르면 이 PC 에서 만든다.
