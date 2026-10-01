@@ -66,6 +66,12 @@ describe('advisorDailySyncView', () => {
     ]);
     expect(JSON.stringify(hits)).not.toContain('224385098124');
   });
+
+  it('0명 글 부검 사실은 받은 그대로 싣고, 없으면 null', () => {
+    const autopsy = { from: '2026-09-16', to: '2026-09-29', posts: [], homefeed: [{ day: '2026-09-29', rank: 1, title: '홈판', url: 'https://blog.naver.com/a/1', publishedAt: null }] };
+    expect(advisorDailySyncView(record, [], autopsy)!.autopsy).toEqual(autopsy);
+    expect(advisorDailySyncView(record)!.autopsy).toBeNull();
+  });
 });
 
 describe('todayPlanSyncView', () => {

@@ -20,6 +20,7 @@ import {
 } from '../../utils/advisor/daily-summary';
 import { isWatchDue } from '../../utils/seat-watch';
 import { advisorFetch, naverSessionStatus } from './naver-session';
+import { collectAutopsyHistory, readAutopsyHistory } from './advisor-autopsy';
 
 /** 자리 감시(05:00)와 같은 시각 — 어제 통계가 채워지는 시각을 실측하면 조정한다. */
 export const ADVISOR_DAILY_RUN_HOUR = 5;
@@ -146,6 +147,17 @@ export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: {
       lastSkip: null,
     });
     console.log(`[ADVISOR-DAILY] ${reason} 수집 끝 — ${record.day} · 글 ${record.posts.length} · 창구 ${Object.keys(results).length} · 못 받은 ${record.missing.length}`);
+    // 0명 글 부검 재료 — 하루 기록은 이미 저장됐으니 여기서 실패해도 그대로 둔다.
+    try {
+      await collectAutopsyHistory({
+        dir: DIR(),
+        ctx,
+        records: readDailyRecords(),
+        probe: async (specs) => { const got: Record<string, AdvisorProbeResult> = {}; await runProbes(specs, got); return got; },
+      });
+    } catch (error: any) {
+      console.warn('[ADVISOR-AUTOPSY] 부검 재료 수집 실패:', error?.message);
+    }
     if (afterCollect) {
       try { afterCollect(record); } catch (error: any) { console.warn('[ADVISOR-DAILY] 후속 작업 실패:', error?.message); }
     }
@@ -185,6 +197,11 @@ export function readAdvisorDailyView() {
   const records = readDailyRecords();
   const latest = readJson<AdvisorDailyRecord | null>(LATEST(), null) ?? records[records.length - 1] ?? null;
   return { latest, pattern: homefeedDayPattern(records), days: records.length, state: readState(), runHour: ADVISOR_DAILY_RUN_HOUR };
+}
+
+/** 0명 글 부검 재료(사이트 · 화면이 판정한다). */
+export function readAdvisorAutopsyHistory() {
+  return readAutopsyHistory(DIR());
 }
 
 export function setupAdvisorDailyHandlers(): void {

@@ -4,9 +4,11 @@
  * 빠지는 것: 어드바이저 채널 id·글 contentId(계정·글 식별자), 창구 목록·기록 파일 경로. 사이트가 알 이유가 없다.
  * 남는 것: 통계 날짜, 글별 제목·홈판 유입·발행 시각, 내 주제·시간대·인기/트렌드 검색어, 오늘 홈판 제목, 오늘 쓸 글 판.
  * 값은 그대로 옮긴다 — 여기서 새로 셈하거나 판정하지 않는다.
+ * 예외: 0명 글 부검 사실(autopsy, 2026-10-01)은 내 공개 글 주소를 싣는다 — 사이트가 글로 이어 주고 홈판 글과 맞대야 해서다(묶음은 비밀번호로 잠긴다).
  */
 import type { AdvisorDailyRecord } from './daily-summary';
 import type { TodayPlan } from './today-build';
+import type { AutopsyFacts } from './autopsy-history';
 
 export interface AdvisorDailySyncView {
   day: string;
@@ -24,6 +26,8 @@ export interface AdvisorDailySyncView {
   /** 여러 날 기록에서 모은 '홈판 유입을 받은 내 글'(제목 · 날짜 · 유입 수) — 벤치마크 판의 '내 블로그 홈판 소재' 표시. */
   myHomefeedHits: { title: string; day: string; count: number }[];
   weeklyRecommendation: AdvisorDailyRecord['weeklyRecommendation'];
+  /** 0명 글 부검 사실 — 최근 14일 내 글(조회 · 발행 시각 · 검색 허용)과 그 기간 홈판 상위. 판정은 사이트가 한다. */
+  autopsy: AutopsyFacts | null;
   /** 못 받은 창구 수만 — 이름(창구 목록)은 넘기지 않는다. */
   missingCount: number;
 }
@@ -50,7 +54,7 @@ function myHomefeedHits(records: readonly AdvisorDailyRecord[]): AdvisorDailySyn
     .slice(0, MY_HOMEFEED_HITS_MAX);
 }
 
-export function advisorDailySyncView(record: AdvisorDailyRecord | null | undefined, history: readonly AdvisorDailyRecord[] = []): AdvisorDailySyncView | null {
+export function advisorDailySyncView(record: AdvisorDailyRecord | null | undefined, history: readonly AdvisorDailyRecord[] = [], autopsy: AutopsyFacts | null = null): AdvisorDailySyncView | null {
   if (!record) return null;
   return {
     day: record.day,
@@ -72,6 +76,7 @@ export function advisorDailySyncView(record: AdvisorDailyRecord | null | undefin
     homefeedWeek: record.homefeedWeek || [],
     myHomefeedHits: myHomefeedHits([...history, record]),
     weeklyRecommendation: record.weeklyRecommendation || null,
+    autopsy,
     missingCount: (record.missing || []).length,
   };
 }

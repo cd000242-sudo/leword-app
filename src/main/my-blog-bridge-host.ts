@@ -6,7 +6,8 @@ import { app } from 'electron';
 import type { MyBlogBridgeDeps } from './my-blog-bridge-routes';
 import { advisorFetch, naverSessionStatus, openAdvisorWindow } from './handlers/naver-session';
 import { readBlogClassForView } from './handlers/blog-class';
-import { readAdvisorDailyView, readDailyRecords } from './handlers/advisor-daily';
+import { readAdvisorAutopsyHistory, readAdvisorDailyView, readDailyRecords } from './handlers/advisor-daily';
+import { autopsyFacts } from '../utils/advisor/autopsy-history';
 import { readTodayPlan } from './handlers/advisor-today';
 import { advisorDailySyncView, todayPlanSyncView } from '../utils/advisor/sync-view';
 
@@ -28,7 +29,7 @@ export function createMyBlogBridgeDeps(): MyBlogBridgeDeps {
     blogClassGet: async () => readBlogClassForView(),
     // 사이트 동기화 재료 — 채널 id·글 id·창구 목록을 뺀 판(sync-view)만 넘긴다.
     // 여러 날 기록을 함께 넘긴다 — 사이트 벤치마크 판이 '홈판 유입을 받은 내 글'을 여러 날에서 모은다(2026-10-01).
-    advisorDailyGet: async () => advisorDailySyncView(readAdvisorDailyView().latest, readDailyRecords()),
+    advisorDailyGet: async () => advisorDailySyncView(readAdvisorDailyView().latest, readDailyRecords(), autopsyFacts(readAdvisorAutopsyHistory(), new Date())),
     todayPlanGet: async () => todayPlanSyncView(readTodayPlan()),
   };
 }

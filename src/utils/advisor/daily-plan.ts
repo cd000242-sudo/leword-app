@@ -26,8 +26,8 @@ export const ADVISOR_DAILY_POST_CAP = 30;
 export const ADVISOR_DAILY_TOPIC_CAP = 3;
 /** 전체 홈판 상위 20 을 어제 앞으로 더 받는 날수 — '오늘 쓸 글' 제목 본보기(최근 7일). 날짜마다 한 요청. */
 export const ADVISOR_HOMEFEED_WEEK_DAYS = 6;
-/** cv-ranks 한 번에 받는 글 수. */
-const CV_RANKS_LIMIT = 50;
+/** cv-ranks 한 번에 받는 글 수. 줄 수가 이보다 적으면 그날 조회 있는 글이 전부 들어온 것이다(0명 글 부검이 기댄다). */
+export const CV_RANKS_LIMIT = 50;
 
 const two = (value: number) => String(value).padStart(2, '0');
 
