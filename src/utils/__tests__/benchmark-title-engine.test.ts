@@ -4,6 +4,8 @@ import {
   BENCHMARK_TITLE_MAX_CHARS,
   BENCHMARK_TITLE_MIN_CHARS,
   feedTitleSamples,
+  homefeedTitleRuleLines,
+  parseBenchmarkTitleKinds,
   TITLE_FRAME_REPEAT_CAP,
   buildBenchmarkTitlePrompt,
   cardsFromBenchmarks,
@@ -216,5 +218,46 @@ describe('titlesForCards', () => {
     const reply = JSON.stringify([{ id: 'abc123', titles: ['장기전세 20년 만기 앞두고 이주 상담 받아보니 다르네요', '장기전세 20년 만기 앞두고 이주 상담 받아보니 다르네요!'] }]);
     const result = await titlesForCards([card], async () => ({ reply, provider: 'codex' }));
     expect(result.results[0].titles).toHaveLength(1);
+  });
+});
+
+describe('원제목 변주 + 새 각도 반반(2026-10-01 사장님 "벤치마킹 제목이랑 갭 차이가 너무 크다" — 겹침 중앙 0.20)', () => {
+  const src = { ...card, title: '"원래 좋아했다" 장기전세 20년 만기 가구, 알고보니 이주 상담이 먼저', sourceTitles: ['"원래 좋아했다" 장기전세 20년 만기 가구, 알고보니 이주 상담이 먼저'] };
+  it('변주는 원제목과 70% 미만이면 통과(새 각도는 50% 미만) — 핵심 후킹을 살린 변주를 베끼기로 버리지 않는다', () => {
+    const variant = '"원래 좋아했다" 장기전세 20년 만기 가구가 이주 상담부터 받은 사정';
+    expect(checkFeedTitle(variant, src, 'angle')).toContain('ARTICLE_COPY');
+    expect(checkFeedTitle(variant, src, 'variant')).toEqual([]);
+    expect(checkFeedTitle(src.title, src, 'variant')).toContain('ARTICLE_COPY');
+  });
+  it('변주가 원제목에서 너무 멀어지면(겹침 25% 미만) VARIANT_DRIFT — 핵심 후킹을 버린 변주', () => {
+    expect(checkFeedTitle('분양전환 조건 몰랐던 장기전세 만기 가구가 놓친 서류 한 장', src, 'variant')).toContain('VARIANT_DRIFT');
+  });
+  it('홈판 본보기(avoidTitles) 베끼기는 변주여도 50% 기준 그대로', () => {
+    const withAvoid = { ...src, avoidTitles: ['조용히 전해진 소식… 장기전세 만기 가구가 눈물 쏟은 이주 상담'] };
+    expect(checkFeedTitle('조용히 전해진 소식… 장기전세 만기 가구가 눈물 쏟은 이주 상담', withAvoid, 'variant')).toContain('ARTICLE_COPY');
+  });
+  it('답의 variants · angles 를 읽고, 옛 titles 답은 새 각도로 읽는다', () => {
+    const kinds = parseBenchmarkTitleKinds(JSON.stringify([{ id: 'a', variants: ['v1'], angles: ['a1'] }, { id: 'b', titles: ['t1'] }]));
+    expect(kinds.get('a')).toEqual({ variants: ['v1'], angles: ['a1'] });
+    expect(kinds.get('b')).toEqual({ variants: [], angles: ['t1'] });
+  });
+  it('변주 10 · 새 각도 10 을 번갈아 싣고, 한쪽이 모자라면 다른 쪽으로 채운다', async () => {
+    const syll = (i: number) => String.fromCharCode(0xac00 + i * 37);
+    const variants = Array.from({ length: 12 }, (_, i) => `"원래 좋아했다" 장기전세 20년 만기 ${syll(i)}씨네가 이주 상담부터 받은 사정`);
+    const angles = Array.from({ length: 4 }, (_, i) => `분양전환 앞둔 ${syll(i + 20)}씨네 장기전세 만기 서류 순서 차이`);
+    const reply = JSON.stringify([{ id: src.id, variants, angles }]);
+    const result = await titlesForCards([src], async () => ({ reply, provider: 'claude' }), []);
+    const titles = result.results[0].titles;
+    expect(titles).toHaveLength(16);
+    expect(titles.slice(0, 4)).toEqual([variants[0], angles[0], variants[1], angles[1]]);
+    expect(titles.filter((t) => t.startsWith('"원래')).length).toBe(12);
+  });
+  it('벤치마크 프롬프트는 두 묶음을 청하고, 원제목 비슷하면 실패라는 공통 문장을 변주 허용 문장으로 바꾼다 — 오늘 쓸 글 문장은 그대로', () => {
+    const prompt = buildBenchmarkTitlePrompt([src], []);
+    expect(prompt).toMatch(/variants/);
+    expect(prompt).toMatch(/angles/);
+    expect(prompt).toMatch(/핵심 후킹/);
+    expect(prompt).not.toContain('재료의 제목을 조금 바꾼 제목 금지');
+    expect(homefeedTitleRuleLines().join('\n')).toContain('재료의 제목을 조금 바꾼 제목 금지');
   });
 });

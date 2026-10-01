@@ -33,8 +33,9 @@ const TITLE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 /**
  * 제목 규칙 판 — 규칙이 바뀌면 올린다. 옛 판으로 지은 항목은 새 카드 다음 차례로 다시 짓고, 그때까지는 판에 그대로 남는다.
  * 2026-10-01: 완결된 제목(28자 하한 · 말을 걸다 만 꼬리 금지 · 두 박자 · 실제 홈판 본보기) — 사장님 "만들다 만 느낌".
+ * 2026-10-01(2): 원제목 변주 10 + 새 각도 10 — 사장님 "벤치마킹 제목이랑 갭 차이가 너무 크다".
  */
-const TITLE_RULES = '2026-10-01-complete';
+const TITLE_RULES = '2026-10-01-variants';
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
