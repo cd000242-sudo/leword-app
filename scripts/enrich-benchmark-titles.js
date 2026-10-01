@@ -60,13 +60,21 @@ function freshEntries(store, nowMs = Date.now()) {
     && Number.isFinite(Date.parse(String(e.at || ''))) && Date.parse(e.at) > nowMs - TITLE_TTL_MS);
 }
 
-/** 이번 회차에 지을 카드 — 창고에 없는 카드 먼저, 그다음 옛 규칙으로 지은 카드. 최대 max. */
+/**
+ * 이번 회차에 지을 카드 — 옛 규칙으로 지은 카드(지금 판에 보이는 제목)와 창고에 없는 카드를 번갈아. 최대 max.
+ * 새 카드를 먼저 다 채우게 하면 카드가 매시 새로 들어와 옛 제목이 끝내 안 바뀐다(2026-10-01 첫 회차 16장 전부 새 카드).
+ */
 function pickTitleTargets(cards, kept, max) {
   const have = new Set(kept.map((e) => e.id));
   const current = new Set(kept.filter((e) => e.rules === TITLE_RULES).map((e) => e.id));
   const missing = cards.filter((c) => !have.has(c.id));
   const outdated = cards.filter((c) => have.has(c.id) && !current.has(c.id));
-  return [...missing, ...outdated].slice(0, max);
+  const picked = [];
+  for (let i = 0; picked.length < max && (i < outdated.length || i < missing.length); i++) {
+    if (i < outdated.length) picked.push(outdated[i]);
+    if (i < missing.length && picked.length < max) picked.push(missing[i]);
+  }
+  return picked;
 }
 
 /** 새로 지은 항목이 같은 id 의 옛 항목을 대체한다. */

@@ -37,10 +37,12 @@ test('새 결과는 같은 id 의 옛 항목을 대체한다', () => {
   assert.deepEqual(merged.map((e) => `${e.id}:${e.titles[0]}`), ['c3:다', 'a1:새']);
 });
 
-test('옛 규칙으로 지은 제목은 새 카드 다음 차례로 다시 짓는다 — 다시 지을 때까지 옛 제목은 판에 남는다(2026-10-01)', () => {
+test('옛 규칙으로 지은 제목은 새 카드와 번갈아 다시 짓는다 — 다시 지을 때까지 옛 제목은 판에 남는다(2026-10-01)', () => {
   const { pickTitleTargets, TITLE_RULES } = require('./enrich-benchmark-titles.js');
   const cards = ['new1', 'old1', 'cur1', 'new2', 'old2'].map((id) => ({ id }));
   const kept = [{ id: 'old1', titles: ['t'] }, { id: 'old2', titles: ['t'], rules: 'past' }, { id: 'cur1', titles: ['t'], rules: TITLE_RULES }];
-  assert.deepEqual(pickTitleTargets(cards, kept, 3).map((c) => c.id), ['new1', 'new2', 'old1']);
-  assert.deepEqual(pickTitleTargets(cards, kept, 10).map((c) => c.id), ['new1', 'new2', 'old1', 'old2']);
+  // 옛 규칙 카드(지금 판에 보이는 제목)와 새 카드를 번갈아 — 새 카드가 끝없이 들어와도 옛 제목이 언젠가는 바뀐다
+  assert.deepEqual(pickTitleTargets(cards, kept, 3).map((c) => c.id), ['old1', 'new1', 'old2']);
+  assert.deepEqual(pickTitleTargets(cards, kept, 10).map((c) => c.id), ['old1', 'new1', 'old2', 'new2']);
+  assert.deepEqual(pickTitleTargets([{ id: 'n' }], [], 5).map((c) => c.id), ['n']);
 });
