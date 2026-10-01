@@ -81,7 +81,7 @@ function atomicWrite(filename, value) {
   finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
 }
 async function main(argv=process.argv.slice(2)) {
-  const args={}; for(let i=0;i<argv.length;i++) { if(!['--output','--state','--instagram'].includes(argv[i]) || !argv[i+1]) throw new Error('Usage: node scripts/homefeed-benchmarks.cjs --output <public.json> --state <history.json> [--instagram <cache.json>]'); args[argv[i].slice(2)]=argv[++i]; }
+  const args={}; for(let i=0;i<argv.length;i++) { if(!['--output','--state','--instagram','--ledger'].includes(argv[i]) || !argv[i+1]) throw new Error('Usage: node scripts/homefeed-benchmarks.cjs --output <public.json> --state <history.json> [--instagram <cache.json>] [--ledger <dir>]'); args[argv[i].slice(2)]=argv[++i]; }
   if(!args.output || !args.state) throw new Error('--output and --state are required');
   if(new Set([args.output,args.state,args.instagram].filter(Boolean).map(f=>path.resolve(f))).size!==[args.output,args.state,args.instagram].filter(Boolean).length) throw new Error('Output, state and instagram cache must differ');
   const now=new Date().toISOString(); const previous=readJson(args.output); const previousState=readJson(args.state); let results=[];
@@ -101,6 +101,12 @@ async function main(argv=process.argv.slice(2)) {
   if(posts.length) {
     // Public counters and timestamps only: do not publish RSS bodies or private session data.
     const observations=posts.map(p=>({url:p.url,platform:p.platform,capturedAt:p.capturedAt,metrics:p.metrics}));
+    // 시간 장부는 상태를 덮어쓰기 전에 — 앞 회차 관측과 견줘 새 글 · 바뀐 반응 수만 쌓는다.
+    if(args.ledger) {
+      const {ledgerRows,appendLedger,isEmptyLedger}=require('./homefeed-benchmark-ledger.cjs');
+      const ledger=appendLedger(args.ledger,ledgerRows(posts,previousState?.observations||[],now,{bootstrap:isEmptyLedger(args.ledger)}),now);
+      console.log(`ledger: +${ledger.appended} rows${ledger.removed.length?`, removed ${ledger.removed.join(',')}`:''}`);
+    }
     atomicWrite(args.state,{schemaVersion:1,observedAt:now,observations});
   }
   console.log(JSON.stringify({status:payload.status,posts:payload.collectedPostCount,candidates:payload.candidates.length,recommended:payload.candidates.filter(c=>c.recommended).length}));
