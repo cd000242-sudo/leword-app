@@ -7,6 +7,16 @@ const path = require('node:path');
 const core = require('./homefeed-benchmarks-core.cjs');
 const registry = require('./homefeed-benchmarks-sources.json');
 
+/** 유튜브 RSS 는 같은 주소가 404 · 500 · 200 을 오간다(2026-10-01 실측, 구글 공식 채널도 같다) — 세 번까지, 사이 0.8초. */
+async function fetchRetry(fetcher, url, tries = 3, waitMs = 800) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try { return await fetcher(url); }
+    catch (error) { last = error; if (i < tries - 1) await new Promise((resolve) => setTimeout(resolve, waitMs)); }
+  }
+  throw last;
+}
+
 async function collect(source, now, fetcher = core.fetchText, instagram = null) {
   const base = { id:source.id, platform:source.platform, name:source.name || source.id, url:source.url, capturedAt:now };
   if (source.platform==='instagram') {
@@ -21,7 +31,7 @@ async function collect(source, now, fetcher = core.fetchText, instagram = null) 
       const html=await fetcher(source.url);
       const channelId=html.match(/"externalId"\s*:\s*"(UC[a-zA-Z0-9_-]{22})"/)?.[1];
       if (!channelId) throw new Error('Public channel ID unavailable');
-      result=core.parseYoutube(await fetcher(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`),source,now);
+      result=core.parseYoutube(await fetchRetry(fetcher,`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`),source,now);
     } else if (source.platform==='community-ranking') result=core.parseCommunity(await fetcher(source.url),source,now);
     else if (source.platform==='news-ranking') result=core.parseNate(await fetcher(source.url),source,now);
     else throw new Error('Unsupported platform');

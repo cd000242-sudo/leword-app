@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   BENCHMARK_TITLE_COUNT,
   BENCHMARK_TITLE_MAX_CHARS,
+  BENCHMARK_TITLE_MIN_CHARS,
+  feedTitleSamples,
   TITLE_FRAME_REPEAT_CAP,
   buildBenchmarkTitlePrompt,
   cardsFromBenchmarks,
   checkBenchmarkTitle,
+  checkFeedTitle,
   homefeedTitleSurfaceReasons,
   isQuoteStarter,
   isSpokenEnding,
@@ -71,6 +74,15 @@ describe('checkBenchmarkTitle', () => {
     // 49자 — 옛 38자 상한이면 떨어졌을 홈판 어투 길이
     expect(checkBenchmarkTitle('장기전세 만기 앞두고 이주 상담 먼저 받으라는데 분양전환 조건은 왜 아무도 말을 안 할까', card)).not.toContain('TOO_LONG');
   });
+  it('완성된 제목만 — 28자 미만 · 말을 걸다 만 꼬리는 떨어진다(2026-10-01 "제목을 만들다 만 느낌", 우리 판 중앙 27자 vs 홈판 실측 38자)', () => {
+    expect(BENCHMARK_TITLE_MIN_CHARS).toBe(28);
+    expect(checkFeedTitle('장기전세 만기 이주 상담 결과', card)).toContain('TOO_SHORT');
+    expect(checkFeedTitle('장기전세 20년 만기 앞두고 이주 상담 받은 집들 어떻게 됐냐면', card)).toContain('DANGLING_TAIL');
+    expect(checkFeedTitle('장기전세 20년 만기 앞두고 이주 상담 받은 결과가 이렇다는데', card)).toContain('DANGLING_TAIL');
+    expect(checkFeedTitle('장기전세 20년 만기 앞두고 이주 상담에서 들은 말이요', card)).toContain('DANGLING_TAIL');
+    // 홈판 실측 모양: 앞 박자 … 뒤 박자, 끝은 무엇을 얻는지 드러나는 명사구
+    expect(checkFeedTitle('20년 살고 나가라더니… 장기전세 만기 가구가 받은 이주 상담 조건', card)).toEqual([]);
+  });
   it('무엇이 어떻게인지 없는 껍데기 후킹은 떨어진다(2026-09-30 첫 판 20개 전부)', () => {
     expect(checkBenchmarkTitle('장기전세 만기 두고 반응이 갈리네요', card)).toContain('HOLLOW_HOOK');
     expect(checkBenchmarkTitle('장기전세 연장 안 되는 이유가 있네요', card)).toContain('HOLLOW_HOOK');
@@ -124,10 +136,10 @@ describe('titleEndingKey · isQuoteStarter · isSpokenEnding — 판 전체 틀 
     expect(isSpokenEnding('장기전세 만기 뒤 이주 지원 조건')).toBe(false);
     expect(isSpokenEnding('장기전세 만기 뒤 남는 것은 뭘까')).toBe(false);
   });
-  it('따옴표 스타터는 판의 절반(홈판 실측 하루 20건 중 중앙 8), 구어 어미는 판의 다섯에 하나(실측 최대 2) — 작은 판은 바닥값', () => {
+  it('따옴표 스타터는 판의 절반(홈판 실측 하루 20건 중 중앙 8), 구어 어미는 판의 열에 하나(실측 1% · 2026-10-01 사장님 "만들다 만 느낌") — 작은 판은 바닥값', () => {
     expect(quoteStarterCap(20)).toBe(10);
     expect(quoteStarterCap(4)).toBe(TITLE_FRAME_REPEAT_CAP);
-    expect(spokenEndingCap(20)).toBe(4);
+    expect(spokenEndingCap(20)).toBe(2);
     expect(spokenEndingCap(6)).toBe(2);
   });
 });
@@ -151,12 +163,30 @@ describe('buildBenchmarkTitlePrompt', () => {
     expect(prompt).toContain(card.summary);
     expect(prompt).toContain('쉼표');
   });
+  it('홈판 실측 모양(두 박자 말줄임 · 숫자 · 완결된 명사구 끝)과 실제 홈판 제목 본보기를 싣는다 — 본보기는 베끼지 말라고 못박는다', () => {
+    const prompt = buildBenchmarkTitlePrompt([card], ['’79세’ 윤여정, 조용히 전해진 소식… 눈물 바다']);
+    expect(prompt).toMatch(/말줄임/);
+    expect(prompt).toMatch(/완결/);
+    expect(prompt).toMatch(/어떻게 됐냐면/);
+    expect(prompt).toContain('’79세’ 윤여정, 조용히 전해진 소식… 눈물 바다');
+    expect(prompt).toMatch(/베끼지/);
+  });
+});
+
+describe('feedTitleSamples — 실제 홈판에 오른 제목 본보기(어드바이저 실측, 저장소에 실은 표본)', () => {
+  it('표면 규칙을 통과한 것만 · 같은 끝맺음은 하나씩 · 상한까지', () => {
+    const samples = feedTitleSamples(12);
+    expect(samples.length).toBeGreaterThan(0);
+    expect(samples.length).toBeLessThanOrEqual(12);
+    expect(samples.every((title) => homefeedTitleSurfaceReasons(title).length === 0)).toBe(true);
+    expect(new Set(samples.map(titleEndingKey)).size).toBe(samples.length);
+  });
 });
 
 describe('titlesForCards', () => {
   it('검사를 통과한 제목만 20개까지 남기고 안 준 카드는 버린다', async () => {
-    // 재료에 없는 숫자는 떨어지므로 변주는 한글 음절로만 한다.
-    const good = Array.from({ length: 24 }, (_, i) => `장기전세 만기 앞두고 이주 상담 받아보니 ${['이렇네요', '다르네요', '갈리네요', '묻더라고요'][i % 4]} ${String.fromCharCode(0xac00 + i * 37)}`);
+    // 재료에 없는 숫자는 떨어지므로 변주는 한글 음절로만 한다. 끝은 명사구(구어 어미는 판에 둘까지).
+    const good = Array.from({ length: 24 }, (_, i) => `장기전세 만기 앞두고 ${String.fromCharCode(0xac00 + i * 37)}씨네가 받은 이주 상담 ${['조건', '순서', '차이', '결과'][i % 4]}`);
     const reply = JSON.stringify([
       { id: 'abc123', titles: [...good, '장기전세 만기, 연장 방법', '장기전세 만기 총정리'] },
       { id: 'ghost', titles: ['장기전세 유령'] },
@@ -168,8 +198,22 @@ describe('titlesForCards', () => {
     expect(result.results[0].titles).toHaveLength(BENCHMARK_TITLE_COUNT);
     expect(result.results[0].rejected.map((row) => row.reasons[0])).toEqual(expect.arrayContaining(['COMMA_SPLIT', 'CLICHE']));
   });
+  it('구어 어미로 끝나는 제목은 카드당 둘까지 — 넘치면 SPOKEN_REPEAT 로 떨어진다', async () => {
+    const spoken = ['다르네요', '그렇더라고요', '바뀌었대요', '남았네요'].map((end) => `장기전세 20년 만기 앞두고 이주 상담 받아 보니 조건이 ${end}`);
+    const result = await titlesForCards([card], async () => ({ reply: JSON.stringify([{ id: 'abc123', titles: spoken }]), provider: 'claude' }));
+    expect(result.results[0].titles).toHaveLength(2);
+    expect(result.results[0].rejected.map((row) => row.reasons[0])).toEqual(['SPOKEN_REPEAT', 'SPOKEN_REPEAT']);
+  });
+  it('본보기(실제 홈판 제목)를 그대로 베끼면 떨어진다', async () => {
+    // 숫자 · 과장어 없이 다른 규칙은 다 통과하는 제목 — 본보기가 없으면 살아남고, 본보기면 ARTICLE_COPY 로만 떨어져야 한다.
+    const sample = '조용히 전해진 소식… 장기전세 만기 가구가 눈물 쏟은 이주 상담';
+    const reply = JSON.stringify([{ id: 'abc123', titles: [sample] }]);
+    expect((await titlesForCards([card], async () => ({ reply, provider: 'claude' }))).results[0].titles).toEqual([sample]);
+    const copied = await titlesForCards([card], async () => ({ reply, provider: 'claude' }), [sample]);
+    expect(copied.results).toHaveLength(0);
+  });
   it('같은 제목은 한 번만 센다', async () => {
-    const reply = JSON.stringify([{ id: 'abc123', titles: ['장기전세 만기 이주 상담 받아보니 다르네요', '장기전세 만기 이주 상담 받아보니 다르네요!'] }]);
+    const reply = JSON.stringify([{ id: 'abc123', titles: ['장기전세 20년 만기 앞두고 이주 상담 받아보니 다르네요', '장기전세 20년 만기 앞두고 이주 상담 받아보니 다르네요!'] }]);
     const result = await titlesForCards([card], async () => ({ reply, provider: 'codex' }));
     expect(result.results[0].titles).toHaveLength(1);
   });

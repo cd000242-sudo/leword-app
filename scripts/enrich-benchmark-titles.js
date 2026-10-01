@@ -30,6 +30,11 @@ const path = require('path');
 
 /** 창고 유효기간. 카드는 발행 7일이 지나면 stale 이라 어차피 제목을 안 짓는다. */
 const TITLE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * 제목 규칙 판 — 규칙이 바뀌면 올린다. 옛 판으로 지은 항목은 새 카드 다음 차례로 다시 짓고, 그때까지는 판에 그대로 남는다.
+ * 2026-10-01: 완결된 제목(28자 하한 · 말을 걸다 만 꼬리 금지 · 두 박자 · 실제 홈판 본보기) — 사장님 "만들다 만 느낌".
+ */
+const TITLE_RULES = '2026-10-01-complete';
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -53,6 +58,15 @@ function freshEntries(store, nowMs = Date.now()) {
   return list.filter((e) => e && typeof e.id === 'string'
     && Array.isArray(e.titles) && e.titles.length > 0
     && Number.isFinite(Date.parse(String(e.at || ''))) && Date.parse(e.at) > nowMs - TITLE_TTL_MS);
+}
+
+/** 이번 회차에 지을 카드 — 창고에 없는 카드 먼저, 그다음 옛 규칙으로 지은 카드. 최대 max. */
+function pickTitleTargets(cards, kept, max) {
+  const have = new Set(kept.map((e) => e.id));
+  const current = new Set(kept.filter((e) => e.rules === TITLE_RULES).map((e) => e.id));
+  const missing = cards.filter((c) => !have.has(c.id));
+  const outdated = cards.filter((c) => have.has(c.id) && !current.has(c.id));
+  return [...missing, ...outdated].slice(0, max);
 }
 
 /** 새로 지은 항목이 같은 id 의 옛 항목을 대체한다. */
@@ -82,9 +96,9 @@ async function generate(board, kept, max) {
   // ts-node 는 생성 단계에서만 필요하다 — 부착만 할 때는 없어도 돈다.
   require('ts-node/register/transpile-only');
   const { cardsFromBenchmarks, titlesForCards, BENCHMARK_TITLE_BATCH } = require('../src/utils/benchmark-title-engine');
-  const have = new Set(kept.map((e) => e.id));
-  const cards = cardsFromBenchmarks(board).filter((c) => !have.has(c.id)).slice(0, max);
-  console.log(`제목 대상 ${cards.length}장 (창고 유지 ${kept.length}장) · 배치 ${BENCHMARK_TITLE_BATCH}`);
+  const cards = pickTitleTargets(cardsFromBenchmarks(board), kept, max);
+  const outdated = cards.filter((c) => kept.some((e) => e.id === c.id)).length;
+  console.log(`제목 대상 ${cards.length}장 (새 카드 ${cards.length - outdated} · 옛 규칙 다시 짓기 ${outdated} · 창고 유지 ${kept.length}장) · 배치 ${BENCHMARK_TITLE_BATCH}`);
   const stamp = new Date().toISOString();
   const made = [];
   let provider = '';
@@ -97,7 +111,7 @@ async function generate(board, kept, max) {
         const why = reasonSummary(row.rejected);
         if (row.titles.length === 0) { console.log(`  - ${row.id} 통과 제목 0건 (탈락 ${why})`); continue; }
         const card = batch.find((c) => c.id === row.id);
-        made.push({ id: row.id, keyword: card ? card.keyword : '', category: card ? card.category : '', titles: row.titles, rejected: row.rejected.length, provider: result.provider, at: stamp });
+        made.push({ id: row.id, keyword: card ? card.keyword : '', category: card ? card.category : '', titles: row.titles, rejected: row.rejected.length, provider: result.provider, at: stamp, rules: TITLE_RULES });
         console.log(`  ✚ ${row.id} ${card ? card.keyword : ''} → ${row.titles.length}개 (탈락 ${why}, ${result.provider})`);
       }
     } catch (error) {
@@ -139,7 +153,7 @@ async function main() {
   if (asked > 0 && made.length === 0) console.log('::warning::이번 회차 새 제목 0건 — 구독 CLI 상태를 확인하세요. 판은 창고 제목으로 나갑니다.');
 }
 
-module.exports = { attachTitles, freshEntries, mergeEntries, TITLE_TTL_MS };
+module.exports = { attachTitles, freshEntries, mergeEntries, pickTitleTargets, TITLE_RULES, TITLE_TTL_MS };
 
 if (require.main === module) {
   main().catch((error) => { console.error('벤치마크 제목 창고 실패:', error); process.exit(1); });

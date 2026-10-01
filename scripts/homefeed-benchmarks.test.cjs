@@ -193,3 +193,23 @@ test('구체어가 둘 겹치면 일반어가 섞여도 같은 소재다', () =>
   ];
   for (const [a, b] of pairs) assert.equal(core.buildCandidates([other('a', a), other('bb', b)], now).length, 1, `${a} / ${b}`);
 });
+
+test('유튜브 RSS 는 404 · 500 이 섞여 온다(2026-10-01 실측: 같은 주소가 404 → 200 → 404) — 세 번까지 다시 받는다', async () => {
+  const { collect } = require('./homefeed-benchmarks.cjs');
+  const yt = { id: 'Behind_Master', platform: 'youtube', url: 'https://www.youtube.com/@Behind_Master' };
+  const rss = '<feed><title>리스팩트 이진호</title><entry><title>영상 하나</title><link href="https://www.youtube.com/watch?v=abcdefghijk"/><published>2026-09-28T10:00:00+00:00</published></entry></feed>';
+  let rssCalls = 0;
+  const flaky = async (url) => {
+    if (!url.includes('feeds/videos.xml')) return '<script>{"externalId":"UCbp1HhKUDmeI6enMXUxtgrg"}</script>';
+    rssCalls += 1;
+    if (rssCalls < 3) throw new Error('HTTP 404');
+    return rss;
+  };
+  const ok = await collect(yt, now, flaky);
+  assert.equal(ok.status, 'ok');
+  assert.equal(rssCalls, 3);
+  rssCalls = -10; // 계속 실패하면 세 번에서 멈추고 실패로 적는다
+  const failed = await collect(yt, now, async (url) => { if (!url.includes('feeds/videos.xml')) return '{"externalId":"UCbp1HhKUDmeI6enMXUxtgrg"}'; rssCalls += 1; throw new Error('HTTP 404'); });
+  assert.equal(failed.status, 'failed');
+  assert.equal(rssCalls, -7);
+});

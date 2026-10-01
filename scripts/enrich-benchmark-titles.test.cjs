@@ -36,3 +36,11 @@ test('새 결과는 같은 id 의 옛 항목을 대체한다', () => {
   const merged = mergeEntries(kept, made);
   assert.deepEqual(merged.map((e) => `${e.id}:${e.titles[0]}`), ['c3:다', 'a1:새']);
 });
+
+test('옛 규칙으로 지은 제목은 새 카드 다음 차례로 다시 짓는다 — 다시 지을 때까지 옛 제목은 판에 남는다(2026-10-01)', () => {
+  const { pickTitleTargets, TITLE_RULES } = require('./enrich-benchmark-titles.js');
+  const cards = ['new1', 'old1', 'cur1', 'new2', 'old2'].map((id) => ({ id }));
+  const kept = [{ id: 'old1', titles: ['t'] }, { id: 'old2', titles: ['t'], rules: 'past' }, { id: 'cur1', titles: ['t'], rules: TITLE_RULES }];
+  assert.deepEqual(pickTitleTargets(cards, kept, 3).map((c) => c.id), ['new1', 'new2', 'old1']);
+  assert.deepEqual(pickTitleTargets(cards, kept, 10).map((c) => c.id), ['new1', 'new2', 'old1', 'old2']);
+});
