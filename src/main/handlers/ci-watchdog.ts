@@ -257,13 +257,20 @@ export async function checkBoardOnce(board: WatchedBoard, nowMs: number = Date.n
   if (!due) return { acted: false, reason: `${board.name}: 아직 첫 회차 전이다` };
   if (nowMs - due.dueAtMs < GRACE_MS) return { acted: false, reason: `${board.name} ${due.label}: 예정 시각이 아직 안 지났다` };
 
-  const ledger = readLedger();
-  const key = `${board.workflow}-${due.day}-${due.label}`;
-  if (ledger[key]) return { acted: false, reason: `${board.name} ${due.label}: 이미 깨웠다(${ledger[key]})` };
-
   const filled = roundFilled(await lastBuiltAtOf(board), due.dueAtMs);
   if (filled === null) return { acted: false, reason: `${board.name}: 발행본을 못 읽었다 — 이번엔 넘어간다` };
   if (filled) return { acted: false, reason: `${board.name} ${due.label}: 이미 실려 있다` };
+
+  // On the opted-in operator PC, repair with its authenticated agents and publish
+  // the result instead of waking the same unauthenticated hosted fallback again.
+  if (board.workflow === 'topic-briefs.yml') {
+    const { recoverPublicBriefs } = await import('../topic-brief-recovery-host');
+    const recovery = await recoverPublicBriefs({ day: due.day, slot: due.label as '아침' | '오후' | '저녁', dueAtMs: due.dueAtMs });
+    if (recovery.handled) return { acted: recovery.ok, reason: recovery.detail };
+  }
+  const ledger = readLedger();
+  const key = `${board.workflow}-${due.day}-${due.label}`;
+  if (ledger[key]) return { acted: false, reason: `${board.name} ${due.label}: 이미 깨웠다(${ledger[key]})` };
 
   const result = await dispatch(board.workflow);
   if (result.ok) {
@@ -340,6 +347,18 @@ export async function refreshNow(workflow: string, nowMs: number = Date.now()): 
       detail: `${board.name} 회차를 방금 깨웠습니다. ${min}분 뒤에 다시 누를 수 있습니다.`
         + ' (연달아 누르면 회차가 두 번 돌아 BrightData 가 그만큼 더 나갑니다.)',
     };
+  }
+
+  if (workflow === 'topic-briefs.yml') {
+    const due = dueRound(board, nowMs);
+    if (due) {
+      const { recoverPublicBriefs } = await import('../topic-brief-recovery-host');
+      const recovery = await recoverPublicBriefs({ day: due.day, slot: due.label as '아침' | '오후' | '저녁', dueAtMs: due.dueAtMs });
+      if (recovery.handled) {
+        if (recovery.ok) writeLedger({ ...readLedger(), [refreshLedgerKey(workflow)]: new Date(nowMs).toISOString() });
+        return { ok: recovery.ok, detail: recovery.ok ? '앱의 오늘의 글감을 사이트에 반영했습니다.' : '앱에서 글감을 생성·발행 중이거나 재시도를 기다리고 있습니다. 기존 글감은 유지됩니다.' };
+      }
+    }
   }
 
   return new Promise((resolve) => {

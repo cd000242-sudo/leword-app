@@ -4,6 +4,7 @@ import { atomicBoardWrite, boardTime, publicBoard, readBoardFile, type BoardKey 
 import { createBriefTitleService, fetchTitleSourceSnapshot } from './brief-title-service';
 import type { BoardBridgeDeps } from './board-bridge-routes';
 import { selectSavedIssueBoard } from './legacy-issue-board';
+import { readBriefProvider, saveBriefProvider } from './topic-brief-preferences';
 
 export function createBoardBridgeDeps(options: { userData?: () => string; readFile?: (file: string) => unknown; now?: () => number } = {}): BoardBridgeDeps {
   const userData = options.userData ?? (() => app.getPath('userData'));
@@ -18,6 +19,8 @@ export function createBoardBridgeDeps(options: { userData?: () => string; readFi
   const titles = createBriefTitleService({ read: () => readFile(file('brief-titles')),
     save: board => atomicBoardWrite(file('brief-titles'), board), fetchSignals: fetchTitleSourceSnapshot, now });
   return {
+    getPreferences: async () => ({ provider: readBriefProvider(userData()) || null }),
+    savePreferences: async provider => saveBriefProvider(userData(), provider),
     allowed: async () => {
       const { loadLicense, isLicenseExpired } = await import('../utils/licenseManager');
       const license = await loadLicense();

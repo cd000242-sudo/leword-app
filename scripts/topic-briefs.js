@@ -23,7 +23,8 @@ const {
 const { naverApiFetch } = require('../src/utils/naver-api-hub');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
-const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
+const { runWithAnyAgent, AllAgentsFailedError } = require('../src/utils/agent-cli/runAny');
+const { sanitizeUserVisibleError } = require('../src/utils/agent-cli/userVisibleError');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
 const { requireJsonArray } = require('../src/utils/agent-cli/replyValidators');
 const { getNaverSearchAdKeywordVolume } = require('../src/utils/naver-searchad-api');
@@ -38,9 +39,10 @@ const arg = (name, fallback = '') => {
 };
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
-const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
-
 async function main() {
+  const provider = arg('provider', process.env.LEWORD_BRIEF_PROVIDER || '');
+  if (provider && !['claude', 'codex', 'gemini', 'grok'].includes(provider)) throw new Error('지원하지 않는 생성 엔진입니다.');
+  const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus', preferredProvider: provider });
   const outPath = path.resolve(arg('out', 'topic-briefs.json'));
   const perField = Math.min(4, Math.max(1, Number(arg('perField')) || 4));
   const requestedFields = arg('fields').split('|').filter(Boolean);
@@ -93,6 +95,18 @@ async function main() {
   const day = today.toISOString().slice(0, 10);
   const shelfRounds = recentRounds(carried && Array.isArray(carried.rounds) ? carried.rounds : [], today, SHELF_DAYS);
   const priorRounds = todaysRounds(shelfRounds, today);
+
+  // The operator app has already recovered this edition. A partial measured
+  // edition remains partial; do not burn the exhausted hosted chain replacing it.
+  const appEditionPublished = carried?.publicationSource === 'app'
+    && isSameRound(carried, { day, slot })
+    && Number.isFinite(Date.parse(carried.builtAt))
+    && Date.parse(carried.builtAt) <= Date.now() + 300_000
+    && Array.isArray(carried.briefs) && carried.briefs.some(b => b?.coreKeyword && b?.title && b?.facts?.length);
+  if (arg('skipIfSlotDone') === 'true' && appEditionPublished) {
+    console.log(`${day} ${slot} 회차는 운영자 앱 결과 ${carried.briefs.length}개가 발행돼 있습니다. 생성 시각과 실제 개수를 유지합니다.`);
+    return;
+  }
 
   /*
    * --skipIfSlotDone: 이 회차가 오늘 이미 실렸으면 아무것도 하지 않고 나간다.
@@ -167,11 +181,22 @@ async function main() {
     run: async (prompt, context) => {
       const result = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
       agentCalls += 1; console.log(`  ${context.field} ${context.stage} → ${result.provider}`); return result.reply;
+    }, onFailure: (context, error) => {
+      // Inventory keeps public progress generic. Retain provider causes here so a
+      // login/quota failure is not misreported as insufficient source evidence.
+      const causes = error instanceof AllAgentsFailedError
+        ? Object.entries(error.failures).map(([provider, reason]) => `${provider}: ${sanitizeUserVisibleError(reason)}`)
+        : [sanitizeUserVisibleError(error)];
+      for (const cause of causes) {
+        if (agentFailures.includes(cause)) continue;
+        agentFailures.push(cause);
+        console.error(`  글감 진단 (${context.stage}): ${cause}`);
+      }
     }, onProgress: progress => console.log(`  발굴 ${JSON.stringify(progress)}`) });
   all.push(...generated.briefs); droppedAll.push(...generated.dropped);
 
   if (all.length === 0) {
-    throw new Error(`게시할 글감이 0건입니다. 기존 게시본을 유지하고 회차를 실패 처리합니다. ${agentFailures[0] || '근거 부족 또는 검증·중복 제거 후 후보 없음'}`);
+    throw new Error(`게시할 글감이 0건입니다. 기존 게시본을 유지하고 회차를 실패 처리합니다. ${agentFailures.join(' → ') || '근거 부족 또는 검증·중복 제거 후 후보 없음'}`);
   }
 
   // 3) 글감이 정한 핵심 검색어의 검색량을 측정한다. 큰 검색량으로 질문을 바꾸지 않는다.

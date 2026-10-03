@@ -62,6 +62,11 @@ on:
         description: 이미 실린 회차면 건너뛴다 (감시견이 깨울 때 true)
         default: 'false'
         required: false
+      provider:
+        description: '우선 생성 엔진 (해당 실행 환경에 로그인 필요)'
+        type: choice
+        options: ['', codex, claude, gemini, grok]
+        default: ''
 
 concurrency:
   group: topic-briefs
@@ -121,6 +126,7 @@ jobs:
 
       - name: 글감 뽑기 (뉴스 실측 → 사실 카드 → 에이전트 → 검증 → 검색량 실측 → 자리 실측)
         env:
+          LEWORD_BRIEF_PROVIDER: ${{ inputs.provider || vars.LEWORD_BRIEF_PROVIDER || '' }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}

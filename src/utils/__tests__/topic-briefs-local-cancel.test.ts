@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({
   handlers: new Map<string, (...args: any[]) => Promise<any>>(),
   writes: vi.fn(), news: vi.fn(), agent: vi.fn(), volume: vi.fn(),
+  chain: vi.fn(() => []), provider: 'codex',
   previous: JSON.stringify({ builtAt: '2026-09-23T00:00:00Z', briefs: [{ title: '기존 작성안' }], rounds: [] }),
 }));
 vi.mock('electron', () => ({ app: { getPath: () => 'fixture-user-data' }, ipcMain: {
@@ -17,7 +18,8 @@ vi.mock('../naver-api-hub', () => ({ naverApiFetch: state.news }));
 vi.mock('../environment-manager', () => ({ EnvironmentManager: { getInstance: () => ({ getConfig: () => ({
   naverClientId: 'fixture', naverClientSecret: 'fixture', naverSearchAdAccessLicense: 'fixture', naverSearchAdSecretKey: 'fixture',
 }) }) } }));
-vi.mock('../agent-cli/defaultChain', () => ({ createDefaultAgentChain: () => [] }));
+vi.mock('../agent-cli/defaultChain', () => ({ createDefaultAgentChain: state.chain }));
+vi.mock('../../main/topic-brief-preferences', () => ({ isBriefProvider: (value: string) => ['claude', 'codex', 'gemini', 'grok'].includes(value), readBriefProvider: () => state.provider }));
 vi.mock('../agent-cli/runAny', () => ({ runWithAnyAgent: state.agent }));
 vi.mock('../naver-searchad-api', () => ({ SEARCHAD_VOLUME_CHUNK_SIZE: 4, getNaverSearchAdKeywordVolume: state.volume, getNaverSearchAdKeywordSuggestions: vi.fn() }));
 vi.mock('../local-serp-fetch', () => ({ localSerpFetch: vi.fn(), closeLocalSerpFetch: vi.fn(), localSerpStats: () => ({ consecutiveBlocked: 0 }) }));
@@ -37,6 +39,7 @@ const draft = {
 beforeEach(() => {
   vi.useFakeTimers(); vi.setSystemTime(new Date('2026-09-24T01:00:00Z'));
   state.handlers.clear(); state.writes.mockReset(); state.agent.mockReset(); state.volume.mockReset();
+  state.chain.mockClear(); state.provider = 'codex';
   state.news.mockResolvedValue({ ok: true, json: async () => ({ items: [
     { title: '지역 축제 사전등록 안내', description: sentence, originallink: 'https://example.test/one', pubDate: '2026-09-24T00:00:00Z' },
     { title: '지역 문화 행사 운영 안내', description: '공식 안내에서 운영 시간을 확인할 수 있다.', originallink: 'https://example.test/two', pubDate: '2026-09-24T00:00:00Z' },
@@ -54,6 +57,14 @@ async function run(onProgress: (progress: any) => void = () => {}) {
 }
 
 describe('오늘의 글감 취소 시 기존 저장본 보존', () => {
+  it('reads the selected provider for each generation rather than freezing Claude at startup', async () => {
+    state.agent.mockReset(); state.agent.mockResolvedValue({ provider: 'fixture', reply: '[]' });
+    await run();
+    expect(state.chain).toHaveBeenLastCalledWith({ claudeModel: 'opus', preferredProvider: 'codex' });
+    state.provider = 'gemini';
+    await run();
+    expect(state.chain).toHaveBeenLastCalledWith({ claudeModel: 'opus', preferredProvider: 'gemini' });
+  });
   it('검증된 글감이 하나도 없으면 이전 정상 회차를 빈 결과로 덮지 않는다', async () => {
     state.agent.mockReset(); state.agent.mockResolvedValue({ provider: 'fixture', reply: '[]' });
     const result = await run();

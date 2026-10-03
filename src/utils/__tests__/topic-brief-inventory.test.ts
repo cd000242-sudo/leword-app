@@ -64,6 +64,22 @@ describe('bounded topic brief inventory', () => {
     expect(result.briefs[0].star).toBe(false);
   });
 
+  it('reports the underlying error privately without leaking it into public results or breaking fallback', async () => {
+    const error = new Error('PRIVATE_TOKEN=secret');
+    const onProgress = vi.fn();
+    const onFailure = vi.fn(() => { throw new Error('diagnostic sink unavailable'); });
+    const result = await generateBriefInventory({
+      fields: [{ field: '지원금', facts: [fact()] }], today, goal: 1, onProgress, onFailure,
+      run: async (_prompt, context) => {
+        if (context.pass === 0) throw error;
+        return context.stage === 'review' ? passed(context.count) : JSON.stringify([draft('복구된 사업')]);
+      },
+    });
+    expect(onFailure).toHaveBeenCalledWith(expect.objectContaining({ field: '지원금', stage: 'generate', pass: 0 }), error);
+    expect(result.briefs).toHaveLength(1);
+    expect(JSON.stringify([result, onProgress.mock.calls])).not.toContain('PRIVATE_TOKEN');
+  });
+
   it('refills from fresh supplied facts and rotates uncited facts without manufacturing fallback rows', async () => {
     const first = fact('f1'), second = fact('f2');
     const refreshFacts = vi.fn().mockResolvedValue([second]);

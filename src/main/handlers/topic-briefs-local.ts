@@ -40,6 +40,8 @@ import { generateBriefInventory, preserveRicherBriefRound, type BriefInventoryMe
 import { buildTopicBriefPolicy } from '../../utils/topic-brief-policy';
 import { measureBriefDocumentCounts, measureBriefSearchVolumes } from '../topic-brief-metrics';
 import { atomicBoardWrite } from '../board-cache';
+import { isBriefProvider, readBriefProvider } from '../topic-brief-preferences';
+import { isTopicBriefPublishingEnabled, publishAppBriefs } from '../topic-brief-publisher';
 
 export const BRIEFS_PROGRESS_CHANNEL = 'topic-briefs-local-progress';
 
@@ -56,8 +58,6 @@ const RELATED_SEAT_CAP = 200;
 const AUTO_HOURS = 3;
 /** 사이트에 실린 판. 앱이 아직 한 번도 안 돌았을 때 곧바로 보여 줄 것. */
 const PUBLISHED = 'https://leaderspro.kr/data/topic-briefs.json';
-
-const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
 
 const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 
@@ -152,6 +152,9 @@ async function seatOf(keyword: string): Promise<{ facing: number; vacancy: numbe
 }
 
 export interface RunOptions {
+  provider?: string;
+  /** Internal recovery only; never accepted from renderer payloads. */
+  round?: { day: string; slot: BriefRound['slot'] };
   goal?: number;
   mainCategories?: string[];
   perField?: number;
@@ -165,6 +168,9 @@ export interface RunOptions {
  * 다른 점은 셋뿐이다: 자리 창구가 localSerpFetch 라는 것, 상한이 넉넉하다는 것, 회차를 아무 때나 돌린다는 것.
  */
 export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBriefsResult> {
+  if (options.provider !== undefined && !isBriefProvider(options.provider)) throw new Error('지원하지 않는 생성 엔진입니다.');
+  // Read on every edition: settings changed after app startup must take effect.
+  const agentChain = createDefaultAgentChain({ claudeModel: 'opus', preferredProvider: options.provider || readBriefProvider(app.getPath('userData')) });
   const started = Date.now();
   const report = options.onProgress ?? (() => {});
   const perField = Math.min(4, Math.max(1, options.perField ?? PER_FIELD));
@@ -176,9 +182,9 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
     throw new Error('네이버 오픈 API 키가 필요합니다 — 설정 · 키 화면에서 넣어 주세요(뉴스 실측에 씁니다).');
   }
 
-  const today = kstToday();
+  const today = options.round ? new Date(`${options.round.day}T00:00:00.000Z`) : kstToday();
   const day = today.toISOString().slice(0, 10);
-  const slot = roundSlotOf(today);
+  const slot = options.round?.slot || roundSlotOf(today);
   const previous = readLocalBriefs();
   // 7일 창고(2026-09-29, 스크립트와 같은 규칙) — 회차는 day+slot 으로 가르고, 중복 제거·자리 이어 쓰기는 창고 전체를 본다.
   const shelf = recentRounds(previous?.rounds || [], today, SHELF_DAYS);
@@ -228,7 +234,7 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   const generated = await generateBriefInventory({ fields: inventoryFields, today, priorRounds: older, goal: policy.goal, maxDurationMs: 55 * 60_000, cancelled: () => abortRequested,
     run: async (prompt, context) => {
       throwIfCancelled();
-      const result = await runWithAnyAgent(prompt, AGENT_CHAIN, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
+      const result = await runWithAnyAgent(prompt, agentChain, { timeoutMs: context.stage === 'review' ? 120_000 : 240_000, deadlineMs: context.stage === 'review' ? 120_000 : 240_000, validate: requireJsonArray() });
       agentCalls += 1; return result.reply;
     }, onProgress: progress => report({ step: '글감', done: progress.actualCount, total: policy.goal, message: progress.field + ' — 글감 ' + progress.actualCount + '개 확보' }) });
   all.push(...generated.briefs); droppedAll.push(...generated.dropped);
@@ -360,6 +366,21 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
   return result;
 }
 
+/** One lock for manual generation, scheduled generation and missing-public-round recovery. */
+export async function runManagedLocalBriefs(options: RunOptions = {}): Promise<LocalBriefsResult> {
+  if (running) throw new Error('이미 글감을 만드는 중입니다.');
+  running = true;
+  abortRequested = false;
+  try {
+    const result = await runLocalBriefs(options);
+    if (isTopicBriefPublishingEnabled(app.getPath('userData'))) {
+      const publication = await publishAppBriefs(result, { enabled: true });
+      console.log(`[BRIEFS-PUBLISH] ${publication.status}: ${publication.reason}`);
+    }
+    return result;
+  } finally { running = false; }
+}
+
 /** 사이트에 실린 판. 앱이 아직 한 번도 안 돌았을 때 빈 화면을 보이지 않기 위한 것뿐이다. */
 async function fetchPublished(): Promise<any | null> {
   try {
@@ -388,10 +409,8 @@ export function setupTopicBriefsLocalHandlers(): void {
   if (!ipcMain.listenerCount('topic-briefs-local-run')) {
     ipcMain.handle('topic-briefs-local-run', async (event, payload?: { perField?: number; measureSeats?: boolean; goal?: number; mainCategories?: string[] }) => {
       if (running) return { success: false, error: '이미 만드는 중입니다.' };
-      running = true;
-      abortRequested = false;
       try {
-        const result = await runLocalBriefs({
+        const result = await runManagedLocalBriefs({
           perField: payload?.perField,
           goal: payload?.goal,
           mainCategories: payload?.mainCategories,
@@ -401,9 +420,6 @@ export function setupTopicBriefsLocalHandlers(): void {
         return { success: true, result };
       } catch (error: any) {
         return { success: false, error: error?.message || '글감을 만들지 못했습니다' };
-      } finally {
-        running = false;
-        abortRequested = false;
       }
     });
   }
@@ -428,12 +444,9 @@ export function startTopicBriefsScheduler(): void {
   const everyMs = AUTO_HOURS * 60 * 60 * 1000;
   autoTimer = setInterval(() => {
     if (running) return;
-    running = true;
-    abortRequested = false;
-    runLocalBriefs({})
+    runManagedLocalBriefs({})
       .then((r) => console.log(`[BRIEFS-LOCAL] 자동 회차 — 글감 ${r.briefs.length} · 자리 ${r.seatsMeasured} · ${r.seconds}초`))
-      .catch((e) => console.warn('[BRIEFS-LOCAL] 자동 회차 실패:', e?.message))
-      .finally(() => { running = false; });
+      .catch((e) => console.warn('[BRIEFS-LOCAL] 자동 회차 실패:', e?.message));
   }, everyMs);
   console.log(`[BRIEFS-LOCAL] ⏰ 자동 회차 ${AUTO_HOURS}시간 간격`);
 }

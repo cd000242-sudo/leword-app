@@ -65,6 +65,8 @@ export interface BriefInventoryOptions {
   /** Optional additional already-enriched facts; no fetching/enrichment occurs inside this module. */
   refreshFacts?: (field: string, context: { pass: number; facts: readonly FactCard[]; excludedKeywords: readonly string[] }) => Promise<readonly FactCard[]>;
   onProgress?: (progress: BriefInventoryProgress) => void;
+  /** Private diagnostics only; raw errors must never enter the public board or progress payload. */
+  onFailure?: (failure: BriefInventoryFailure, error: unknown) => void;
 }
 
 const keywordKey = (value: string) => value.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
@@ -138,9 +140,10 @@ export async function generateBriefInventory(options: BriefInventoryOptions): Pr
   let attempts = 0, refillRounds = 0;
   const throwIfCancelled = () => { if (options.cancelled?.()) throw new Error('글감 발굴을 취소했습니다.'); };
   const report = (event: BriefInventoryProgress) => { try { options.onProgress?.(event); } catch { /* Progress must not discard a completed batch. */ } };
-  const failure = (field: string, pass: number, stage: BriefInventoryFailure['stage']) => {
+  const failure = (field: string, pass: number, stage: BriefInventoryFailure['stage'], error: unknown) => {
     const reason = stage === 'refresh' ? '추가 근거 수집에 실패해 확보된 자료로 계속합니다.' : stage === 'review' ? '독립 근거 검토에 실패해 추가 확인 상태로 남깁니다.' : '글감 생성에 실패해 다른 분야와 보충 발굴을 계속합니다.';
     failures.push({ field, pass, stage, reason });
+    try { options.onFailure?.({ field, pass, stage, reason }, error); } catch { /* Diagnostics must not interrupt recovery. */ }
     report({ field, pass, stage: 'error', actualCount: briefs.length, added: 0, reason });
   };
 
@@ -162,7 +165,7 @@ export async function generateBriefInventory(options: BriefInventoryOptions): Pr
           const fresh = await options.refreshFacts(field.field, { pass, facts: [...catalog], excludedKeywords: [...seen] });
           throwIfCancelled();
           catalog = mergeFacts(fresh, catalog); factsByField.set(field.field, catalog);
-        } catch { throwIfCancelled(); failure(field.field, pass, 'refresh'); }
+        } catch (error) { throwIfCancelled(); failure(field.field, pass, 'refresh', error); }
       }
       const batchSize = bounded(field.targetCount, 4, 1, 4);
       const batches = hasQuotas ? Math.ceil((quotaOf(field) - countOf(field)) / batchSize) : 1;
@@ -195,7 +198,7 @@ export async function generateBriefInventory(options: BriefInventoryOptions): Pr
           parsed = tryExtractJson(await options.run(prompt, { field: field.field, pass, stage: 'generate', count }));
           throwIfCancelled();
           if (!Array.isArray(parsed)) throw new Error('Expected a JSON array');
-        } catch { throwIfCancelled(); failure(field.field, pass, 'generate'); break; }
+        } catch (error) { throwIfCancelled(); failure(field.field, pass, 'generate', error); break; }
         const validated = validateBriefs((parsed as unknown[]).slice(0, count), facts, field.field, options.today);
         dropped.push(...validated.dropped.map(item => ({ field: field.field, ...item })));
         const deduped = dropRepeats(validated.ok, prior);
@@ -218,7 +221,7 @@ export async function generateBriefInventory(options: BriefInventoryOptions): Pr
             throwIfCancelled();
             if (!Array.isArray(tryExtractJson(reply))) throw new Error('Expected review array');
             return reply;
-          } catch (error) { throwIfCancelled(); failure(field.field, pass, 'review'); throw error; }
+          } catch (error) { throwIfCancelled(); failure(field.field, pass, 'review', error); throw error; }
         });
         // reviewTopicBriefs deliberately catches provider errors, so cancellation must propagate here.
         throwIfCancelled();
