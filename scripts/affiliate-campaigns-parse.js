@@ -29,7 +29,7 @@ const https = require('https');
 
 const DUMP_DIR = path.join(__dirname, '..', 'tmp', 'affiliate-dump');
 const OUT_PATH = path.join(__dirname, '..', 'tmp', 'affiliate-campaigns-public.json');
-const { currentCaptureFiles, mergeCampaignSnapshots } = require('./affiliate-snapshot');
+const { currentCaptureFiles, mergeCampaignSnapshots, prepareCampaignInventory, applyCampaignAnalysis } = require('./affiliate-snapshot');
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
 }
@@ -526,19 +526,10 @@ async function main() {
       continue;
     }
     site.status = 'ready';
-    const seen = new Set();
-    const prepared = [];
-    for (const item of site.items) {
-      const keyword = productKeyword(item.name);
-      const key = keyword.replace(/\s+/g, '');
-      if (!keyword || seen.has(key)) continue;
-      seen.add(key);
-      prepared.push({ ...item, keyword, collectedAt: site.collectedAt });
-      if (prepared.length >= limit) break;
-    }
-    console.log(`■ ${site.label} — 원문 ${site.items.length}건 → 분석 대상 ${prepared.length}건`);
-    site.items = await analyze(prepared, creds);
-    site.items = await attachNeedKeywords(site.items, creds);
+    const prepared = prepareCampaignInventory(site.items, { collectedAt: site.collectedAt, keywordOf: productKeyword, limit });
+    console.log(`■ ${site.label} — 전체 상품 ${prepared.items.length}건 · 실측 대상 ${prepared.targets.length}건`);
+    const measured = await attachNeedKeywords(await analyze(prepared.targets, creds), creds);
+    site.items = applyCampaignAnalysis(prepared, measured);
 
     /*
      * 토스 — 사장님이 콘솔에서 발급해 둔 링크(toss-sync-issued.js 결과)를 병합한다.

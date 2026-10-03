@@ -79,9 +79,13 @@ export async function probeShoppingClicks(keyword, keyId, key, options = {}) {
     const { startDate, endDate } = lastThreeMonths();
     let asked = 0;
     let best = null;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), Math.max(1000, Math.min(30000, options.timeoutMs || 10000)));
+    try {
     for (const category of cats) {
         try {
             const response = await fetch(HUB, {
+                signal: controller.signal,
                 method: 'POST',
                 headers: headers(keyId, key),
                 body: JSON.stringify({
@@ -98,9 +102,11 @@ export async function probeShoppingClicks(keyword, keyId, key, options = {}) {
             // 기준을 채웠으면 더 볼 필요가 없다.
             if (best && best.points >= minMonths) return best;
         } catch {
+            if (controller.signal.aborted) return undefined;
             // 이 분야만 건너뛴다 — 한 번 실패가 판정을 뒤집으면 안 된다.
         }
     }
     if (asked === 0) return undefined;
     return best && best.points >= minMonths ? best : null;
+    } finally { clearTimeout(timer); }
 }

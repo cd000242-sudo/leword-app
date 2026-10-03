@@ -12,7 +12,7 @@
  *     app.asar 안이라 쓸 수 없다. 복사본에서 돌리면 프로필이 앱 폴더에 남는다.
  *   · `-r scripts/app-script-shim.js` 로 설치판 차이를 메운다(복사본 경로는 환경변수로 알려 준다).
  *   · 수집은 `--headless` — 실측(2026-09-16)에서 창 없이도 토스 150건이 정상 수집됐다. 새벽에 창이 뜨지 않는다.
- *   · 발행(--publish)은 하지 않는다. 사이트 커밋은 사람이 보고 한다.
+ *   · 운영자 전용 설정이 켜진 PC만 검증된 공개 스냅샷을 사이트에 발행한다.
  *   · 수집만 하고 자리를 안 재면 판이 오히려 빈다(순수 수집본에는 seat · brief 가 없다) — 그래서 enrich 까지 한 벌.
  */
 import { app, ipcMain, Notification } from 'electron';
@@ -20,6 +20,8 @@ import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { StringDecoder } from 'string_decoder';
+import { readBriefProvider } from '../topic-brief-preferences';
+import { isAffiliatePublishingEnabled, publishAffiliateSnapshot } from '../affiliate-publisher';
 import {
   AFFILIATE_SCRIPT_FILES,
   AFFILIATE_STAGE_LABEL,
@@ -54,6 +56,8 @@ interface LastRun {
   needsLogin: string[];
   collected: Record<string, number>;
   message: string;
+  publication?: { status: string; reason: string };
+  readyForPublication?: boolean;
 }
 
 interface LocalState {
@@ -135,6 +139,9 @@ function runStage(stage: AffiliateStage, workDir: string, extraEnv: Record<strin
         LEWORD_APP_USER_DATA: app.getPath('userData'),
         LEWORD_APP_SCRIPTS_DIR: scriptsDir,
         LEWORD_APP_DIST_DIR: path.join(APP_ROOT(), 'dist', 'src'),
+        NODE_PATH: path.join(APP_ROOT(), 'node_modules'),
+        LEWORD_BRIEF_PROVIDER: readBriefProvider(app.getPath('userData')),
+        ...affiliateBrowserEnv(),
         ...extraEnv,
       },
     });
@@ -159,12 +166,62 @@ function runStage(stage: AffiliateStage, workDir: string, extraEnv: Record<strin
   });
 }
 
+/** Operator may keep the already authenticated dedicated profile outside the app cache. */
+function affiliateBrowserEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  try {
+    const settings = JSON.parse(fs.readFileSync(path.join(DIR(), 'settings.json'), 'utf8'));
+    if (typeof settings.profilePath === 'string' && path.isAbsolute(settings.profilePath) && fs.statSync(settings.profilePath).isDirectory()) {
+      env.LEWORD_AFFILIATE_PROFILE_DIR = settings.profilePath;
+    }
+  } catch { /* New installs use their own dedicated profile. */ }
+  const chrome = path.join(process.resourcesPath || '', 'chromium', process.platform === 'win32' ? 'chrome.exe' : 'chrome');
+  if (fs.existsSync(chrome)) env.LEWORD_AFFILIATE_CHROME = chrome;
+  return env;
+}
+
+function readSnapshot(file: string): any {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
+}
+
+function publicationSucceeded(result?: { status: string; reason: string }): boolean {
+  return !result || result.status === 'published'
+    || (result.status === 'skipped' && ['already_published', 'newer_remote'].includes(result.reason));
+}
+
+async function seedPublishedSnapshot(file: string): Promise<void> {
+  if (fs.existsSync(file)) return;
+  try {
+    const response = await fetch('https://leaderspro.kr/data/affiliate-campaigns.json', { signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) return;
+    const text = await response.text();
+    if (Buffer.byteLength(text) > 8 * 1024 * 1024) return;
+    const data = JSON.parse(text);
+    if (!data?.sites || !Number.isFinite(Date.parse(data.collectedAt))) return;
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text, 'utf8');
+  } catch { /* A first collection can still succeed without a prior board. */ }
+}
+
 /** 한 회차 — 복사 → 수집(창 없이) → 자리 · 글감. 결과는 기록하고, 로그인이 끊겼으면 알린다. */
 export async function runAffiliateCycle(reason: RunReason): Promise<LastRun> {
   if (running) return { at: new Date().toISOString(), reason, ok: false, needsLogin: [], collected: {}, message: '이미 돌고 있습니다' };
   running = true;
   const workDir = DIR();
   try {
+    const prior = readState().lastRun;
+    const savedFile = path.join(workDir, 'tmp', 'affiliate-campaigns-public.json');
+    if (prior?.readyForPublication && prior.publication?.status === 'failed' && isAffiliatePublishingEnabled(app.getPath('userData'))) {
+      const saved = readSnapshot(savedFile);
+      const age = Date.now() - Date.parse(saved?.checkedAt);
+      if (Number.isFinite(age) && age >= 0 && age < 12 * 3_600_000) {
+        const publication = await publishAffiliateSnapshot(saved, { enabled: true });
+        const ok = publicationSucceeded(publication);
+        const run = { ...prior, at: new Date().toISOString(), reason, ok, publication, message: ok ? '저장된 제휴 결과 사이트 발행 완료' : '사이트 발행 재시도 필요' };
+        writeState({ lastRun: run });
+        return run;
+      }
+    }
     const synced = syncScripts(workDir);
     if (!synced.ok) {
       const run: LastRun = {
@@ -176,33 +233,47 @@ export async function runAffiliateCycle(reason: RunReason): Promise<LastRun> {
     }
 
     const plan = buildAffiliatePlan({ workDir, siteRepo: null });
+    await seedPublishedSnapshot(plan.snapshotFile);
+    const startedAt = Date.now();
     say('제휴 상품 받는 중…');
     const collect = await runStage({ ...plan.stages[0], args: [...plan.stages[0].args, '--headless'] }, workDir, plan.env as Record<string, string>);
     const outcome = readAffiliateOutcome(collect.output);
 
     let message = '';
-    if (collect.code !== 0) {
+    let enriched = false;
+    const snapshot = readSnapshot(plan.snapshotFile);
+    const hasFreshSite = Object.values(snapshot?.sites || {}).some((site: any) => site.status === 'ready' && Date.parse(site.collectedAt) >= startedAt - 300_000);
+    if (![0, 3].includes(collect.code ?? -1) || !hasFreshSite) {
       message = '상품 받기가 끝나지 못했습니다';
     } else {
       const counts = Object.entries(outcome.collected).map(([site, n]) => `${site} ${n}건`).join(' · ');
       message = counts ? `받음 ${counts}` : '받은 건수를 읽지 못했습니다';
       say(`${AFFILIATE_STAGE_LABEL.enrich} 시작`);
       const enrich = await runStage(plan.stages[1], workDir, plan.env as Record<string, string>);
+      enriched = enrich.code === 0;
       if (enrich.code !== 0) message += ' · 자리 재기는 끝나지 못했습니다';
     }
+
+    const publication = isAffiliatePublishingEnabled(app.getPath('userData')) && (collect.code === 0 || collect.code === 3)
+      ? await publishAffiliateSnapshot(readSnapshot(plan.snapshotFile), { enabled: true }) : undefined;
+    if (!publicationSucceeded(publication)) message += ' · 사이트 발행 재시도 필요';
+    else if (publication?.status === 'published') message += ' · 사이트 발행 완료';
 
     const run: LastRun = {
       at: new Date().toISOString(),
       reason,
-      ok: collect.code === 0,
+      ok: collect.code === 0 && enriched && publicationSucceeded(publication),
       needsLogin: outcome.sites,
       collected: outcome.collected,
       message,
+      ...(publication ? { publication } : {}),
+      readyForPublication: collect.code === 0 && enriched,
     };
+    const previous = readState().lastRun;
     writeState({ lastRun: run });
 
-    if (outcome.needsLogin) {
-      notify('제휴 로그인이 필요합니다', `${outcome.sites.join(' · ')} 목록을 못 받았습니다. 제휴 화면에서 [다시 로그인]을 눌러 주세요.`);
+    if (outcome.needsLogin && JSON.stringify(previous?.needsLogin) !== JSON.stringify(outcome.sites)) {
+      notify('제휴 로그인이 필요합니다', `${outcome.sites.join(' · ')} 목록을 못 받았습니다. 제휴 전용 수집 브라우저에서 다시 로그인해야 합니다.`);
     }
     return run;
   } finally {
@@ -214,7 +285,7 @@ export async function runAffiliateCycle(reason: RunReason): Promise<LastRun> {
 function isDue(state: LocalState, nowMs: number): boolean {
   const hour = new Date(nowMs + KST_MS).getUTCHours();
   if (hour < RUN_HOUR) return false;
-  return isAffiliateRunDue(state.lastRun?.at ?? null, nowMs);
+  return isAffiliateRunDue(state.lastRun?.at ?? null, nowMs, state.lastRun?.ok ?? true);
 }
 
 export function startAffiliateScheduler(): void {

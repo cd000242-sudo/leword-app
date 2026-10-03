@@ -41,6 +41,7 @@ describe('제휴 자동 실행 계획', () => {
     expect(collect.script).toBe('C:\\data\\affiliate\\scripts\\affiliate-refresh.js');
     // 발행(--publish)은 앱이 하지 않는다 — 사이트 레포 커밋은 사람이 확인하고 한다.
     expect(collect.args).not.toContain('--publish');
+    expect(collect.args).toContain('--localOnly');
     const enrich = plan.stages[1];
     expect(enrich.script).toBe('C:\\data\\affiliate\\scripts\\affiliate-enrich.js');
     expect(enrich.args.some((arg) => arg.startsWith('--in='))).toBe(true);
@@ -58,6 +59,13 @@ describe('제휴 자동 실행 계획', () => {
     expect(isAffiliateRunDue(null, now)).toBe(true);
     expect(isAffiliateRunDue('2026-09-16T23:00:00+09:00', now)).toBe(true);
     expect(isAffiliateRunDue('2026-09-17T09:00:00+09:00', now)).toBe(false);
+  });
+
+  it('오늘 실패한 실행도 한 시간 뒤에는 복구를 다시 시도한다', () => {
+    const now = Date.parse('2026-10-03T20:00:00+09:00');
+    expect(isAffiliateRunDue('2026-10-03T18:59:00+09:00', now, false)).toBe(true);
+    expect(isAffiliateRunDue('2026-10-03T19:30:00+09:00', now, false)).toBe(false);
+    expect(isAffiliateRunDue('2026-10-03T18:59:00+09:00', now, true)).toBe(false);
   });
 
   it('수집기가 로그인이 끊겼다고 말하면 그대로 알아듣는다', () => {

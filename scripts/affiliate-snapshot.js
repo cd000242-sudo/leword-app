@@ -11,6 +11,46 @@ function currentCaptureFiles(manifest, site, now = Date.now()) {
     && file.startsWith(prefix) && /^\d+\.json$/.test(file.slice(prefix.length)));
 }
 
+/** Inventory size and paid measurement budget are separate. Never truncate a fresh capture to the API budget. */
+function prepareCampaignInventory(items, { collectedAt, keywordOf, limit = 24 }) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 160) throw new Error('limit must be an integer from 1 to 160');
+  const inventory = [], targetIndexes = [], seen = new Set();
+  const measuredFields = ['searchVolume', 'documentCount', 'serpTop', 'keywordEvidence', 'needKeyword', 'needVolume',
+    'needDocs', 'needRatio', 'needSerpTop', 'slots', 'seat', 'brief', 'aiTitle', 'recommendation', 'shoppingClicked',
+    'shoppingCategory', 'derivedAt', 'perSaleWon'];
+  for (const raw of Array.isArray(items) ? items : []) {
+    if (!raw || typeof raw.name !== 'string' || !raw.name.trim()) continue;
+    const key = raw.productId ? `id:${raw.productId}` : `name:${raw.name.replace(/\s+/g, '').toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const fresh = { ...raw, keyword: String(keywordOf(raw.name) || ''), collectedAt };
+    for (const field of measuredFields) delete fresh[field];
+    if (fresh.keyword && !fresh.issuedOnly && targetIndexes.length < limit) targetIndexes.push(inventory.length);
+    inventory.push(fresh);
+  }
+  return { items: inventory, targetIndexes, targets: targetIndexes.map(index => ({ ...inventory[index] })) };
+}
+
+/** Only the selected fresh rows can receive this run's measurements; unmeasured rows stay unmeasured. */
+function applyCampaignAnalysis(plan, measured) {
+  const result = plan.items.map(item => ({ ...item }));
+  for (let i = 0; i < plan.targetIndexes.length; i++) {
+    const index = plan.targetIndexes[i], row = measured?.[i];
+    if (!row || row.name !== result[index].name || row.keyword !== result[index].keyword) continue;
+    result[index] = { ...result[index], ...row, collectedAt: result[index].collectedAt };
+  }
+  return result;
+}
+
+/** Failed/stale platforms and link-management-only rows must not receive fresh evidence timestamps. */
+function freshCampaignItems(snapshot, now = Date.now()) {
+  return Object.values(snapshot?.sites || {}).flatMap(site => {
+    const age = now - Date.parse(site?.collectedAt);
+    if (site?.status !== 'ready' || !Number.isFinite(age) || age < -300000 || age > 48 * 3600000) return [];
+    return (Array.isArray(site.items) ? site.items : []).filter(item => item && !item.issuedOnly);
+  });
+}
+
 function mergeCampaignSnapshots(previous, incoming, checkedAt) {
   const sites = { ...(previous?.sites || {}) };
   for (const [id, next] of Object.entries(incoming)) {
@@ -36,4 +76,4 @@ function mergeCampaignSnapshots(previous, incoming, checkedAt) {
   return { collectedAt: dates.at(-1) || null, checkedAt, sites: normalized };
 }
 
-module.exports = { currentCaptureFiles, mergeCampaignSnapshots };
+module.exports = { currentCaptureFiles, mergeCampaignSnapshots, prepareCampaignInventory, applyCampaignAnalysis, freshCampaignItems };

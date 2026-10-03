@@ -24,7 +24,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const PROFILE_DIR = path.join(ROOT, 'tmp', 'affiliate-profile');
+const PROFILE_DIR = process.env.LEWORD_AFFILIATE_PROFILE_DIR || path.join(ROOT, 'tmp', 'affiliate-profile');
 const SCRAPE_SUMMARY = path.join(ROOT, 'tmp', 'affiliate-campaigns.json');
 const SNAPSHOT = path.join(ROOT, 'tmp', 'affiliate-campaigns-public.json');
 
@@ -40,7 +40,7 @@ const arg = (name, fallback) => {
 };
 
 function run(script, args) {
-  const result = spawnSync(process.execPath, [path.join(__dirname, script), ...args], {
+  const result = spawnSync(process.execPath, [...process.execArgv, path.join(__dirname, script), ...args], {
     stdio: 'inherit',
     cwd: ROOT,
   });
@@ -94,6 +94,8 @@ function itemCounts(snapshot) {
 }
 
 function main() {
+  const localOnly = hasFlag('localOnly');
+  if (localOnly && hasFlag('publish')) throw new Error('--localOnly cannot be combined with --publish');
   const limit = arg('limit', '24');
   const autoLogin = hasFlag('autoLogin');
   const selection = arg('sites', 'toss,brandconnect');
@@ -101,14 +103,20 @@ function main() {
   const interactive = autoLogin || hasFlag('interactive');
   const scrapeArgs = [`--sites=${selection}`, ...(hasFlag('headless') ? ['--headless'] : []),
     ...(interactive ? ['--interactive'] : [])];
-  const target = path.join(SITE_REPO, SITE_RELATIVE);
-  if (!fs.existsSync(path.join(SITE_REPO, 'spa', 'package.json'))) {
+  const target = localOnly ? SNAPSHOT : path.join(SITE_REPO, SITE_RELATIVE);
+  if (!localOnly && !fs.existsSync(path.join(SITE_REPO, 'spa', 'package.json'))) {
     throw new Error('사이트 경로를 확인하세요: NAVER_SITE_REPO 환경변수가 필요합니다.');
   }
 
   if (!fs.existsSync(PROFILE_DIR)) {
     console.log('브라우저 프로필이 없습니다 — 최초 1회 로그인이 필요합니다.');
     if (!interactive) {
+      console.log(`  새 수집 미완료: ${selection} — 제휴 전용 프로필에 로그인이 필요합니다.`);
+      const checkedAt = new Date().toISOString();
+      const incoming = Object.fromEntries(selection.split(',').map(id => [id, { status: 'login-required', items: [] }]));
+      const snapshot = require('./affiliate-snapshot').mergeCampaignSnapshots(readJson(target), incoming, checkedAt);
+      fs.mkdirSync(path.dirname(SNAPSHOT), { recursive: true });
+      fs.writeFileSync(SNAPSHOT, JSON.stringify(snapshot), 'utf8');
       console.log('  node scripts/affiliate-campaigns.js --login');
       process.exit(3);
     }
@@ -118,6 +126,7 @@ function main() {
   // ── 1) 채집 ───────────────────────────────────────────────────────────
   // --skipScrape 는 이미 뜬 원문으로 다시 돌릴 때 쓴다(파서를 고쳤을 때).
   const skipScrape = hasFlag('skipScrape');
+  const previous = readJson(target);
   console.log(skipScrape ? '\n[1/4] 채집 건너뜀 — 기존 원문을 씁니다' : '\n[1/4] 캠페인 채집');
   if (!skipScrape && !run('affiliate-campaigns.js', ['--scrape', ...scrapeArgs])) {
     console.error('채집 실패 — 여기서 멈춥니다.');
@@ -151,7 +160,6 @@ function main() {
     process.exit(4);
   }
 
-  const previous = readJson(target);
   if (previous) {
     /*
      * 갑자기 반토막이 나면 대개 한쪽 콘솔의 응답 모양이 바뀐 것이다.
@@ -165,6 +173,10 @@ function main() {
   }
 
   // ── 4) 사이트 레포로 복사 ─────────────────────────────────────────────
+  if (localOnly) {
+    console.log('\n앱 저장본 수집 완료. 운영자 발행 단계에서 사이트에 반영합니다.');
+    return;
+  }
   console.log('\n[4/4] 사이트 레포 반영');
   if (!fs.existsSync(SITE_REPO)) {
     console.error(`  사이트 레포를 찾지 못했습니다: ${SITE_REPO}`);

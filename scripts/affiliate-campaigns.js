@@ -30,7 +30,7 @@ const readline = require('readline');
 const puppeteer = require('puppeteer');
 const { isAffiliateLoginUrl, continueAuthenticatedPage } = require('./affiliate-login-session');
 
-const PROFILE_DIR = path.join(__dirname, '..', 'tmp', 'affiliate-profile');
+const PROFILE_DIR = process.env.LEWORD_AFFILIATE_PROFILE_DIR || path.join(__dirname, '..', 'tmp', 'affiliate-profile');
 const DUMP_DIR = path.join(__dirname, '..', 'tmp', 'affiliate-dump');
 const OUT_PATH = path.join(__dirname, '..', 'tmp', 'affiliate-campaigns.json');
 /** 사이트가 읽는 파일. 선점 보드와 같은 방식 — 로컬 수집 → 스냅샷 발행 → 사이트가 읽는다. */
@@ -98,6 +98,7 @@ function waitForEnter(message) {
 
 async function launch() {
   return puppeteer.launch({
+    ...(process.env.LEWORD_AFFILIATE_CHROME ? { executablePath: process.env.LEWORD_AFFILIATE_CHROME } : {}),
     // 두 플랫폼 다 headless 를 탐지한다. 로컬에 화면이 있으니 정직하게 창을 띄운다.
     headless: hasFlag('headless') && !hasFlag('interactive'),
     userDataDir: PROFILE_DIR,

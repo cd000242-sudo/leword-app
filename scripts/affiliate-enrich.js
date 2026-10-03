@@ -24,6 +24,7 @@ const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
+const { freshCampaignItems } = require('./affiliate-snapshot');
 
 const arg = (name, fallback = '') => {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -31,7 +32,7 @@ const arg = (name, fallback = '') => {
 };
 const has = (name) => process.argv.includes(`--${name}`);
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus' });
+const AGENT_CHAIN = createDefaultAgentChain({ claudeModel: 'opus', preferredProvider: process.env.LEWORD_BRIEF_PROVIDER || undefined });
 
 /** 자리 판정 순위 — 열림이 제일 좋다. */
 const VERDICT_RANK = { '열림': 0, '반열림': 1, '자료없음': 2, '잠김': 3, '카드답': 4 };
@@ -46,8 +47,8 @@ async function main() {
   const today = kstToday();
 
   const snapshot = JSON.parse(fs.readFileSync(inPath, 'utf8'));
-  const sites = snapshot.sites || {};
-  const items = Object.values(sites).flatMap((s) => (s && Array.isArray(s.items) ? s.items : []));
+  const items = freshCampaignItems(snapshot);
+  if (!items.length) { console.log('새 수집 성공 플랫폼 없음 — 기존 근거와 날짜 유지'); return; }
 
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const cfg = manager.getConfig();

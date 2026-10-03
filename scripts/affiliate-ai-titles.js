@@ -25,7 +25,7 @@ async function defaultRunAI(prompt) {
   require('ts-node/register/transpile-only');
   const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
   const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
-  return runWithAnyAgent(prompt, createDefaultAgentChain({ claudeModel: 'opus' }), {timeoutMs:120000});
+  return runWithAnyAgent(prompt, createDefaultAgentChain({ claudeModel: 'opus', preferredProvider: process.env.LEWORD_BRIEF_PROVIDER || undefined }), {timeoutMs:120000});
 }
 async function attachAiTitles(items, {label='',log=console.log,runAI=defaultRunAI}={}) {
   const { verifiedProductEvidence, validateEvidenceTitle } = await import('./affiliate-recommendation.mjs');

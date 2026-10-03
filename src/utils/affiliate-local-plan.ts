@@ -64,7 +64,7 @@ export interface AffiliatePlanInput {
 }
 
 /**
- * 두 단계다. 발행(--publish)은 앱이 하지 않는다 — 사이트 커밋은 사람이 보고 한다.
+ * 수집·보강 두 단계다. 운영자 전용 발행은 핸들러가 검증된 스냅샷으로 별도 수행한다.
  * 수집만 하고 자리를 안 재면 판이 오히려 빈다(순수 수집본에는 seat · brief 가 없다). 그래서 둘은 한 벌이다.
  */
 export function buildAffiliatePlan(input: AffiliatePlanInput): AffiliatePlan {
@@ -80,7 +80,7 @@ export function buildAffiliatePlan(input: AffiliatePlanInput): AffiliatePlan {
         key: 'collect',
         label: AFFILIATE_STAGE_LABEL.collect,
         script: path.join(scriptsDir, 'affiliate-refresh.js'),
-        args: [],
+        args: input.siteRepo ? [] : ['--localOnly'],
       },
       {
         key: 'enrich',
@@ -100,10 +100,11 @@ function kstDay(ms: number): string {
 }
 
 /** 오늘(한국 날짜) 이미 돌았으면 안 돈다. 기록이 없거나 못 읽으면 돈다 — 안 도는 쪽이 더 나쁘다. */
-export function isAffiliateRunDue(lastRunAt: string | null | undefined, now: number): boolean {
+export function isAffiliateRunDue(lastRunAt: string | null | undefined, now: number, lastSucceeded = true): boolean {
   if (!lastRunAt) return true;
   const at = Date.parse(String(lastRunAt));
   if (!Number.isFinite(at)) return true;
+  if (!lastSucceeded) return now - at >= 60 * 60 * 1000;
   return kstDay(at) !== kstDay(now);
 }
 
