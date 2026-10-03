@@ -143,12 +143,12 @@ function configOf() {
 }
 
 /** 한 자리를 잰다. 못 읽으면 null — 안 잰 것을 0 으로 바꾸지 않는다. */
-async function seatOf(keyword: string): Promise<{ facing: number; vacancy: number | null } | null> {
+async function seatOf(keyword: string): Promise<{ facing: number; vacancy: number | null; measuredAt: string; sampled: number } | null> {
   const res = await localSerpFetch(seatBlogTabUrl(keyword));
   if (!res.ok || !res.body) return null;
   const seat = measureSeat({ keyword, blogTabHtml: res.body, allTabHtml: null });
   if (seat.sampled < 3) return null;
-  return { facing: seat.facing, vacancy: seat.vacancy };
+  return { facing: seat.facing, vacancy: seat.vacancy, measuredAt: new Date().toISOString(), sampled: seat.sampled };
 }
 
 export interface RunOptions {
@@ -256,7 +256,13 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
       .slice(0, CORE_SEAT_CAP);
     for (let i = 0; i < targets.length && !abortRequested; i += 1) {
       const seat = await seatOf(targets[i].coreKeyword);
-      if (seat) { targets[i].serpFacing = seat.facing; targets[i].serpVacancy = seat.vacancy; seatsMeasured += 1; }
+      if (seat) {
+        targets[i].serpFacing = seat.facing;
+        targets[i].serpVacancy = seat.vacancy;
+        targets[i].serpMeasuredAt = seat.measuredAt;
+        targets[i].serpSampled = seat.sampled;
+        seatsMeasured += 1;
+      }
       report({ step: '자리', done: i + 1, total: targets.length, message: `${targets[i].coreKeyword} — 잰 것 ${seatsMeasured}` });
       if (localSerpStats().consecutiveBlocked >= 5) break;
     }
@@ -283,8 +289,10 @@ export async function runLocalBriefs(options: RunOptions = {}): Promise<LocalBri
           if (!seat) continue;
           c.serpFacing = seat.facing;
           c.serpVacancy = seat.vacancy;
+          c.serpMeasuredAt = seat.measuredAt;
+          c.serpSampled = seat.sampled;
           c.serpFit = serpFitOf(seat.facing, seat.vacancy);
-          measured.push({ keyword: c.keyword, searchVolume: c.searchVolume, serpFacing: seat.facing, serpVacancy: seat.vacancy, serpFit: c.serpFit });
+          measured.push({ keyword: c.keyword, searchVolume: c.searchVolume, serpFacing: seat.facing, serpVacancy: seat.vacancy, serpFit: c.serpFit, serpMeasuredAt: seat.measuredAt, serpSampled: seat.sampled });
           if (wantAlt && c.serpFit === '높음') break;
         }
         // 열린 것이 앞에 오게. 안 잰 것은 뒤에 그대로 둔다(0 이 아니라 모름).

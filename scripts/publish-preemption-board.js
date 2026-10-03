@@ -42,6 +42,7 @@ const { TIER_ORDER } = require('../src/utils/preemption-gate');
 const { orderForPublish } = require('../src/utils/board-order');
 // 죽은 행 — 카드로 답이 나오는 검색어·수익 판정 bad. 등급(검색량÷문서수)은 의도를 못 본다.
 const { judgeDeadRow } = require('../src/utils/board-dead-rows');
+const { repairGoldenBoardTitles } = require('./repair-golden-board-titles');
 const { classifyGoldenShortTrend, retainGoldenShortTrend, shortTrendCandidates, unknownGoldenShortTrend } = require('../src/utils/golden-short-trend');
 
 const DEFAULT_DEST = path.join(
@@ -881,6 +882,12 @@ async function main() {
    */
   const carried = previousSample && previousSample.day === kstDay ? previousSample.keywords : null;
   const freeSample = { day: kstDay, keywords: repairFreeSample(merged, carried) };
+
+  // Fresh + carried rows must pass the same title repair before every publication.
+  const titleRepair = repairGoldenBoardTitles({ rows: merged.rows, trendCandidates: enrichedTrends.trendCandidates });
+  merged.rows = titleRepair.board.rows;
+  enrichedTrends.trendCandidates = titleRepair.board.trendCandidates;
+  console.log(`  제목 교정    ${titleRepair.stats.changed}행 · 근거 부족 제목 보류 ${titleRepair.stats.withheld}행`);
 
   const payload = {
     publishedAt: new Date().toISOString(),

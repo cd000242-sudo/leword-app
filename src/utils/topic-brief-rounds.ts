@@ -177,8 +177,12 @@ export function dropRepeats(briefs: ReadonlyArray<TopicBrief>, rounds: ReadonlyA
 
 /** 앞 회차에서 같은 검색어의 자리를 이미 쟀으면 그대로 쓴다 — BD 를 다시 안 태운다. */
 export function carrySeats(briefs: ReadonlyArray<TopicBrief>, rounds: ReadonlyArray<BriefRound>): TopicBrief[] {
-  const measured = new Map<string, Pick<TopicBrief, 'serpFacing' | 'serpVacancy'>>();
-  for (const r of rounds) for (const b of r.briefs) if (b.serpFacing != null) measured.set(briefKey(b), { serpFacing: b.serpFacing, serpVacancy: b.serpVacancy });
+  const measured = new Map<string, Pick<TopicBrief, 'serpFacing' | 'serpVacancy' | 'serpMeasuredAt' | 'serpSampled'>>();
+  for (const r of rounds) for (const b of r.briefs) if (b.serpFacing != null) measured.set(briefKey(b), {
+    serpFacing: b.serpFacing, serpVacancy: b.serpVacancy,
+    ...(b.serpMeasuredAt ? { serpMeasuredAt: b.serpMeasuredAt } : {}),
+    ...(b.serpSampled != null ? { serpSampled: b.serpSampled } : {}),
+  });
   return briefs.map((b) => {
     if (b.serpFacing != null) return b;
     const prior = measured.get(briefKey(b));

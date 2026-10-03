@@ -29,8 +29,7 @@ const { getNaverKeywordSearchVolumeSeparate } = require('../src/utils/naver-data
 const { analyzeKeywordTrend } = require('../src/utils/trend-type-classifier');
 const { probeNaverAutocompleteSuggestions } = require('../src/utils/naver-autocomplete');
 const { pickSubKeywords } = require('../src/utils/title-forge/subkeyword-forge');
-const { sharesToken } = require('../src/utils/title-forge/board-titles');
-const { forgeTitles } = require('../src/utils/title-forge/forge');
+const { sharesToken, sharesTopic, buildBoardTitles, repairBoardTitles, isBoardTitleSafe } = require('../src/utils/title-forge/board-titles');
 const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent } = require('../src/utils/agent-cli/runAny');
 const { tryExtractJson } = require('../src/utils/agent-cli/parse');
@@ -274,6 +273,7 @@ async function proposeSubKeywords(mainKeyword, groundingExamples, relatedCandida
      * 근거는 위 실측 목록뿐. 검증(메인 포함·상투구·서브 포함)은 밖에서 한다.
      */
     '마지막 임무 — 위 실측 검색어들을 근거로 블로그 제목 두 개도 함께 지어라:',
+    '검색량은 작성자의 체험이나 사건의 사실 확인 근거가 아니다. 직접 써본·내돈내산 등 경험을 지어내지 말고, 같은 대상을 다루는 검색어만 사용해라.',
     `- seo: "${mainKeyword}" 로 시작 + 상위노출을 노리는 구체 정보(숫자·비교·시점). 40자 이내.`,
     `- home: 홈 목록·피드에서 한 번 눌러보고 싶게 만드는 제목이다. 35~45자.`,
     '  블로그 클릭률(CTR)을 높이는 카피다 — 네 가지를 동시에 만족한다:',
@@ -489,7 +489,7 @@ function validateAiTitles(mainKeyword, subKeywords, seoRaw, homeRaw) {
     const firstComma = t.indexOf(',');
     return firstComma > -1 && firstComma <= mainKeyword.length + 6 && t.slice(0, firstComma).includes(head);
   };
-  const seoOk = seo.length >= 10 && seo.includes(head) && !TITLE_CLICHES.test(seo);
+  const seoOk = seo.length >= 10 && seo.includes(mainKeyword) && !TITLE_CLICHES.test(seo) && isBoardTitleSafe(seo);
   /*
    * 홈판이 왜 떨어졌는지 남긴다(2026-08-22).
    *
@@ -505,6 +505,7 @@ function validateAiTitles(mainKeyword, subKeywords, seoRaw, homeRaw) {
   const homeFails = [];
   if (home.length < 10) homeFails.push('너무 짧다(10자 미만)');
   if (!home.includes(head)) homeFails.push(`메인 키워드 앞말 "${head}" 가 제목에 없다`);
+  if (!isBoardTitleSafe(home)) homeFails.push('근거 없는 체험 또는 내용 없는 일반형 제목이다');
   if (TITLE_CLICHES.test(home)) homeFails.push('금지 상투구가 들어 있다(핵심 정리·총정리·한눈에 등)');
   if (commaTellOf(home)) homeFails.push('"키워드, 후킹문" 쉼표 이분법 — AI 서명이다');
   /*
@@ -547,6 +548,12 @@ async function main() {
 
   const board = JSON.parse(fs.readFileSync(inPath, 'utf8'));
   const rows = Array.isArray(board.rows) ? board.rows : [];
+  // AI 할당량·완성 행 스킵과 무관하게 누적된 잘못된 규칙 제목부터 교정한다.
+  for (const row of rows) {
+    const candidates = [...(Array.isArray(row.subKeywords) ? row.subKeywords : []), ...(Array.isArray(row.keywordPool) ? row.keywordPool : [])];
+    row.titles = repairBoardTitles(row, candidates, Array.isArray(row.serp?.topTitles) ? row.serp.topTitles : [], row.titles);
+    if (Array.isArray(row.subKeywords)) row.subKeywords = row.subKeywords.filter((candidate) => sharesTopic(row.keyword, candidate.keyword));
+  }
   const searchAd = buildSearchAdConfig();
   const envConfig = EnvironmentManager.getInstance().getConfig();
   const openApi = {
@@ -711,8 +718,9 @@ async function main() {
      * 전부 실측이 붙은 검색어라 지어낸 것이 없다.
      */
     const pickedRows = related.candidates.filter((r) => picked.includes(r.keyword));
-    const pool = [...related.tokenMatched, ...pickedRows, ...verified];
-    const merged = pickSubKeywords(row.keyword, [...existingSubs, ...pool]);
+    const pool = [...related.tokenMatched, ...pickedRows, ...verified].filter((candidate) => sharesTopic(row.keyword, candidate.keyword));
+    const sameTopicSubs = existingSubs.filter((candidate) => sharesTopic(row.keyword, candidate.keyword));
+    const merged = pickSubKeywords(row.keyword, [...sameTopicSubs, ...pool]);
     const gotNewSubs = merged.length > existingSubs.length;
 
     const seenPool = new Set();
@@ -751,16 +759,13 @@ async function main() {
      * 제목(회차 실측)이 있으니 "1페이지에 없는 각도" 선택이 실제로 돈다.
      */
     const serpTitles = (row.serp && Array.isArray(row.serp.topTitles)) ? row.serp.topTitles : [];
-    const newTitles = forgeTitles({
-      keyword: row.keyword,
-      derivedKeywords: [...existingSubs, ...pool],
-      serpTitles,
-      timing: row.timing || '',
-    });
+    const newTitles = buildBoardTitles(row, [...sameTopicSubs, ...pool], serpTitles);
+    row.titles = repairBoardTitles(row, [...sameTopicSubs, ...pool], serpTitles, row.titles);
     let titleUpgraded = newTitles.seo.frame !== 'generic'
       && (!row.titles || !row.titles.seo || row.titles.seo.frame === 'generic');
 
-    if (gotNewSubs) { row.subKeywords = merged; stats.subsAdded += 1; }
+    row.subKeywords = merged;
+    if (gotNewSubs) stats.subsAdded += 1;
     if (titleUpgraded || gotNewSubs) { row.titles = newTitles; if (titleUpgraded) stats.titleUpgraded += 1; }
 
     /*

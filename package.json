@@ -156,6 +156,7 @@
       "scripts/trim-candidates.js",
       "scripts/preemption-board-batch.js",
       "scripts/publish-preemption-board.js",
+      "scripts/repair-golden-board-titles.js",
       "scripts/affiliate-refresh.js",
       "scripts/affiliate-campaigns.js",
       "scripts/affiliate-campaigns-parse.js",

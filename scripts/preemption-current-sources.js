@@ -12,45 +12,81 @@ const fieldTopic = {
   '생활경제·부동산': '비즈니스·경제',
   '비즈니스': '비즈니스·경제', '경제': '비즈니스·경제', '부동산·주거': '비즈니스·경제',
   '생활경제': '비즈니스·경제', '정책': '사회·정치', '사회·정치': '사회·정치',
+  '생활경제·주거': '비즈니스·경제', '정책·사회·법률': '사회·정치',
+  'AI·IT·전자기기·앱': 'IT·컴퓨터', '국내여행·로컬·시즌': '국내여행',
+  '연예·OTT·영화·문화': '스타·연예인', '반려동물': '반려동물',
   'IT·컴퓨터': 'IT·컴퓨터', 'AI': 'IT·컴퓨터', '건강': '건강·의학',
   '스포츠': '스포츠', '연예': '스타·연예인', '국내여행': '국내여행',
 };
 const moneyKeyword = /지원금|장려금|보조금|정책자금|소상공인|금리|대출|청약|연금|세금|세액|부가세|환급|고용|물가|경제|부동산|전세|월세/;
-function collectCurrentSeeds({ briefs, signals, nowMs = Date.now() } = {}) {
+const knownTopic = (field) => typeof field === 'string' && Object.prototype.hasOwnProperty.call(fieldTopic, field) ? fieldTopic[field] : null;
+// Benchmark titles are discovery evidence, never verified policy claims. Extract
+// only economic nouns actually present in each dated source; do not reuse the
+// card's relatedKeywords (often sentence fragments from a different source).
+function benchmarkTerms(title) {
+  if (typeof title !== 'string') return [];
+  const broad = new Set(['지원금', '장려금', '보조금', '정책자금', '연금', '세액공제', '소득공제', '부가세', '환급금', '배당금', '상품권', '지역화폐', '청약']);
+  return [...new Set(title.match(/[가-힣A-Za-z0-9]{0,10}(?:지원금|장려금|보조금|정책자금|연금|세액공제|소득공제|부가세|환급금|배당금|상품권|지역화폐|청약|전세대출|주택대출|대출금리|예금금리|적금금리)/g) || [])]
+    .filter(term => !broad.has(term));
+}
+function sourceForExpansion(source, keyword) {
+  // Search-ad "related" is not proof that an article covers that other entity.
+  return source && compact(source.keyword) && compact(keyword).includes(compact(source.keyword)) ? source : null;
+}
+function collectCurrentSeeds({ briefs, signals, benchmarks, nowMs = Date.now() } = {}) {
   const rows = [];
   const seen = new Set();
   const groups = new Map();
-  function add(keyword, topic, kind, sourceAt, sourceUrl, group = kind) {
+  function add(keyword, topic, kind, sourceAt, sourceUrl, group = kind, extra = {}) {
     if (typeof keyword !== 'string') return;
     const text = keyword.replace(/\s+/g, ' ').trim();
     const key = compact(text);
     if (!topic || key.length < 2 || key.length > 15 || seen.has(key)) return;
     seen.add(key);
-    rows.push({ keyword:text, topic, kind, sourceAt, sourceUrl });
+    rows.push({ keyword:text, topic, kind, sourceAt, sourceUrl, ...extra });
     groups.set(key, group);
   }
   const briefRows = [];
-  for (const brief of Array.isArray(briefs?.briefs) ? briefs.briefs : []) {
+  // Daily output contains only the newest round at the top level. Earlier rounds
+  // still nominate candidates, but freshness always comes from the source date.
+  const allBriefs = [
+    ...(Array.isArray(briefs?.briefs) ? briefs.briefs : []),
+    ...(Array.isArray(briefs?.rounds) ? briefs.rounds : []).flatMap(round => Array.isArray(round?.briefs) ? round.briefs : []),
+  ];
+  for (const brief of allBriefs) {
+    if (!brief || typeof brief !== 'object') continue;
     const facts = (Array.isArray(brief.facts) ? brief.facts : [])
       .filter(f => fresh(f?.publishedAt, nowMs, 7) && /^https?:\/\//.test(String(f.link || '')))
       .sort((a,b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
     if (!facts.length) continue;
-    const topic = fieldTopic[brief.field] || (moneyKeyword.test(brief.coreKeyword || '') ? '비즈니스·경제' : null);
+    const topic = knownTopic(brief.field) || (moneyKeyword.test(brief.coreKeyword || '') ? '비즈니스·경제' : null);
     briefRows.push({ brief, topic, fact:facts[0] });
   }
+  briefRows.sort((a, b) => Date.parse(b.fact.publishedAt) - Date.parse(a.fact.publishedAt));
   // Give different articles a first pass before filling slots with related terms.
   for (const related of [false, true]) {
     for (const {brief, topic, fact} of briefRows) {
       for (const word of related ? (Array.isArray(brief.keywords) ? brief.keywords : []) : [brief.coreKeyword]) {
-        add(word, topic, 'current-brief', fact.publishedAt, fact.link, brief.field);
+        add(typeof word === 'string' ? word : word?.keyword, topic, 'current-brief', fact.publishedAt, fact.link, brief.field);
       }
+    }
+  }
+  const benchmarkSources = (Array.isArray(benchmarks?.candidates) ? benchmarks.candidates : [])
+    .filter(item => ['생활경제·주거', '비즈니스·경제', '지원금·복지', '생활경제·부동산'].includes(item?.category))
+    .flatMap(item => Array.isArray(item.sources) ? item.sources : [])
+    .filter(source => fresh(source?.publishedAt, nowMs, 7) && /^https?:\/\//.test(String(source.url || '')))
+    .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+  for (const source of benchmarkSources) {
+    for (const keyword of benchmarkTerms(source.title)) {
+      add(keyword, '비즈니스·경제', 'current-benchmark', source.publishedAt, source.url, 'current-benchmark',
+        { sourceTitle: source.title, discoveryOnly: true });
     }
   }
   if (fresh(signals?.collectedAt, nowMs, 1)) {
     for (const lane of Array.isArray(signals?.lanes) ? signals.lanes : []) {
       for (const item of Array.isArray(lane?.items) ? lane.items : []) {
         const keyword = item?.keyword;
-        const topic = fieldTopic[item?.topic] || (moneyKeyword.test(keyword || '') ? '비즈니스·경제' : null);
+        const topic = knownTopic(item?.topic) || (moneyKeyword.test(keyword || '') ? '비즈니스·경제' : null);
         add(keyword, topic, 'current-realtime', signals.collectedAt, 'https://signal.bz/');
       }
     }
@@ -97,4 +133,4 @@ function exactMeasuredVolume(row) {
   return values.every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)
     ? values[0] + values[1] : null;
 }
-module.exports = { collectCurrentSeeds, reserveCurrentSeeds, prioritizeCurrentSample, exactMeasuredVolume };
+module.exports = { collectCurrentSeeds, reserveCurrentSeeds, prioritizeCurrentSample, exactMeasuredVolume, sourceForExpansion };

@@ -203,7 +203,7 @@ async function main() {
       const res = await fetchPage(seatBlogTabUrl(b.coreKeyword));
       if (!res.ok) continue;
       const seat = measureSeat({ keyword: b.coreKeyword, blogTabHtml: res.body, allTabHtml: null });
-      if (seat.sampled >= 3) { b.serpFacing = seat.facing; b.serpVacancy = seat.vacancy; measured += 1; }
+      if (seat.sampled >= 3) { b.serpFacing = seat.facing; b.serpVacancy = seat.vacancy; b.serpMeasuredAt = new Date().toISOString(); b.serpSampled = seat.sampled; measured += 1; }
     }
     console.log(`  자리 실측    ${targets.length}건 중 ${measured}건 (${serpMode})`);
     for (const b of all) b.serpFit = serpFitOf(b.serpFacing, b.serpVacancy);
@@ -252,10 +252,12 @@ async function main() {
           const seat = measureSeat({ keyword: c.keyword, blogTabHtml: res.body, allTabHtml: null });
           if (seat.sampled < 3) continue;
           c.serpFacing = seat.facing;
+          c.serpMeasuredAt = new Date().toISOString();
+          c.serpSampled = seat.sampled;
           c.serpVacancy = seat.vacancy;
           c.serpFit = serpFitOf(seat.facing, seat.vacancy);
           relOpen += c.serpFit === '높음' ? 1 : 0;
-          measured.push({ keyword: c.keyword, searchVolume: c.searchVolume, serpFacing: seat.facing, serpVacancy: seat.vacancy, serpFit: c.serpFit });
+          measured.push({ keyword: c.keyword, searchVolume: c.searchVolume, serpFacing: seat.facing, serpVacancy: seat.vacancy, serpFit: c.serpFit, serpMeasuredAt: c.serpMeasuredAt, serpSampled: c.serpSampled });
           // 열린 것을 찾았고 대안까지 필요했다면 더 안 잰다 — 대안은 하나면 된다.
           if (wantAlt && c.serpFit === '높음') break;
         }

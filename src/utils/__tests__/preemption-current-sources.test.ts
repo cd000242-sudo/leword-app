@@ -1,11 +1,45 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-const { collectCurrentSeeds, reserveCurrentSeeds, prioritizeCurrentSample, exactMeasuredVolume } = require('../../../scripts/preemption-current-sources');
+const { collectCurrentSeeds, reserveCurrentSeeds, prioritizeCurrentSample, exactMeasuredVolume, sourceForExpansion } = require('../../../scripts/preemption-current-sources');
 const now = Date.parse('2026-09-28T10:00:00Z');
 const date = (days: number) => new Date(now - days * 86400000).toISOString();
 const brief = (keyword: string, days = 1) => ({coreKeyword:keyword,keywords:[keyword],field:'지원금·복지',facts:[{publishedAt:date(days),link:'https://example.org/source'}]});
 describe('황금 후보의 현재 이슈 공급', () => {
+ it('카테고리 객체의 기본 프로퍼티 이름이나 손상된 배열을 주제로 오인하지 않는다', () => {
+  const rows=collectCurrentSeeds({briefs:{briefs:[null,[],{...brief('엉뚱한 단어'),field:'constructor'},{...brief('엉뚱한 말'),field:'__proto__'}],rounds:[null,{briefs:null}]},benchmarks:{candidates:[null,{category:'생활경제·주거',sources:[null]}]},nowMs:now});
+  expect(rows).toEqual([]);
+ });
+ it('새 회차에서 빠진 경제 글감도 최근 원문이 있는 보관 회차에서 회수한다', () => {
+  const rows = collectCurrentSeeds({briefs:{briefs:[brief('오늘 지원금')],rounds:[
+    {builtAt:date(0),briefs:[brief('오래된 지원금',8),brief('지난회차 지원금',2)]},
+    null,{briefs:'broken'},
+  ]},nowMs:now});
+  expect(rows.map((r:any)=>r.keyword)).toEqual(['오늘 지원금','지난회차 지원금']);
+ });
+ it('중복 회차의 같은 키워드는 최신 원문 날짜를 유지하며 측정 수치를 복사하지 않는다', () => {
+  const rows=collectCurrentSeeds({briefs:{briefs:[brief('청년 지원금',3)],rounds:[{briefs:[
+   {...brief('청년 지원금',1),searchVolume:99999,keywords:[{keyword:'청년 지원금 조건',searchVolume:99999}]}]}]},nowMs:now});
+  expect(rows[0].sourceAt).toBe(date(1));
+  expect(rows.map((r:any)=>r.keyword)).toEqual(['청년 지원금','청년 지원금 조건']);
+  expect(rows.every((r:any)=>r.searchVolume===undefined)).toBe(true);
+ });
+ it('경제 벤치마크는 같은 원문에 있는 용어와 원문 날짜만 쓰고 연예·관련어 오염을 제외한다', () => {
+  const source=(title:string,days=1,url='https://blog.naver.com/money/1')=>({title,publishedAt:date(days),url});
+  const rows=collectCurrentSeeds({benchmarks:{generatedAt:date(0),candidates:[
+   {category:'생활경제·주거',keyword:'금융 주장',relatedKeywords:['미희주사'],sources:[source('유족연금 신청 조건'),source('청년지원금',8),source('정책자금',-1),source('소상공인지원금',0,'javascript:x')]},
+   {category:'문화·연예',sources:[source('유명 배우의 기초연금 이야기')]},
+   {category:'생활경제·주거',sources:[source('배구 선수 연봉 5천만원')]},
+  ]},nowMs:now});
+  expect(rows).toEqual([{keyword:'유족연금',topic:'비즈니스·경제',kind:'current-benchmark',sourceAt:date(1),sourceUrl:'https://blog.naver.com/money/1',sourceTitle:'유족연금 신청 조건',discoveryOnly:true}]);
+ });
+ it('연관어가 원래 씨앗에서 벗어나면 기사 출처와 현재 이슈 라벨을 물려주지 않는다', () => {
+  const source={keyword:'청년 지원금',url:'https://example.org/source'};
+  expect(sourceForExpansion(source,'청년지원금 신청 조건')).toBe(source);
+  expect(sourceForExpansion(source,'청년 전세대출')).toBeNull();
+  expect(sourceForExpansion(source,'미희주사 후기')).toBeNull();
+  expect(sourceForExpansion(null,'청년지원금')).toBeNull();
+ });
  it('최근 출처가 있는 실제 키워드만 받고 수치나 접미어를 생성하지 않는다', () => {
   const rows=collectCurrentSeeds({briefs:{briefs:[brief('소상공인 지원금'),brief('오래된 지원금',8),brief('미래 지원금',-1),{...brief('출처 없는 지원금'),facts:[]}]},nowMs:now});
   expect(rows).toEqual([{keyword:'소상공인 지원금',topic:'비즈니스·경제',kind:'current-brief',sourceAt:date(1),sourceUrl:'https://example.org/source'}]);

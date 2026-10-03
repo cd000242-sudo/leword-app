@@ -64,7 +64,7 @@ const { sharesSeedToken } = require('../src/utils/seed-drift');
 const { judgeEphemeralKeyword, judgeAnswerCardKeyword } = require('../src/utils/preemption-supply-guards');
 const { isMoneyTopic, orderSeedsByBid, bidKey, bidValue } = require('../src/utils/money-keywords');
 const { shardTopics, defaultTopicConcurrency } = require('./candidate-shards');
-const { collectCurrentSeeds, reserveCurrentSeeds, prioritizeCurrentSample, exactMeasuredVolume } = require('./preemption-current-sources');
+const { collectCurrentSeeds, reserveCurrentSeeds, prioritizeCurrentSample, exactMeasuredVolume, sourceForExpansion } = require('./preemption-current-sources');
 
 function readOptionalJson(file) {
   if (!file || !fs.existsSync(file)) return null;
@@ -203,6 +203,7 @@ async function main() {
   const currentSeeds = collectCurrentSeeds({
     briefs: readOptionalJson(arg('currentBriefs')),
     signals: readOptionalJson(arg('signals')),
+    benchmarks: readOptionalJson(arg('currentBenchmarks')),
   });
   /*
    * 굶은 주제 구제선(2026-08-22).
@@ -543,7 +544,9 @@ async function main() {
      */
     const seedKind = new Map();
     const currentBySeed = new Map(currentForTopic.map(row => [row.keyword,
-      { url: row.sourceUrl, publishedAt: row.sourceAt, kind: row.kind },
+      { url: row.sourceUrl, publishedAt: row.sourceAt, kind: row.kind, keyword: row.keyword,
+        ...(row.sourceTitle ? { title: row.sourceTitle } : {}),
+        ...(row.discoveryOnly ? { discoveryOnly: true } : {}), },
     ]));
     for (const term of coverage.seedTerms) seedKind.set(term, 'coverage');
     for (const term of seasonalSeeds) seedKind.set(term, 'seasonal');
@@ -562,8 +565,9 @@ async function main() {
               expansionSeeds.add(keyword);
               // 연관어에서 온 씨앗 — 여기서 늘어난 말이 가장 깊은 확장이다.
               if (!seedKind.has(keyword)) {
-                seedKind.set(keyword, currentBySeed.has(seed) ? seedKind.get(seed) : 'related');
-                if (currentBySeed.has(seed)) currentBySeed.set(keyword, currentBySeed.get(seed));
+                const currentSource = sourceForExpansion(currentBySeed.get(seed), keyword);
+                seedKind.set(keyword, currentSource ? seedKind.get(seed) : 'related');
+                if (currentSource) currentBySeed.set(keyword, currentSource);
               }
             }
           });
@@ -632,12 +636,14 @@ async function main() {
           }
           // 어절 수·실시간 여부로는 **거르지 않는다**. 라벨로만 남긴다 —
           // 롱테일만 값진 게 아니고, 실시간도 쓸 데가 있다.
+          const currentSource = sourceForExpansion(currentBySeed.get(seed), keyword);
+          const originKind = seedKind.get(seed) || 'coverage';
           phrases.set(keyword, {
             keyword,
             seed,
             /** 씨앗이 어느 갈래였나 — coverage/seasonal/warehouse/related. */
-            seedKind: seedKind.get(seed) || 'coverage',
-            currentSource: currentBySeed.get(seed) || null,
+            seedKind: originKind.startsWith('current-') && !currentSource ? 'related' : originKind,
+            currentSource,
             /**
              * 씨앗보다 몇 어절 늘었나. 0 이면 씨앗 그대로(머리 키워드),
              * 1 이상이면 자동완성이 붙인 확장이다. 화면이 '확장 위주'로 세울 근거다.

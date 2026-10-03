@@ -268,6 +268,10 @@ jobs:
         continue-on-error: true
         run: curl --fail --silent --show-error --max-time 30 https://leaderspro.kr/data/topic-briefs.json --output current-briefs.json
 
+      - name: 경제 벤치마크 발굴 출처 받기
+        continue-on-error: true
+        run: curl --fail --silent --show-error --max-time 30 https://leaderspro.kr/data/homefeed-benchmarks.json --output current-benchmarks.json
+
       - name: 후보 발굴
         env:
           # 러너 4개가 한 검색광고 계정을 동시에 부른다(2026-09-08 실측 429 폭주). 러너 안 간격을
@@ -347,6 +351,7 @@ jobs:
             --starvedFloor=15 --starvedFacing=6 \
             --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json \
             --currentBriefs=current-briefs.json \
+            --currentBenchmarks=current-benchmarks.json \
             --signals=signals.json
 
       - name: 샤드 결과 넘기기

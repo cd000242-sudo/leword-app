@@ -85,6 +85,9 @@ export interface TopicBrief extends BriefDraft {
   /** 검색광고가 '< 10' 으로 답한 검색어 — 잰 것이지 안 잰 게 아니다 */
   searchVolumeUnder10?: boolean;
   serpFacing: number | null;
+  /** 실제 검색 결과를 받은 시각과 표본 수. 회차 발행 시각으로 대체하지 않는다. */
+  serpMeasuredAt?: string;
+  serpSampled?: number;
   serpVacancy: number | null;
   serpFit: '높음' | '보통' | '낮음' | '미측정';
   star: boolean;
@@ -126,6 +129,8 @@ export interface BriefRelated {
    * 안 잰 것은 미정의다. '정면 0'과 '안 쟀다'는 다르다.
    */
   serpFacing?: number | null;
+  serpMeasuredAt?: string;
+  serpSampled?: number;
   serpVacancy?: number | null;
   serpFit?: TopicBrief['serpFit'];
 }
@@ -134,6 +139,8 @@ export interface BriefAlternative {
   keyword: string;
   searchVolume: number | null;
   serpFacing: number | null;
+  serpMeasuredAt?: string;
+  serpSampled?: number;
   serpVacancy: number | null;
   serpFit: '높음' | '보통' | '낮음' | '미측정';
 }

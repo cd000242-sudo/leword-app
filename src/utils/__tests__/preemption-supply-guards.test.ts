@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { judgeEphemeralKeyword } from '../preemption-supply-guards';
+import { judgeEphemeralKeyword, judgeAnswerCardKeyword } from '../preemption-supply-guards';
 import { BLOG_TOPIC_COVERAGE } from '../blog-topic-coverage';
+
+describe('포털 탐색과 사용법 글감 구분', () => {
+    it.each(['경동대학교포털', '경동대학교 포탈', '정부 지원금 포털'])('%s는 사이트 이동 검색이다', (keyword) => {
+        expect(judgeAnswerCardKeyword(keyword).answerCard).toBe(true);
+    });
+    it.each(['경동대학교 포털 로그인 오류 해결', '지원금 포탈 신청 방법', '포털 광고 비용 비교'])('%s는 해결·설명 글감으로 남는다', (keyword) => {
+        expect(judgeAnswerCardKeyword(keyword).answerCard).toBe(false);
+    });
+});
 
 /**
  * 공급 유통기한 가드 — "쓰는 순간부터 부패하는" 키워드를 BD 태우기 전에 거른다.
