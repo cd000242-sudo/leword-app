@@ -1,0 +1,106 @@
+name: 황금키워드 일일 재검증
+
+on:
+  schedule:
+    - cron: '23 22 * * *' # 매일 07:23 KST
+  workflow_dispatch:
+
+# The full Monday/Friday pipeline owns the same quota ledger and board.
+concurrency:
+  group: preemption-board
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    env:
+      LEWORD_SEARCHAD_SOFT_CEILING: '50'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node --test scripts/preemption-daily-candidates.test.cjs
+      - name: 사이트 보드와 공유 장부 받기
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+      - name: 현재 실시간 검색어 확인
+        continue-on-error: true
+        run: node scripts/realtime-signals.js --out=daily-signals.json --limit=20
+      - name: 기존 30개와 새 후보 20개 이내 실측
+        env:
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+        run: node scripts/preemption-daily-candidates.js --out=daily-candidates.json
+      - name: 검색결과 재검증 (최대 100콜, 기존 월예산 안에서)
+        env:
+          BRIGHTDATA_TOKEN: ${{ secrets.BRIGHTDATA_TOKEN }}
+          BRIGHTDATA_ZONE: ${{ secrets.BRIGHTDATA_ZONE }}
+          LEWORD_BRIGHTDATA_QUOTA_STATE_FILE: ${{ github.workspace }}/data/brightdata-quota-state.json
+          LEWORD_BRIGHTDATA_QUOTA_PEER_FILES: ${{ github.workspace }}/site/data/brightdata-quota-briefs.json,${{ github.workspace }}/site/data/brightdata-quota-issue.json,${{ github.workspace }}/site/data/brightdata-quota-homefeed.json
+          LEWORD_BRIGHTDATA_FREE_CEILING: '5000'
+          LEWORD_BRIGHTDATA_PAID_OVERAGE: '12500'
+          LEWORD_BRIGHTDATA_FEATURE_CAPS: '{"golden":11000}'
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+        run: node scripts/preemption-board-batch.js --in=daily-candidates.json --out=daily-board.json --targetPerTopic=50 --maxPerRun=100 --signals=daily-signals.json --withStructure
+      - name: 검증 통과분만 발행 (0건이면 이전 보드 유지)
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+        run: node scripts/publish-preemption-board.js --in=daily-board.json --dest=site/spa/public/data/preemption-board.json --requireFreshRows --publicationMode=daily
+      - name: 확정 탈락을 이전 추천에서도 내리기
+        if: always()
+        run: node scripts/preemption-daily-candidates.js --apply-status
+      - name: 검증 보드 배포
+        if: always()
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/preemption-board.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(board): daily keyword revalidation"
+          git pull --rebase origin main
+          git push origin HEAD:main
+      - name: 회차 결과 보관
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-daily-results
+          path: |
+            daily-candidates.json
+            daily-board.json
+            daily-review.json
+          retention-days: 7
+          if-no-files-found: ignore
+      # Persist consumed quota even when verification/publication failed.
+      - name: 재검증 순환·사용량 장부 저장
+        if: always()
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          for file in data/preemption-daily-state.json data/brightdata-quota-state.json data/preemption-first-seen.json; do
+            if [ -f "$file" ]; then git add "$file"; fi
+          done
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore(board): persist daily validation and quota ledger"
+          git pull --rebase origin main
+          git push origin HEAD:main

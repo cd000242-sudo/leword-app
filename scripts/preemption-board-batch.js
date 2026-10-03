@@ -151,6 +151,8 @@ function loadCandidates(inPath) {
       longTail: Boolean(row.longTail),
       // 언제 잰 값인지. 여기서 안 넘기면 화면이 "언제쩍 숫자인지" 를 말할 수 없다.
       measuredAt: row.measuredAt || null,
+      searchVolumeMeasuredAt: row.searchVolumeMeasuredAt,
+      documentCountMeasuredAt: row.documentCountMeasuredAt,
       demandAsOf: row.demandAsOf || null,
       latestVsPeakPct: Number.isFinite(Number(row.latestVsPeakPct)) ? Number(row.latestVsPeakPct) : null,
       monthsSincePeak: Number.isFinite(Number(row.monthsSincePeak)) ? Number(row.monthsSincePeak) : null,
@@ -694,6 +696,8 @@ async function main() {
         demandAsOf: candidate?.demandAsOf || null,
         latestVsPeakPct: candidate?.latestVsPeakPct ?? null,
         measuredAt: candidate?.measuredAt || null,
+        searchVolumeMeasuredAt: candidate?.searchVolumeMeasuredAt,
+        documentCountMeasuredAt: candidate?.documentCountMeasuredAt,
       });
     }
 
@@ -723,6 +727,8 @@ async function main() {
         monthsToPeak: candidate?.monthsToPeak ?? null,
         timing: candidate?.timing || '',
         measuredAt: candidate?.measuredAt || null,
+        searchVolumeMeasuredAt: candidate?.searchVolumeMeasuredAt,
+        documentCountMeasuredAt: candidate?.documentCountMeasuredAt,
         demandAsOf: candidate?.demandAsOf || null,
         latestVsPeakPct: candidate?.latestVsPeakPct ?? null,
         monthsSincePeak: candidate?.monthsSincePeak ?? null,

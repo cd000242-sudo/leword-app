@@ -29,6 +29,7 @@ const OUTSIDE_CI_RESERVE = 3_500;
 
 /** 하루에 도는 회차 수 — 예약 틱은 회차마다 여러 개지만 먼저 도는 하나만 일한다(문지기). */
 const ROUNDS_PER_DAY: Record<string, number> = {
+  'preemption-daily.yml': 1,   // 소규모 일일 재검증, 50개 이내
   'preemption-board.yml': 1,   // 월·금 — 최악의 날 기준 1
   'topic-briefs.yml': 3,
   'issue-niche-board.yml': 3,

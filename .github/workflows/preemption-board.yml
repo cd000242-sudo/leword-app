@@ -115,7 +115,7 @@ jobs:
             echo 'done=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          node scripts/board-round-done.js --url=https://leaderspro.kr/data/preemption-board.json --field=publishedAt --rounds=04:23
+          node scripts/board-round-done.js --url=https://leaderspro.kr/data/preemption-board.json --field=lastFullPublishedAt --rounds=04:23
 
   # ── 1) 씨앗 창고 ────────────────────────────────────────────────────────────
   # 검색광고가 공식으로 내주는 month·event·biztpId 를 긁어 둔다(실측 44,344개).

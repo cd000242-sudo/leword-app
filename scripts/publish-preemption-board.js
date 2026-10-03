@@ -55,6 +55,13 @@ function arg(name, fallback = '') {
 }
 const hasFlag = (name) => process.argv.includes(`--${name}`);
 
+function publicationMetadata(previous, publishedAt, mode = 'full') {
+  const publicationMode = mode === 'daily' ? 'daily' : 'full';
+  const lastFullPublishedAt = publicationMode === 'full' ? publishedAt
+    : previous?.lastFullPublishedAt || (previous?.publicationMode !== 'daily' ? previous?.publishedAt : null) || null;
+  return { publishedAt, publicationMode, lastFullPublishedAt };
+}
+
 /** Daily trends never refresh the age of the independent SERP measurement. */
 async function enrichShortTermTrends(rows, options = {}) {
   const nowMs = options.nowMs ?? Date.now();
@@ -302,6 +309,8 @@ function toPublicRow(row) {
      * 정점 대비 지금 수준을 같이 낸다 — 둘 다 실측 시계열의 단순 나눗셈이다.
      */
     measuredAt: row.measuredAt || null,
+    searchVolumeMeasuredAt: row.searchVolumeMeasuredAt,
+    documentCountMeasuredAt: row.documentCountMeasuredAt,
     demandAsOf: row.demandAsOf || null,
     latestVsPeakPct: row.latestVsPeakPct ?? null,
     monthsSincePeak: row.monthsSincePeak ?? null,
@@ -431,6 +440,11 @@ async function main() {
   console.log(`  선점 적기    ${early}행 (뜨는 중 · 밭 비어 있음 · 실시간 전 · 브리핑 없음 · 새로 생긴 말)`);
 
   // ① 빈 회차가 기존 보드를 지우지 않게
+  // The daily pass promises new search + SERP measurements, not a trend-only timestamp refresh.
+  if (hasFlag('requireFreshRows') && withEvidence.length === 0) {
+    console.error('거부 — 오늘 새로 검증을 통과한 행이 없어 기존 발행본을 유지합니다.');
+    process.exit(4);
+  }
   const seriesConfig = (() => {
     try { return require('../src/utils/environment-manager').EnvironmentManager.getInstance().getConfig(); }
     catch { return {}; }
@@ -890,7 +904,7 @@ async function main() {
   console.log(`  제목 교정    ${titleRepair.stats.changed}행 · 근거 부족 제목 보류 ${titleRepair.stats.withheld}행`);
 
   const payload = {
-    publishedAt: new Date().toISOString(),
+    ...publicationMetadata(prevPayload, new Date().toISOString(), arg('publicationMode', 'full')),
     freeSample,
     generator: 'preemption-board-batch',
     topicsTotal: board.topicsTotal ?? 32,
@@ -917,6 +931,12 @@ async function main() {
     process.exit(4);
   }
 
+  if (hasFlag('requireFreshRows') && !payload.rows.some(row => withEvidence.some(fresh =>
+    trendKey(row) === trendKey(fresh) && row.measuredAt === fresh.measuredAt))) {
+    console.error('거부 — 최종 게이트를 통과한 신규 실측이 없어 기존 발행본을 유지합니다.');
+    process.exit(4);
+  }
+
   if (hasFlag('dryRun')) {
     console.log('\ndryRun — 파일을 쓰지 않고 종료합니다.');
     console.log('상위 5행:');
@@ -938,4 +958,4 @@ if (require.main === module) main().catch((error) => {
   process.exit(1);
 });
 
-module.exports = { toPublicRow, enrichShortTermTrends, enrichGoldenTrends, canCarryTrendOnly, prepareTrendOnlyRound };
+module.exports = { toPublicRow, enrichShortTermTrends, enrichGoldenTrends, canCarryTrendOnly, prepareTrendOnlyRound, publicationMetadata };

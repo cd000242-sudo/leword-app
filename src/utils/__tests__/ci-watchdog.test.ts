@@ -21,6 +21,13 @@ const boardOf = (name: string): WatchedBoard => {
 };
 
 describe('보드 넷을 전부 본다', () => {
+  it('황금 일일 발행은 월금 전체 회차 완료를 대신하지 않는다', () => {
+    const golden = boardOf('황금키워드');
+    const full = '2026-10-01T23:00:00Z', daily = '2026-10-02T00:00:00Z';
+    expect(golden.lastBuiltAt({publishedAt:full})).toBe(Date.parse(full));
+    expect(golden.lastBuiltAt({publishedAt:daily,publicationMode:'daily',lastFullPublishedAt:full})).toBe(Date.parse(full));
+    expect(golden.lastBuiltAt({publishedAt:daily,publicationMode:'daily'})).toBeNull();
+  });
   it('사장님이 지적한 보드가 전부 감시 대상이다', () => {
     const names = BOARDS.map((b) => b.name).join(' ');
     for (const must of ['오늘의 글감', '황금키워드', '추천키워드', '실검 틈새']) {

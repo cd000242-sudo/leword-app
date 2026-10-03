@@ -85,7 +85,10 @@ async function readPublishedAt(url, field, fetchImpl) {
     const res = await fetchImpl(`${url}?t=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return { value: null, note: `HTTP ${res.status}` };
     const data = await res.json();
-    const value = data && typeof data[field] === 'string' ? data[field] : null;
+    const primary = data && typeof data[field] === 'string' ? data[field] : null;
+    // Legacy boards were full rounds. A daily pass must never complete the full-round guard.
+    const value = primary || (field === 'lastFullPublishedAt' && data?.publicationMode !== 'daily'
+      && typeof data?.publishedAt === 'string' ? data.publishedAt : null);
     return { value, note: value ? '읽음' : `${field} 가 없다` };
   } catch (error) {
     return { value: null, note: String((error && error.message) || error).slice(0, 120) };

@@ -102,7 +102,11 @@ export const BOARDS: readonly WatchedBoard[] = [
     workflow: 'preemption-board.yml',
     rounds: [{ hour: 4, minute: 23, label: '회차' }],
     days: [1, 5], // 한국 월요일·금요일
-    lastBuiltAt: topLevel('publishedAt'),
+    lastBuiltAt: (data) => {
+      const board = data as Record<string, unknown> | null;
+      return at(board?.lastFullPublishedAt)
+        ?? (board?.publicationMode === 'daily' ? null : at(board?.publishedAt));
+    },
   },
   {
     name: '오늘의 추천키워드',
