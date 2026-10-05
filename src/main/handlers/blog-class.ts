@@ -251,6 +251,14 @@ export function readBlogClassForView() {
   return forRenderer(readLatest());
 }
 
+/** AI 비서 도구(my_blog)가 읽는 기록 — 화면용 판 + 최근 글 제목(2026-10-06). 글 목록 전체는 넘기지 않는다. */
+export function readBlogClassForAssistant() {
+  const record = readLatest();
+  const view = forRenderer(record);
+  if (!record || !view) return null;
+  return { ...view, recentTitles: (record.posts || []).slice(0, 15).map((post) => ({ title: post.title, publishedOn: post.publishedOn })) };
+}
+
 export function setupBlogClassHandlers(): void {
   if (!ipcMain.listenerCount('blog-class-get')) {
     ipcMain.handle('blog-class-get', async () => {

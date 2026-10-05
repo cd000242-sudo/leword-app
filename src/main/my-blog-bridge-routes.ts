@@ -9,6 +9,8 @@
  */
 import type { IncomingMessage, ServerResponse } from 'http';
 import { sanitizeAssistantInput, type AssistantInput } from '../utils/assistant/assistant-prompt';
+import { describeAssistantFailure } from '../utils/assistant/assistant-failure';
+import { getEngineCooldown } from '../utils/agent-cli/engineHealth';
 
 export const MY_BLOG_ROUTE_PREFIX = '/v1/bridge/my-blog/';
 
@@ -115,9 +117,9 @@ export async function handleMyBlogRoute(req: IncomingMessage, res: ServerRespons
       if ('error' in input) { io.json(res, 400, { ok: false, error: input.error }); return true; }
       try {
         io.json(res, 200, { ok: true, result: await deps.assistantChat(input) });
-      } catch {
-        // 엔진 실패 사유엔 경로 · 계정 정보가 섞일 수 있다 — 고칠 방법만 말한다.
-        io.json(res, 502, { ok: false, error: 'AI 엔진이 답하지 못했습니다 — 앱의 AI 연결(처음 설정 마법사)을 확인해 주세요.' });
+      } catch (error) {
+        // 엔진 실패 사유엔 경로 · 계정 정보가 섞일 수 있다 — 원인 코드(한도 · 로그인 · 설치)만 옮긴다(2026-10-06).
+        io.json(res, 502, { ok: false, error: describeAssistantFailure(error, (p) => getEngineCooldown(p as any)?.reason ?? null) });
       }
       return true;
     }
