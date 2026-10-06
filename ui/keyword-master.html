@@ -794,7 +794,7 @@
         <button role="tab" data-screen="analyzer" aria-selected="false" onclick="showScreen('analyzer')"><span class="k">14</span>키워드 분석기<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="homefeed" aria-selected="false" onclick="showScreen('homefeed')"><span class="k">15</span>홈판 신호<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="homefeedBench" aria-selected="false" onclick="showScreen('homefeedBench')"><span class="k">16</span>홈판 벤치마크 · 오늘의 흐름</button>
-        <button role="tab" data-screen="adsenseBench" aria-selected="false" onclick="showScreen('adsenseBench')"><span class="k">17</span>애드센스 고수 벤치마크<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="adsenseBench" aria-selected="false" onclick="showScreen('adsenseBench')" style="color: #FFD700;"><span class="k">17</span>애드센스 고수 벤치마크<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">18</span>사이트에서 보기 ↗</button>
         <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">19</span>설정 · 키</button>
         <button role="tab" data-screen="assistant" aria-selected="false" onclick="showScreen('assistant')"><span class="k">20</span>AI 비서</button>
@@ -2295,14 +2295,14 @@
         실측(대표 검색어 · 문서수 · 입찰가)과 검색용 제목은 카드 하나씩, 사장님 키 · 구독 AI 로.
       -->
       <section class="leword-screen" data-screen="adsenseBench">
-        <div style="padding: 18px 20px; border-radius: 14px; border: 1px solid rgba(52,211,153,0.3); background: linear-gradient(135deg, rgba(52,211,153,0.08), rgba(15,23,42,0.9) 55%);">
+        <div style="padding: 18px 20px; border-radius: 14px; border: 1px solid rgba(255,215,0,0.35); background: linear-gradient(135deg, rgba(255,215,0,0.10), rgba(15,23,42,0.9) 55%);">
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <div style="flex: 1 1 320px;">
-              <div style="font-size: 10.5px; letter-spacing: 1.6px; font-weight: 800; color: #6ee7b7;">ADSENSE BENCHMARK · 앱 전용 전체판</div>
+              <div style="font-size: 10.5px; letter-spacing: 1.6px; font-weight: 800; color: #FFD700;">ADSENSE BENCHMARK · 앱 전용 전체판</div>
               <h2 style="margin: 4px 0 6px; font-size: 21px; color: #fff;">애드센스 고수 벤치마크</h2>
               <p style="margin: 0; font-size: 13px; color: #a8b6cb;">애드센스 고수 블로그 6,412곳(사장님 엑셀 전체)이 최근 7일 안에 쓴 글을 소재별로 모읍니다. 사이트는 786곳 · 1,000장까지, 앱은 엑셀 전체입니다 — 요즘 글을 쓰는 913곳은 매번, 쉬고 있는 곳은 300곳씩 돌아가며 읽습니다(티스토리 차단 예방).</p>
             </div>
-            <button type="button" id="adsBenchCollect" onclick="adsBenchCollect()" style="padding: 9px 16px; border-radius: 9px; border: 0; background: #34d399; color: #052e1f; font-weight: 800; cursor: pointer;">지금 수집</button>
+            <button type="button" id="adsBenchCollect" onclick="adsBenchCollect()" style="padding: 9px 16px; border-radius: 9px; border: 0; background: linear-gradient(135deg, #FFD700, #FFA500); color: #3b2a00; font-weight: 800; cursor: pointer;">지금 수집</button>
           </div>
           <div id="adsBenchMeta" style="margin-top: 10px; font-size: 12.5px; color: #94a3b8;">아직 수집하지 않았습니다 — [지금 수집]을 누르면 10~15분쯤 걸립니다(티스토리는 차단되지 않게 천천히 읽습니다).</div>
         </div>
