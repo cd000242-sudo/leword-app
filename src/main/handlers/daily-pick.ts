@@ -41,13 +41,16 @@ import {
 } from '../../utils/blog-class/my-blog-lane';
 import { measureKeywords } from './seat-measure';
 import { normalizeBriefBoard } from '../topic-brief-pipeline';
+import { coverageGap, isNotWritable, type CoverageGap } from '../../utils/today-hybrid';
+import { expandAngles, fromAdvisorTrend, fromBenchmark, homefeedTitlesFor, newsTitlesFor, selectHomefeedPicks } from './daily-pick-hybrid';
 
 export const DAILY_PICK_PROGRESS_CHANNEL = 'daily-pick-progress';
 
 /** 자리를 잴 후보 상한. 건당 약 6초라 이 수가 곧 기다리는 시간이다. */
 const MEASURE_CAP = 14;
 /** 세워 보일 수. 셋을 넘기면 다시 "고르는 일"이 된다. */
-const SHOW = 3;
+// 2026-10-06 하이브리드 — 내 주제 · 체급 · 빈 각도로 고른 것을 5장까지(사장님 "오늘 쓸 한 편에 담아 추천").
+const SHOW = 5;
 /** 자리 잴 14칸 중 내 블로그 판이 먼저 쓰는 칸. 모자라면 다른 판이 채운다. */
 export const MY_BLOG_FIRST = 10;
 /** 씨앗 수 — 30위 안 기록에서 가까운 순. 씨앗마다 연관어 한 번(+ 짧게 줄여 한 번 더). */
@@ -72,7 +75,7 @@ function readJson<T>(file: string, fallback: T): T {
 const flat = (v: unknown) => String(v || '').replace(/\s+/g, '').toLowerCase();
 
 /** 어느 판에서 왔는가 — 카드에 그대로 적는다. 근거를 숨기지 않는다. */
-export type PickSource = '내 블로그' | '오늘의 글감' | '선점 보드' | '추천키워드' | '유튜브' | '실시간 틈새';
+export type PickSource = '내 블로그' | '오늘의 글감' | '선점 보드' | '추천키워드' | '유튜브' | '실시간 틈새' | '홈판 벤치마크' | '어드바이저 트렌드';
 
 export interface Candidate {
   keyword: string;
@@ -88,9 +91,16 @@ export interface Candidate {
   related: Array<{ keyword: string; searchVolume: number | null; open: boolean }>;
   why: string;
   facts: Array<{ title: string; press: string; link: string }>;
+  /** 하이브리드(2026-10-06) — 사람들이 묻는 각도와 그 머리말, 소재가 지금 뜬 근거(잰 사실). */
+  angle?: { head: string; question: string };
+  whyNow?: string;
 }
 
 export interface Picked extends Candidate {
+  /** 그 각도를 상위 10개 글 제목이 다뤘나 — 안 다룬 낱말이 빈 각도. */
+  gap?: CoverageGap;
+  /** 홈판용(지금 뜨는 소재 + 빈 각도 — 검색 자리와 무관) · 검색용(자리 열림). */
+  lane?: '홈판' | '검색';
   /** 여기서 다시 잰 자리. 이 값이 카드의 근거다. */
   seat: string;
   seatFacing: number | null;
@@ -433,7 +443,7 @@ export async function findFromMyBlog(
 }
 
 /** 앱 설정의 키로 창구를 만든다. 키가 없으면 그 창구는 빈손을 준다(판을 죽이지 않는다). */
-async function realMyBlogDeps(): Promise<MyBlogDeps> {
+export async function realMyBlogDeps(): Promise<MyBlogDeps> {
   const { EnvironmentManager } = await import('../../utils/environment-manager');
   const manager: any = typeof (EnvironmentManager as any).getInstance === 'function'
     ? (EnvironmentManager as any).getInstance() : new (EnvironmentManager as any)();
@@ -595,6 +605,8 @@ export interface DailyPickResult {
   rejected: Array<{ keyword: string; source: string; seat: string }>;
   seconds: number;
   message: string | null;
+  /** 홈판 제목을 못 만든 이유(AI 엔진 막힘 등). 만들었으면 null. */
+  titleNote?: string | null;
 }
 
 let running = false;
@@ -625,14 +637,45 @@ export async function runDailyPick(
     myBlogNote = '30위 안에 든 검색어가 아직 없어 내 블로그 말에서는 못 찾았어요 — 표본을 늘려 다시 재 보세요';
   }
 
-  const candidates = gatherCandidates(myBlog.candidates);
+  // 하이브리드(2026-10-06): 내 블로그 + 홈판 벤치마크(내 분야) + 어드바이저 트렌드 → 카드답 · 인물 사실 제외 → 묻는 각도부터 잰다.
+  const { readTodayPlan } = await import('./advisor-today');
+  const extra = [
+    ...myBlog.candidates,
+    ...(fromBenchmark(profile ? profile.declaredTopic : null) as Candidate[]),
+    ...(fromAdvisorTrend(readTodayPlan) as Candidate[]),
+  ];
+  // 이모지 섞인 말('🎬 영화')과 검색량 모르는 틈새 · 유튜브 말은 뺀다 — 어휘 겹침만으로 연예 블로그에 'kaist dorm'이 섰다(실주행).
+  const writable = (c: Candidate) => !isNotWritable(c.keyword) && !/[^\p{L}\p{N}\s·&+\-]/u.test(c.keyword)
+    && !(profile && c.searchVolume === null && (c.source === '실시간 틈새' || c.source === '유튜브'));
+  const candidates = gatherCandidates(extra).filter(writable);
   const stats = gateWithStats(candidates, profile, written);
-  const targets = await withDocumentCounts(stats.gated.slice(0, MEASURE_CAP), (message) => say(message));
+  let angles: Candidate[] = [];
+  try {
+    const deps = await realMyBlogDeps();
+    // 머리말은 판마다 번갈아(벤치마크 · 어드바이저 · 내 블로그). 앞 둘은 이미 내 분야 말이라 관문 전 후보에서 쓴다.
+    const lanes = [
+      candidates.filter((c) => c.source === '홈판 벤치마크'),
+      candidates.filter((c) => c.source === '어드바이저 트렌드'),
+      stats.gated.map((g) => g.candidate).filter((c) => c.source === '내 블로그'),
+    ];
+    const heads: Candidate[] = [];
+    const firstWords = new Set<string>(); // 같은 인물 · 소재('김민' · '김민 배우' · '김민 나혼산')가 머리말을 독차지하지 않게(실주행)
+    for (let i = 0; heads.length < 24 && lanes.some((l) => i < l.length); i += 1) for (const l of lanes) { const c = l[i]; const w = c && flat(c.keyword.split(/\s+/)[0]); if (c && w && !firstWords.has(w)) { firstWords.add(w); heads.push(c); } }
+    angles = (await expandAngles(heads, band, {
+      autocomplete: async (head) => (await import('../../utils/naver-autocomplete')).getNaverAutocompleteQuick(head),
+      volumes: deps.volumes,
+    }, (message) => say(message), 8)) as Candidate[];
+  } catch { angles = []; }
+  const angleGated: Gated[] = angles.map((c) => ({ candidate: c, fitReason: judgeRange({ searchVolume: c.searchVolume, topic: c.topic }, band).reason, myTopic: true }));
+  const seenKw = new Set<string>();
+  const merged = [...angleGated, ...stats.gated].filter((g) => { const k = flat(g.candidate.keyword); if (seenKw.has(k)) return false; seenKw.add(k); return true; });
+  const targets = await withDocumentCounts(merged.slice(0, MEASURE_CAP), (message) => say(message));
 
   const picks: Picked[] = [];
   const rejected: DailyPickResult['rejected'] = [];
   let message: string | null = null;
   let measured = 0;
+  const topTitlesByKw = new Map<string, string[]>();
 
   if (targets.length > 0) {
     const batch = await measureKeywords(targets.map((g) => g.candidate.keyword), {
@@ -645,13 +688,42 @@ export async function runDailyPick(
     });
     message = batch.message;
     const chosen = selectPicks(targets, batch.rows as MeasuredRow[], SHOW);
-    picks.push(...chosen.picks);
+    // 빈 각도 — 고른 각도를 상위 10개 글 제목이 다뤘는지 센다(자리 실측이 읽은 제목 그대로).
+    for (const r of batch.rows as any[]) topTitlesByKw.set(flat(r.keyword), Array.isArray(r.topTitles) ? r.topTitles as string[] : []);
+    for (const p of chosen.picks) {
+      const top = topTitlesByKw.get(flat(p.keyword)) || [];
+      if (p.angle) p.gap = coverageGap(p.keyword, p.angle.head, top);
+      p.lane = '검색';
+    }
+    /*
+     * 홈판용(2026-10-06 실주행: 연예 블로그의 각도 14개가 전부 검색 자리 '잠김'이라 0장이었다).
+     * 홈판은 검색 1페이지와 다른 길이다 — 지금 뜨는 소재(벤치마크 · 트렌드)에서 남들이 안 다룬 각도를 고른다.
+     * 카드답은 빼고, 빈 각도가 있는 것 → 지금 뜬 근거가 있는 것 순. 검색 자리는 참고로 적는다.
+     */
+    const homefeed = selectHomefeedPicks(targets, batch.rows as any[], new Set(chosen.picks.map((p) => flat(p.keyword)))) as Picked[];
+    picks.push(...homefeed, ...chosen.picks);
     rejected.push(...chosen.rejected);
     measured = chosen.measured;
   }
 
+  // 홈판 제목 — 내 구독 AI 로 카드마다 3개(뉴스 제목을 사실 재료로). 막히면 빈 칸 + 이유(템플릿 금지).
+  let titleNote: string | null = null;
+  if (picks.length) {
+    say('홈판 제목 만드는 중');
+    const news = await newsTitlesFor(picks.map((p) => p.keyword));
+    const made = await homefeedTitlesFor(picks.map((p) => ({
+      keyword: p.keyword, question: p.angle ? p.angle.question : '', uncovered: p.gap ? p.gap.uncovered : [],
+      topTitles: topTitlesByKw.get(flat(p.keyword)) || [], whyNow: p.whyNow || '', news: news.get(p.keyword) || [],
+    })));
+    titleNote = made.note;
+    for (const p of picks) {
+      const list = made.titles.get(p.keyword) || [];
+      if (list.length) p.titles = [...list.map((text) => ({ label: '홈판', text })), ...p.titles];
+    }
+  }
   const result: DailyPickResult = {
     builtAt: new Date().toISOString(),
+    titleNote,
     envelope: (record && record.envelope) || null,
     band,
     blogState: describeBlogState(record, band),
@@ -677,6 +749,8 @@ async function pullPublished(): Promise<void> {
   const targets: Array<[string, string]> = [
     ['today-picks.json', 'https://leaderspro.kr/data/today-picks.json'],
     ['youtube-gap.json', 'https://leaderspro.kr/data/youtube-gap.json'],
+    // 하이브리드(2026-10-06) — 내 주제 분야에서 지금 여러 채널이 다루는 소재.
+    ['homefeed-benchmarks.json', 'https://leaderspro.kr/data/homefeed-benchmarks.json'],
   ];
   fs.mkdirSync(U('daily-pick'), { recursive: true });
   for (const [name, url] of targets) {

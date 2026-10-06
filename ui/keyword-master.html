@@ -901,6 +901,9 @@
           <button onclick="openNaverAdvisor()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">네이버 로그인 창 열기</button>
           <button onclick="clearNaverSession()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #94a3b8; font-size: 12.5px; cursor: pointer;">로그아웃</button>
         </div>
+        <!-- 근거 자료(2026-10-06) — 이 두 표는 이제 위 '오늘 쓸 한 편'의 재료다. 사장님 "깔끔하게 하이브리드해서" — 원표는 접어 둔다. -->
+        <details id="mbEvidence" style="margin-top: 12px;">
+          <summary style="cursor: pointer; font-size: 13px; font-weight: 700; color: #cbd5e1;">근거 자료 — 홈판 유입 실측 · 어드바이저 트렌드 원표 (위 추천의 재료)</summary>
         <div id="advisorDailyPanel" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">📊 홈판 유입 실측</h4>
@@ -919,6 +922,7 @@
           </div>
           <div id="advisorTodayBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
         </div>
+        </details>
       </div>
     </section>
 
@@ -11363,6 +11367,8 @@
             + '<span style="font-size:18px; font-weight:700; color:#fff; word-break:keep-all;">' + dpEsc(p.keyword) + '</span>'
             + (typeof window.lewordPastYearBadge === 'function' ? window.lewordPastYearBadge(p.keyword) : '')
             + '<span style="padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; background:' + seatTone.chip + '; color:' + seatTone.chipInk + ';">자리 ' + dpEsc(p.seat || '') + '</span>'
+            // 홈판용 · 검색용(2026-10-06) — 홈판은 검색 1페이지와 다른 길이라 자리가 잠겨도 홈판용 카드는 선다.
+            + (p.lane ? '<span title="' + (p.lane === '홈판' ? '지금 뜨는 소재에서 남들이 안 다룬 각도 — 홈판(추천 피드)을 노리는 글. 검색 자리는 참고.' : '검색 1페이지 자리가 비어 있는 말 — 검색 유입을 노리는 글.') + '" style="padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:800; background:' + (p.lane === '홈판' ? 'rgba(244,114,182,0.16); color:#f472b6;' : 'rgba(103,232,249,0.14); color:#67e8f9;') + '">' + (p.lane === '홈판' ? '홈판용' : '검색용') + '</span>' : '')
             + (p.myTopic ? '<span style="padding:2px 8px; border-radius:999px; font-size:10.5px; font-weight:700; background:rgba(34,197,94,0.16); color:#22c55e;">내가 이겨본 주제</span>' : '')
             + '<span style="margin-left:auto; font-size:11px; color:#64748b;">' + dpEsc(p.source) + '</span>'
             + '</div>'
@@ -11381,6 +11387,14 @@
             + '</div>'
 
             + (p.why ? '<div style="font-size:12.5px; color:#cbd5e1; line-height:1.6; word-break:keep-all; margin-bottom:10px;">' + dpEsc(p.why) + '</div>' : '')
+            // ── 하이브리드(2026-10-06): 왜 지금 · 사람들이 궁금한 것 · 남들이 안 다룬 각도 — 전부 잰 사실
+            + (p.whyNow ? '<div style="font-size:12.5px; color:#fde68a; margin-bottom:8px; word-break:keep-all;"><b>왜 지금</b> · ' + dpEsc(p.whyNow) + '</div>' : '')
+            + (p.angle ? '<div style="padding:9px 12px; border-radius:9px; background:rgba(103,232,249,0.06); border:1px solid rgba(103,232,249,0.22); margin-bottom:10px; font-size:12.5px; color:#cbd5e1; line-height:1.65;">'
+              + '<div><b style="color:#a5f3fc;">사람들이 궁금한 것</b> · "' + dpEsc(p.angle.head) + '"를 찾는 사람들이 이어서 묻는 말 — <b style="color:#e2e8f0;">' + dpEsc(p.angle.question || p.keyword) + '</b></div>'
+              + (p.gap && p.gap.sampled ? '<div style="margin-top:4px;">' + (p.gap.uncovered.length
+                  ? '<b style="color:#22c55e;">남들이 안 다룬 각도</b> · 지금 상위 ' + p.gap.sampled + '개 글 제목 중 "' + dpEsc(p.gap.uncovered.join(', ')) + '"을 다룬 글이 0개예요.'
+                  : '상위 ' + p.gap.sampled + '개 글 중 ' + p.gap.terms.map((t) => '"' + dpEsc(t) + '" ' + (p.gap.covered[t] || 0) + '개').join(' · ') + ' — 이미 다룬 글이 있어 다른 각도가 필요해요.') + '</div>' : '')
+              + '</div>' : '')
             + (titles ? '<div style="margin-bottom:10px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">제목 후보</div>' + titles + '</div>' : '')
             + (related ? '<div style="margin-bottom:10px;"><div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:5px;">같이 넣을 말</div><div style="display:flex; flex-wrap:wrap; gap:5px;">' + related + '</div></div>' : '')
             + (facts ? '<div style="font-size:11px; color:#64748b; line-height:1.7; margin-bottom:10px;">' + facts + '</div>' : '')
@@ -11462,7 +11476,9 @@
           const two = (n) => String(n).padStart(2, '0');
           status.textContent = (when.getMonth() + 1) + '월 ' + when.getDate() + '일 '
             + two(when.getHours()) + ':' + two(when.getMinutes()) + ' 에 고름 · ' + r.seconds + '초 걸림'
-            + (r.message ? ' · ' + r.message : '');
+            + (r.message ? ' · ' + r.message : '')
+            // 홈판 제목을 못 만든 이유(AI 엔진 한도 등)를 숨기지 않는다 — 템플릿으로 채우지 않기 때문에 빈 칸의 이유가 필요하다.
+            + (r.titleNote ? ' · 제목: ' + r.titleNote : '');
         };
 
         window.dpMeasureMyBlog = async function dpMeasureMyBlog() {
