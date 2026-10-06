@@ -624,6 +624,7 @@ const electronApi = {
       'golden-local-progress',       // 황금키워드를 이 PC 에서 사이트와 같은 네 단계로 찾는 진행(2026-09-15, 앱 전용)
       'assistant-progress',          // AI 비서가 도구(검색량 · 자리 실측 등)를 돌리는 진행(2026-10-06)
       'affiliate-local-progress',    // 관리자 제휴 수집 버튼 진행(2026-10-06, 관리자 PC 전용)
+      'post-plan-progress',          // 글 한 편 유입 설계실 진행(2026-10-06, 앱 전용)
     ]);
     if (!allowed.has(channel)) {
       throw new Error(`IPC channel not allowed: ${channel}`);

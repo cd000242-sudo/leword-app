@@ -17,6 +17,8 @@ const html = fs.readFileSync(path.join(root, 'ui', 'keyword-master.html'), 'utf8
 const EXPECTED_NAV: Array<[string, string]> = [
     // 2026-10-06 사장님 "내 크기를 재면 한 몸처럼" — 내 블로그 · 홈판 유입 실측 · 오늘 쓸 글 10 을 이 화면 하나로 모았다.
     ['today', '내 블로그 · 오늘 쓸 글'],
+    // 2026-10-06 사장님 "지금 기능들을 적절하게 사용해서 대단한 기능 하나" — 키워드 하나로 이길 수 있나 · 제목 · 물은 것 · 돈.
+    ['postPlan', '글 한 편 유입 설계실'],
     ['realtime', '실시간 검색어'],
     ['golden', '황금키워드 발굴'],
     ['board', '선점 보드'],

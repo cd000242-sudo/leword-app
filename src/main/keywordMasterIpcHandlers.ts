@@ -28,6 +28,7 @@ import { setupTopicBriefsLocalHandlers, startTopicBriefsScheduler, stopTopicBrie
 import { setupPreemptionBoardHandlers } from './handlers/preemption-board';
 import { setupGoldenLocalHandlers, startGoldenLocalScheduler, stopGoldenLocalScheduler } from './handlers/golden-local';
 import { setupDailyPickHandlers } from './handlers/daily-pick';
+import { setupPostPlanHandlers } from './handlers/post-plan';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
 import { startHomefeedScheduler, stopHomefeedScheduler } from './homefeed/scheduler';
 import { setupAffiliateLocalHandlers, startAffiliateScheduler, stopAffiliateScheduler } from './handlers/affiliate-local';
@@ -221,6 +222,8 @@ export function setupKeywordMasterHandlers() {
   startGoldenLocalScheduler();
   // 오늘 쓸 한 편(앱 전용, 2026-09-11) — 여섯 판 600여 후보를 봉투·자리로 걸러 셋으로.
   setupDailyPickHandlers();
+  // 글 한 편 유입 설계실(앱 전용, 2026-10-06) — 키워드 하나로 이길 수 있나 · 제목 · 사람들이 물은 것 · 돈.
+  setupPostPlanHandlers();
   // 실시간 틈새(앱 전용, 2026-09-10) — 사이트 보드와 같은 판정을 이 PC 브라우저로 상한 없이.
   setupRealtimeNicheHandlers();
   // 홈판 신호(앱 전용, 2026-09-16) — 켜 두면 10분마다 실시간 이슈 스냅샷을 쌓아 스토리 창을 잰다(기본 꺼짐 · 사이트 탭에서 켠다).
