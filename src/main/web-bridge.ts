@@ -36,6 +36,17 @@ const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
 ]);
 
 /*
+ * LDB IMAGE ULTRA 확장이 같은 기기에서 이 브리지를 읽을 수 있게 한다 (2026-09-17).
+ * 확장 ID 는 설치마다 달라서 목록에 못 박을 수 없으므로 크롬 확장 주소 형식만 본다.
+ * 남의 웹사이트는 이 형식을 만들 수 없다 — chrome-extension: 스킴은 브라우저가 붙인다.
+ */
+const EXTENSION_ORIGIN = /^chrome-extension:\/\/[a-p]{32}$/;
+
+export function originAllowed(origin: string): boolean {
+  return ALLOWED_ORIGINS.has(origin) || EXTENSION_ORIGIN.test(origin);
+}
+
+/*
  * 지식인 답변 생성은 질문 전문(최대 3,000자 ≈ 9KB UTF-8)을 싣는다 —
  * 4KB 로는 본문이 잘려 400 이 났을 것이다. 여전히 로컬 왕복의 작은 몸집이다.
  */
@@ -50,7 +61,7 @@ export interface WebBridgeDeps {
   /** 3사 CLI 상태(설치·로그인·가용) — detectAgent 묶음. */
   getAgentStatuses: () => Promise<unknown>;
   /** 고정 템플릿 추론(레인 인사이트). 임의 프롬프트는 받지 않는다. */
-  forgeInsights: (keyword: string) => Promise<unknown>;
+  forgeInsights: (keyword: string, options?: { loose?: boolean }) => Promise<unknown>;
   /** 마인드맵·수요 분석. light=연쇄용 경량(AI 1콜). 없으면 경로가 안 열린다. */
   analyzeDemand?: (keyword: string, light?: boolean) => Promise<unknown>;
   /** 30일 트렌드(데이터랩 실측). 없으면 그 경로는 열리지 않는다. */
@@ -196,7 +207,7 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
      * 방문자 브라우저를 통해 이 브리지를 부리는 것을 막는다.
      * Origin 이 없는 요청(로컬 도구·curl)은 같은 기기 사용자의 것이므로 허용.
      */
-    if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    if (origin && !originAllowed(origin)) {
       json(res, 403, { ok: false, error: '허용되지 않은 출처입니다.' });
       return;
     }
@@ -233,9 +244,16 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
 
       if (req.method === 'POST' && req.url === '/v1/bridge/ai-subs') {
         let keyword = '';
+        let loose = false;
         try {
           const parsed = JSON.parse((await readBody(req)) || '{}');
           keyword = String(parsed?.keyword || '').trim();
+          /*
+           * loose: 문제해결형 프레임 밖의 실존 검색어까지 받는다.
+           * LDB 확장은 후보를 기대수익 순으로 줄 세우므로 재료가 넓을수록 쓸모가 있다.
+           * 기본은 기존 그대로(엄격) — LEWORD 자체 화면의 결과를 바꾸지 않는다.
+           */
+          loose = parsed?.loose === true;
         } catch {
           json(res, 400, { ok: false, error: '본문이 JSON 이 아닙니다.' });
           return;
@@ -244,7 +262,7 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
           json(res, 400, { ok: false, error: '키워드가 비었거나 너무 깁니다.' });
           return;
         }
-        const result = await deps.forgeInsights(keyword);
+        const result = await deps.forgeInsights(keyword, { loose });
         json(res, 200, { ok: true, result });
         return;
       }

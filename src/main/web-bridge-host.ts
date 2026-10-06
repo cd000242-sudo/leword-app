@@ -94,7 +94,7 @@ export function startWebBridgeHost(): void {
         }));
         return statuses;
       },
-      forgeInsights: (keyword) => forgeLaneInsights(keyword),
+      forgeInsights: (keyword, options) => forgeLaneInsights(keyword, options),
       analyzeDemand: (keyword, light) => analyzeKeywordDemand(keyword, { light }),
       trend30: async (keyword) => {
         const { EnvironmentManager } = await import('../utils/environment-manager');

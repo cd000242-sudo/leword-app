@@ -15,7 +15,7 @@
 
 import { EnvironmentManager } from '../utils/environment-manager';
 import { getNaverAutocompleteKeywords, probeNaverAutocompleteSuggestions } from '../utils/naver-autocomplete';
-import { pickProblemSubKeywords, type SubKeyword } from '../utils/title-forge/subkeyword-forge';
+import { pickProblemSubKeywords, pickSubKeywords, type SubKeyword } from '../utils/title-forge/subkeyword-forge';
 import { sharesToken } from '../utils/title-forge/board-titles';
 import { forgeTitles, type ForgedTitles } from '../utils/title-forge/forge';
 import { tryExtractJson } from '../utils/agent-cli/parse';
@@ -112,7 +112,15 @@ async function proposeAiSubKeywords(
   return { provider: run.provider, proposals };
 }
 
-export async function forgeLaneInsights(rawKeyword: string): Promise<LaneInsightsResult> {
+/**
+ * @param options.loose 문제해결형 프레임 밖의 실존 검색어까지 받는다(기본 false).
+ *   엄격한 기본값은 실제로 검색되는 말을 프레임 하나만 보고 전부 버리는 일이 있었다
+ *   (pickSubKeywords 주석 참고). 그래서 호출하는 쪽이 고르게 둔다.
+ */
+export async function forgeLaneInsights(
+  rawKeyword: string,
+  options: { loose?: boolean } = {},
+): Promise<LaneInsightsResult> {
   const keyword = String(rawKeyword || '').trim();
   if (!keyword) throw new Error('키워드가 비어 있습니다.');
 
@@ -141,7 +149,8 @@ export async function forgeLaneInsights(rawKeyword: string): Promise<LaneInsight
     source: 'autocomplete',
   }));
 
-  let subs = pickProblemSubKeywords(keyword, derived);
+  const pick = options.loose ? pickSubKeywords : pickProblemSubKeywords;
+  let subs = pick(keyword, derived);
 
   // ── ② 두뇌 개입: 서브가 모자라면 구독 CLI 제안 → 실존 결재 ────────
   const ai = { used: false, provider: '' as string, proposed: 0, verified: 0 };
@@ -181,7 +190,7 @@ export async function forgeLaneInsights(rawKeyword: string): Promise<LaneInsight
         }
         ai.verified = verified.length;
         if (verified.length > 0) {
-          subs = pickProblemSubKeywords(keyword, [...derived, ...verified]);
+          subs = pick(keyword, [...derived, ...verified]);
         }
       }
     } catch (error) {

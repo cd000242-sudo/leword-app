@@ -12,7 +12,10 @@ import { createWebBridge } from '../../main/web-bridge';
 const deps = {
   appVersion: 'test-1.0.0',
   getAgentStatuses: async () => [{ provider: 'claude', installed: true, loggedIn: true, available: true, detail: '' }],
-  forgeInsights: async (keyword: string) => ({ keyword, subs: [{ keyword: keyword + ' 안됨', searchVolume: 120 }] }),
+  forgeInsights: async (keyword: string, options?: { loose?: boolean }) => ({
+    keyword, loose: Boolean(options?.loose),
+    subs: [{ keyword: keyword + ' 안됨', searchVolume: 120 }],
+  }),
   radarAnalyze: async (input: unknown) => input,
   adminWorker: {
     status: async () => ({ status: 'completed', conclusion: 'success' }),
@@ -44,6 +47,46 @@ describe('출처 통제 — 남의 사이트가 방문자 브라우저로 부리
         const res = await fetch(`${base}/v1/bridge/status`, { headers: { Origin: 'https://evil.example' } });
         expect(res.status).toBe(403);
         expect(res.headers.get('access-control-allow-origin')).toBeNull();
+    });
+
+    it('크롬 확장(LDB IMAGE ULTRA)은 통과시킨다', async () => {
+        const origin = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop';
+        const res = await fetch(`${base}/v1/bridge/status`, { headers: { Origin: origin } });
+        expect(res.status).toBe(200);
+        expect(res.headers.get('access-control-allow-origin')).toBe(origin);
+    });
+
+    it('확장 주소를 흉내 낸 값은 막는다', async () => {
+        for (const origin of [
+            'chrome-extension://short',                                  // 길이가 다름
+            'chrome-extension://abcdefghijklmnopabcdefghijklmnoz',       // 확장 ID 에 없는 글자
+            'https://chrome-extension.evil.example',                     // 스킴만 흉내
+        ]) {
+            const res = await fetch(`${base}/v1/bridge/status`, { headers: { Origin: origin } });
+            expect(res.status, origin).toBe(403);
+        }
+    });
+
+    it('loose 를 보내면 그대로 서비스까지 전달한다', async () => {
+        // 확장은 넓게 받아야 기대수익 순 정렬이 의미가 있다. LEWORD 자체 화면은 엄격한 채로 둔다.
+        const res = await fetch(`${base}/v1/bridge/ai-subs`, {
+            method: 'POST',
+            headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' },
+            body: JSON.stringify({ keyword: '연말정산', loose: true }),
+        });
+        expect(res.status).toBe(200);
+        const body = await res.json();
+        expect(body.result.loose).toBe(true);
+    });
+
+    it('loose 를 안 보내면 엄격한 기본값이다', async () => {
+        const res = await fetch(`${base}/v1/bridge/ai-subs`, {
+            method: 'POST',
+            headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' },
+            body: JSON.stringify({ keyword: '연말정산' }),
+        });
+        const body = await res.json();
+        expect(body.result.loose).toBe(false);
     });
 
     it('PNA 프리플라이트에 Allow-Private-Network 로 응답한다', async () => {
