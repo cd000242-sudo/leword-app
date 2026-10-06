@@ -16,7 +16,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { checkPlanResult, draftAnswer, runInflow, runPostPlan, startResult, type InflowDeps, type PostPlanDeps, type ResultDeps } from '../post-plan-service';
-import { planSyncView, upsertPlan, type PostPlan } from '../../utils/post-plan/post-plan-model';
+import { planSyncView, relatedForTitles, upsertPlan, type PostPlan } from '../../utils/post-plan/post-plan-model';
 
 export const POST_PLAN_PROGRESS_CHANNEL = 'post-plan-progress';
 const WORKER = 'https://leword-keyword-api.leword.workers.dev/';
@@ -94,12 +94,7 @@ export async function createPostPlanDeps(): Promise<PostPlanDeps> {
        * '어떤 정보가 있는지' 같은 일반 제목만 나왔다(1차 실주행). 자리는 본 키워드만 잰다(relatedSeats 0).
        */
       const expanded = await tools.expand(keyword).catch(() => ({ autocomplete: [] as string[], related: [] as Array<{ keyword: string; volume: number | null }> }));
-      const self = keyword.replace(/\s+/g, '');
-      const related = expanded.related
-        .filter((r) => typeof r.volume === 'number' && r.volume > 0 && r.keyword.replace(/\s+/g, '') !== self)
-        .sort((a, b) => (b.volume || 0) - (a.volume || 0))
-        .slice(0, 20)
-        .map((r) => ({ keyword: r.keyword, searchVolume: r.volume }));
+      const related = relatedForTitles(keyword, expanded.related);
       return buildWritingKit({ keyword, related, relatedSeats: 0 });
     },
     band: () => {

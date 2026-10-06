@@ -238,3 +238,23 @@ export function planSyncView(plans: readonly PostPlan[]): Array<Record<string, u
     };
   });
 }
+
+/**
+ * 제목 재료 연관어 — 키워드 낱말(2자 이상) 절반 이상을 담은 것만, 검색량 큰 순 20개(키워드 자신 제외).
+ * 연관어 확장은 엉뚱하게 번진 말('현대차' 665,800)까지 줘서 제목에 섞였다(2026-10-06 실주행). 사이트 postPlanSiteModel 과 같은 규칙.
+ */
+export function relatedForTitles(keyword: string, items: ReadonlyArray<{ keyword: string; volume: number | null }>): Array<{ keyword: string; searchVolume: number }> {
+  const compactOf = (s: string) => String(s || '').replace(/\s+/g, '');
+  const self = compactOf(keyword);
+  const words = String(keyword || '').split(/\s+/).filter((w) => w.length >= 2);
+  const rows: Array<{ keyword: string; searchVolume: number }> = [];
+  for (const item of items || []) {
+    const volume = item && item.volume;
+    if (typeof volume !== 'number' || volume <= 0) continue;
+    const c = compactOf(item.keyword);
+    if (c === self) continue;
+    if (words.length > 0 && words.filter((w) => c.includes(w)).length * 2 < words.length) continue;
+    rows.push({ keyword: item.keyword, searchVolume: volume });
+  }
+  return rows.sort((a, b) => b.searchVolume - a.searchVolume).slice(0, 20);
+}

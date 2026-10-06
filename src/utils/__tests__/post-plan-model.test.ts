@@ -3,7 +3,7 @@
  * 순수 판정 · 정리 함수 — 질문 체크리스트, 제휴 상품 후보, 설계 목록 저장.
  */
 import { describe, expect, it } from 'vitest';
-import { affiliateCandidates, filterByAnalysis, inflowSpots, planSyncView, questionChecklist, radarAction, upsertPlan, type PostPlan } from '../post-plan/post-plan-model';
+import { affiliateCandidates, filterByAnalysis, inflowSpots, planSyncView, questionChecklist, radarAction, relatedForTitles, upsertPlan, type PostPlan } from '../post-plan/post-plan-model';
 
 const NOW = Date.parse('2026-10-06T08:00:00Z');
 
@@ -135,5 +135,22 @@ describe('사이트 동기화용 설계 요약(4차)', () => {
     expect(v.inflow.answered).toBe(1);
     expect(JSON.stringify(v)).not.toContain('아주 긴 초안');
     expect(v.result.checks).toEqual([{ day: 3, rank: 4 }]);
+  });
+});
+
+describe('제목 재료 연관어 — 엉뚱하게 번진 말은 뺀다', () => {
+  // 실주행(2026-10-06 '자동차 보험 갱신'): '현대차'(665,800)가 섞여 '자동차 보험 갱신 현대차 어떤 정보가 있는지'가 나왔다. 사이트 postPlanSiteModel 과 같은 규칙.
+  it('키워드 낱말 절반 이상을 담은 것만 · 검색량 큰 순 · 자기 자신 제외', () => {
+    const items = [
+      { keyword: '현대차', volume: 665800 },
+      { keyword: '자동차보험비교', volume: 88000 },
+      { keyword: '자동차 보험 갱신 방법', volume: 320 },
+      { keyword: '자동차 보험 갱신', volume: 1600 },
+      { keyword: '보험', volume: null },
+    ];
+    expect(relatedForTitles('자동차 보험 갱신', items)).toEqual([
+      { keyword: '자동차보험비교', searchVolume: 88000 },
+      { keyword: '자동차 보험 갱신 방법', searchVolume: 320 },
+    ]);
   });
 });
