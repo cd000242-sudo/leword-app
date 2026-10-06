@@ -23,7 +23,7 @@ jobs:
       LEWORD_SEARCHAD_SOFT_CEILING: '60'
     runs-on: ubuntu-latest
     # 수집 1~2분 · 실측 · 제목(동시 4 · 시간 상한 8분)까지.
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,6 +54,8 @@ jobs:
           node scripts/adsense-benchmarks.cjs
           --output site/spa/public/data/adsense-benchmarks.json
           --concurrency 16
+          --tistory-concurrency 6
+          --tistory-gap-ms 300
       # 실측 — 대표 검색어(소재 낱말 후보의 정확 검색량 최대) · 블로그 문서수 · 파워링크 3위 입찰가. 7일 캐시는 사이트 레포에 둔다.
       # 실패해도 판은 그대로 나간다(스크립트가 0 으로 끝난다).
       - name: Measure adsense topics

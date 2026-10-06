@@ -82,7 +82,7 @@ async function collectAll(sources, now, { concurrency = 16, tistoryConcurrency =
 async function main(argv = process.argv.slice(2)) {
   const args = {};
   for (let i = 0; i < argv.length; i += 1) {
-    if (!['--output', '--sources', '--concurrency'].includes(argv[i]) || !argv[i + 1]) throw new Error('Usage: node scripts/adsense-benchmarks.cjs --output <public.json> [--sources <sources.json>] [--concurrency 16]');
+    if (!['--output', '--sources', '--concurrency', '--tistory-concurrency', '--tistory-gap-ms'].includes(argv[i]) || !argv[i + 1]) throw new Error('Usage: node scripts/adsense-benchmarks.cjs --output <public.json> [--sources <sources.json>] [--concurrency 16] [--tistory-concurrency 2] [--tistory-gap-ms 700]');
     args[argv[i].slice(2)] = argv[++i];
   }
   if (!args.output) throw new Error('--output 이 필요합니다.');
@@ -91,7 +91,12 @@ async function main(argv = process.argv.slice(2)) {
   if (!sources.length) throw new Error('출처 목록이 비었습니다.');
   const now = new Date().toISOString();
   const started = Date.now();
-  const results = await collectAll(sources, now, { concurrency: Number(args.concurrency) || 16 });
+  const results = await collectAll(sources, now, {
+    concurrency: Number(args.concurrency) || 16,
+    // 기본은 앱(사장님 IP)에 맞춘 느린 값. 깃허브 서버는 사장님 IP 가 아니라 워크플로가 조금 빠르게 넘긴다.
+    ...(args['tistory-concurrency'] ? { tistoryConcurrency: Number(args['tistory-concurrency']) } : {}),
+    ...(args['tistory-gap-ms'] !== undefined ? { tistoryGapMs: Number(args['tistory-gap-ms']) } : {}),
+  });
   const board = core.buildBoard(results, sources, now);
   const previous = readJson(args.output);
   if (!board.collectedPostCount && previous && previous.schemaVersion === 1 && Array.isArray(previous.candidates)) {
