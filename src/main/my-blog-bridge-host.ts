@@ -32,6 +32,8 @@ export function createMyBlogBridgeDeps(): MyBlogBridgeDeps {
     // 여러 날 기록을 함께 넘긴다 — 사이트 벤치마크 판이 '홈판 유입을 받은 내 글'을 여러 날에서 모은다(2026-10-01).
     advisorDailyGet: async () => advisorDailySyncView(readAdvisorDailyView().latest, readDailyRecords(), autopsyFacts(readAdvisorAutopsyHistory(), new Date())),
     todayPlanGet: async () => todayPlanSyncView(readTodayPlan()),
+    // 글 한 편 유입 설계실 — 화면에 그릴 값만 줄인 요약(초안 본문 · 상위 제목 제외, 최근 20개).
+    postPlansGet: async () => require('./handlers/post-plan').readPostPlansForSync(),
     // LEWORD 비서 — 앱 화면과 같은 실행 함수(사용자 본인 구독, 클로드는 Sonnet).
     assistantChat: (input) => runAssistant(input),
   };

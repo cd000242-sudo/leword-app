@@ -16,7 +16,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { checkPlanResult, draftAnswer, runInflow, runPostPlan, startResult, type InflowDeps, type PostPlanDeps, type ResultDeps } from '../post-plan-service';
-import { upsertPlan, type PostPlan } from '../../utils/post-plan/post-plan-model';
+import { planSyncView, upsertPlan, type PostPlan } from '../../utils/post-plan/post-plan-model';
 
 export const POST_PLAN_PROGRESS_CHANNEL = 'post-plan-progress';
 const WORKER = 'https://leword-keyword-api.leword.workers.dev/';
@@ -24,6 +24,11 @@ const SITE_DATA = 'https://leaderspro.kr/data';
 const PLAN_CAP = 50;
 
 const FILE = () => path.join(app.getPath('userData'), 'post-plan', 'plans.json');
+
+/** 사이트 동기화 · 브리지용 요약(2026-10-06 4차). */
+export function readPostPlansForSync(): Array<Record<string, unknown>> {
+  return planSyncView(readPlans());
+}
 
 function readPlans(): PostPlan[] {
   try {
@@ -84,7 +89,18 @@ export async function createPostPlanDeps(): Promise<PostPlanDeps> {
     news: async (keyword) => (await tools.news(keyword)).map((item) => item.title).filter(Boolean),
     writingKit: async (keyword) => {
       const { buildWritingKit } = await import('./golden-writing-kit');
-      return buildWritingKit({ keyword, relatedSeats: 0 });
+      /*
+       * 연관 검색어(검색량 실측)를 제목 재료로 넘긴다(2026-10-06 4차) — 안 넘기면 제목 엔진이 고를 유형이 없어
+       * '어떤 정보가 있는지' 같은 일반 제목만 나왔다(1차 실주행). 자리는 본 키워드만 잰다(relatedSeats 0).
+       */
+      const expanded = await tools.expand(keyword).catch(() => ({ autocomplete: [] as string[], related: [] as Array<{ keyword: string; volume: number | null }> }));
+      const self = keyword.replace(/\s+/g, '');
+      const related = expanded.related
+        .filter((r) => typeof r.volume === 'number' && r.volume > 0 && r.keyword.replace(/\s+/g, '') !== self)
+        .sort((a, b) => (b.volume || 0) - (a.volume || 0))
+        .slice(0, 20)
+        .map((r) => ({ keyword: r.keyword, searchVolume: r.volume }));
+      return buildWritingKit({ keyword, related, relatedSeats: 0 });
     },
     band: () => {
       const { readBlogRecord } = require('./daily-pick');

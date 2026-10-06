@@ -206,3 +206,35 @@ export function filterByAnalysis<T extends { title?: string }>(items: readonly T
     return subjects.some((s) => title.includes(s)) && words.filter((w) => title.includes(w)).length >= 2;
   });
 }
+
+/**
+ * 사이트 동기화용 설계 요약(2026-10-06 4차) — 사이트가 비밀번호 유도 키로 잠가 계정에 올린다(상한 64KB).
+ * 최근 20개 · 화면에 그릴 값만. 답변 초안 본문 · 1페이지 상위 제목 · 뉴스 같은 큰 칸은 뺀다(초안은 개수만).
+ */
+export function planSyncView(plans: readonly PostPlan[]): Array<Record<string, unknown>> {
+  return plans.slice(0, 20).map((plan) => {
+    const j: any = plan.steps.judge?.data || null;
+    const t: any = plan.steps.titles?.data || null;
+    const f: any = plan.steps.inflow?.data || null;
+    const r: any = plan.steps.result?.data || null;
+    const spot = (s: any) => ({ title: s.title, link: s.link, where: s.where, postdate: s.postdate, action: s.action, reason: s.reason });
+    return {
+      id: plan.id,
+      keyword: plan.keyword,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+      judge: j ? {
+        searchVolume: j.searchVolume ?? null, documentCount: j.documentCount ?? null,
+        seat: j.seat?.verdict ?? null, facing: j.seat?.facing ?? null, vacancy: j.seat?.vacancy ?? null,
+        range: j.range?.verdict ?? null, rangeReason: j.range?.reason ?? '',
+      } : null,
+      titles: t ? { search: (t.search || []).map((x: any) => x.text).slice(0, 3), homefeed: (t.homefeed || []).slice(0, 3) } : null,
+      inflow: f ? {
+        postUrl: f.postUrl, postTitle: f.postTitle, found: f.found ?? 0, relevant: f.relevant ?? 0, skipped: f.skipped ?? 0,
+        spots: (f.spots || []).slice(0, 10).map(spot),
+        answered: Object.keys(f.answers || {}).length,
+      } : null,
+      result: r ? { registeredAt: r.registeredAt, pick: r.pick, checks: r.checks || [], latest: r.latest || null, homefeed: r.homefeed || null } : null,
+    };
+  });
+}

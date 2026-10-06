@@ -39,6 +39,8 @@ export interface MyBlogBridgeDeps {
    */
   advisorDailyGet?: () => Promise<unknown | null>;
   todayPlanGet?: () => Promise<unknown | null>;
+  /** 글 한 편 유입 설계실 설계 목록(동기화 요약, 2026-10-06 4차). 없는 빌드면 404. */
+  postPlansGet?: () => Promise<unknown[]>;
   /**
    * LEWORD 비서(2026-10-01) — 대화와 화면 자료만 받는다. 규칙 · 설명서는 앱이 붙인다(임의 프롬프트 통로가 아니다).
    * 사용자 본인 구독(Claude Sonnet → Codex → agy)으로 돈다. 없으면 경로가 404.
@@ -107,6 +109,12 @@ export async function handleMyBlogRoute(req: IncomingMessage, res: ServerRespons
     if (route === 'GET today-plan') {
       if (!deps.todayPlanGet) { io.json(res, 404, { ok: false, error: '이 버전엔 없는 경로입니다.' }); return true; }
       io.json(res, 200, { ok: true, result: { plan: await deps.todayPlanGet() } });
+      return true;
+    }
+    // 글 한 편 유입 설계실(2026-10-06 4차) — 사이트판 설계실이 앱 설계(홈판 제목 · 내 크기 · 링크 자리 · 3/7일 결과)를 덧붙인다.
+    if (route === 'GET post-plans') {
+      if (!deps.postPlansGet) { io.json(res, 404, { ok: false, error: '이 버전엔 없는 경로입니다.' }); return true; }
+      io.json(res, 200, { ok: true, result: { plans: await deps.postPlansGet() } });
       return true;
     }
     if (route === 'POST assistant') {

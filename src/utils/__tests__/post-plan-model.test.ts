@@ -3,7 +3,7 @@
  * 순수 판정 · 정리 함수 — 질문 체크리스트, 제휴 상품 후보, 설계 목록 저장.
  */
 import { describe, expect, it } from 'vitest';
-import { affiliateCandidates, filterByAnalysis, inflowSpots, questionChecklist, radarAction, upsertPlan, type PostPlan } from '../post-plan/post-plan-model';
+import { affiliateCandidates, filterByAnalysis, inflowSpots, planSyncView, questionChecklist, radarAction, upsertPlan, type PostPlan } from '../post-plan/post-plan-model';
 
 const NOW = Date.parse('2026-10-06T08:00:00Z');
 
@@ -111,5 +111,29 @@ describe('⑤ 관련성 — 글 분석 키워드로 거르기', () => {
       at('공무원 심사 기준 질문'),
     ], analysis);
     expect(kept.map((i) => i.title)).toEqual(['우발라2 첫방 보신 분 탑백귀 투표 어때요', '우리들의 발라드2 심사 기준 이해 안 돼요', '정승환 이번 무대 기준 뭐예요']);
+  });
+});
+
+describe('사이트 동기화용 설계 요약(4차)', () => {
+  it('최근 20개만 · 답변 초안 본문 · 상위 제목 같은 큰 칸은 빼고 화면에 그릴 값만', () => {
+    const big = (i: number): PostPlan => ({
+      id: `p${i}`, keyword: `키워드${i}`, createdAt: '2026-10-06T00:00:00Z', updatedAt: '2026-10-06T00:00:00Z',
+      steps: {
+        judge: { ok: true, data: { searchVolume: 100, documentCount: 50, seat: { verdict: '반열림', facing: 1, vacancy: 7, topTitles: ['a', 'b'] }, range: { verdict: 'in', reason: '크기 안' } } },
+        titles: { ok: true, data: { search: [{ text: '검색 제목', basis: 'x' }], homefeed: ['홈판 제목'], news: ['n'] } },
+        inflow: { ok: true, data: { postUrl: 'https://blog.naver.com/x/1', postTitle: '글', found: 10, relevant: 3, skipped: 2, spots: [{ title: '질문', link: 'https://kin', where: '지식인', postdate: '2026-10-05', action: 'NOW', reason: '근거' }], answers: { 'https://kin': '아주 긴 초안'.repeat(100) } } },
+        result: { ok: true, data: { registeredAt: '2026-10-06T00:00:00Z', pick: { seat: '반열림' }, checks: [{ day: 3, rank: 4 }], homefeed: { count: 2 } } },
+      },
+    });
+    const view = planSyncView(Array.from({ length: 25 }, (_, i) => big(i)));
+    expect(view.length).toBe(20);
+    const v: any = view[0];
+    expect(v.keyword).toBe('키워드0');
+    expect(v.judge).toEqual({ searchVolume: 100, documentCount: 50, seat: '반열림', facing: 1, vacancy: 7, range: 'in', rangeReason: '크기 안' });
+    expect(v.titles).toEqual({ search: ['검색 제목'], homefeed: ['홈판 제목'] });
+    expect(v.inflow.spots[0]).toEqual({ title: '질문', link: 'https://kin', where: '지식인', postdate: '2026-10-05', action: 'NOW', reason: '근거' });
+    expect(v.inflow.answered).toBe(1);
+    expect(JSON.stringify(v)).not.toContain('아주 긴 초안');
+    expect(v.result.checks).toEqual([{ day: 3, rank: 4 }]);
   });
 });

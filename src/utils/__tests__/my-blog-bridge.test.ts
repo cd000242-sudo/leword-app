@@ -87,6 +87,23 @@ describe('내 블로그 브리지', () => {
       await new Promise<void>(resolve => synced.close(() => resolve()));
     }
   });
+  // 글 한 편 유입 설계실 4차(2026-10-06) — 사이트판 설계실이 앱 설계를 덧붙인다.
+  it('설계 목록(post-plans)은 기능이 없으면 404, 있으면 plans 로 감싸 주고 확장 프로그램 출처는 막는다', async () => {
+    expect((await fetch(base + '/v1/bridge/my-blog/post-plans')).status).toBe(404);
+    const postPlansGet = vi.fn(async () => [{ id: 'p1', keyword: '부활남 무대인사' }]);
+    const withPlans = createWebBridge({ appVersion: 'test', getAgentStatuses: async () => [], forgeInsights: async () => null,
+      myBlog: { sessionStatus, openLogin, blogClassGet, postPlansGet } } as any);
+    await new Promise<void>(resolve => withPlans.listen(0, '127.0.0.1', resolve));
+    const plansBase = `http://127.0.0.1:${(withPlans.address() as AddressInfo).port}`;
+    try {
+      const res = await fetch(plansBase + '/v1/bridge/my-blog/post-plans', { headers: { Origin: 'https://leaderspro.kr' } });
+      expect(res.status).toBe(200);
+      expect((await res.json()).result).toEqual({ plans: [{ id: 'p1', keyword: '부활남 무대인사' }] });
+      expect((await fetch(plansBase + '/v1/bridge/my-blog/post-plans', { headers: { Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop' } })).status).toBe(403);
+    } finally {
+      await new Promise<void>(resolve => withPlans.close(() => resolve()));
+    }
+  });
   it('앱 쪽이 실패하면 503 으로 사유 없이 알린다', async () => {
     sessionStatus.mockRejectedValueOnce(new Error('C:\\Users\\secret\\path'));
     const res = await fetch(base + '/v1/bridge/my-blog/session');
