@@ -115,7 +115,7 @@ export async function expandAngles(
     if (!suggestions.length) continue;
     let volumes = new Map<string, number | null>();
     try { volumes = await deps.volumes(suggestions); } catch { continue; }
-    for (const a of pickAngles(head, suggestions, volumes, band, 2)) {
+    for (const a of pickAngles(head, suggestions, volumes, band, 4)) {
       out.push({
         ...h, keyword: a.keyword, searchVolume: a.searchVolume, documentCount: null, facing: null, vacancy: null,
         titles: [], related: [], facts: [],
@@ -219,8 +219,8 @@ export function selectHomefeedPicks(targets: readonly any[], rows: readonly any[
     }));
 }
 
-/** 카드마다 최근 뉴스 제목 3개(네이버 뉴스 검색 · 사용자 키, 무료) — 제목의 사실 재료. 못 받으면 빈 배열. */
-export async function newsTitlesFor(keywords: readonly string[]): Promise<Map<string, string[]>> {
+/** 네이버 오픈 API(사용자 키, 무료) 검색 결과 제목 — 종류(news · blog)별. 키가 없거나 실패하면 빈 Map. */
+async function openApiTitles(kind: 'news' | 'blog', keywords: readonly string[], display: number, sort: 'date' | 'sim'): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>();
   try {
     const { EnvironmentManager } = await import('../../utils/environment-manager');
@@ -232,14 +232,36 @@ export async function newsTitlesFor(keywords: readonly string[]): Promise<Map<st
     const { naverApiFetch } = await import('../../utils/naver-api-hub');
     for (const keyword of keywords) {
       try {
-        const res = await naverApiFetch(`https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(keyword)}&display=5&sort=date`, { headers: { 'X-Naver-Client-Id': id, 'X-Naver-Client-Secret': secret } });
+        const res = await naverApiFetch(`https://openapi.naver.com/v1/search/${kind}.json?query=${encodeURIComponent(keyword)}&display=${display}&sort=${sort}`, { headers: { 'X-Naver-Client-Id': id, 'X-Naver-Client-Secret': secret } });
         if (!res.ok) continue;
         const body = (await res.json()) as { items?: Array<{ title?: string }> };
-        out.set(keyword, (body.items || []).map((i) => String(i.title || '').replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim()).filter(Boolean).slice(0, 3));
+        out.set(keyword, (body.items || []).map((i) => String(i.title || '').replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim()).filter(Boolean));
       } catch { /* 한 키워드 실패는 넘긴다 */ }
     }
-  } catch { /* 설정을 못 읽으면 뉴스 없이 */ }
+  } catch { /* 설정을 못 읽으면 빈손 */ }
   return out;
+}
+
+/** 카드마다 최근 뉴스 제목 3개 — 제목의 사실 재료. */
+export async function newsTitlesFor(keywords: readonly string[]): Promise<Map<string, string[]>> {
+  const map = await openApiTitles('news', keywords, 5, 'date');
+  return new Map([...map].map(([k, v]) => [k, v.slice(0, 3)]));
+}
+
+/*
+ * 자리 실측 전에 각도를 '덜 다룬 순'으로 줄 세운다(2026-10-06 — 자리를 14개만 재서 빈 각도를 못 찾았다).
+ * 블로그 검색 상위 10개 제목(오픈 API, 무료 · 빠름)으로 각도 낱말을 담은 글 수를 세고,
+ * 아무도 안 다룬 것 → 덜 다룬 것 순. 오픈 API 순서는 실제 노출 순위와 다를 수 있어 '미리 거르기'에만 쓴다 —
+ * 카드의 빈 각도는 자리 실측이 읽은 제목으로 다시 센다.
+ */
+export async function rankAnglesByCoverage(angles: readonly HybridCandidate[]): Promise<HybridCandidate[]> {
+  if (!angles.length) return [];
+  const titles = await openApiTitles('blog', angles.map((a) => a.keyword), 10, 'sim');
+  const scored = angles.map((a, i) => {
+    const gap = coverageGap(a.keyword, a.angle ? a.angle.head : '', titles.get(a.keyword) || []);
+    return { a, i, open: gap.uncovered.length > 0 ? 1 : 0, ratio: coverageRatio(gap) };
+  });
+  return scored.sort((x, y) => y.open - x.open || x.ratio - y.ratio || x.i - y.i).map((x) => x.a);
 }
 
 export type { CoverageGap };

@@ -42,7 +42,7 @@ import {
 import { measureKeywords } from './seat-measure';
 import { normalizeBriefBoard } from '../topic-brief-pipeline';
 import { coverageGap, isNotWritable, type CoverageGap } from '../../utils/today-hybrid';
-import { expandAngles, fromAdvisorTrend, fromBenchmark, homefeedTitlesFor, newsTitlesFor, selectHomefeedPicks } from './daily-pick-hybrid';
+import { expandAngles, fromAdvisorTrend, fromBenchmark, homefeedTitlesFor, newsTitlesFor, rankAnglesByCoverage, selectHomefeedPicks } from './daily-pick-hybrid';
 
 export const DAILY_PICK_PROGRESS_CHANNEL = 'daily-pick-progress';
 
@@ -664,7 +664,8 @@ export async function runDailyPick(
     angles = (await expandAngles(heads, band, {
       autocomplete: async (head) => (await import('../../utils/naver-autocomplete')).getNaverAutocompleteQuick(head),
       volumes: deps.volumes,
-    }, (message) => say(message), 8)) as Candidate[];
+    }, (message) => say(message), 10)) as Candidate[];
+    say('각도마다 상위 글이 다뤘는지 미리 세는 중'); angles = (await rankAnglesByCoverage(angles)) as Candidate[];
   } catch { angles = []; }
   const angleGated: Gated[] = angles.map((c) => ({ candidate: c, fitReason: judgeRange({ searchVolume: c.searchVolume, topic: c.topic }, band).reason, myTopic: true }));
   const seenKw = new Set<string>();
@@ -706,8 +707,7 @@ export async function runDailyPick(
     measured = chosen.measured;
   }
 
-  // 홈판 제목 — 내 구독 AI 로 카드마다 3개(뉴스 제목을 사실 재료로). 막히면 빈 칸 + 이유(템플릿 금지).
-  let titleNote: string | null = null;
+  let titleNote: string | null = null; // 홈판 제목 — 내 구독 AI, 뉴스 제목을 사실 재료로. 막히면 빈 칸 + 이유(템플릿 금지).
   if (picks.length) {
     say('홈판 제목 만드는 중');
     const news = await newsTitlesFor(picks.map((p) => p.keyword));
