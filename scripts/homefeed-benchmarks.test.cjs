@@ -116,12 +116,13 @@ test('total failure retains last successful timestamp and marks stale', () => {
   assert.equal(payload.attemptedAt, now);
 });
 // 2026-10-01 출처 188곳 → 48시간 카드가 1,600장을 넘었다. 판 파일 6MB · 화면은 한 번에 다 못 쓴다.
-// 추천은 전부 싣고(앞에 선다) 나머지는 우선순위 순으로 채워 300장까지만 싣는다.
-test('카드는 300장까지 — 추천이 먼저 들어간다', () => {
-  const posts = Array.from({ length: 340 }, (_, i) => other(`s${i}`, `가나${i}다 라마${i}바 사아${i}자`));
+// 추천은 전부 싣고(앞에 선다) 나머지는 우선순위 순으로 채워 1,000장까지만 싣는다.
+// 2026-10-06 출처 786곳 → 카드 5,284장 · 추천 791장인데 300장에서 잘라 추천 491장이 버려졌다(실측). 사장님 "300개 초과는 안 보여 주네".
+test('카드는 1,000장까지 — 추천이 먼저 들어간다', () => {
+  const posts = Array.from({ length: 1040 }, (_, i) => other(`s${i}`, `가나${i}다 라마${i}바 사아${i}자`));
   posts.push(other('x1', '디올과 원영의 만남 🎀'), other('x2', '🎀 디올원영 어떤데?'));
   const result = core.buildCandidates(posts, now);
-  assert.equal(result.length, 300);
+  assert.equal(result.length, 1000);
   assert.equal(result[0].recommended, true);
 });
 /*

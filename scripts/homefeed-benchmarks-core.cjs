@@ -200,7 +200,11 @@ function flagsFor(post, now) {
  * 두 글자 조각을 하나라도 나눠 가진 묶음만 견준다(겹침 · 포함 관계는 반드시 두 글자 조각을 나눠 갖는다).
  * '먼저 만든 묶음이 이긴다'는 예전 규칙을 그대로 지키려고 후보를 만든 순서대로 본다.
  */
-const MAX_CARDS = 300;
+/*
+ * 판에 싣는 카드 상한. 2026-10-06 출처 786곳에서 카드 5,284장 · 추천 791장(실측) — 300장이면 추천 491장이 잘렸다.
+ * 1,000장이면 추천은 전부 들어가고 판은 약 5MB(장당 5.2KB). 사이트 homefeedLive.mjs MAX_CARDS · 화면 모델 상한과 같이 바꿀 것.
+ */
+const MAX_CARDS = 1000;
 function bigrams(token) { const out = []; for (let i = 0; i + 1 < token.length; i += 1) out.push(token.slice(i, i + 2)); return out; }
 function groupPosts(posts) {
   const groups = []; const byUrl = new Map(); const byNorm = new Map(); const byGram = new Map();
@@ -280,7 +284,7 @@ function buildCandidates(posts, now, previousPosts = []) {
     // 30장 상한을 없앴다 — 최근 48시간 소재는 전부 싣는다(사장님 2026-09-30). 발행일을 모르는 것은 이번 수집에서 본 것이라 남긴다.
     .filter((c)=>!c.publishedAt || Date.parse(now)-Date.parse(c.publishedAt) <= 2*DAY)
     .sort((a,b)=>Number(b.recommended)-Number(a.recommended) || b.priority-a.priority || (Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0) || a.sources[0].url.localeCompare(b.sources[0].url))
-    // 출처 188곳이면 48시간 카드가 1,600장을 넘는다(판 6MB). 추천이 앞에 서 있으니 앞에서 300장 — 추천은 전부 들어간다.
+    // 48시간 카드는 출처 786곳이면 5천 장을 넘는다(판 17MB). 추천이 앞에 서 있으니 앞에서 MAX_CARDS 장 — 추천은 전부 들어간다.
     .slice(0, MAX_CARDS);
 }
 function buildPayload(results, now, previous, previousPosts=[]) {
