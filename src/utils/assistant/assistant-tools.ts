@@ -9,10 +9,10 @@
  * 여기에는 입출력이 없다 — 요청 읽기 · 상한 · 결과 문장 만들기만. 실행은 main/assistant-tool-runner.ts.
  */
 
-export const ASSISTANT_TOOL_NAMES = ['my_blog', 'volume', 'docs', 'expand', 'seat', 'homefeed_now', 'title_guide'] as const;
+export const ASSISTANT_TOOL_NAMES = ['my_blog', 'volume', 'docs', 'expand', 'seat', 'homefeed_now', 'title_guide', 'picks', 'briefs', 'news'] as const;
 export type AssistantToolName = typeof ASSISTANT_TOOL_NAMES[number];
 
-export interface ToolArgs { keywords?: string[]; seed?: string }
+export interface ToolArgs { keywords?: string[]; seed?: string; category?: string }
 export interface ToolCall { tool: AssistantToolName; args: ToolArgs }
 export interface ToolResult { tool: string; ok: boolean; text: string }
 
@@ -21,7 +21,7 @@ export const TOOL_LIMITS = {
   callsPerRound: 4,
   keywordsPerCall: 20,
   /** 자리 실측은 키워드당 4~6초(내 PC 크로미엄, 직렬) — 질문 하나에 8개면 최악 약 50초. */
-  seatPerQuestion: 8,
+  seatPerQuestion: 15,
   volumePerQuestion: 40,
   docsPerQuestion: 40,
   resultChars: 2_400,
@@ -37,6 +37,9 @@ const TOOL_GUIDE: Readonly<Record<AssistantToolName, string>> = {
   seat: `seat {"keywords":[…]} — 지금 네이버 블로그 탭 1페이지를 열어 잰 자리: 판정(열림 · 반열림 · 잠김 · 카드답), 같은 걸 정면으로 다룬 글 수, 몇 번째 자리가 비었나, 광고 수, AI 브리핑, 상위 제목. 느리다(키워드당 약 5초) — 질문 하나에 ${TOOL_LIMITS.seatPerQuestion}개까지, 검색량 · 문서수로 먼저 추린 뒤에만.`,
   homefeed_now: 'homefeed_now {} — 지금 홈판 흐름: 벤치마크 블로그 186곳의 48시간 소재 묶음(분야 · 채널 수 · 홈판 후킹 제목 초안)과, 앱이 잰 어제 실제 홈판 상위 글 제목.',
   title_guide: 'title_guide {} — 홈판 제목 규칙과 실제 홈판에 뜬 제목 본보기. 제목을 추천하기 전에 부른다.',
+  news: 'news {"seed":"검색어"} — 네이버 뉴스 검색: 그 말이 든 최근 기사 제목·날짜·요약. 제목에 넣을 사실(가격 · 출시일 · 발표 내용)을 확인할 때 쓴다. 기사에 없는 사실은 없는 것이다.',
+  picks: 'picks {"category":"자동차"} — 사이트 "오늘의 네이버 추천키워드": 블로그 주제별 키워드(검색량 · 문서수 · 황금비). category 는 주제명(예: 자동차 · 맛집 · IT·컴퓨터) 생략 가능, 생략하면 주제마다 상위 몇 개씩. 자리(첫 페이지)는 재지 않은 값이다.',
+  briefs: 'briefs {"category":"자동차"} — 사이트 "오늘의 글감": 뉴스 사실로 만든 글감(지금 · 일정 전 · 상시), 검색량 · 문서수 · 자리 적합도. category 는 같은 주제명, 생략 가능.',
 };
 
 const MARK_RE = /^\s*\[도구\]\s*$/m;
@@ -46,7 +49,7 @@ function cleanKeyword(value: unknown): string {
 }
 
 function cleanArgs(tool: AssistantToolName, raw: unknown): ToolArgs | null {
-  const args = (raw && typeof raw === 'object' ? raw : {}) as { keywords?: unknown; seed?: unknown };
+  const args = (raw && typeof raw === 'object' ? raw : {}) as { keywords?: unknown; seed?: unknown; category?: unknown };
   if (tool === 'volume' || tool === 'docs' || tool === 'seat') {
     if (!Array.isArray(args.keywords)) return null;
     const keywords = [...new Set(args.keywords.map(cleanKeyword).filter(Boolean))].slice(0, TOOL_LIMITS.keywordsPerCall);
@@ -55,6 +58,14 @@ function cleanArgs(tool: AssistantToolName, raw: unknown): ToolArgs | null {
   if (tool === 'expand') {
     const seed = cleanKeyword(args.seed);
     return seed ? { seed } : null;
+  }
+  if (tool === 'news') {
+    const seed = cleanKeyword(args.seed);
+    return seed ? { seed } : null;
+  }
+  if (tool === 'picks' || tool === 'briefs') {
+    const category = cleanKeyword(args.category);
+    return category ? { category } : {};
   }
   return {};
 }

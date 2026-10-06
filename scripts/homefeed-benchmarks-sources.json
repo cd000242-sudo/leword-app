@@ -1355,6 +1355,237 @@
       "feedUrl": "https://rss.blog.naver.com/hermebook.xml",
       "name": "에르메의 재테크북",
       "topic": "비즈니스·경제"
+    },
+    {
+      "id": "moviecloud_",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/moviecloud_",
+      "feedUrl": "https://rss.blog.naver.com/moviecloud_.xml",
+      "topic": "영화"
+    },
+    {
+      "id": "sunshine4838",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/sunshine4838",
+      "feedUrl": "https://rss.blog.naver.com/sunshine4838.xml",
+      "topic": "드라마"
+    },
+    {
+      "id": "reviewzin100",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/reviewzin100",
+      "feedUrl": "https://rss.blog.naver.com/reviewzin100.xml",
+      "topic": "드라마"
+    },
+    {
+      "id": "gkskdhksk",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/gkskdhksk",
+      "feedUrl": "https://rss.blog.naver.com/gkskdhksk.xml",
+      "topic": "만화·애니"
+    },
+    {
+      "id": "thomaschoi01",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/thomaschoi01",
+      "feedUrl": "https://rss.blog.naver.com/thomaschoi01.xml",
+      "topic": "방송"
+    },
+    {
+      "id": "poms_fam",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/poms_fam",
+      "feedUrl": "https://rss.blog.naver.com/poms_fam.xml",
+      "topic": "반려동물"
+    },
+    {
+      "id": "pickentrip",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/pickentrip",
+      "feedUrl": "https://rss.blog.naver.com/pickentrip.xml",
+      "topic": "반려동물"
+    },
+    {
+      "id": "sooh809",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/sooh809",
+      "feedUrl": "https://rss.blog.naver.com/sooh809.xml",
+      "topic": "반려동물"
+    },
+    {
+      "id": "yong57578",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/yong57578",
+      "feedUrl": "https://rss.blog.naver.com/yong57578.xml",
+      "topic": "좋은글·이미지"
+    },
+    {
+      "id": "s_cook",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/s_cook",
+      "feedUrl": "https://rss.blog.naver.com/s_cook.xml",
+      "topic": "요리·레시피"
+    },
+    {
+      "id": "kebirain1",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/kebirain1",
+      "feedUrl": "https://rss.blog.naver.com/kebirain1.xml",
+      "topic": "요리·레시피"
+    },
+    {
+      "id": "charmingrl",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/charmingrl",
+      "feedUrl": "https://rss.blog.naver.com/charmingrl.xml",
+      "topic": "요리·레시피"
+    },
+    {
+      "id": "amuletbox",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/amuletbox",
+      "feedUrl": "https://rss.blog.naver.com/amuletbox.xml",
+      "topic": "게임"
+    },
+    {
+      "id": "q3858",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/q3858",
+      "feedUrl": "https://rss.blog.naver.com/q3858.xml",
+      "topic": "게임"
+    },
+    {
+      "id": "sportmania_",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/sportmania_",
+      "feedUrl": "https://rss.blog.naver.com/sportmania_.xml",
+      "topic": "스포츠"
+    },
+    {
+      "id": "eatarchive",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/eatarchive",
+      "feedUrl": "https://rss.blog.naver.com/eatarchive.xml",
+      "topic": "맛집"
+    },
+    {
+      "id": "gywjd4103",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/gywjd4103",
+      "feedUrl": "https://rss.blog.naver.com/gywjd4103.xml",
+      "topic": "맛집"
+    },
+    {
+      "id": "noran307",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/noran307",
+      "feedUrl": "https://rss.blog.naver.com/noran307.xml",
+      "topic": "맛집"
+    },
+    {
+      "id": "disclosurekorea",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/disclosurekorea",
+      "feedUrl": "https://rss.blog.naver.com/disclosurekorea.xml",
+      "topic": "비즈니스·경제"
+    },
+    {
+      "id": "vvqvxofaxnp",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/vvqvxofaxnp",
+      "feedUrl": "https://rss.blog.naver.com/vvqvxofaxnp.xml",
+      "topic": "어학·외국어"
+    },
+    {
+      "id": "acraerobatics",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/acraerobatics",
+      "feedUrl": "https://rss.blog.naver.com/acraerobatics.xml",
+      "topic": "어학·외국어"
+    },
+    {
+      "id": "contempo2521",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/contempo2521",
+      "feedUrl": "https://rss.blog.naver.com/contempo2521.xml",
+      "topic": "어학·외국어"
+    },
+    {
+      "id": "zzam119",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/zzam119",
+      "feedUrl": "https://rss.blog.naver.com/zzam119.xml",
+      "topic": "교육·학문"
+    },
+    {
+      "id": "oceandy",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/oceandy",
+      "feedUrl": "https://rss.blog.naver.com/oceandy.xml",
+      "topic": "자동차"
+    },
+    {
+      "id": "health_enjoyer",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/health_enjoyer",
+      "feedUrl": "https://rss.blog.naver.com/health_enjoyer.xml",
+      "topic": "자동차"
+    },
+    {
+      "id": "knowledgespider",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/knowledgespider",
+      "feedUrl": "https://rss.blog.naver.com/knowledgespider.xml",
+      "topic": "자동차"
+    },
+    {
+      "id": "k-kking",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/k-kking",
+      "feedUrl": "https://rss.blog.naver.com/k-kking.xml",
+      "topic": "원예·재배"
+    },
+    {
+      "id": "profjinwoo",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/profjinwoo",
+      "feedUrl": "https://rss.blog.naver.com/profjinwoo.xml",
+      "topic": "원예·재배"
+    },
+    {
+      "id": "education1992",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/education1992",
+      "feedUrl": "https://rss.blog.naver.com/education1992.xml",
+      "topic": "IT·컴퓨터"
+    },
+    {
+      "id": "matzzipcat",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/matzzipcat",
+      "feedUrl": "https://rss.blog.naver.com/matzzipcat.xml",
+      "topic": "IT·컴퓨터"
+    },
+    {
+      "id": "nariwear",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/nariwear",
+      "feedUrl": "https://rss.blog.naver.com/nariwear.xml",
+      "topic": "패션·미용"
+    },
+    {
+      "id": "59idda4srr0",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/59idda4srr0",
+      "feedUrl": "https://rss.blog.naver.com/59idda4srr0.xml",
+      "topic": "상품리뷰"
+    },
+    {
+      "id": "fdtl6j47jf7g0j",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/fdtl6j47jf7g0j",
+      "feedUrl": "https://rss.blog.naver.com/fdtl6j47jf7g0j.xml",
+      "topic": "상품리뷰"
     }
   ]
 }

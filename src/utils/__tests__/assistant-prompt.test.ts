@@ -51,6 +51,11 @@ describe('LEWORD 비서 — 프롬프트', () => {
     expect(agent).toMatch(/골라|고를/);
     // 실주행(2026-10-06)에서 자리를 안 재고 골랐다 — 고르기 전에 seat 필수.
     expect(agent).toMatch(/반드시 seat 로 잰 뒤에 고른다/);
+    // 실주행(2026-10-06): '재볼 후보를 알려주시면'이라고 되물었다 — 직접 고르고 재야 한다.
+    expect(agent).toMatch(/되묻지 마라/);
+    // 실주행(2026-10-06): '반값도 안 됐는데'처럼 자료에 없는 수치가 제목에 들어갔다.
+    expect(agent).toMatch(/자료에 없으면 과장이라도 넣지 마라/);
+    expect(agent).toMatch(/picks · briefs/);
     expect(agent).toMatch(/홈판 제목/);
     expect(agent).toMatch(/걱정|근심/);
     expect(agent).toMatch(/지어내지/);

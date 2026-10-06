@@ -34,6 +34,10 @@ export interface AssistantToolDeps {
   homefeedBoard(): Promise<any | null>;
   advisorLatest(): { day?: string; homefeedTitles?: Array<{ title: string }> } | null;
   titleGuide(): { rules: string[]; samples: string[] };
+  /** 사이트 공개 판(추천키워드 · 글감) — 못 받으면 null. */
+  sitePicks(): Promise<any | null>;
+  news(keyword: string): Promise<Array<{ title: string; description: string; pubDate: string; link: string }>>;
+  siteBriefs(): Promise<any | null>;
 }
 
 const flat = (value: string) => value.replace(/\s+/g, '').toLowerCase();
@@ -81,6 +85,47 @@ function seatLine(row: SeatRow): string {
   ].filter(Boolean);
   const titles = (row.topTitles || []).slice(0, 3).map((t) => `"${t}"`).join(' / ');
   return `- ${row.keyword}: ${parts.join(' · ')}${titles ? `\n  상위 제목: ${titles}` : ''}`;
+}
+
+const SITE_PICK_CAP = 12;
+/** 주제 이름이 맞으면 그 주제만, 아니면 전체. 모르는 이름은 전체 목록을 주고 알려 준다. */
+function matchCategory(names: string[], wanted: string | undefined): string[] | null {
+  if (!wanted) return null;
+  const want = flat(wanted);
+  const hit = names.filter((n) => flat(n) === want || flat(n).includes(want) || want.includes(flat(n)));
+  return hit.length ? hit : null;
+}
+
+function picksText(board: any | null, category: string | undefined): string {
+  const topics: any[] = Array.isArray(board?.topics) ? board.topics : [];
+  if (!topics.length) return '추천키워드 판을 받지 못했다.';
+  const names = topics.map((t) => String(t.topic));
+  const picked = matchCategory(names, category);
+  if (category && !picked) return `"${category}" 주제는 없다. 주제 이름: ${names.join(', ')}`;
+  const lines = [`추천키워드(${String(board.builtAt || '').slice(0, 16).replace('T', ' ')} UTC 판 · 자리는 재지 않은 값):`];
+  for (const t of topics.filter((x) => !picked || picked.includes(String(x.topic)))) {
+    lines.push(`[${t.topic}]`);
+    for (const r of (t.rows || []).slice(0, picked ? 20 : 3)) {
+      lines.push(`- ${r.keyword}: 월 검색량 ${r.searchVolume == null ? '못 잼' : KO(r.searchVolume)} · 문서 ${r.documentCount == null ? '못 잼' : KO(r.documentCount)} · 황금비 ${r.ratio ?? '?'}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+const TIMING_KO: Readonly<Record<string, string>> = { NOW: '지금 쓸 것', NEXT: '일정 전', ALWAYS: '상시' };
+function briefsText(board: any | null, category: string | undefined): string {
+  const items: any[] = Array.isArray(board?.briefs) ? board.briefs : [];
+  if (!items.length) return '글감 판을 받지 못했다.';
+  const names = [...new Set(items.map((b) => String(b.field)))];
+  const picked = matchCategory(names, category);
+  if (category && !picked) return `"${category}" 분야 글감은 이번 판에 없다. 있는 분야: ${names.join(', ')}`;
+  const rows = items.filter((b) => !picked || picked.includes(String(b.field)));
+  if (!rows.length) return `${category} 분야 글감은 이번 판에 없다(뉴스가 안 잡혔다).`;
+  return [`글감(${String(board.builtAt || '').slice(0, 16).replace('T', ' ')} UTC 판):`, ...rows.slice(0, 15).map((b) => {
+    const size = b.searchVolume == null ? '검색량 못 잼' : `월 검색량 ${KO(b.searchVolume)}`;
+    const docs = b.documentCount == null ? '문서 못 잼' : `문서 ${KO(b.documentCount)}`;
+    return `- [${b.field} · ${TIMING_KO[b.timing] || b.timing}] ${b.coreKeyword}: ${size} · ${docs} · 정면 ${b.serpFacing ?? '?'}/10 (${b.serpFit || '자리 미측정'}) — 제목 "${b.title || ''}"`;
+  })].join('\n');
 }
 
 function homefeedText(board: any | null, advisor: ReturnType<AssistantToolDeps['advisorLatest']>): string {
@@ -144,6 +189,18 @@ export async function runAssistantTools(
       } else if (call.tool === 'homefeed_now') {
         onProgress?.('지금 홈판 흐름 읽는 중');
         results.push({ tool: call.tool, ok: true, text: homefeedText(await deps.homefeedBoard(), deps.advisorLatest()) });
+      } else if (call.tool === 'picks') {
+        onProgress?.('추천키워드 판 읽는 중');
+        results.push({ tool: call.tool, ok: true, text: picksText(await deps.sitePicks(), call.args.category) });
+      } else if (call.tool === 'briefs') {
+        onProgress?.('글감 판 읽는 중');
+        results.push({ tool: call.tool, ok: true, text: briefsText(await deps.siteBriefs(), call.args.category) });
+      } else if (call.tool === 'news') {
+        onProgress?.(`'${call.args.seed}' 뉴스 찾는 중`);
+        const items = await deps.news(call.args.seed || '');
+        results.push({ tool: call.tool, ok: true, text: items.length
+          ? items.slice(0, 8).map((n) => `- ${n.title} (${n.pubDate.slice(0, 16)})\n  ${n.description}`).join('\n')
+          : `"${call.args.seed}" 뉴스가 최근에 없다 — 이 사실은 재료에 없다.` });
       } else if (call.tool === 'title_guide') {
         const guide = deps.titleGuide();
         results.push({ tool: call.tool, ok: true, text: [...guide.rules, '실제 홈판 제목 본보기:', ...guide.samples.map((s) => `- ${s}`)].join('\n') });
@@ -158,6 +215,16 @@ export async function runAssistantTools(
 }
 
 /** 앱 설정의 키로 실측 창구를 만든다(daily-pick realMyBlogDeps 와 같은 배선). 키가 없으면 그 창구는 빈손. */
+/** 사이트 공개 판 한 개를 받는다(12초 상한). 실패는 null — 판 하나 때문에 다른 도구를 막지 않는다. */
+async function fetchSiteJson(file: string): Promise<any | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const res = await fetch(`https://leaderspro.kr/data/${file}`, { signal: controller.signal });
+    return res.ok ? await res.json() : null;
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
 export async function createRealToolDeps(): Promise<AssistantToolDeps> {
   const { EnvironmentManager } = await import('../utils/environment-manager');
   const manager: any = typeof (EnvironmentManager as any).getInstance === 'function'
@@ -225,6 +292,17 @@ export async function createRealToolDeps(): Promise<AssistantToolDeps> {
       const { readAdvisorDailyView } = require('./handlers/advisor-daily');
       return readAdvisorDailyView().latest;
     },
+    sitePicks: async () => fetchSiteJson('today-picks.json'),
+    news: async (keyword) => {
+      const { naverApiFetch } = await import('../utils/naver-api-hub');
+      const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(keyword)}&display=8&sort=date`;
+      const res = await naverApiFetch(url, { headers: { 'X-Naver-Client-Id': openApi.clientId, 'X-Naver-Client-Secret': openApi.clientSecret } });
+      if (!res.ok) throw new Error(`뉴스 검색 ${res.status}`);
+      const body = (await res.json()) as { items?: Array<{ title?: string; description?: string; pubDate?: string; link?: string }> };
+      const clean = (text: string | undefined) => String(text || '').replace(/<[^>]+>/g, '').replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim();
+      return (body.items || []).map((item) => ({ title: clean(item.title), description: clean(item.description).slice(0, 160), pubDate: String(item.pubDate || ''), link: String(item.link || '') }));
+    },
+    siteBriefs: async () => fetchSiteJson('topic-briefs.json'),
     titleGuide: () => {
       const { homefeedTitleRuleLines, feedTitleSamples } = require('../utils/benchmark-title-engine');
       return { rules: homefeedTitleRuleLines(), samples: feedTitleSamples(12) };

@@ -161,8 +161,8 @@ describe('inventory publication guards', () => {
     let index = 0;
     const correct = { ...old, briefs: plan.allocations.flatMap(allocation => Array.from({ length: allocation.desiredTarget }, () => ({ ...row(keywords[index++]), field: allocation.field }))) };
     expect(isBriefRoundComplete(correct, 60, plan.allocations)).toBe(true);
-    expect(isBriefRoundComplete(correct, 60, buildTopicBriefPolicy({ mainCategories: ['경제·금융'] }).allocations)).toBe(false);
-    const aliases = { ...correct, briefs: correct.briefs.map(brief => ({ ...brief, field: brief.field === '생활경제·부동산' ? '부동산·생활경제' : brief.field === '주요 이슈' ? '시사·이슈' : brief.field })) };
+    expect(isBriefRoundComplete(correct, 60, buildTopicBriefPolicy({ mainCategories: ['비즈니스·경제'] }).allocations)).toBe(false);
+    const aliases = { ...correct, briefs: correct.briefs.map(brief => ({ ...brief, field: brief.field === '비즈니스·경제' ? '부동산·생활경제' : brief.field === '사회·정치' ? '시사·이슈' : brief.field })) };
     expect(isBriefRoundComplete(aliases, 60, plan.allocations)).toBe(true);
   });
   it('keeps the richer same-day same-slot board and its original timestamp', () => {

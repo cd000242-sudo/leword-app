@@ -3,9 +3,10 @@ import { BRIEF_FIELDS } from './topic-briefs';
 /** Editorial allocation, separate from data-based keyword scores or earning estimates. */
 export const DEFAULT_BRIEF_GOAL = 60;
 export const MAX_BRIEF_GOAL = 100;
-export const DEFAULT_BRIEF_MAIN_CATEGORIES = ['지원금·복지', '비즈니스·소상공인', '경제·금융'] as const;
+// 주력 = 정책·복지(사회·정치)와 소상공인·금융(비즈니스·경제). 2026-10-06 네이버 32주제로 옮기며 같은 뜻의 주제로 바꿨다.
+export const DEFAULT_BRIEF_MAIN_CATEGORIES = ['사회·정치', '비즈니스·경제'] as const;
 /**
- * 17분야 전부에 비중을 준다(2026-09-29, 사장님 "다른 카테고리들도 전부 … 30개 이상씩").
+ * 32주제 전부에 비중을 준다(2026-09-29 17분야 원칙을 2026-10-06 네이버 32주제로 옮김, 사장님 "다른 카테고리들도 전부").
  * 경제·비즈니스·지원금은 2, 나머지는 1 — 비중은 두되 어느 분야도 비우지 않는다.
  * 옛 기본(5분야만 3·3·2·1·1)은 나머지 12분야를 아예 안 뽑아 사이트에 5분야만 보였다.
  */

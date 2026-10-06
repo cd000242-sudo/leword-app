@@ -51,13 +51,13 @@ describe('parseToolRequest', () => {
 });
 
 describe('createToolBudget', () => {
-  it('자리 실측은 질문 하나에 8개까지 — 넘치면 잘라서 알린다', () => {
+  it('자리 실측은 질문 하나에 15개까지 — 넘치면 잘라서 알린다', () => {
     const budget = createToolBudget();
     const first = budget.take('seat', ['a', 'b', 'c', 'd', 'e', 'f']);
     expect(first.allowed).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
-    const second = budget.take('seat', ['g', 'h', 'i', 'j']);
-    expect(second.allowed).toEqual(['g', 'h']);
-    expect(second.dropped).toEqual(['i', 'j']);
+    const second = budget.take('seat', ['g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v']);
+    expect(second.allowed).toHaveLength(9);
+    expect(second.dropped).toHaveLength(7);
   });
   it('같은 키워드를 다시 재지 않는다', () => {
     const budget = createToolBudget();

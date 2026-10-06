@@ -81,7 +81,8 @@ export function isBriefRoundComplete(round: Pick<BriefRound, 'briefs'> | null | 
   allocations?: readonly Pick<BriefInventoryField, 'field' | 'desiredTarget'>[]): boolean {
   if (!round || !Array.isArray(round.briefs) || uniqueCount(round.briefs) < goalOf(goal)) return false;
   if (!allocations?.length) return true;
-  const canonicalField = (field: string) => field === '부동산·생활경제' ? '생활경제·부동산' : field === '시사·이슈' ? '주요 이슈' : field;
+  // 옛 분야 이름(부동산·생활경제 · 시사·이슈 등)이 남은 회차를 네이버 32주제로 옮겨 센다(2026-10-06).
+  const canonicalField = (field: string) => ({ '부동산·생활경제': '비즈니스·경제', '생활경제·부동산': '비즈니스·경제', '시사·이슈': '사회·정치', '주요 이슈': '사회·정치' } as Record<string, string>)[field] ?? field;
   // A keyword counts once across categories, matching generation's global deduplication.
   const seen = new Set<string>();
   const byField = new Map<string, number>();

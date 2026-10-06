@@ -15,9 +15,9 @@ export interface AssistantAnswer { answer: string; escalate: boolean; provider: 
  * 도구를 부를 수 있는 차례 수 — 그다음 차례는 지금 가진 자료로 답해야 한다.
  * 키워드 고르기는 내 블로그 → 연관어 → 검색량 · 문서수 → 자리 4차례가 든다(실주행 2026-10-06: 3이면 자리 전에 끝났다).
  */
-export const TOOL_ROUNDS = 5;
+export const TOOL_ROUNDS = 8;
 /** 질문 하나 전체 상한 — 브리지(Node 기본 300초) · 사이트 요청 상한보다 짧게. */
-const TOTAL_MS = 240_000;
+const TOTAL_MS = 280_000;
 const ROUND_MS = 150_000;
 const MIN_ROUND_MS = 20_000;
 /** 쌓인 실측 결과가 이보다 길면 앞(오래된 것)을 자른다. */
@@ -65,6 +65,13 @@ export async function runAssistant(input: AssistantInput, options: RunAssistantO
     });
     const requested = calls as ReturnType<typeof parseToolRequest>;
     if (requested === null) {
+      // 추천 · 찾기 요청인데 아직 아무것도 재지 않았으면 답을 확정하지 않는다 — 되묻거나 자료만 읽고 끝내는 것을 막는다(2026-10-06).
+      if (!lastCall && needsMeasure(input, used)) {
+        toolLog = `${toolLog}
+
+[앱 안내] 추천·찾기 요청인데 아직 아무것도 재지 않았다. 후보를 직접 골라 volume · docs · seat 로 재고, 재어 본 결과로 답하라. 되묻지 마라.`.trim();
+        continue;
+      }
       const result = parsed ?? parseAssistantReply(run.reply);
       return { ...result, provider: run.provider, ...(used.length ? { tools: used } : {}) };
     }
@@ -80,6 +87,14 @@ export async function runAssistant(input: AssistantInput, options: RunAssistantO
   }
   // 루프는 마지막 차례에 반드시 답하거나 던진다 — 여기까지 오면 엔진이 형식을 계속 틀린 것이다.
   throw new Error('비서가 답을 끝내지 못했습니다.');
+}
+
+const RECOMMEND_RE = /추천|찾아|찾아줘|골라|골라줘|제목|키워드|소재/;
+/** 마지막 사용자 말이 추천·찾기이고, 검색량이나 자리를 아직 한 번도 안 쟀으면 참. */
+export function needsMeasure(input: AssistantInput, used: readonly string[]): boolean {
+  const last = input.turns[input.turns.length - 1]?.content ?? '';
+  if (!RECOMMEND_RE.test(last)) return false;
+  return !used.some((tool) => tool === 'volume' || tool === 'seat' || tool === 'docs');
 }
 
 async function defaultRunner(): Promise<(prompt: string, options: AgentRunOptions) => Promise<AgentRunResult>> {
