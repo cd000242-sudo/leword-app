@@ -221,8 +221,8 @@
 
     .leword-main {
       min-width: 0;
-      /* 위 58px 는 떠 있는 ✦ AI 비서 버튼 자리(2026-10-06) — 화면 머리 오른쪽 버튼과 안 겹치게. */
-      padding: 58px 22px 32px;
+      /* 위쪽은 비서 띠(#lwAssistBar, sticky)가 자리를 차지한다(2026-10-06). */
+      padding: 0 22px 32px;
     }
 
     .leword-screen {
@@ -817,6 +817,15 @@
     </aside>
 
     <main class="leword-main">
+      <!-- 비서 띠(2026-10-06 사장님 "비서랑 뒤에 버튼이 겹쳐 있다, 분리시켜 줘") — 본문 맨 위에 붙어 스크롤해도 남고, 내용은 이 띠 밑으로 지나간다. -->
+      <div id="lwAssistBar" style="position: sticky; top: 0; z-index: 9000; display: flex; justify-content: flex-end; align-items: center; gap: 10px; height: 52px; margin: 0 -22px 8px; padding: 0 22px; background: rgba(5, 8, 20, 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(255,255,255,0.06);">
+        <button id="lwAssistFab" type="button" aria-controls="lwAssistPanel" aria-expanded="false" onclick="toggleAssistantPanel()" title="AI 비서 (어느 화면에서든)"
+    onmouseenter="this.style.boxShadow='0 8px 30px rgba(250,204,21,0.28), 0 0 0 1px rgba(250,204,21,0.25)'" onmouseleave="this.style.boxShadow='0 6px 22px rgba(124,92,255,0.28)'"
+    style="position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 6px 15px 6px 6px; border: 1px solid transparent; border-radius: 999px; background: linear-gradient(#10142a, #10142a) padding-box, linear-gradient(135deg, #fde68a, #f59e0b 45%, #a78bfa) border-box; color: #f8fafc; font: inherit; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; box-shadow: 0 6px 22px rgba(124,92,255,0.28); transition: box-shadow 160ms ease;">
+    <span aria-hidden="true" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #fde68a, #f59e0b); color: #1c1305; font-size: 13px;">✦</span>
+    <span data-label>AI 비서</span>
+  </button>
+      </div>
 
     <script>
       /*
@@ -1100,8 +1109,8 @@
     </section>
 
 
-    <!-- v2.42.91/98: 트레이 + 성능 옵션 플로팅 (우측 상단 고정) -->
-    <div id="trayMinimizeFloating" style="position:fixed; top:14px; right:14px; z-index:99998; display:flex; gap:4px; align-items:center; background:rgba(15,23,42,0.92); border:1px solid rgba(99,102,241,0.4); border-radius:10px; padding:4px; box-shadow:0 4px 14px rgba(0,0,0,0.25);">
+    <!-- v2.42.91/98: 트레이 + 성능 옵션 — 2026-10-06 비서 버튼과 겹쳐(사장님 "분리시켜 줘") 고정을 풀고 상단 비서 띠 안 비서 버튼 왼쪽으로 옮긴다(아래 스크립트). -->
+    <div id="trayMinimizeFloating" style="position:relative; display:flex; gap:4px; align-items:center; background:rgba(15,23,42,0.92); border:1px solid rgba(99,102,241,0.4); border-radius:10px; padding:4px; box-shadow:0 4px 14px rgba(0,0,0,0.25);">
       <button id="trayFloatingToggle" onclick="toggleTrayFloatingPanel()" title="트레이/성능 메뉴 펼치기" aria-expanded="false" style="background:rgba(59,130,246,0.18); color:#bfdbfe; border:1px solid rgba(96,165,250,0.38); cursor:pointer; font-size:12px; font-weight:800; padding:5px 8px; border-radius:7px; min-width:34px;">⚙️</button>
       <div id="trayFloatingContent" style="display:none; gap:6px; align-items:center;">
         <button onclick="hideToSystemTray()" title="트레이로 최소화 (창 숨김, 결과 보존)" style="background:transparent; color:#a5b4fc; border:none; cursor:pointer; font-size:14px; font-weight:700; padding:4px 8px;">⬇️ 트레이로</button>
@@ -1171,6 +1180,13 @@
 
     <script>
       // v2.42.91: 트레이 함수
+      // 상단 비서 띠 안, 비서 버튼 왼쪽으로 옮긴다(2026-10-06) — 둘 다 우측 상단 고정이라 겹쳤다.
+      (function dockTrayIntoAssistBar() {
+        const tray = document.getElementById('trayMinimizeFloating');
+        const bar = document.getElementById('lwAssistBar');
+        const fab = document.getElementById('lwAssistFab');
+        if (tray && bar && fab && tray.parentElement !== bar) bar.insertBefore(tray, fab);
+      })();
       window.setTrayFloatingCollapsed = function (collapsed) {
         const box = document.getElementById('trayMinimizeFloating');
         const content = document.getElementById('trayFloatingContent');
@@ -17155,12 +17171,7 @@
     접었다 폈다 가능하고 스크롤 따라다니게". position:fixed 라 스크롤과 화면 전환에 상관없이 그 자리에 있다.
     모달(lewordTopZ 10200~)보다 위 — 모달을 연 채로도 물어볼 수 있어야 해서. 대화 상태는 위 화면 17 스크립트가 쥔다.
   -->
-  <button id="lwAssistFab" type="button" aria-controls="lwAssistPanel" aria-expanded="false" onclick="toggleAssistantPanel()" title="AI 비서 (어느 화면에서든)"
-    onmouseenter="this.style.boxShadow='0 8px 30px rgba(250,204,21,0.28), 0 0 0 1px rgba(250,204,21,0.25)'" onmouseleave="this.style.boxShadow='0 6px 22px rgba(124,92,255,0.28)'"
-    style="position: fixed; top: 12px; right: 16px; z-index: 2147483000; display: inline-flex; align-items: center; gap: 8px; padding: 6px 15px 6px 6px; border: 1px solid transparent; border-radius: 999px; background: linear-gradient(#10142a, #10142a) padding-box, linear-gradient(135deg, #fde68a, #f59e0b 45%, #a78bfa) border-box; color: #f8fafc; font: inherit; font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em; cursor: pointer; box-shadow: 0 6px 22px rgba(124,92,255,0.28); transition: box-shadow 160ms ease;">
-    <span aria-hidden="true" style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #fde68a, #f59e0b); color: #1c1305; font-size: 13px;">✦</span>
-    <span data-label>AI 비서</span>
-  </button>
+
   <div id="lwAssistPanel" role="dialog" aria-label="AI 비서"
     style="position: fixed; top: 56px; right: 16px; z-index: 2147483000; display: none; flex-direction: column; width: min(420px, calc(100vw - 32px)); height: min(680px, calc(100vh - 72px)); background: #0b1120; border: 1px solid rgba(250,204,21,0.22); border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.55); overflow: hidden;">
     <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); background: linear-gradient(180deg, rgba(250,204,21,0.07), rgba(250,204,21,0));">
