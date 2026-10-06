@@ -3,7 +3,7 @@
  * 사이트 판은 786곳 · 1,000장 상한, 앱은 엑셀 6,412곳 전부 · 카드 상한 없음 — 사장님 PC 에서 돈다.
  */
 import { describe, expect, it } from 'vitest';
-import { collectAdsenseBench, withCardTitles, withCardMetrics } from '../../main/adsense-bench-service';
+import { collectAdsenseBench, selectAppRound, withCardTitles, withCardMetrics } from '../../main/adsense-bench-service';
 
 const board = (n: number) => ({ schemaVersion: 1, candidates: Array.from({ length: n }, (_, i) => ({ id: 'c' + i, keyword: 'k' + i, titles: [] as string[], metrics: { searchVolume: null, documentCount: null, bid: null } })) });
 
@@ -40,5 +40,25 @@ describe('앱 애드센스 벤치마크 서비스', () => {
     const m = withCardMetrics(b, 'c0', { query: '국민연금추납', searchVolume: 2400, documentCount: 3000, bid: 520, at: '2026-10-07T00:00:00Z' });
     expect(m.candidates[0].metrics).toMatchObject({ query: '국민연금추납', searchVolume: 2400, bid: 520 });
     expect(b.candidates[0].metrics.searchVolume).toBeNull();
+  });
+});
+
+// 사장님(2026-10-07) 티스토리 차단 — 엑셀 6,412곳 중 7일 안에 쓴 곳은 913곳. 쉬는 5,500곳을 매번 두드린 게 차단의 주범이었다.
+describe('앱 수집 회차 고르기', () => {
+  const src = (id: string, weekPosts: number) => ({ id, weekPosts });
+  it('7일 안에 쓴 곳은 매번 · 쉬는 곳은 회차마다 rotate 곳씩 돌아가며', () => {
+    const all = [src('a1', 3), src('i1', 0), src('i2', 0), src('a2', 1), src('i3', 0), src('i4', 0), src('i5', 0)];
+    const r1 = selectAppRound(all, 0, 2);
+    expect(r1.sources.map((s) => s.id)).toEqual(['a1', 'a2', 'i1', 'i2']);
+    expect(r1.nextCursor).toBe(2);
+    const r2 = selectAppRound(all, r1.nextCursor, 2);
+    expect(r2.sources.map((s) => s.id)).toEqual(['a1', 'a2', 'i3', 'i4']);
+    const r3 = selectAppRound(all, r2.nextCursor, 2);
+    expect(r3.sources.map((s) => s.id)).toEqual(['a1', 'a2', 'i5', 'i1']);
+    expect(r3.nextCursor).toBe(1);
+  });
+  it('쉬는 곳이 없거나 커서가 엉뚱해도 깨지지 않는다', () => {
+    expect(selectAppRound([src('a', 1)], 99, 300).sources.map((s) => s.id)).toEqual(['a']);
+    expect(selectAppRound([src('i', 0)], -5, 300).sources.map((s) => s.id)).toEqual(['i']);
   });
 });

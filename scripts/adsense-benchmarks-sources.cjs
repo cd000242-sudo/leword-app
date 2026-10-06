@@ -75,6 +75,8 @@ function selectSources(rows, { cap = DEFAULT_CAP, minPerCategory = DEFAULT_MIN_P
   }
   all.sort(compareSources);
   const picked = new Set();
+  // 7일 안에 쓴 워드프레스 · 블로그스팟 먼저(2026-10-07 사장님) — 엑셀은 티스토리 97%라 등급 순으로만 고르면 워드프레스가 밀린다.
+  for (const s of all) { if (picked.size < cap && s.platform !== 'tistory' && s.weekPosts > 0) picked.add(s); }
   if (minPerCategory > 0) {
     const byCategory = new Map();
     for (const s of all) byCategory.set(s.category, [...(byCategory.get(s.category) || []), s]);

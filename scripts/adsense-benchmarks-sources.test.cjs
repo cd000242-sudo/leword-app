@@ -39,3 +39,16 @@ test('분야마다 최소 자리를 먼저 채워 한 분야가 상한을 다 �
   assert.ok(picked.some((s) => s.category === '반려동물'), '작은 분야도 최소 한 자리');
   assert.equal(new Set(picked.map((s) => s.feedUrl)).size, picked.length);
 });
+
+// 사장님(2026-10-07) "요즘은 티스토리보다 워드프레스 비중이 더 높을 텐데" — 엑셀은 워드프레스가 3%뿐이라, 7일 안에 쓴 워드프레스는 전부 싣는다.
+test('7일 안에 쓴 워드프레스 · 블로그스팟은 등급이 낮아도 먼저 싣는다', () => {
+  const rows = [
+    ...['s1', 's2', 's3'].map((h) => row({ URL: `https://${h}.tistory.com`, RSS: `https://${h}.tistory.com/rss`, 등급: 'S', '7일 발행(RSS)': 7 })),
+    row({ URL: 'https://wp1.com', RSS: 'https://wp1.com/feed', 플랫폼: '워드프레스', 등급: 'C', '7일 발행(RSS)': 2 }),
+    row({ URL: 'https://wp2.com', RSS: 'https://wp2.com/feed', 플랫폼: '워드프레스', 등급: 'B', '7일 발행(RSS)': 0 }),
+  ];
+  const picked = selectSources(rows, { cap: 3, minPerCategory: 0 }).map((s) => s.url);
+  assert.ok(picked.includes('https://wp1.com'), picked.join(','));
+  assert.ok(!picked.includes('https://wp2.com'), '7일 글이 없는 워드프레스는 우선 대상이 아니다');
+  assert.equal(picked.length, 3);
+});

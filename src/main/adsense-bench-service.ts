@@ -27,6 +27,20 @@ export async function collectAdsenseBench(deps: AdsenseBenchDeps): Promise<{ sou
   return { sourceCount: board?.sourceCount ?? sources.length, okCount: board?.okCount ?? 0, collectedPostCount: board?.collectedPostCount ?? 0, cards: cards.length, recommended: cards.filter((c: any) => c?.recommended).length };
 }
 
+/**
+ * 회차마다 읽을 출처(2026-10-07 티스토리 차단). 엑셀 6,412곳 중 7일 안에 쓴 곳(913)은 매번, 쉬는 곳은 rotate 곳씩 돌아가며 —
+ * 쉬다가 다시 쓰기 시작한 블로그도 몇 회차 안에 한 번은 읽는다. cursor 는 쉬는 곳 목록에서 다음에 읽을 자리.
+ */
+export function selectAppRound<T extends { weekPosts?: number }>(sources: T[], cursor: number, rotate = 300): { sources: T[]; nextCursor: number } {
+  const active = sources.filter((s) => Number(s.weekPosts) > 0);
+  const idle = sources.filter((s) => !(Number(s.weekPosts) > 0));
+  if (!idle.length) return { sources: active, nextCursor: 0 };
+  const start = Number.isInteger(cursor) && cursor >= 0 ? cursor % idle.length : 0;
+  const count = Math.min(rotate, idle.length);
+  const slice = Array.from({ length: count }, (_, i) => idle[(start + i) % idle.length]);
+  return { sources: [...active, ...slice], nextCursor: (start + count) % idle.length };
+}
+
 export function withCardTitles<T extends { candidates: any[] }>(board: T, id: string, titles: string[]): T {
   return { ...board, candidates: board.candidates.map((c) => (c.id === id ? { ...c, titles: [...titles], titlesAt: new Date().toISOString() } : c)) };
 }

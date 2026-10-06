@@ -11,10 +11,18 @@
 import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { collectAdsenseBench, withCardMetrics, withCardTitles } from '../adsense-bench-service';
+import { collectAdsenseBench, selectAppRound, withCardMetrics, withCardTitles } from '../adsense-bench-service';
 
 const scriptsDir = () => path.join(app.getAppPath(), 'scripts');
 const storeFile = () => path.join(app.getPath('userData'), 'adsense-bench', 'latest.json');
+const cursorFile = () => path.join(app.getPath('userData'), 'adsense-bench', 'cursor.json');
+
+function readCursor(): number {
+  try { return Number(JSON.parse(fs.readFileSync(cursorFile(), 'utf8')).idleCursor) || 0; } catch { return 0; }
+}
+function writeCursor(idleCursor: number): void {
+  try { fs.mkdirSync(path.dirname(cursorFile()), { recursive: true }); fs.writeFileSync(cursorFile(), JSON.stringify({ idleCursor }), 'utf8'); } catch { /* 다음 회차가 처음부터 돌 뿐 */ }
+}
 
 function readBoard(): any | null {
   try { return JSON.parse(fs.readFileSync(storeFile(), 'utf8')); } catch { return null; }
@@ -51,8 +59,10 @@ export function setupAdsenseBenchHandlers(): void {
       const runner = require(path.join(scriptsDir(), 'adsense-benchmarks.cjs'));
       const core = require(path.join(scriptsDir(), 'adsense-benchmarks-core.cjs'));
       let last = 0;
+      // 7일 안에 쓴 곳은 매번 · 쉬는 곳은 300곳씩 돌아가며(티스토리 차단 예방 — 쉬는 5,500곳을 매번 두드리지 않는다).
+      const round = selectAppRound(require(path.join(scriptsDir(), 'adsense-benchmarks-sources-all.json')).sources, readCursor(), 300);
       const summary = await collectAdsenseBench({
-        loadSources: () => require(path.join(scriptsDir(), 'adsense-benchmarks-sources-all.json')).sources,
+        loadSources: () => round.sources,
         collectAll: runner.collectAll,
         buildBoard: core.buildBoard,
         save: (board) => writeBoard({ ...board, scope: 'adsense-benchmark-app' }),
@@ -63,6 +73,7 @@ export function setupAdsenseBenchHandlers(): void {
           if (done === total || done - last >= Math.max(1, Math.floor(total / 100))) { last = done; event.sender.send('adsense-bench-progress', { done, total }); }
         },
       });
+      writeCursor(round.nextCursor);
       return { success: true, summary };
     } catch (error: any) {
       return { success: false, error: String(error?.message || error).slice(0, 200) };
@@ -96,6 +107,25 @@ export function setupAdsenseBenchHandlers(): void {
       return { success: true, metrics: entry };
     } catch (error: any) {
       return { success: false, error: String(error?.message || error).slice(0, 200) };
+    }
+  });
+
+  /*
+   * 글 구조 보기(2026-10-07 사장님 "벤치마킹 글을 볼 수 있어야 본보기가 된다 — 반드시"). 이 PC IP 가 티스토리 429 로 막혀도
+   * 워커(다른 IP)가 소제목 목차 · 글자 수 · 이미지 · 표 · 광고 자리를 읽어 온다. 사이트와 같은 워커 액션 · 개인 키는 보내지 않는다.
+   */
+  ipcMain.handle('adsense-bench-outline', async (_event, payload?: { url?: string }) => {
+    const url = String(payload?.url || '');
+    if (!/^https:\/\//i.test(url)) return { ok: false, error: '글 주소가 올바르지 않습니다' };
+    try {
+      const res = await fetch('https://leword-keyword-api.leword.workers.dev/', {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'adsense-post-outline', url }), signal: AbortSignal.timeout(25000),
+      });
+      if (!res.ok) return { ok: false, error: `글 구조를 받지 못했습니다(HTTP ${res.status})` };
+      return await res.json();
+    } catch (error: any) {
+      return { ok: false, error: '글 구조를 받지 못했습니다 — ' + String(error?.message || error).slice(0, 120) };
     }
   });
 
