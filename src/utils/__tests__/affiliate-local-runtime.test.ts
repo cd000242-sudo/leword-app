@@ -61,4 +61,22 @@ describe('installed affiliate recovery runtime', () => {
     publish.mockResolvedValueOnce({ status: 'skipped', reason: 'invalid_or_stale_snapshot' });
     expect((await runAffiliateCycle('manual')).ok).toBe(false);
   });
+  /*
+   * 관리자 수집 버튼(2026-10-06 사장님 "제휴는 내가 수집할 수 있게 버튼 하나 · 관리자만") — 로그인이 끊기면
+   * 창 없는 수집은 영영 못 받는다(그날 새벽 회차가 토스 · 브랜드커넥트 둘 다 로그인 필요로 실패).
+   */
+  it('평소 수집은 창 없이(--headless) 돈다', async () => {
+    await runAffiliateCycle('manual');
+    expect(state.spawns[0][1]).toContain('--headless');
+    expect(state.spawns[0][1]).not.toContain('--autoLogin');
+  });
+  it('로그인 수집은 보이는 창(--autoLogin)으로 열고, 저장본 재발행으로 건너뛰지 않는다', async () => {
+    publish.mockResolvedValueOnce({ status: 'failed', reason: 'network' });
+    await runAffiliateCycle('manual');
+    state.spawns.length = 0;
+    await runAffiliateCycle('manual', { login: true });
+    expect(state.spawns[0][1]).toContain('--autoLogin');
+    expect(state.spawns[0][1]).not.toContain('--headless');
+    expect(state.spawns[0][2].windowsHide).toBe(false);
+  });
 });

@@ -126,12 +126,13 @@ function syncScripts(workDir: string): { ok: boolean; missing: string[] } {
 }
 
 /** 한 단계를 자식 프로세스로 돌리고 출력을 모은다. 비밀값이 섞일 수 있어 화면에는 골라 낸 줄만 보낸다. */
-function runStage(stage: AffiliateStage, workDir: string, extraEnv: Record<string, string>): Promise<{ code: number | null; output: string }> {
+function runStage(stage: AffiliateStage, workDir: string, extraEnv: Record<string, string>, showWindow = false): Promise<{ code: number | null; output: string }> {
   return new Promise((resolve) => {
     const scriptsDir = path.join(workDir, 'scripts');
     const child = spawn(process.execPath, ['-r', path.join(scriptsDir, 'app-script-shim.js'), stage.script, ...stage.args], {
       cwd: workDir,
-      windowsHide: true,
+      // 로그인 수집은 사장님이 창에서 직접 로그인해야 한다 — 그 창이 숨겨지지 않게.
+      windowsHide: !showWindow,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
@@ -203,15 +204,20 @@ async function seedPublishedSnapshot(file: string): Promise<void> {
   } catch { /* A first collection can still succeed without a prior board. */ }
 }
 
-/** 한 회차 — 복사 → 수집(창 없이) → 자리 · 글감. 결과는 기록하고, 로그인이 끊겼으면 알린다. */
-export async function runAffiliateCycle(reason: RunReason): Promise<LastRun> {
+/**
+ * 한 회차 — 복사 → 수집(창 없이) → 자리 · 글감. 결과는 기록하고, 로그인이 끊겼으면 알린다.
+ * login: 관리자 버튼의 '로그인 창 열고 수집' — 보이는 창(--autoLogin)에서 로그인한 직후 같은 창으로 수집한다.
+ */
+export async function runAffiliateCycle(reason: RunReason, options: { login?: boolean } = {}): Promise<LastRun> {
   if (running) return { at: new Date().toISOString(), reason, ok: false, needsLogin: [], collected: {}, message: '이미 돌고 있습니다' };
   running = true;
   const workDir = DIR();
+  const login = options.login === true;
   try {
     const prior = readState().lastRun;
     const savedFile = path.join(workDir, 'tmp', 'affiliate-campaigns-public.json');
-    if (prior?.readyForPublication && prior.publication?.status === 'failed' && isAffiliatePublishingEnabled(app.getPath('userData'))) {
+    // 로그인 수집은 새 목록을 받으려는 것 — 저장본 재발행으로 건너뛰지 않는다.
+    if (!login && prior?.readyForPublication && prior.publication?.status === 'failed' && isAffiliatePublishingEnabled(app.getPath('userData'))) {
       const saved = readSnapshot(savedFile);
       const age = Date.now() - Date.parse(saved?.checkedAt);
       if (Number.isFinite(age) && age >= 0 && age < 12 * 3_600_000) {
@@ -235,8 +241,11 @@ export async function runAffiliateCycle(reason: RunReason): Promise<LastRun> {
     const plan = buildAffiliatePlan({ workDir, siteRepo: null });
     await seedPublishedSnapshot(plan.snapshotFile);
     const startedAt = Date.now();
-    say('제휴 상품 받는 중…');
-    const collect = await runStage({ ...plan.stages[0], args: [...plan.stages[0].args, '--headless'] }, workDir, plan.env as Record<string, string>);
+    say(login ? '로그인 창을 엽니다 — 창에서 토스 · 브랜드커넥트에 로그인하면 이어서 받습니다' : '제휴 상품 받는 중…');
+    const collect = await runStage(
+      { ...plan.stages[0], args: [...plan.stages[0].args, login ? '--autoLogin' : '--headless'] },
+      workDir, plan.env as Record<string, string>, login,
+    );
     const outcome = readAffiliateOutcome(collect.output);
 
     let message = '';
@@ -307,12 +316,18 @@ export function stopAffiliateScheduler(): void {
 }
 
 export function setupAffiliateLocalHandlers(): void {
+  /*
+   * 관리자 = 운영자 발행 설정이 켜진 PC(2026-10-06 사장님 "관리자만 건들 수 있게"). 화면은 operator 일 때만 버튼을 그리고,
+   * 화면을 우회한 invoke 도 여기서 거부한다 — 남의 PC 에서 수집 · 발행이 돌면 안 된다.
+   */
+  const isOperator = () => isAffiliatePublishingEnabled(app.getPath('userData'));
   if (!ipcMain.listenerCount('affiliate-local-state')) {
-    ipcMain.handle('affiliate-local-state', async () => ({ success: true, state: readState(), running }));
+    ipcMain.handle('affiliate-local-state', async () => ({ success: true, state: readState(), running, operator: isOperator() }));
   }
   if (!ipcMain.listenerCount('affiliate-local-run')) {
-    ipcMain.handle('affiliate-local-run', async () => {
-      const run = await runAffiliateCycle('manual');
+    ipcMain.handle('affiliate-local-run', async (_event, payload?: { login?: boolean }) => {
+      if (!isOperator()) return { success: false, error: '관리자 PC 에서만 수집할 수 있습니다' };
+      const run = await runAffiliateCycle('manual', { login: payload?.login === true });
       return { success: run.ok, run };
     });
   }

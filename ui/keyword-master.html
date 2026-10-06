@@ -1807,6 +1807,24 @@
         </div>
         <div id="boardStatusRows" style="font-size: 12.5px; color: #94a3b8;">읽는 중…</div>
       </div>
+      <!--
+        제휴 수집 — 관리자 PC 전용(2026-10-06 사장님 "제휴는 내가 수집할 수 있게 버튼 하나 · 관리자만 건들 수 있게").
+        기본은 숨김. 처리기가 operator(운영자 발행 설정 켜짐)라고 답할 때만 보인다 — 남의 앱에는 그려지지 않는다.
+        수집은 이 PC 의 제휴 로그인 쿠키로만 돌아서 사이트 버튼으로는 못 한다.
+      -->
+      <div id="affiliateAdminPanel" style="display: none; margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #0f172a; border: 1px solid rgba(251,191,36,0.28);">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <b style="font-size: 13px; color: #fde68a;">제휴 상품 수집</b>
+          <span style="font-size: 11px; color: #a16207; border: 1px solid rgba(251,191,36,0.35); border-radius: 5px; padding: 1px 6px;">관리자</span>
+          <span style="font-size: 11.5px; color: #64748b;">토스 · 브랜드커넥트 목록을 받고 자리 · 글감을 잰 뒤 사이트에 발행합니다.</span>
+          <span style="margin-left: auto; display: flex; gap: 6px;">
+            <button id="affiliateRunBtn" onclick="runAffiliateAdmin(false)" style="padding: 6px 12px; border: 0; border-radius: 7px; font-size: 12px; font-weight: 600; background: #fbbf24; color: #1a1200; cursor: pointer;">지금 수집</button>
+            <button id="affiliateLoginBtn" onclick="runAffiliateAdmin(true)" style="padding: 6px 12px; border: 1px solid rgba(251,191,36,0.55); border-radius: 7px; font-size: 12px; font-weight: 600; background: rgba(251,191,36,0.1); color: #fde68a; cursor: pointer;">로그인 창 열고 수집</button>
+          </span>
+        </div>
+        <div id="affiliateAdminStatus" style="margin-top: 8px; font-size: 12.5px; color: #94a3b8;"></div>
+        <div id="affiliateAdminProgress" style="margin-top: 4px; font-size: 11.5px; color: #64748b;"></div>
+      </div>
       <div class="leword-site-grid">
           <button class="leword-site-card" onclick="openLewordSite('golden')" title="leaderspro.kr/leword?tab=golden"><b>선점 황금키워드 보드</b><span>자리·의도·AI 브리핑 실측 회차 보드</span></button>
           <button class="leword-site-card" onclick="openLewordSite('issue')" title="leaderspro.kr/leword?tab=issue"><b>실검 틈새</b><span>실시간 이슈 3게이트 틈새 판정</span></button>
@@ -6005,6 +6023,8 @@
          * 사이트에 가서 날짜를 눈으로 세야 알았다. 여기서 한 줄로 본다.
          */
         window.loadBoardStatus = async function loadBoardStatus() {
+          // 같은 화면의 관리자 제휴 수집 칸도 함께 읽는다(관리자 PC 가 아니면 숨긴 채로 둔다).
+          if (typeof window.loadAffiliateAdmin === 'function') window.loadAffiliateAdmin();
           const box = document.getElementById('boardStatusRows');
           if (!box) return;
           box.textContent = '읽는 중…';
@@ -6086,6 +6106,78 @@
           } finally {
             setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = label; }, 4000);
           }
+        };
+
+        /*
+         * 제휴 상품 수집 — 관리자 PC 전용(2026-10-06).
+         * 처리기(affiliate-local-state)가 operator 라고 할 때만 칸을 보인다. 실행도 처리기가 한 번 더 막는다.
+         * '로그인 창 열고 수집'은 창이 떠서 사장님이 직접 로그인해야 끝난다 — 끊긴 쿠키를 되살리는 유일한 길.
+         */
+        const affEsc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const affWhen = (iso) => {
+          const ms = Date.parse(iso || '');
+          if (!Number.isFinite(ms)) return '기록 없음';
+          const kst = new Date(ms + 9 * 3600000).toISOString();
+          return kst.slice(5, 10).replace('-', '월 ') + '일 ' + kst.slice(11, 16);
+        };
+        const AFF_SITE_LABEL = { toss: '토스', brandconnect: '브랜드커넥트' };
+        function renderAffiliateAdmin(res) {
+          const panel = document.getElementById('affiliateAdminPanel');
+          const status = document.getElementById('affiliateAdminStatus');
+          if (!panel || !status) return;
+          if (!res || !res.success || res.operator !== true) { panel.style.display = 'none'; return; }
+          panel.style.display = 'block';
+          const last = res.state && res.state.lastRun;
+          const runBtn = document.getElementById('affiliateRunBtn');
+          const loginBtn = document.getElementById('affiliateLoginBtn');
+          [runBtn, loginBtn].forEach((b) => { if (b) { b.disabled = !!res.running; b.style.opacity = res.running ? '0.6' : '1'; } });
+          if (res.running) { status.innerHTML = '<span style="color:#fde68a;">수집 중입니다…</span>'; return; }
+          if (!last) { status.textContent = '아직 수집 기록이 없습니다.'; return; }
+          const counts = Object.entries(last.collected || {}).map(([k, n]) => (AFF_SITE_LABEL[k] || k) + ' ' + n + '건').join(' · ');
+          const login = (last.needsLogin || []).map((k) => AFF_SITE_LABEL[k] || k);
+          const head = '마지막 수집 ' + affWhen(last.at) + (last.reason === 'manual' ? ' (수동)' : ' (자동)')
+            + ' · <span style="color:' + (last.ok ? '#22c55e' : '#fbbf24') + ';">' + (last.ok ? '성공' : '미완료') + '</span>';
+          const warn = login.length
+            ? '<div style="margin-top:4px; color:#fca5a5;">' + affEsc(login.join(' · ')) + ' 로그인이 끊겼습니다 — [로그인 창 열고 수집]을 눌러 창에서 다시 로그인하세요.</div>'
+            : '';
+          status.innerHTML = head + (counts ? ' · ' + affEsc(counts) : '') + '<div style="margin-top:2px; color:#64748b;">' + affEsc(last.message || '') + '</div>' + warn;
+        }
+        window.loadAffiliateAdmin = async function loadAffiliateAdmin() {
+          try {
+            renderAffiliateAdmin(await window.electronAPI.invoke('affiliate-local-state'));
+          } catch (err) {
+            renderAffiliateAdmin(null);
+          }
+        };
+        let affiliateProgressOff = null;
+        window.runAffiliateAdmin = async function runAffiliateAdmin(login) {
+          const ask = login
+            ? `로그인 창을 엽니다.
+
+창에서 토스 · 브랜드커넥트에 로그인하면 같은 창에서 바로 수집합니다.
+수집 · 자리 재기 · 사이트 발행까지 수십 분 걸릴 수 있습니다. 계속할까요?`
+            : `제휴 상품을 지금 수집합니다.
+
+수집 · 자리 재기 · 사이트 발행까지 수십 분 걸릴 수 있습니다. 계속할까요?`;
+          if (!window.confirm(ask)) return;
+          const progress = document.getElementById('affiliateAdminProgress');
+          try {
+            if (!affiliateProgressOff && window.electronAPI?.on) {
+              affiliateProgressOff = window.electronAPI.on('affiliate-local-progress', (p) => {
+                if (progress && p && p.message) progress.textContent = p.message;
+              });
+            }
+          } catch (err) { console.warn('[제휴 수집] 진행 구독 실패:', err?.message || err); }
+          renderAffiliateAdmin({ success: true, operator: true, running: true });
+          let res;
+          try {
+            res = await window.electronAPI.invoke('affiliate-local-run', { login: !!login });
+          } catch (err) {
+            res = { success: false, error: String(err?.message || err) };
+          }
+          if (res && res.error && !res.run) window.alert(res.error);
+          if (progress) progress.textContent = '';
+          await window.loadAffiliateAdmin();
         };
 
         // v2.42.29: 안전 wrappers (다른 모달/패널에서도 재사용)
