@@ -267,11 +267,45 @@ function titleShape(posts) {
   };
 }
 
+/*
+ * 철 지난 명절 · 기념일 소재(2026-10-07 사장님 "추석 지났는데도 추석 민생지원금을 쓰는 사람이 있는가").
+ * 고수가 10-06 에 썼어도 독자는 이미 지나간 명절을 찾지 않는다. 명절 앞 45일 ~ 끝난 뒤 사흘만 살린다.
+ * 음력 명절 날짜는 두 곳 이상 검색으로 맞춘 값(2026-10-07). 표에 앞으로 올 날짜가 없으면(표가 낡으면) 거르지 않는다 — 다 버리는 것보다 낫다.
+ */
+const EVENT_LEAD_DAYS = 45;
+const EVENT_GRACE_DAYS = 3;
+const LUNAR_EVENTS = [
+  { re: /추석|한가위/, windows: [['2026-09-24', '2026-09-27'], ['2027-09-14', '2027-09-16']] },
+  { re: /설날|설\s*(연휴|명절|선물|인사)|구정/, windows: [['2027-02-06', '2027-02-09']] },
+];
+const FIXED_EVENTS = [
+  { re: /크리스마스|성탄절/, md: '12-25' }, { re: /어린이날/, md: '05-05' }, { re: /어버이날/, md: '05-08' }, { re: /스승의\s*날/, md: '05-15' },
+  { re: /빼빼로\s*데이/, md: '11-11' }, { re: /할로윈|핼러윈/, md: '10-31' }, { re: /화이트\s*데이/, md: '03-14' }, { re: /발렌타인|밸런타인/, md: '02-14' },
+];
+
+function isOffSeasonTitle(title, now) {
+  const nowMs = Date.parse(now);
+  const year = new Date(nowMs).getUTCFullYear();
+  const active = (windows) => windows.some(([start, end]) => nowMs >= Date.parse(`${start}T00:00:00+09:00`) - EVENT_LEAD_DAYS * DAY && nowMs <= Date.parse(`${end}T23:59:59+09:00`) + EVENT_GRACE_DAYS * DAY);
+  for (const { re, windows } of LUNAR_EVENTS) {
+    if (!re.test(title)) continue;
+    const covered = windows.some(([start]) => Date.parse(`${start}T00:00:00+09:00`) > nowMs);
+    if (covered && !active(windows)) return true;
+  }
+  for (const { re, md } of FIXED_EVENTS) {
+    if (!re.test(title)) continue;
+    if (!active([year - 1, year, year + 1].map((y) => [`${y}-${md}`, `${y}-${md}`]))) return true;
+  }
+  return false;
+}
+
 function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = WINDOW_DAYS } = {}) {
   const nowMs = Date.parse(now);
   const posts = results.flatMap((r) => (r.status === 'ok' ? r.posts : []))
     .filter((p) => p.publishedAt && nowMs - Date.parse(p.publishedAt) <= windowDays * DAY && Date.parse(p.publishedAt) <= nowMs + 300000);
-  const candidates = groupPosts(posts).map((g) => toCard(g, now))
+  const allCards = groupPosts(posts).map((g) => toCard(g, now));
+  const inSeason = allCards.filter((c) => !isOffSeasonTitle(c.title, now));
+  const candidates = inSeason
     .sort((a, b) => Number(b.recommended) - Number(a.recommended) || b.priority - a.priority || (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0) || a.id.localeCompare(b.id))
     .slice(0, maxCards);
   const meta = new Map((sources || []).map((s) => [s.id, s]));
@@ -291,6 +325,7 @@ function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = 
     okCount: results.filter((r) => r.status === 'ok').length,
     collectedPostCount: posts.length,
     sources: results.map((r) => ({ id: r.id, name: meta.get(r.id)?.name || r.id, category: meta.get(r.id)?.category || '', grade: meta.get(r.id)?.grade || '', status: r.status, postCount: r.posts ? r.posts.length : 0, ...(r.error ? { error: String(r.error).slice(0, 80) } : {}) })),
+    offSeasonDropped: allCards.length - inSeason.length,
     candidates,
     trends: {
       categories: [...byCategory.values()].map((c) => ({ category: c.category, posts: c.posts, blogs: c.blogs.size })).sort((a, b) => b.posts - a.posts),
@@ -299,4 +334,4 @@ function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = 
   };
 }
 
-module.exports = { categoryOf, PLAIN_HEADERS, buildAllowlist, assertFeedUrl, postLink, fetchFeed, parseFeed, topicTokens, sameTopic, groupPosts, titleShape, buildBoard, MAX_CARDS, WINDOW_DAYS };
+module.exports = { categoryOf, isOffSeasonTitle, PLAIN_HEADERS, buildAllowlist, assertFeedUrl, postLink, fetchFeed, parseFeed, topicTokens, sameTopic, groupPosts, titleShape, buildBoard, MAX_CARDS, WINDOW_DAYS };

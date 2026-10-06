@@ -165,3 +165,27 @@ test("'실전 · 비용'만 겹친 다른 소재는 묶지 않는다(케이블�
   const board = core.buildBoard(['a', 'b'].map((id) => ({ id, status: 'ok', posts: all.filter((p) => p.sourceId === id) })), SOURCES, NOW);
   assert.equal(board.candidates.length, 4, board.candidates.map((c) => c.keyword).join(' | '));
 });
+
+// 사장님(2026-10-07 스크린샷): "추석 지났는데도 추석 민생지원금을 쓰는 사람이 있는가" — 고수 5곳이 10-06 에 썼어도 지난 명절 소재는 판에서 뺀다.
+test('지난 명절 · 기념일 소재는 뺀다 — 앞두고 있거나 막 지난 사흘은 남긴다', () => {
+  const off = (title, now) => core.isOffSeasonTitle(title, now);
+  assert.equal(off('2026 추석 민생지원금 지역별 총정리-전남광주 장흥군', '2026-10-07T03:00:00Z'), true);
+  assert.equal(off('추석 선물세트 추천', '2026-09-10T03:00:00Z'), false, '앞두고 있음');
+  assert.equal(off('추석 연휴 고속도로 정체', '2026-09-29T03:00:00Z'), false, '끝나고 사흘 안');
+  assert.equal(off('한가위 인사말 모음', '2026-10-07T03:00:00Z'), true);
+  assert.equal(off('2027 추석 기차표 예매', '2027-08-10T03:00:00Z'), false, '다음 추석 45일 안');
+  assert.equal(off('설날 선물 추천', '2026-10-07T03:00:00Z'), true, '다음 설날은 넉 달 뒤');
+  assert.equal(off('설날 기차표 예매 일정', '2027-01-05T03:00:00Z'), false);
+  assert.equal(off('크리스마스 선물 추천', '2026-12-30T03:00:00Z'), true);
+  assert.equal(off('크리스마스 선물 추천', '2026-11-20T03:00:00Z'), false);
+  assert.equal(off('민생지원금 사용처와 사용 기한', '2026-10-07T03:00:00Z'), false, '명절 말이 없으면 그대로');
+});
+
+test('판에서 지난 명절 카드를 빼고 몇 장 뺐는지 남긴다', () => {
+  const now = '2026-10-07T03:00:00.000Z';
+  const all = [post('a', '2026 추석 민생지원금 지역별 총정리', 'https://a.tistory.com/s1', '2026-10-06T01:00:00.000Z'), post('b', '추석 민생지원금 지역별 신청 방법', 'https://b.tistory.com/s2', '2026-10-06T02:00:00.000Z'),
+    post('a', '근로장려금 지급일과 신청 대상', 'https://a.tistory.com/s3', '2026-10-06T01:00:00.000Z')];
+  const board = core.buildBoard(['a', 'b'].map((id) => ({ id, status: 'ok', posts: all.filter((p) => p.sourceId === id) })), SOURCES, now);
+  assert.deepEqual(board.candidates.map((c) => c.title), ['근로장려금 지급일과 신청 대상']);
+  assert.equal(board.offSeasonDropped, 1);
+});
