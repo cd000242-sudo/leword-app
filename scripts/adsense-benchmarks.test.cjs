@@ -86,3 +86,17 @@ test('서비스 공통어(고객센터 · 전화번호 · 설정)만 겹친 다�
   const board = core.buildBoard(['a', 'b'].map((id) => ({ id, status: 'ok', posts: all.filter((p) => p.sourceId === id) })), SOURCES, NOW);
   assert.equal(board.candidates.length, 4, board.candidates.map((c) => c.sources.length).join(','));
 });
+
+test('방화벽이 머리글을 거르면(415) 흔한 형식 머리글로 한 번 더 묻는다', async () => {
+  const { collectAll } = require('./adsense-benchmarks.cjs');
+  const asked = [];
+  const fetcher = async (url, allow, opts) => {
+    asked.push(opts && opts.headers ? opts.headers.Accept : 'feed');
+    if (!opts) throw new Error('HTTP 415');
+    return '<rss><channel><title>t</title><item><title>워드프레스 글 하나</title><link>https://www.c.com/p1</link><pubDate>Tue, 6 Oct 2026 10:00:00 +0900</pubDate></item></channel></rss>';
+  };
+  const results = await collectAll([SOURCES[2]], NOW, { concurrency: 1, fetcher });
+  assert.equal(results[0].status, 'ok');
+  assert.equal(results[0].posts.length, 1);
+  assert.deepEqual(asked, ['feed', '*/*']);
+});

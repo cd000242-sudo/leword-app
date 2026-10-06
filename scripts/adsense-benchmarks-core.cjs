@@ -51,11 +51,17 @@ function postLink(value, source) {
 }
 
 // 본문을 통째로 싣는 RSS 가 3MB 를 넘었다(첫 실수집 15곳) — 10MB 까지.
-async function fetchFeed(value, allow, { fetchImpl = fetch, maxBytes = 10000000, timeoutMs = 15000 } = {}) {
+/*
+ * 깃허브 서버에서 첫 회차(2026-10-07) 워드프레스 61곳이 HTTP 415 — 로컬에선 같은 주소가 다 됐다. 호스팅 방화벽이
+ * 머리글(Accept 가 RSS 형식뿐 · 낯선 User-Agent)을 거른다. 403/406/415 이면 흔한 형식 머리글로 한 번 더 묻는다.
+ */
+const PLAIN_HEADERS = { 'User-Agent': 'Mozilla/5.0 (compatible; LEWORD-PublicBenchmark/1.0; +https://leaderspro.kr)', Accept: '*/*' };
+const FEED_HEADERS = { 'User-Agent': 'LEWORD-PublicBenchmark/1.0', Accept: 'application/rss+xml,application/atom+xml,application/xml;q=0.9,text/xml;q=0.8' };
+async function fetchFeed(value, allow, { fetchImpl = fetch, maxBytes = 10000000, timeoutMs = 15000, headers = FEED_HEADERS } = {}) {
   let url = assertFeedUrl(value, allow).href;
   const signal = AbortSignal.timeout(timeoutMs);
   for (let redirects = 0; redirects <= 3; redirects += 1) {
-    const response = await fetchImpl(url, { redirect: 'manual', signal, headers: { 'User-Agent': 'LEWORD-PublicBenchmark/1.0', Accept: 'application/rss+xml,application/atom+xml,application/xml;q=0.9,text/xml;q=0.8' } });
+    const response = await fetchImpl(url, { redirect: 'manual', signal, headers });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       await response.body?.cancel();
       if (redirects === 3) throw new Error('Too many redirects');
@@ -245,4 +251,4 @@ function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = 
   };
 }
 
-module.exports = { buildAllowlist, assertFeedUrl, postLink, fetchFeed, parseFeed, topicTokens, sameTopic, groupPosts, titleShape, buildBoard, MAX_CARDS, WINDOW_DAYS };
+module.exports = { PLAIN_HEADERS, buildAllowlist, assertFeedUrl, postLink, fetchFeed, parseFeed, topicTokens, sameTopic, groupPosts, titleShape, buildBoard, MAX_CARDS, WINDOW_DAYS };

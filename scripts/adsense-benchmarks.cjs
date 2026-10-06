@@ -31,7 +31,12 @@ async function collectAll(sources, now, { concurrency = 16, fetcher = core.fetch
       const source = sources[i];
       try {
         let xml;
-        try { xml = await fetcher(source.feedUrl, allow); } catch (first) { await new Promise((r) => setTimeout(r, 600)); xml = await fetcher(source.feedUrl, allow); }
+        try { xml = await fetcher(source.feedUrl, allow); } catch (first) {
+          await new Promise((r) => setTimeout(r, 600));
+          // 방화벽이 머리글을 거른 경우(403/406/415)는 흔한 형식 머리글로, 그 밖(시간 초과 등)은 같은 머리글로 한 번 더.
+          const blocked = /HTTP (403|406|415)/.test(String((first && first.message) || first));
+          xml = await fetcher(source.feedUrl, allow, blocked ? { headers: core.PLAIN_HEADERS } : undefined);
+        }
         results[i] = { id: source.id, status: 'ok', posts: core.parseFeed(xml, source, now).posts };
       } catch (error) {
         results[i] = { id: source.id, status: 'error', error: String((error && error.message) || error), posts: [] };

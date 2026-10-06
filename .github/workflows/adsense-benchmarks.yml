@@ -17,6 +17,10 @@ concurrency:
 
 jobs:
   publish:
+    # 2단계 실측(대표 검색어 검색량 · 입찰가)이 검색광고 키를 쓴다 — 회차당 새 소재 60개, 후보 검색량 5개씩 묶음 + 입찰가.
+    # 계정 쿼터 합은 searchad-ceiling-per-job.test 가 잠근다(틱 두 개 · 하루 최대 16회로 센다).
+    env:
+      LEWORD_SEARCHAD_SOFT_CEILING: '60'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -34,7 +38,7 @@ jobs:
           done
           exit 1
       - name: Test adsense benchmark rules
-        run: node --test scripts/adsense-benchmarks.test.cjs scripts/adsense-benchmarks-sources.test.cjs
+        run: node --test scripts/adsense-benchmarks.test.cjs scripts/adsense-benchmarks-sources.test.cjs scripts/adsense-benchmarks-measure.test.cjs
       - name: Checkout website
         uses: actions/checkout@v4
         with:
@@ -46,12 +50,27 @@ jobs:
           node scripts/adsense-benchmarks.cjs
           --output site/spa/public/data/adsense-benchmarks.json
           --concurrency 16
+      # 실측 — 대표 검색어(소재 낱말 후보의 정확 검색량 최대) · 블로그 문서수 · 파워링크 3위 입찰가. 7일 캐시는 사이트 레포에 둔다.
+      # 실패해도 판은 그대로 나간다(스크립트가 0 으로 끝난다).
+      - name: Measure adsense topics
+        env:
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: >-
+          node scripts/adsense-benchmarks-measure.cjs
+          --board site/spa/public/data/adsense-benchmarks.json
+          --cache site/data/adsense-measure-cache.json
+          --max 60
       - name: Publish only the adsense benchmark board
         working-directory: site
         run: |
           git config user.name 'leword-bot'
           git config user.email 'bot@leaderspro.kr'
           git add spa/public/data/adsense-benchmarks.json
+          [ -f data/adsense-measure-cache.json ] && git add data/adsense-measure-cache.json
           if git diff --cached --quiet; then
             echo 'No adsense benchmark changes.'
             exit 0

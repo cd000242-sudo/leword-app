@@ -7,7 +7,7 @@ on:
     inputs:
       max:
         description: '이번 실행에서 새로 제목을 지을 소재(카드) 수 상한'
-        default: '40'
+        default: '20'
 
 permissions:
   contents: read
@@ -78,7 +78,7 @@ jobs:
           node scripts/enrich-benchmark-titles.js
           --board=site/spa/public/data/homefeed-benchmarks.json
           --store=site/spa/public/data/homefeed-benchmark-titles.json
-          --max=${{ inputs.max || '40' }}
+          --max=${{ inputs.max || '20' }}
           --concurrency=4
           --budget-min=12
       - name: Publish only the benchmark board, title store and observation state
