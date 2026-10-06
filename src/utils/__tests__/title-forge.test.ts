@@ -133,3 +133,38 @@ describe('제품 키워드 — 제품명 + 구매욕구 후킹', () => {
         expect(out.home.basis).toContain('구매');
     });
 });
+
+describe('붙어 온 연관어 다듬기 — 키워드와 겹치는 부분은 빼고 남는 말만', () => {
+    // 실주행(2026-10-06 '자동차 보험 갱신'): 검색광고 연관어는 붙여 쓴 꼴로 온다. 띄어쓰기로만 나누던 옛 조립은
+    // 'KB자동차보험'·'자동차보험비교'를 통째로 끼워 "자동차 보험 갱신 KB자동차보험 어떤 정보가 있는지"를 냈다.
+    const keyword = '자동차 보험 갱신';
+    const serpTitles = ['자동차 보험 갱신 방법 총정리'];
+
+    it('뒤에 붙은 말만 싣는다 — 비교', () => {
+        const out = forgeTitles({ keyword, derivedKeywords: [{ keyword: '자동차보험비교', searchVolume: 88000 }], serpTitles });
+        expect(out.home.text).toBe('자동차 보험 갱신 비교, 기준은 하나면 됩니다');
+        expect(out.seo.text).toBe('자동차 보험 갱신 비교 무엇이 어떻게 다른가');
+    });
+
+    it('앞에 붙은 말은 끌리는 제목에서 키워드 앞으로 — 검색용은 키워드가 맨 앞 그대로', () => {
+        const out = forgeTitles({ keyword, derivedKeywords: [{ keyword: 'KB자동차보험', searchVolume: 110700 }], serpTitles });
+        expect(out.home.text).toBe('KB 자동차 보험 갱신 이게 뭔지 몰라서 찾아봤습니다');
+        expect(out.seo.text).toBe('자동차 보험 갱신 어떤 정보가 있는지');
+    });
+
+    it('뒤 문구에 이미 있는 말은 겹쳐 쓰지 않는다', () => {
+        const out = forgeTitles({ keyword, derivedKeywords: [{ keyword: '자동차 보험 갱신 방법', searchVolume: 320 }], serpTitles: [] });
+        expect(out.seo.text).toBe('자동차 보험 갱신 단계별 방법');
+    });
+
+    it('한 글자로 남는 조각(보험료의 료)은 버린다', () => {
+        const out = forgeTitles({ keyword, derivedKeywords: [{ keyword: '자동차보험료', searchVolume: 5000 }], serpTitles });
+        expect(out.seo.text).not.toMatch(/\s료(\s|$)/);
+        expect(out.home.text).not.toMatch(/\s료(\s|,|$)/);
+    });
+
+    it('남는 말이 없으면 쉼표 앞에 빈칸이 생기지 않는다', () => {
+        const out = forgeTitles({ keyword: '노각무침', derivedKeywords: [{ keyword: '노각무침', searchVolume: 900 }], serpTitles: [], frame: undefined });
+        expect(out.home.text).not.toMatch(/\s,/);
+    });
+});

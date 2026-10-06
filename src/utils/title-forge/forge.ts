@@ -102,13 +102,43 @@ export const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => st
 // 과장이라 신뢰를 깨고, 나머지는 아무 글에나 붙는 라벨이다.
 export const TITLE_CLICHES = /핵심\s*정리|핵심만|총정리|확인할\s*점|알아보|한눈에|정리해\s*봤|무조건|100\s*%|평생|완벽\s*가이드/;
 
-/** 파생 키워드에서 본 키워드 어절을 뺀 나머지 — 제목에 실을 추가 표현. */
-function extraTokens(derived: string, keyword: string): string {
-  const base = new Set(keyword.split(/\s+/).filter(Boolean));
-  return derived
-    .split(/\s+/)
-    .filter((token) => token.length > 0 && !base.has(token))
-    .join(' ');
+/**
+ * 파생 키워드에서 본 키워드 어절을 뺀 나머지 — 제목에 실을 추가 표현. 키워드 앞에 붙은 말(before)과 뒤 말(after)을 나눈다.
+ * 검색광고 연관어는 붙여 쓴 꼴('KB자동차보험'·'자동차보험비교')로 와서, 띄어쓰기로만 나누던 옛 방식은 통째로 끼웠다
+ * (2026-10-06 "자동차 보험 갱신 KB자동차보험 어떤 정보가 있는지"). 두 글자 이상 어절은 붙어 있어도 지우고,
+ * 지운 자리에 한 글자만 남은 조각('보험료'의 '료')은 말이 안 되므로 버린다.
+ */
+function splitExtra(derived: string, keyword: string): { before: string; after: string } {
+  const words = keyword.split(/\s+/).filter(Boolean);
+  const short = new Set(words.filter((w) => w.length < 2));
+  const text = collapse(derived);
+  const covered: boolean[] = Array.from({ length: text.length }, () => false);
+  for (const word of words) {
+    if (word.length < 2) continue;
+    for (let at = text.indexOf(word); at >= 0; at = text.indexOf(word, at + word.length)) {
+      for (let k = at; k < at + word.length; k += 1) covered[k] = true;
+    }
+  }
+  const runs: Array<{ text: string; start: number; end: number }> = [];
+  let start = -1;
+  for (let i = 0; i <= text.length; i += 1) {
+    const cut = i === text.length || covered[i] || text[i] === ' ';
+    if (cut && start >= 0) { runs.push({ text: text.slice(start, i), start, end: i }); start = -1; }
+    if (!cut && start < 0) start = i;
+  }
+  const glued = (r: { start: number; end: number }) => (r.start > 0 && covered[r.start - 1]) || (r.end < text.length && covered[r.end]);
+  const kept = runs.filter((r) => !short.has(r.text) && !(r.text.length === 1 && glued(r)));
+  const firstCovered = covered.indexOf(true);
+  const isBefore = (r: { end: number }) => firstCovered >= 0 && r.end <= firstCovered;
+  return {
+    before: kept.filter(isBefore).map((r) => r.text).join(' '),
+    after: kept.filter((r) => !isBefore(r)).map((r) => r.text).join(' '),
+  };
+}
+
+/** 뒤 문구에 이미 있는 말은 뺀다 — "방법 단계별 방법" 같은 겹침을 막는다. */
+function withoutRepeats(extra: string, suffix: string): string {
+  return extra.split(' ').filter((token) => token && !suffix.includes(token)).join(' ');
 }
 
 function collapse(text: string): string {
@@ -173,11 +203,12 @@ export function forgeTitles(input: TitleForgeInput): ForgedTitles {
   const keyword = collapse(input.keyword);
   const frame = pickFrame(input);
   const derived = derivedForFrame(input, frame);
-  const extra = derived ? extraTokens(derived.keyword, keyword) : '';
+  const { before, after } = derived ? splitExtra(derived.keyword, keyword) : { before: '', after: '' };
   const basis = basisFor(input, frame, derived);
 
+  // 검색용은 키워드가 맨 앞이어야 하므로 앞에 붙은 말(before)은 끌리는 제목에만 싣는다.
   const seo: ForgedTitle = {
-    text: fitWithin(`${keyword} ${extra} ${SEO_SUFFIX[frame]}`, SEO_MAX),
+    text: fitWithin(`${keyword} ${withoutRepeats(after, SEO_SUFFIX[frame])} ${SEO_SUFFIX[frame]}`, SEO_MAX),
     frame,
     basis,
   };
@@ -202,7 +233,7 @@ export function forgeTitles(input: TitleForgeInput): ForgedTitles {
   }
 
   const home: ForgedTitle = {
-    text: fitWithin(HOME_TEMPLATE[frame](keyword, extra), HOME_MAX),
+    text: fitWithin(HOME_TEMPLATE[frame](collapse(`${before} ${keyword}`), after).replace(/\s+,/g, ','), HOME_MAX),
     frame,
     basis,
   };
