@@ -1,0 +1,248 @@
+/**
+ * 애드센스 고수 벤치마크 — 수집 · 소재 묶기 · 판 만들기(2026-10-07, 사장님 엑셀 786곳).
+ *
+ * 홈판 벤치마크(homefeed-benchmarks-core)와 같은 틀이다: RSS 를 읽고 → 여러 블로그가 함께 다룬 소재를 ★ 로 앞에 세우고 →
+ * 카드 1,000장 상한. 다른 점은 셋.
+ *   1) 출처가 티스토리 · 워드프레스라 주소 허용목록을 **등록된 786개 도메인**으로 만든다(홈판은 네이버 · 유튜브 고정 목록).
+ *   2) 애드센스 글은 오래 읽혀서 창이 48시간이 아니라 7일이다.
+ *   3) 애드센스 제목은 '신청 방법 · 조건 · 총정리 · 2026' 같은 공통어가 많아 그 말만 겹친 글은 묶지 않는다.
+ * 본문은 싣지 않는다 — 제목 · 링크 · 발행일만(저작권). 애드센스 pub ID 도 싣지 않는다.
+ */
+'use strict';
+
+const crypto = require('crypto');
+const cheerio = require('cheerio');
+const { plainText, validDate } = require('./homefeed-benchmarks-core.cjs');
+
+const DAY = 86400000;
+const WINDOW_DAYS = 7;
+const MAX_CARDS = 1000;
+const MAX_POSTS_PER_FEED = 30;
+
+const baseHost = (host) => String(host || '').toLowerCase().replace(/^www\./, '');
+
+/** 등록된 출처의 도메인 → 출처. www 는 같은 도메인으로 본다. */
+function buildAllowlist(sources) {
+  const map = new Map();
+  for (const s of sources || []) {
+    for (const value of [s.feedUrl, s.url]) {
+      try { map.set(baseHost(new URL(value).hostname), s); } catch { /* 잘못된 주소는 목록에 안 넣는다 */ }
+    }
+  }
+  return map;
+}
+
+function assertFeedUrl(value, allow) {
+  const url = new URL(value);
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || !allow.has(baseHost(url.hostname))) throw new Error('Blocked source URL');
+  return url;
+}
+
+/** 글 주소 — https 이고 그 블로그 도메인(www 포함)일 때만. 추적용 쿼리 · 조각은 뗀다. */
+function postLink(value, source) {
+  try {
+    const u = new URL(String(value || '').trim());
+    const own = [source.feedUrl, source.url].map((v) => { try { return baseHost(new URL(v).hostname); } catch { return ''; } });
+    if (u.protocol !== 'https:' || u.username || u.password || u.port || !own.includes(baseHost(u.hostname))) return null;
+    for (const key of [...u.searchParams.keys()]) if (/^utm_|^fbclid$|^gclid$/.test(key)) u.searchParams.delete(key);
+    u.hash = '';
+    return u.href;
+  } catch { return null; }
+}
+
+// 본문을 통째로 싣는 RSS 가 3MB 를 넘었다(첫 실수집 15곳) — 10MB 까지.
+async function fetchFeed(value, allow, { fetchImpl = fetch, maxBytes = 10000000, timeoutMs = 15000 } = {}) {
+  let url = assertFeedUrl(value, allow).href;
+  const signal = AbortSignal.timeout(timeoutMs);
+  for (let redirects = 0; redirects <= 3; redirects += 1) {
+    const response = await fetchImpl(url, { redirect: 'manual', signal, headers: { 'User-Agent': 'LEWORD-PublicBenchmark/1.0', Accept: 'application/rss+xml,application/atom+xml,application/xml;q=0.9,text/xml;q=0.8' } });
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      await response.body?.cancel();
+      if (redirects === 3) throw new Error('Too many redirects');
+      // 주소가 바뀌어도 등록된 도메인 안에서만 따라간다(워드프레스 /feed → /feed/ 등).
+      url = assertFeedUrl(new URL(response.headers.get('location'), url).href, allow).href;
+      continue;
+    }
+    if (!response.ok) { await response.body?.cancel(); throw new Error(`HTTP ${response.status}`); }
+    const reader = response.body.getReader(); const chunks = []; let size = 0;
+    while (true) {
+      const { done, value: chunk } = await reader.read();
+      if (done) break;
+      size += chunk.length;
+      if (size > maxBytes) { await reader.cancel(); throw new Error('Source exceeds size limit'); }
+      chunks.push(chunk);
+    }
+    return new TextDecoder('utf-8').decode(Buffer.concat(chunks));
+  }
+  throw new Error('No response');
+}
+
+/** RSS(<item>) · Atom(<entry>) 둘 다. 제목 · 주소 · 발행일만 쓴다. */
+function parseFeed(xml, source, capturedAt) {
+  const $ = cheerio.load(xml, { xmlMode: true });
+  const name = plainText($('channel > title').first().text() || $('feed > title').first().text(), 70) || source.name || source.id;
+  const nodes = $('item').length ? $('item').toArray() : $('entry').toArray();
+  const posts = nodes.slice(0, MAX_POSTS_PER_FEED).map((el) => {
+    const e = $(el);
+    const link = e.find('link').first();
+    const href = link.attr('href') || link.text();
+    const url = postLink(href, source);
+    const title = plainText(e.find('title').first().text(), 160);
+    if (!url || !title) return null;
+    const date = e.find('pubDate').first().text() || e.find('published').first().text() || e.find('updated').first().text() || e.find('dc\\:date').first().text();
+    return { sourceId: source.id, name, category: source.category, grade: source.grade, title, url, publishedAt: validDate(date, capturedAt), capturedAt };
+  }).filter(Boolean);
+  return { name, posts };
+}
+
+/*
+ * 소재 묶기 — 애드센스 제목의 공통어(실측: 엑셀 '최근 글 제목'에서 거의 모든 글에 붙는 말)는 겹쳐도 같은 소재 근거가 아니다.
+ */
+const PARTICLE = /(에서|으로|까지|부터|처럼|보다|에게|하는|하면|이란|이랑|과|와|의|이|가|은|는|을|를|도|만|로|에)$/;
+const STOP = /^(신청|방법|조건|기간|대상|자격|총정리|정리|꿀팁|확인|안내|바로가기|사이트|홈페이지|최신|지원|혜택|금액|대해|알아보기|알아보자|하는법|방법은|어디서|언제|얼마|얼마나|무엇|누가|가능|필수|이유|후기|추천|비교|순위|조회|계산|계산기|기준|변경|변경사항|달라진|달라지는|새로|오늘|지금|이번|올해|내년|최대|최소|무료|정보|모음|총|완벽|가이드|팁|체크|체크리스트|주의|주의사항|방식|절차|서류|준비|준비물|일정|시기|날짜|지급일|발표|결과|공고|모집|접수)$/;
+const isNumberWord = (t) => /^\d/.test(t);
+/*
+ * 첫 실수집(2026-10-07, 7일 글 7,782건) 오묶음에서 뽑았다: '받을 수 있을까'만 겹친 장학금 · 실업급여 · 장애인연금,
+ * '우리 집에 맞는'만 겹친 장판 · TV, '세액공제 한도'만 겹친 서로 다른 공제. 동사 · 형용사 꼴과 범용 명사는 소재 근거가 아니다.
+ */
+const VERBISH = /(을까|ㄹ까|까요|나요|세요|는지|는데|던|할|될|있을|없을|받을|맞는|하는|되는|있는|없는|좋은|쉬운|다른|같은|받는|하기|되기|보기|하고|해서|하면|되면|이고|인가|일까)$/;
+const GENERIC = new Set(['우리', '종류', '선택법', '사용법', '이용법', '해결법', '한도', '공제', '장단점', '차이', '차이점', '뜻', '의미', '요약', '포인트', '시행', '업데이트', '실시간', '누구', '누구나', '모두', '전부', '쉽게', '간단', '간단히', '제대로', '빠르게', '꼭', '볼', '뉴스', '소식', '최근', '현재', '변화', '전략', '활용', '활용법', '관리', '관리법', '효과', '부작용', '증상', '원인', '해결', '대처', '대처법',
+  // 2차 실수집: '윈도우 + 설정', '고객센터 전화번호 상담원 연결'만 겹쳐 서로 다른 회사 · 기능이 한 카드가 됐다.
+  '설정', '고객센터', '전화번호', '상담원', '상담', '연결', '운영시간', '영업시간', '다운로드', '설치', '사용', '예약', '예매', '입장료', '주차장', '주차', '가격', '요금', '할인', '쿠폰', '코드', '로그인', '앱', '어플', '양식', '발급', '재발급', '해지', '가입', '갱신', '등록', '문의', '주소', '위치', '배송', '반품', '환불', '접수', '처리', '사용처', '총액', '계좌', '카드', '은행', '보험', '대출', '이자', '금리', '수수료']);
+
+function topicTokens(title) {
+  return [...new Set(plainText(title, 160)
+    .replace(/["'“”‘’!?.,()[\]{}<>…·:;|/\\~\-–—+=#*&^%$@]/g, ' ')
+    .split(/\s+/)
+    .map((t) => t.toLowerCase().replace(/[^가-힣a-z0-9]/g, ''))
+    .map((t) => (t.length >= 3 && PARTICLE.test(t) ? t.replace(PARTICLE, '') : t))
+    .filter((t) => t.length >= 2 && !isNumberWord(t) && !STOP.test(t) && !VERBISH.test(t) && !GENERIC.has(t)))];
+}
+
+function sharedUnits(a, b) {
+  const units = new Set();
+  for (const t of a) for (const u of b) {
+    if (t === u) units.add(t);
+    else if (t.length >= 3 && u.length >= 3 && (t.includes(u) || u.includes(t))) units.add(t.length <= u.length ? t : u);
+  }
+  return [...units];
+}
+
+/** 같은 소재 — 공통어를 뺀 구체어가 둘 이상 겹치고, 겹친 말이 짧은 쪽의 절반 이상. 구체어가 하나뿐인 짧은 제목은 그 하나가 4자 이상 같을 때. */
+function sameTopic(a, b) {
+  if (!a.length || !b.length) return false;
+  const units = sharedUnits(a, b);
+  const ratio = units.length / Math.min(a.length, b.length);
+  if (units.length >= 2 && ratio >= 0.5) return true;
+  return Math.min(a.length, b.length) === 1 && units.some((u) => u.length >= 4);
+}
+
+const bigrams = (t) => { const out = []; for (let i = 0; i + 1 < t.length; i += 1) out.push(t.slice(i, i + 2)); return out; };
+
+/** 7일 글이 1만 건을 넘을 수 있어 전부와 견주지 않는다 — 낱말 두 글자 조각이 겹치는 묶음만 후보로 본다(홈판 묶기와 같은 색인). */
+function groupPosts(posts) {
+  const groups = [];
+  const seenUrl = new Set();
+  const byGram = new Map();
+  for (const p of posts) {
+    if (seenUrl.has(p.url)) continue;
+    seenUrl.add(p.url);
+    const terms = topicTokens(p.title);
+    const candidates = new Set();
+    for (const t of terms) for (const g of bigrams(t)) for (const i of byGram.get(g) || []) candidates.add(i);
+    let index = -1;
+    for (const i of [...candidates].sort((a, b) => a - b)) if (sameTopic(terms, groups[i].terms)) { index = i; break; }
+    if (index < 0) {
+      index = groups.length;
+      groups.push({ terms, posts: [] });
+      for (const t of terms) for (const g of new Set(bigrams(t))) { if (!byGram.has(g)) byGram.set(g, []); byGram.get(g).push(index); }
+    }
+    groups[index].posts.push(p);
+  }
+  return groups;
+}
+
+const GRADE_POINT = { S: 12, A: 8, B: 4, C: 0 };
+
+function toCard(group, now) {
+  const sorted = [...group.posts].sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0));
+  const lead = sorted[0];
+  const blogs = new Set(sorted.map((p) => p.sourceId));
+  const channels = blogs.size;
+  const age = lead.publishedAt ? (Date.parse(now) - Date.parse(lead.publishedAt)) / DAY : WINDOW_DAYS;
+  const bestGrade = ['S', 'A', 'B', 'C'].find((g) => sorted.some((p) => p.grade === g)) || 'C';
+  const categories = sorted.map((p) => p.category).filter(Boolean);
+  const category = categories.sort((x, y) => categories.filter((c) => c === y).length - categories.filter((c) => c === x).length)[0] || '종합·기타';
+  // ★ = 고수 블로그 3곳 이상(2026-10-07). 2곳 이상으로 잡았더니 7일 · 786곳에서 1,000장 중 794장이 ★ 였다 — 구분이 안 된다.
+  const recommended = channels >= 3;
+  const why = [lead.publishedAt ? `고수 블로그 발행 ${lead.publishedAt.slice(0, 10)}` : '발행일 미확인'];
+  if (channels >= 2) why.push(`애드센스 고수 블로그 ${channels}곳이 최근 7일 안에 함께 다룬 소재`);
+  return {
+    id: crypto.createHash('sha256').update(lead.url).digest('hex').slice(0, 16),
+    keyword: group.terms.slice(0, 5).join(' ').slice(0, 55) || lead.title.slice(0, 55),
+    title: lead.title,
+    category,
+    grade: bestGrade,
+    recommended,
+    priority: Math.max(0, Math.min(40, (channels - 1) * 10) + GRADE_POINT[bestGrade] + (age <= 1 ? 10 : age <= 3 ? 6 : 2)),
+    publishedAt: lead.publishedAt,
+    capturedAt: lead.capturedAt,
+    why,
+    // 실측은 다음 단계(검색량 · 문서수 · 파워링크 입찰가)가 채운다. 지어내지 않는다.
+    metrics: { searchVolume: null, documentCount: null, bid: null },
+    // 제목은 템플릿으로 채우지 않는다 — 제목 단계가 카드마다 검색용 제목을 얹는다.
+    titles: [],
+    sources: sorted.slice(0, 6).map((p) => ({ id: p.sourceId, name: p.name, grade: p.grade, category: p.category, title: p.title, url: p.url, publishedAt: p.publishedAt })),
+  };
+}
+
+/** 고수 제목 모양 — 실제 제목에서 센다(길이 중앙값 · 연도 · 숫자 · 물음표 · 괄호 비율). */
+function titleShape(posts) {
+  const titles = posts.map((p) => plainText(p.title, 160)).filter(Boolean);
+  const n = titles.length;
+  if (!n) return { count: 0, lengthMedian: null, yearPct: null, numberPct: null, questionPct: null, bracketPct: null };
+  const pct = (re) => Math.round((titles.filter((t) => re.test(t)).length / n) * 100);
+  const lengths = titles.map((t) => [...t].length).sort((a, b) => a - b);
+  return {
+    count: n,
+    lengthMedian: lengths[Math.floor((n - 1) / 2)],
+    yearPct: pct(/20\d\d/),
+    numberPct: pct(/\d/),
+    questionPct: pct(/\?|까$|나요|을까|ㄹ까/),
+    bracketPct: pct(/[[\](){}【】]/),
+  };
+}
+
+function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = WINDOW_DAYS } = {}) {
+  const nowMs = Date.parse(now);
+  const posts = results.flatMap((r) => (r.status === 'ok' ? r.posts : []))
+    .filter((p) => p.publishedAt && nowMs - Date.parse(p.publishedAt) <= windowDays * DAY && Date.parse(p.publishedAt) <= nowMs + 300000);
+  const candidates = groupPosts(posts).map((g) => toCard(g, now))
+    .sort((a, b) => Number(b.recommended) - Number(a.recommended) || b.priority - a.priority || (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0) || a.id.localeCompare(b.id))
+    .slice(0, maxCards);
+  const meta = new Map((sources || []).map((s) => [s.id, s]));
+  const byCategory = new Map();
+  for (const p of posts) {
+    const c = byCategory.get(p.category) || { category: p.category, posts: 0, blogs: new Set() };
+    c.posts += 1; c.blogs.add(p.sourceId); byCategory.set(p.category, c);
+  }
+  return {
+    schemaVersion: 1,
+    scope: 'adsense-benchmark',
+    attemptedAt: now,
+    generatedAt: posts.length ? now : null,
+    status: posts.length ? (results.every((r) => r.status === 'ok') ? 'fresh' : 'partial') : 'stale',
+    windowDays,
+    sourceCount: results.length,
+    okCount: results.filter((r) => r.status === 'ok').length,
+    collectedPostCount: posts.length,
+    sources: results.map((r) => ({ id: r.id, name: meta.get(r.id)?.name || r.id, category: meta.get(r.id)?.category || '', grade: meta.get(r.id)?.grade || '', status: r.status, postCount: r.posts ? r.posts.length : 0, ...(r.error ? { error: String(r.error).slice(0, 80) } : {}) })),
+    candidates,
+    trends: {
+      categories: [...byCategory.values()].map((c) => ({ category: c.category, posts: c.posts, blogs: c.blogs.size })).sort((a, b) => b.posts - a.posts),
+      titleShape: titleShape(posts),
+    },
+  };
+}
+
+module.exports = { buildAllowlist, assertFeedUrl, postLink, fetchFeed, parseFeed, topicTokens, sameTopic, groupPosts, titleShape, buildBoard, MAX_CARDS, WINDOW_DAYS };

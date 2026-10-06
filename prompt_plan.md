@@ -1,3 +1,30 @@
+# 실행 계획: 애드센스 고수 벤치마크 (홈판 추천 소재 · 제목과 같은 틀)
+
+승인 2026-10-07 ("에드센스 벤치마킹은 홈판 아래에 넣어주세요 계획대로 진행").
+재료: 사장님 엑셀 `애드센스_고수블로그_벤치마킹_1.xlsx` (6,440곳 · S644/A1288/B1932/C2576 · 20분야 · 7일 발행 933 · 애드센스 Y 877).
+
+## 확정값
+- 출처 786곳(홈판과 같은 상한) · 카드 1,000장 · 글 기간 최근 7일 · 수집 3시간마다(여러 틱) · 로그인 탭(맛보기 없음)
+- 사이트 탭 위치: 홈판 추천 바로 아래 · 라벨 "애드센스 고수 벤치마크"
+- 선정: S → A → 7일 발행 → 애드센스 Y, 분야별 최소 자리. pub ID 는 싣지 않는다.
+
+## 단계
+0. 사전 실측: 출처 20곳 RSS(응답·글 수·날짜·차단). 막히면 멈추고 보고.
+1. 출처·수집·사이트 탭
+   - 앱: scripts/build-adsense-sources.cjs → scripts/adsense-benchmarks-sources.json, scripts/adsense-benchmarks-core.cjs(등록 도메인 허용목록 · https · /rss·/feed), scripts/adsense-benchmarks.cjs, .github/workflows/adsense-benchmarks.yml, scripts/adsense-benchmarks.test.cjs, homefeed-benchmarks-core 묶기 함수 내보내기
+   - 사이트: lib/adsenseBenchmarkModel.mjs(+d.mts, 고수 제목 통계), components/leword/adsense/*, LewordPage 탭, tests/adsense-benchmark.test.mjs
+2. 실측: 대표 검색어(연관어 실측 확인된 말만) → 월 검색량·문서수·파워링크 3위 입찰가, 회차당 상위 200 · 7일 캐시 · 검색광고 잡별 상한 등록
+3. 제목 20개: benchmark-title-engine 검색형 변형 · 회차 40개(동시 4) · [지금 제목 만들기] 브리지 종류 추가
+4. 앱 화면(16번 옆) · 노션 설명서 한 장
+
+## 위험
+- 높음: 티스토리가 깃허브 서버 차단 → 0단계 실측, 막히면 앱 로컬 수집·발행
+- 중간: 공통어("신청 방법·조건") 과묶음 → 공통어 목록 확장 + 표본 검사
+- 중간: 죽은 블로그 → 수집 성공률 표시 · 다음 순번 교체
+
+
+## 이전 계획
+
 # 실행 계획: 실검 틈새 — 틈새 = 황금보다 센 것 (트래픽·수요·자리 3중 실측)
 
 승인 2026-09-04 ("승인"). 사장님 방향: "틈새키워드를 따로 만든 이유 — 황금키워드만 적으면 상위노출이 될 수도 있지만
