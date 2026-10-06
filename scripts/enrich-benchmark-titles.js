@@ -101,39 +101,60 @@ function reasonSummary(rejected) {
   return parts.length ? `${rejected.length} (${parts.join(', ')})` : String(rejected.length);
 }
 
-async function generate(board, kept, max) {
+/**
+ * 고른 카드를 배치로 나눠 동시에 짓는다(2026-10-07 — 직렬 8장이라 1,000장 판에 제목이 25장뿐이었다).
+ * 동시 개수(concurrency)와 시간 상한(budgetMs, 넘으면 새 배치를 시작하지 않음)을 지킨다. 배치 하나가 실패해도 나머지는 간다.
+ */
+async function generateTitles(cards, kept, { batchSize, concurrency, budgetMs, titlesFor, now = Date.now }) {
+  const startedAt = now();
+  const stamp = new Date(startedAt).toISOString();
+  const batches = [];
+  for (let i = 0; i < cards.length; i += batchSize) batches.push(cards.slice(i, i + batchSize));
+  const made = [];
+  let provider = '';
+  let next = 0;
+  let skipped = 0;
+  async function worker() {
+    while (next < batches.length) {
+      if (now() - startedAt >= budgetMs) { skipped = batches.length - next; next = batches.length; return; }
+      const batch = batches[next++];
+      try {
+        const result = await titlesFor(batch);
+        provider = result.provider || provider;
+        for (const row of result.results) {
+          const why = reasonSummary(row.rejected);
+          if (row.titles.length === 0) { console.log(`  - ${row.id} 통과 제목 0건 (탈락 ${why})`); continue; }
+          const card = batch.find((c) => c.id === row.id);
+          made.push({ id: row.id, keyword: card ? card.keyword : '', category: card ? card.category : '', titles: row.titles, rejected: row.rejected.length, provider: result.provider, at: stamp, rules: TITLE_RULES });
+          console.log(`  ✚ ${row.id} ${card ? card.keyword : ''} → ${row.titles.length}개 (탈락 ${why}, ${result.provider})`);
+        }
+      } catch (error) {
+        console.log(`  !! 배치 실패(계속): ${String((error && error.message) || error).slice(0, 160)}`);
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, batches.length)) }, worker));
+  if (skipped > 0) console.log(`  · 시간 상한(${Math.round(budgetMs / 60000)}분)으로 배치 ${skipped}개는 다음 회차로`);
+  return { made, provider, asked: cards.length };
+}
+
+async function generate(board, kept, max, concurrency, budgetMs) {
   // ts-node 는 생성 단계에서만 필요하다 — 부착만 할 때는 없어도 돈다.
   require('ts-node/register/transpile-only');
   const { cardsFromBenchmarks, titlesForCards, BENCHMARK_TITLE_BATCH } = require('../src/utils/benchmark-title-engine');
   const cards = pickTitleTargets(cardsFromBenchmarks(board), kept, max);
   const outdated = cards.filter((c) => kept.some((e) => e.id === c.id)).length;
-  console.log(`제목 대상 ${cards.length}장 (새 카드 ${cards.length - outdated} · 옛 규칙 다시 짓기 ${outdated} · 창고 유지 ${kept.length}장) · 배치 ${BENCHMARK_TITLE_BATCH}`);
-  const stamp = new Date().toISOString();
-  const made = [];
-  let provider = '';
-  for (let i = 0; i < cards.length; i += BENCHMARK_TITLE_BATCH) {
-    const batch = cards.slice(i, i + BENCHMARK_TITLE_BATCH);
-    try {
-      const result = await titlesForCards(batch);
-      provider = result.provider || provider;
-      for (const row of result.results) {
-        const why = reasonSummary(row.rejected);
-        if (row.titles.length === 0) { console.log(`  - ${row.id} 통과 제목 0건 (탈락 ${why})`); continue; }
-        const card = batch.find((c) => c.id === row.id);
-        made.push({ id: row.id, keyword: card ? card.keyword : '', category: card ? card.category : '', titles: row.titles, rejected: row.rejected.length, provider: result.provider, at: stamp, rules: TITLE_RULES });
-        console.log(`  ✚ ${row.id} ${card ? card.keyword : ''} → ${row.titles.length}개 (탈락 ${why}, ${result.provider})`);
-      }
-    } catch (error) {
-      console.log(`  !! 배치 실패(계속): ${String((error && error.message) || error).slice(0, 160)}`);
-    }
-  }
-  return { made, provider, asked: cards.length };
+  console.log(`제목 대상 ${cards.length}장 (새 카드 ${cards.length - outdated} · 옛 규칙 다시 짓기 ${outdated} · 창고 유지 ${kept.length}장) · 배치 ${BENCHMARK_TITLE_BATCH} · 동시 ${concurrency}`);
+  return generateTitles(cards, kept, { batchSize: BENCHMARK_TITLE_BATCH, concurrency, budgetMs, titlesFor: (batch) => titlesForCards(batch) });
 }
 
 async function main() {
   const boardPath = arg('board');
   const storePath = arg('store');
   const max = Number(arg('max')) || 8;
+  // 동시 배치 수 · 시간 상한(분). 작업 전체 상한 30분 중 수집이 약 8분이라 제목은 12분까지.
+  const concurrency = Math.max(1, Number(arg('concurrency')) || 4);
+  const budgetMs = Math.max(0, Number(arg('budget-min')) || 12) * 60_000;
   if (!boardPath || !storePath) {
     console.error('--board=<homefeed-benchmarks.json> --store=<homefeed-benchmark-titles.json> 이 필요합니다.');
     process.exit(2);
@@ -147,7 +168,7 @@ async function main() {
   let asked = 0;
   if (flag('no-ai')) console.log('AI 생성 건너뜀(--no-ai) · 창고 부착만 한다.');
   else {
-    try { ({ made, provider, asked } = await generate(board, kept, max)); }
+    try { ({ made, provider, asked } = await generate(board, kept, max, concurrency, budgetMs)); }
     catch (error) { console.log(`!! 생성 단계 실패(부착은 계속): ${String((error && error.message) || error).slice(0, 200)}`); }
   }
 
@@ -162,7 +183,7 @@ async function main() {
   if (asked > 0 && made.length === 0) console.log('::warning::이번 회차 새 제목 0건 — 구독 CLI 상태를 확인하세요. 판은 창고 제목으로 나갑니다.');
 }
 
-module.exports = { attachTitles, freshEntries, mergeEntries, pickTitleTargets, TITLE_RULES, TITLE_TTL_MS };
+module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, TITLE_RULES, TITLE_TTL_MS };
 
 if (require.main === module) {
   main().catch((error) => { console.error('벤치마크 제목 창고 실패:', error); process.exit(1); });

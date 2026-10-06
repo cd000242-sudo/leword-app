@@ -46,3 +46,24 @@ test('옛 규칙으로 지은 제목은 새 카드와 번갈아 다시 짓는다
   assert.deepEqual(pickTitleTargets(cards, kept, 10).map((c) => c.id), ['old1', 'new1', 'old2', 'new2']);
   assert.deepEqual(pickTitleTargets([{ id: 'n' }], [], 5).map((c) => c.id), ['n']);
 });
+
+// 2026-10-07: 회차당 8장(직렬)이라 1,000장 판에 제목이 25장뿐이었다. 동시에 여러 배치 + 시간 상한.
+test('제목 짓기는 배치를 동시에 돌리되 동시 개수 상한과 시간 상한을 지킨다', async () => {
+  const { generateTitles } = require('./enrich-benchmark-titles.js');
+  const cards = Array.from({ length: 10 }, (_, i) => ({ id: 'c' + i, keyword: 'k' + i, category: '사회·이슈' }));
+  let live = 0; let peak = 0; const seen = [];
+  const titlesFor = async (batch) => {
+    live += 1; peak = Math.max(peak, live); seen.push(...batch.map((c) => c.id));
+    await new Promise((r) => setTimeout(r, 20));
+    live -= 1;
+    return { provider: 'fake', results: batch.map((c) => ({ id: c.id, titles: [c.keyword + ' 제목'], rejected: [] })) };
+  };
+  const all = await generateTitles(cards, [], { batchSize: 2, concurrency: 3, budgetMs: 60_000, titlesFor });
+  assert.equal(all.made.length, 10);
+  assert.ok(peak <= 3, '동시 ' + peak);
+  assert.ok(peak >= 2, '실제로 동시에 돌아야 한다');
+  assert.equal(new Set(seen).size, 10);
+  // 시간 상한 0 이면 새 배치를 하나도 시작하지 않는다(이미 지은 창고는 그대로 부착된다)
+  const none = await generateTitles(cards, [], { batchSize: 2, concurrency: 3, budgetMs: 0, titlesFor });
+  assert.equal(none.made.length, 0);
+});

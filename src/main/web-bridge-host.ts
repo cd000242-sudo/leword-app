@@ -15,6 +15,7 @@ import { detectAgent } from '../utils/agent-cli/detect';
 import { analyzeRadarViaAgent } from './radar-analysis-service';
 import { createHomefeedHostDeps } from './homefeed/host';
 import { createBoardBridgeDeps } from './board-bridge-host';
+import { createBenchmarkTitleBridgeDeps } from './benchmark-title-bridge';
 import { createMyBlogBridgeDeps } from './my-blog-bridge-host';
 import { kinAnswerViaAgent, radarEvaluateViaAgent } from './inflow-agents';
 
@@ -55,6 +56,7 @@ export function startWebBridgeHost(): void {
   try {
     startWebBridge({
       boards: createBoardBridgeDeps(),
+      benchmarkTitles: createBenchmarkTitleBridgeDeps(),
       myBlog: createMyBlogBridgeDeps(),
       appVersion: app.getVersion(),
       getAgentStatuses: async () => {
