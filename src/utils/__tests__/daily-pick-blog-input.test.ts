@@ -60,7 +60,10 @@ describe('판정을 두 갈래로 만들지 않는다', () => {
 
   it('오늘 쓸 한 편도 그 공용 상자로 그린다 — 제 것을 따로 만들지 않는다', () => {
     const fn = html.slice(html.indexOf('window.dpMeasureMyBlog'), html.indexOf('window.loadDailyPick'));
-    expect(fn).toContain('window.blogEnvelopeHtml(res.record)');
+    // 2026-10-06 한 몸: 카드(myBlogCardHtml)가 블로그 사실 + 같은 공용 상자(blogEnvelopeHtml)를 그린다.
+    expect(fn).toContain('window.myBlogCardHtml(res.record)');
+    const card = html.slice(html.indexOf('window.myBlogCardHtml = function'), html.indexOf('window.renderMyPosts = function'));
+    expect(card).toContain('window.blogEnvelopeHtml(record)');
   });
 });
 

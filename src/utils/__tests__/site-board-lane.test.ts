@@ -21,7 +21,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'ui', 'keywo
 
 describe('허용한 발행본만 읽는다', () => {
   it('앱 화면이 쓰는 보드가 목록에 있다', () => {
-    for (const key of ['kin', 'youtube', 'issueNiche', 'preemption', 'todayPicks', 'briefs']) {
+    for (const key of ['kin', 'youtube', 'issueNiche', 'preemption', 'todayPicks', 'briefs', 'homefeedBench']) {
       expect(SITE_BOARDS[key], `목록에 없다: ${key}`).toMatch(/^https:\/\/leaderspro\.kr\/data\/.+\.json$/);
     }
   });

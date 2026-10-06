@@ -30,6 +30,8 @@ export const SITE_BOARDS: Readonly<Record<string, string>> = {
   preemption: `${BASE}/preemption-board.json`,
   todayPicks: `${BASE}/today-picks.json`,
   briefs: `${BASE}/topic-briefs.json`,
+  // 홈판 벤치마크(2026-10-06 사장님 "앱에도 이 기능이 당연히 있어야 되는데 없어") — 사이트와 같은 판 · 같은 흐름 요약(trends).
+  homefeedBench: `${BASE}/homefeed-benchmarks.json`,
 };
 
 export type SiteBoardResult =

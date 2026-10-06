@@ -38,7 +38,7 @@ jobs:
           done
           exit 1
       - name: Test benchmark evidence rules
-        run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmark-ledger.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs scripts/enrich-benchmark-titles.test.cjs scripts/homefeed-instagram.test.cjs
+        run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmarks-trends.test.cjs scripts/homefeed-benchmark-ledger.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs scripts/enrich-benchmark-titles.test.cjs scripts/homefeed-instagram.test.cjs
       # 소재 1개당 홈판 후킹형 제목 20개는 구독 CLI(클로드코드)가 짓는다 — brief-titles 와 같은 구조.
       - name: 구독 CLI 폴백 준비
         uses: ./.github/actions/setup-subscription-agents

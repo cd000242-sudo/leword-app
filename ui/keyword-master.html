@@ -778,7 +778,7 @@
       </div>
 
       <nav class="leword-nav" role="tablist" aria-label="화면">
-        <button role="tab" data-screen="today" aria-selected="true" onclick="showScreen('today')"><span class="k">1</span>오늘 쓸 한 편<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="today" aria-selected="true" onclick="showScreen('today')"><span class="k">1</span>내 블로그 · 오늘 쓸 글<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="realtime" aria-selected="false" onclick="showScreen('realtime')"><span class="k">2</span>실시간 검색어</button>
         <button role="tab" data-screen="golden" aria-selected="false" onclick="showScreen('golden')"><span class="k">3</span>황금키워드 발굴</button>
         <button role="tab" data-screen="board" aria-selected="false" onclick="showScreen('board')"><span class="k">4</span>선점 보드<span class="new">앱 전용</span></button>
@@ -792,9 +792,10 @@
         <button role="tab" data-screen="mate" aria-selected="false" onclick="showScreen('mate')"><span class="k">12</span>네이버 AI 메이트 키워드 찾기</button>
         <button role="tab" data-screen="analyzer" aria-selected="false" onclick="showScreen('analyzer')"><span class="k">13</span>키워드 분석기<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="homefeed" aria-selected="false" onclick="showScreen('homefeed')"><span class="k">14</span>홈판 신호<span class="new">앱 전용</span></button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">15</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">16</span>설정 · 키</button>
-        <button role="tab" data-screen="assistant" aria-selected="false" onclick="showScreen('assistant')"><span class="k">17</span>AI 비서</button>
+        <button role="tab" data-screen="homefeedBench" aria-selected="false" onclick="showScreen('homefeedBench')"><span class="k">15</span>홈판 벤치마크 · 오늘의 흐름</button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">16</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">17</span>설정 · 키</button>
+        <button role="tab" data-screen="assistant" aria-selected="false" onclick="showScreen('assistant')"><span class="k">18</span>AI 비서</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -845,15 +846,17 @@
       <div style="padding: 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09); margin-bottom: 14px;">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
           <h3 style="font-size: 19px; font-weight: 700; color: #e2e8f0; margin: 0;">
-            ✍️ 오늘 쓸 한 편 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
+            🧭 내 블로그 · 오늘 쓸 글 <span style="font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: #fbbf24; color: #1a1200; vertical-align: middle;">앱 전용</span>
           </h3>
           <button id="dpRunBtn" onclick="runDailyPick()"
             style="padding: 8px 16px; border: 0; border-radius: 8px; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">오늘 것 고르기</button>
         </div>
         <p style="margin: 0 0 10px; font-size: 12px; color: #64748b; line-height: 1.6;">
-          여섯 판이 내놓은 후보를 <b style="color:#94a3b8;">내가 이겨본 크기</b>로 거르고, 남은 것의 자리를 지금 재서
-          <b style="color:#94a3b8;">셋만</b> 세웁니다. 이미 쓴 검색어는 뺍니다. 비용 0 · 1~2분.
+          <b style="color:#94a3b8;">[내 크기 재기]</b> 한 번이면 아래가 차례로 이어집니다 — 내 크기 · 주제 → 내 글 → 오늘 쓸 한 편(자리 실측 셋) →
+          홈판 유입 실측 → 오늘 쓸 글 10. 전부 같은 내 블로그 기록으로 거르고 표시합니다. 비용 0.
         </p>
+        <!-- 한 몸 진행 줄(2026-10-06 사장님 "내 크기를 재면 한 번에 한 몸처럼 움직여야") — 단계마다 상태를 찍는다. -->
+        <div id="mbSteps" style="display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px;"></div>
         <div id="dpEnvelope" style="font-size: 12.5px; color: #94a3b8; margin-bottom: 4px;"></div>
         <!--
           내 블로그를 여기서 바로 넣는다(사장님 2026-09-11 "여기에 내블로그를 넣을수있게해줘야되지않나요").
@@ -875,12 +878,48 @@
         </div>
         <div id="dpBlogProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums; margin-bottom: 4px;"></div>
         <div id="dpBlogResult"></div>
+        <!-- 내 글(2026-10-06) — 잰 기록의 최근 글 15편. 어제 어드바이저 기록이 있으면 글마다 홈판 유입 건수를 붙인다. -->
+        <div id="mbPosts"></div>
+        <div style="margin-top: 14px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">✍️ 오늘 쓸 한 편</h4>
+          <span style="font-size: 11.5px; color: #64748b;">여섯 판 후보를 내 크기로 거르고 자리를 지금 재서 셋만 · 1~2분</span>
+        </div>
         <div id="dpStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">불러오는 중…</div>
         <div id="dpProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums;"></div>
       </div>
       <div id="dpFunnel" style="display: none; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;"></div>
       <div id="dpBody"></div>
       <div id="dpRejected"></div>
+      <!--
+        홈판 유입 실측 · 오늘 쓸 글 10 — 2026-10-06 자리 실측기 화면에서 이리로 옮겼다(사장님 "전부 다 따로 되어 있네").
+        같은 내 블로그 기록으로 '내 크기 · 내 주제' 배지를 붙이고, 맞는 것을 먼저 세운다(원래 순위 번호는 그대로 보인다).
+      -->
+      <div style="margin-top: 14px; padding: 14px 16px; background: #0f172a; border-radius: 12px; border: 1px solid rgba(255,255,255,0.09);">
+        <div id="naverSessionRow" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: #94a3b8;">
+          <span id="naverSessionState">네이버 로그인: 확인 중…</span>
+          <span style="flex: 1;"></span>
+          <button onclick="openNaverAdvisor()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">네이버 로그인 창 열기</button>
+          <button onclick="clearNaverSession()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #94a3b8; font-size: 12.5px; cursor: pointer;">로그아웃</button>
+        </div>
+        <div id="advisorDailyPanel" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">📊 홈판 유입 실측</h4>
+            <span id="advisorDailyMeta" style="font-size: 12px; color: #94a3b8;">불러오는 중…</span>
+            <span style="flex: 1;"></span>
+            <button id="advisorDailyRunBtn" onclick="runAdvisorDailyNow()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">지금 수집</button>
+          </div>
+          <div id="advisorDailyBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
+        </div>
+        <div id="advisorTodayPanel" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">✍️ 오늘 쓸 글 10</h4>
+            <span id="advisorTodayMeta" style="font-size: 12px; color: #94a3b8;">불러오는 중…</span>
+            <span style="flex: 1;"></span>
+            <button id="advisorTodayRunBtn" onclick="runAdvisorTodayNow()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">지금 만들기</button>
+          </div>
+          <div id="advisorTodayBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
+        </div>
+      </div>
     </section>
 
     <section class="leword-screen" data-screen="realtime">
@@ -2052,7 +2091,133 @@
         </div>
       </section>
 
-      <!-- 화면 17: AI 비서(2026-10-01) — 사용자 본인 구독 AI 로 사용법 · 결과 해석 · 문제 해결. 사이트 비서와 같은 함수(assistant-chat). -->
+      <!--
+        화면 15: 홈판 벤치마크 · 오늘의 흐름(2026-10-06) — 사장님 "벤치마킹해서 사이트에서는 홈판에 뜬 것들과 고수 블로거들을
+        어떻게 썼고 우리는 어떻게 써야 하는지 보여주자나? 오늘의 자주 뜨는 홈판 주제는 없네? 앱에도 당연히 있어야 되는데 없어".
+        사이트와 같은 공개 판(homefeed-benchmarks.json, 매시 CI)을 받아 그린다. 숫자는 수집기가 센 값 그대로 — 여기서 새로 셈하지 않는다.
+      -->
+      <section class="leword-screen" data-screen="homefeedBench">
+        <div style="padding: 18px 20px; border-radius: 14px; border: 1px solid rgba(250,204,21,0.28); background: linear-gradient(135deg, rgba(250,204,21,0.08), rgba(15,23,42,0.9) 55%);">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 240px;">
+              <div style="font-size: 10px; letter-spacing: .16em; font-weight: 800; color: #fcd34d;">BENCHMARK · 리더남의 채널 리스트</div>
+              <h2 style="margin: 2px 0 4px; font-size: 20px; font-weight: 700; color: #ffffff;">홈판 벤치마크 · 오늘의 흐름</h2>
+              <p style="margin: 0; font-size: 12.5px; color: #a8b6cb; line-height: 1.6;">벤치마크 블로그 · 인스타 186곳이 최근 올린 글로 오늘 자주 뜨는 주제, 고수들이 제목을 어떻게 썼는지, 우리는 어떻게 쓸지를 보여 줍니다. 사이트 '리더남 홈판 추천 소재 · 제목'과 같은 판입니다.</p>
+            </div>
+            <button id="hbReloadBtn" onclick="loadHomefeedBench(true)" style="padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">다시 받기</button>
+          </div>
+          <div id="hbMeta" style="margin-top: 8px; font-size: 12px; color: #94a3b8;">불러오는 중…</div>
+        </div>
+        <div id="hbTrends"></div>
+        <div id="hbReal"></div>
+        <div id="hbCats" style="display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 8px;"></div>
+        <div id="hbCards" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 10px;"></div>
+      </section>
+      <script>
+        (function () {
+          let board = null;
+          let loadedAt = 0;
+          let pick = '전체';
+          const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+          const ko = (n) => Number(n || 0).toLocaleString('ko-KR');
+          const kst = (iso) => { const ms = Date.parse(iso || ''); if (!Number.isFinite(ms)) return '—'; const d = new Date(ms + 9 * 3600 * 1000); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
+          const card = (inner, extra) => '<div style="padding: 14px 15px; border-radius: 12px; background: #0f172a; border: 1px solid rgba(255,255,255,0.09);' + (extra || '') + '">' + inner + '</div>';
+          const channelsOf = (c) => new Set((c.sources || []).map((s) => s && (s.id || s.name))).size;
+
+          function trendsHtml(t) {
+            if (!t) return card('<div style="font-size: 12.5px; color: #94a3b8;">오늘의 흐름 요약은 다음 정기 수집(매시)부터 실립니다. 아래 소재 카드는 지금도 볼 수 있어요.</div>', ' margin-top: 12px;');
+            const cats = (t.categories || []).slice(0, 8);
+            const max = Math.max(1, ...cats.map((c) => c.channels || 0));
+            const rows = cats.map((c, i) => '<div style="padding: 5px 0;">'
+              + '<button onclick="hbPick(' + esc(JSON.stringify(c.category)) + ')" style="width: 100%; display: grid; grid-template-columns: 20px 96px 1fr auto; gap: 8px; align-items: center; background: none; border: 0; color: inherit; cursor: pointer; padding: 2px; text-align: left;">'
+              + '<span style="font-size: 11px; color: #94a3b8;">' + (i + 1) + '</span>'
+              + '<b style="font-size: 13px; color: #f1f5f9;">' + esc(c.category) + '</b>'
+              + '<span style="height: 8px; border-radius: 99px; background: rgba(148,163,184,0.15); overflow: hidden;"><i style="display: block; height: 100%; width: ' + Math.max(6, Math.round((c.channels / max) * 100)) + '%; border-radius: 99px; background: linear-gradient(90deg, #f59e0b, #fde68a);"></i></span>'
+              + '<span style="font-size: 11.5px; color: #cbd5e1; font-variant-numeric: tabular-nums;">채널 ' + ko(c.channels) + ' · 글 ' + ko(c.posts) + '</span></button>'
+              + ((c.stories || []).length ? '<div style="display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 0 28px;">' + c.stories.map((s) => '<span title="' + esc(s.title) + '" style="font-size: 11.5px; color: #e2e8f0; background: #1c2740; border: 1px solid rgba(148,163,184,0.2); border-radius: 99px; padding: 2px 9px;">' + esc(s.keyword) + ' <b style="color: #fcd34d;">' + ko(s.channels) + '곳</b></span>').join('') + '</div>' : '')
+              + '</div>').join('');
+            const st = (t.writing && t.writing.stats) || {};
+            const tile = (num, unit, label, wide) => '<div style="' + (wide ? 'grid-column: 1 / -1; ' : '') + 'border: 1px solid rgba(148,163,184,0.18); border-radius: 10px; background: #0b1220; padding: 9px 10px;"><b style="font-size: 21px; color: #fff; font-variant-numeric: tabular-nums;">' + num + '<small style="font-size: 12px; color: #94a3b8; margin-left: 2px;">' + unit + '</small></b><div style="font-size: 11.5px; color: #a8b6cb;">' + label + '</div></div>';
+            const writing = st.count
+              ? '<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;">'
+                + tile(st.length ? st.length.median : 0, '자', '제목 길이 중앙값 · 가운데 절반 ' + (st.length ? st.length.p25 + '~' + st.length.p75 : '?') + '자', true)
+                + tile(st.quoteStart, '%', '따옴표로 시작') + tile(st.ellipsis, '%', '말줄임(… · ..)') + tile(st.question, '%', '물음표')
+                + tile(st.number, '%', '숫자 포함') + tile(st.colloquial, '%', '말하듯 끝냄(~요)')
+                + '</div><div style="margin-top: 6px; font-size: 11.5px; color: #8d9db4;">네이버 블로그 고수 제목 ' + ko(st.count) + '개 기준.</div>'
+                + '<div style="margin-top: 10px; font-size: 13.5px; font-weight: 700; color: #a5f3fc;">우리는 이렇게 쓰자</div>'
+                + '<ul style="margin: 4px 0 0; padding-left: 18px; font-size: 12.8px; color: #e2e8f0; line-height: 1.7;">' + ((t.writing && t.writing.guide) || []).map((g) => '<li>' + esc(g) + '</li>').join('') + '</ul>'
+              : '<div style="font-size: 12px; color: #94a3b8;">이번 회차엔 셀 제목이 모이지 않았습니다.</div>';
+            const examples = cats.filter((c) => (c.examples || []).length).slice(0, 6).map((c) => '<div><b style="font-size: 12.5px; color: #fde68a;">' + esc(c.category) + '</b><ul style="margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6;">'
+              + c.examples.map((e) => '<li>' + (e.url ? '<a href="' + esc(e.url) + '" target="_blank" style="color: #e2e8f0; text-decoration: none;">' + esc(e.title) + '</a>' : esc(e.title)) + ' <small style="color: #8d9db4;">· ' + esc(e.name) + '</small></li>').join('') + '</ul></div>').join('');
+            return '<div style="margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px;">'
+              + card('<div style="font-size: 14.5px; font-weight: 700; color: #fde68a; margin-bottom: 6px;">오늘 자주 뜨는 홈판 주제 <span style="font-weight: 400; font-size: 11.5px; color: #94a3b8;">최근 ' + (t.windowHours || 24) + '시간 · 채널 ' + ko(t.channels) + ' · 글 ' + ko(t.posts) + '</span></div>' + rows
+                + '<div style="margin-top: 6px; font-size: 11.5px; color: #8d9db4;">분야를 누르면 아래 소재 카드가 그 분야로 걸러집니다. 소재 옆 숫자는 같은 소재를 다룬 채널 수.</div>')
+              + card('<div style="font-size: 14.5px; font-weight: 700; color: #fde68a; margin-bottom: 8px;">고수 블로거는 이렇게 썼다</div>' + writing)
+              + '</div>'
+              + (examples ? card('<details><summary style="cursor: pointer; font-size: 13px; font-weight: 700; color: #e2e8f0;">분야별 고수 제목 본보기</summary><div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-top: 10px;">' + examples + '</div></details>', ' margin-top: 10px;') : '');
+          }
+
+          function realHtml() {
+            const daily = window.__advisorDailyView && window.__advisorDailyView.latest;
+            const titles = (daily && daily.homefeedTitles) || [];
+            if (!titles.length) return card('<div style="font-size: 12px; color: #94a3b8;">어제 실제 홈판 상위 글은 1번 화면에서 네이버 로그인(어드바이저) 후 수집하면 여기에도 보입니다.</div>', ' margin-top: 10px;');
+            return card('<details open><summary style="cursor: pointer; font-size: 13px; font-weight: 700; color: #e2e8f0;">어제(' + esc(daily.day) + ') 실제 홈판에 오른 글 — 앱 어드바이저 실측 · 상위 ' + titles.length + '개</summary><ol style="margin: 8px 0 0; padding-left: 20px; font-size: 12.5px; line-height: 1.7;">'
+              + titles.slice(0, 20).map((t) => '<li>' + (t.url ? '<a href="' + esc(t.url) + '" target="_blank" style="color: #e2e8f0; text-decoration: none;">' + esc(t.title) + '</a>' : esc(t.title)) + '</li>').join('') + '</ol></details>', ' margin-top: 10px;');
+          }
+
+          function render() {
+            const meta = document.getElementById('hbMeta');
+            if (!board) return;
+            const list = Array.isArray(board.candidates) ? board.candidates : [];
+            meta.textContent = '정기 수집 ' + kst(board.generatedAt) + ' KST · 출처 ' + ko(board.sourceCount) + '곳 · 소재 ' + ko(list.length) + '개 · 매시 갱신';
+            document.getElementById('hbTrends').innerHTML = trendsHtml(board.trends || null);
+            document.getElementById('hbReal').innerHTML = realHtml();
+            const cats = ['전체', ...new Set(list.map((c) => c.category || '기타'))];
+            document.getElementById('hbCats').innerHTML = cats.map((c) => '<button onclick="hbPick(' + esc(JSON.stringify(c)) + ')" style="padding: 5px 11px; border-radius: 999px; font-size: 12px; cursor: pointer; border: 1px solid ' + (c === pick ? '#fbbf24' : 'rgba(255,255,255,0.14)') + '; background: ' + (c === pick ? 'rgba(251,191,36,0.15)' : 'transparent') + '; color: ' + (c === pick ? '#fde68a' : '#cbd5e1') + ';">' + esc(c) + '</button>').join('');
+            const shown = list.map((c, i) => ({ c, i })).filter(({ c }) => pick === '전체' || (c.category || '기타') === pick).slice(0, 30);
+            document.getElementById('hbCards').innerHTML = shown.map(({ c, i }) => card(
+              '<div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 11px;">'
+              + (c.recommended ? '<span style="color: #fbbf24; font-weight: 800;">★ 여러 채널</span>' : '')
+              + '<span style="padding: 1px 8px; border-radius: 999px; background: rgba(148,163,184,0.14); color: #cbd5e1;">' + esc(c.category || '기타') + '</span>'
+              + '<span style="color: #94a3b8;">채널 ' + channelsOf(c) + '</span></div>'
+              + '<div style="margin-top: 6px; font-size: 14px; font-weight: 700; color: #fff; line-height: 1.45;">' + esc(c.keyword) + '</div>'
+              + '<div style="margin-top: 2px; font-size: 12px; color: #94a3b8;">' + esc(c.title) + '</div>'
+              + ((c.homeTitles || []).length ? '<div style="margin-top: 8px; font-size: 12px; color: #a5f3fc; font-weight: 700;">홈판 후킹 제목</div><ul style="margin: 2px 0 0; padding-left: 18px; font-size: 12.5px; color: #e2e8f0; line-height: 1.6;">' + c.homeTitles.slice(0, 3).map((h) => '<li>' + esc(h) + '</li>').join('') + '</ul>' : '')
+              + ((c.sources || []).length ? '<div style="margin-top: 8px; font-size: 11.5px; color: #8d9db4;">' + c.sources.slice(0, 3).map((s) => s.url ? '<a href="' + esc(s.url) + '" target="_blank" style="color: #67e8f9; text-decoration: none;">' + esc(s.name || '원문') + ' ↗</a>' : esc(s.name)).join(' · ') + '</div>' : '')
+              + '<button onclick="hbAskTitle(' + i + ')" style="margin-top: 10px; padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(251,191,36,0.45); background: rgba(251,191,36,0.1); color: #fde68a; font-size: 12px; font-weight: 700; cursor: pointer;">✦ 비서에게 이 소재로 제목 묻기</button>'
+            )).join('') || card('<div style="font-size: 12.5px; color: #94a3b8;">이 분야 소재가 없습니다.</div>');
+          }
+
+          window.hbPick = function hbPick(category) { pick = category; render(); const el = document.getElementById('hbCats'); if (el) el.scrollIntoView({ block: 'start' }); };
+          /** 소재 → 비서(2026-10-06) — 비서가 homefeed_now · title_guide 로 실측을 보고 제목을 추천한다. */
+          window.hbAskTitle = function hbAskTitle(index) {
+            const c = board && board.candidates && board.candidates[index];
+            if (!c || typeof window.openAssistantPanel !== 'function') return;
+            window.openAssistantPanel();
+            const input = document.getElementById('assistantInput');
+            if (!input) return;
+            input.value = "'" + c.keyword + "' 소재로 지금 홈판에 맞는 제목 5개 추천해줘 (원문 제목: " + String(c.title || '').slice(0, 80) + ')';
+            if (typeof window.assistantSend === 'function') window.assistantSend();
+          };
+          window.loadHomefeedBench = async function loadHomefeedBench(force) {
+            const meta = document.getElementById('hbMeta');
+            // 판은 매시 갱신 — 5분 안에 다시 열면 받은 것을 다시 그린다.
+            if (!force && board && Date.now() - loadedAt < 5 * 60 * 1000) { render(); return; }
+            if (meta) meta.textContent = '사이트 판을 받는 중…';
+            if (!window.__advisorDailyView && typeof window.refreshAdvisorDaily === 'function') { try { await window.refreshAdvisorDaily(); } catch (e) { /* 없으면 실제 홈판 칸만 안내 */ } }
+            try {
+              const res = await window.electronAPI.invoke('site-board-get', { key: 'homefeedBench' });
+              if (!res || !res.success) { if (meta) meta.textContent = (res && res.error) || '사이트 판을 받지 못했습니다'; return; }
+              board = res.board; loadedAt = Date.now();
+              render();
+            } catch (e) {
+              if (meta) meta.textContent = '사이트 판을 받지 못했습니다 — ' + String((e && e.message) || e).slice(0, 120);
+            }
+          };
+        })();
+      </script>
+
+      <!-- 화면 18: AI 비서(2026-10-01) — 사용자 본인 구독 AI 로 사용법 · 결과 해석 · 문제 해결. 사이트 비서와 같은 함수(assistant-chat). -->
       <section class="leword-screen" data-screen="assistant">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
           <h2 style="margin: 0; font-size: 19px; font-weight: 700; color: #e2e8f0;">AI 비서</h2>
@@ -2242,6 +2407,8 @@
           analyzer: {},
           // 홈판 신호 — 열 때 이미 쌓아 둔 계산본만 읽는다(수집은 눌러야 돈다).
           homefeed: { load: 'loadHomefeedBoard' },
+          // 홈판 벤치마크 · 오늘의 흐름(2026-10-06) — 사이트와 같은 공개 판(매시 CI)을 받아 그린다.
+          homefeedBench: { load: 'loadHomefeedBench' },
           // 사이트에서 보기 — 열 때 보드 넷의 회차 현황을 읽는다(무엇이 언제 실렸나).
           sites: { load: 'loadBoardStatus' },
           seat: { open: 'openSeatMeasureModal', root: 'seatMeasureModal' },
@@ -10265,61 +10432,13 @@
                 <button onclick="document.getElementById('seatMeasureModal').style.display='none'" style="width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 18px; cursor: pointer;">✕</button>
               </div>
               <!--
-                내 블로그 카드(2026-09-10) — 자리를 재기 전에 "나는 지금 어떤 블로그인가"를 먼저 본다.
-                전부 네이버가 이미 화면에 싣는 값이다(모바일 블로그 화면·글 목록·인플루언서 홈). 비용 0.
-                문장은 plain-words.ts 가 만든 것을 그대로 찍는다 — 여기서 말을 새로 지어내지 않는다.
+                내 블로그 · 홈판 유입 실측 · 오늘 쓸 글 10 은 2026-10-06 1번 화면 '내 블로그 · 오늘 쓸 글'로 옮겼다
+                (사장님 "내 크기를 재면 한 번에 한 몸처럼 움직여야 되는데 전부 다 따로"). 여기엔 가는 길만 둔다.
               -->
-              <div id="blogClassPanel" style="margin-top: 18px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 16px; background: rgba(255,255,255,0.03);">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                  <h3 style="margin: 0; font-size: 16px; color: #ffffff;">🧭 내 블로그</h3>
-                  <input id="blogClassInput" placeholder="blog.naver.com/내아이디" style="flex: 1; min-width: 220px; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 8px 10px; color: #e2e8f0; font: inherit; font-size: 13px;">
-                  <select id="blogClassSample" style="background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 8px 10px; color: #e2e8f0; font: inherit; font-size: 12.5px;">
-                    <option value="50" selected>최근 50개</option>
-                    <option value="100">최근 100개</option>
-                    <option value="200">최근 200개</option>
-                  </select>
-                  <button id="blogClassRunBtn" onclick="runBlogClassMeasure()" style="padding: 8px 14px; border-radius: 8px; border: 0; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 13px; cursor: pointer;">내 블로그 보기</button>
-                </div>
-                <div id="blogClassBody" style="margin-top: 12px; font-size: 13.5px; color: #cbd5e1;">아직 안 봤어요. 블로그 주소를 넣고 [내 블로그 보기]를 눌러 주세요.</div>
-                <!--
-                  네이버 로그인(2026-09-30, C 0단계) — 글별로 홈판·추천에서 왔는지는 로그인해야 보이는 크리에이터 어드바이저에만 있다.
-                  창은 앱이 띄우고 로그인은 사장님이 직접 한다. 비밀번호는 앱이 보지 않고 세션만 남는다.
-                  지금은 어드바이저가 부르는 창구를 기록하는 단계 — 화면에 유입 표는 아직 없다.
-                -->
-                <div id="naverSessionRow" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: #94a3b8;">
-                  <span id="naverSessionState">네이버 로그인: 확인 중…</span>
-                  <span style="flex: 1;"></span>
-                  <button onclick="openNaverAdvisor()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">네이버 로그인 창 열기</button>
-                  <button onclick="clearNaverSession()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #94a3b8; font-size: 12.5px; cursor: pointer;">로그아웃</button>
-                </div>
-                <!--
-                  홈판 유입 실측(2026-09-30, A 층) — 로그인 세션으로 새벽에 한 번 어드바이저 창구를 돌려 쌓은 판.
-                  표 셋: 내 글 홈판 실적 · 내 유입 주제(판 크기 옆에) · 오늘 홈판 탄 글 전체(제목 낱말 셈).
-                  전부 실측 값과 단순 셈만. 못 받은 창구는 '미측정'으로 남기고 0 으로 채우지 않는다. 확률·예상 트래픽 없음.
-                -->
-                <div id="advisorDailyPanel" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
-                  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">📊 홈판 유입 실측</h4>
-                    <span id="advisorDailyMeta" style="font-size: 12px; color: #94a3b8;">불러오는 중…</span>
-                    <span style="flex: 1;"></span>
-                    <button id="advisorDailyRunBtn" onclick="runAdvisorDailyNow()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">지금 수집</button>
-                  </div>
-                  <div id="advisorDailyBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
-                </div>
-                <!--
-                  오늘 쓸 글 10(2026-09-30, D 판) — 위 하루 기록의 내 주제 인기·트렌드 검색어를 후보로,
-                  검색량(검색광고)·자리(내 브라우저)를 재고 근거 개수로 줄 세운 10개 + 시간대 사실 + 제목(에이전트 CLI, 교리 검사).
-                  확률·예상 트래픽 없음. 제목 검사 미통과는 빈 칸, 엔진이 없으면 'AI 엔진 연결 전' 한 줄 — 템플릿으로 채우지 않는다.
-                -->
-                <div id="advisorTodayPanel" style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);">
-                  <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">✍️ 오늘 쓸 글 10</h4>
-                    <span id="advisorTodayMeta" style="font-size: 12px; color: #94a3b8;">불러오는 중…</span>
-                    <span style="flex: 1;"></span>
-                    <button id="advisorTodayRunBtn" onclick="runAdvisorTodayNow()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">지금 만들기</button>
-                  </div>
-                  <div id="advisorTodayBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
-                </div>
+              <div style="margin-top: 18px; border: 1px solid rgba(251,191,36,0.25); border-radius: 12px; padding: 12px 16px; background: rgba(251,191,36,0.06); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-size: 13px; color: #e2e8f0;">🧭 내 블로그 · 홈판 유입 실측 · 오늘 쓸 글 10 은 <b>1번 화면</b>에서 한 번에 봅니다.</span>
+                <span style="flex: 1;"></span>
+                <button onclick="showScreen('today')" style="padding: 7px 13px; border-radius: 8px; border: 0; background: #fbbf24; color: #1a1200; font-weight: 800; font-size: 12.5px; cursor: pointer;">내 블로그 화면 열기</button>
               </div>
               <!--
                 트렌드 CSV 들이기(2026-09-10) — 네이버 크리에이터 어드바이저가 주는 '주제별 유입 검색어'를
@@ -10405,10 +10524,6 @@
           document.body.appendChild(wrap);
           wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.style.display = 'none'; });
           refreshSeatWatch();
-          loadBlogClass();
-          refreshNaverSession();
-          refreshAdvisorDaily();
-          refreshAdvisorToday();
           loadTrendImport();
         };
 
@@ -10464,6 +10579,10 @@
             const res = await window.electronAPI.invoke('advisor-daily-view');
             if (!res || !res.success) { meta.textContent = '판을 읽지 못했어요'; return; }
             renderAdvisorDaily(res, meta, body);
+            // 한 몸(2026-10-06): 내 글 목록이 이 기록으로 글마다 홈판 유입을 붙인다.
+            window.__advisorDailyView = res;
+            if (typeof window.renderMyPosts === 'function') window.renderMyPosts();
+            if (typeof window.renderMbSteps === 'function') window.renderMbSteps();
           } catch (e) {
             meta.textContent = '판을 읽지 못했어요: ' + (e && e.message ? e.message : e);
           }
@@ -10472,15 +10591,31 @@
         window.runAdvisorDailyNow = async function runAdvisorDailyNow() {
           const btn = document.getElementById('advisorDailyRunBtn');
           if (btn) { btn.disabled = true; btn.textContent = '수집 중…(약 20초)'; }
+          if (typeof window.mbSetBusy === 'function') window.mbSetBusy('daily', true);
+          let collected = false;
           try {
             const res = await window.electronAPI.invoke('advisor-daily-run-now');
-            if (res && res.success) showToast('홈판 유입 실측을 새로 받았어요', 'success');
+            collected = Boolean(res && res.success);
+            if (collected) showToast('홈판 유입 실측을 새로 받았어요 — 이어서 오늘 쓸 글 10 을 다시 만듭니다', 'success');
             else showToast((res && (res.reason || res.error)) || '수집하지 못했어요', 'error');
           } catch (e) {
             showToast('수집하지 못했어요: ' + (e && e.message ? e.message : e), 'error');
           } finally {
             if (btn) { btn.disabled = false; btn.textContent = '지금 수집'; }
+            if (typeof window.mbSetBusy === 'function') window.mbSetBusy('daily', false);
             refreshAdvisorDaily();
+          }
+          /*
+           * 수집이 끝나면 메인이 이어서 오늘 쓸 글 10 을 만든다(afterCollect). 예전엔 화면이 그걸 다시 안 읽어
+           * 옛 판이 남았다(2026-10-06 조사) — 만든 시각이 바뀔 때까지 20초마다 최대 6분 읽는다.
+           */
+          if (!collected) return;
+          const before = window.__advisorTodayPlan && window.__advisorTodayPlan.builtAt;
+          for (let i = 0; i < 18; i += 1) {
+            await new Promise((r) => setTimeout(r, 20000));
+            await refreshAdvisorToday();
+            const now = window.__advisorTodayPlan && window.__advisorTodayPlan.builtAt;
+            if (now && now !== before && !(window.__mbBusy && window.__mbBusy.today)) break;
           }
         };
 
@@ -10563,6 +10698,8 @@
           try {
             const res = await window.electronAPI.invoke('advisor-today-view');
             if (!res || !res.success) { meta.textContent = '판을 읽지 못했어요'; return; }
+            window.__advisorTodayPlan = res.plan || null;
+            if (typeof window.mbSetBusy === 'function') window.mbSetBusy('today', Boolean(res.running));
             renderAdvisorToday(res.plan, res.running, meta, body);
           } catch (e) {
             meta.textContent = '판을 읽지 못했어요: ' + (e && e.message ? e.message : e);
@@ -10572,6 +10709,7 @@
         window.runAdvisorTodayNow = async function runAdvisorTodayNow() {
           const btn = document.getElementById('advisorTodayRunBtn');
           if (btn) { btn.disabled = true; btn.textContent = '만드는 중…(몇 분)'; }
+          if (typeof window.mbSetBusy === 'function') window.mbSetBusy('today', true);
           try {
             const res = await window.electronAPI.invoke('advisor-today-run-now');
             if (res && res.success) showToast('오늘 쓸 글 판을 새로 만들었어요', 'success');
@@ -10619,8 +10757,22 @@
               + '</div>';
           }
 
-          // 1) 키워드 10 — 자리 열린 것 → 근거 많은 것 → 검색량. 순위는 메인이 매긴 순서 그대로.
-          const kwRows = (plan.keywords || []).map((k, i) => {
+          // 1) 키워드 10 — 자리 열린 것 → 근거 많은 것 → 검색량. 순위(#)는 메인이 매긴 그대로 보인다.
+          // 한 몸(2026-10-06): 내 블로그 기록으로 '내 크기'(30위 안 검색량 범위) · '내 주제'(내 제목에 자주 쓴 말) 배지를 붙이고,
+          // 둘 다 맞는 것 → 하나 맞는 것 → 나머지 순으로 세운다. 견주기만 한다 — 점수 · 확률을 만들지 않는다.
+          const hasRecord = Boolean(window.__myBlogRecord);
+          const fitOf = (k) => (window.blogRangeOf && window.blogRangeOf(k.searchVolume) === 'mine' ? 1 : 0) + (window.myBlogTopicHit && window.myBlogTopicHit(k.keyword) ? 1 : 0);
+          const ordered = (plan.keywords || []).map((k, i) => ({ k, i, fit: hasRecord ? fitOf(k) : 0 }))
+            .sort((a, b) => b.fit - a.fit || a.i - b.i);
+          const fitCell = (k) => {
+            if (!hasRecord) return '<span style="color:#64748b;">내 크기 재기 전</span>';
+            const topic = window.myBlogTopicHit(k.keyword);
+            const size = window.blogRangeBadge ? window.blogRangeBadge(k.searchVolume) : '';
+            const topicTag = topic ? '<span title="내 글 제목에 자주 쓴 말 \'' + esc(topic) + '\'이 들어 있어요" style="display:inline-block; margin-left:6px; padding:1px 7px; border-radius:999px; font-size:10.5px; font-weight:800; background:rgba(251,191,36,0.16); color:#fbbf24;">내 주제</span>' : '';
+            return (size || topicTag) ? size + topicTag : '<span style="color:#64748b;">—</span>';
+          };
+          const fitCount = ordered.filter((x) => x.fit > 0).length;
+          const kwRows = ordered.map(({ k, i }) => {
             const s = k.seat;
             const seatCell = s
               ? '<b style="color:' + (seatColor[s.verdict] || '#e2e8f0') + ';">' + esc(s.verdict) + '</b>' + (s.verdict === '자료없음' ? '' : ' <span style="color:#94a3b8;">정면 ' + s.facing + (s.vacancy == null ? '' : ' · 빈자리 ' + s.vacancy) + ' · 본 ' + s.sampled + '</span>')
@@ -10639,10 +10791,14 @@
               + td((k.evidence || []).length + '<span style="color:#64748b; font-size:11px;"> ' + ev + '</span>', true)
               + td(mineCell, true)
               + td(k.homefeedTitleMatches > 0 ? k.homefeedTitleMatches : '0', true, k.homefeedTitleMatches > 0 ? '#e2e8f0' : '#64748b')
+              + td(fitCell(k))
               + '</tr>';
           }).join('');
-          let html = hfBlock + section('1. 오늘 쓸 키워드 ' + (plan.keywords || []).length, '내 주제의 인기·트렌드 검색어 후보 ' + plan.candidatesTotal + '개에서 검색량(검색광고)·자리(내 브라우저)를 재서 자리 열린 것 → 근거 많은 것 → 검색량 순. 확률 없음.',
-            kwRows ? table(th('#', true) + th('키워드') + th('주제') + th('검색량', true) + th('자리') + th('근거', true) + th('내 글', true) + th('오늘 홈판 같은 말', true), kwRows) : '<div style="color:#64748b; margin-top:6px;">후보가 없어요(내 주제 인기·트렌드 검색어 창구를 못 받았거나 비어 있음).</div>');
+          const fitNote = hasRecord
+            ? ' 내 블로그와 맞는 것(내 크기 · 내 주제) ' + fitCount + '개를 먼저 세웠어요 — # 은 원래 순위.'
+            : ' 위에서 [내 크기 재기]를 하면 내 블로그와 맞는 것을 먼저 세워요.';
+          let html = hfBlock + section('1. 오늘 쓸 키워드 ' + (plan.keywords || []).length, '내 주제의 인기·트렌드 검색어 후보 ' + plan.candidatesTotal + '개에서 검색량(검색광고)·자리(내 브라우저)를 재서 자리 열린 것 → 근거 많은 것 → 검색량 순. 확률 없음.' + fitNote,
+            kwRows ? table(th('#', true) + th('키워드') + th('주제') + th('검색량', true) + th('자리') + th('근거', true) + th('내 글', true) + th('오늘 홈판 같은 말', true) + th('내 블로그'), kwRows) : '<div style="color:#64748b; margin-top:6px;">후보가 없어요(내 주제 인기·트렌드 검색어 창구를 못 받았거나 비어 있음).</div>');
 
           // 2) 시간대·간격 — 실측 세 줄 + 홈판 탄 날 내 발행 패턴. 없으면 사실 한 줄.
           const t = plan.time || {};
@@ -11254,7 +11410,9 @@
            * 지금 내 블로그 — 잰 사실만 문장으로(사장님 2026-09-15 "잰 사실만 문장으로").
            * 화면이 새로 판정하지 않는다. 문장은 메인(my-blog-lane 의 describeBlogState)이 만들고 여기서는 그대로 적는다.
            */
-          const state = Array.isArray(dpView.blogState) ? dpView.blogState : [];
+          // 한 몸(2026-10-06): 내 블로그 카드(더 새 기록 · 같은 문장)가 그려져 있으면 고르기 회차 때의 옛 문장은 겹쳐 쓰지 않는다
+          // — 실측: 카드는 10/5 '글 50개', 이 줄은 10/4 회차의 '글 40개'라 한 화면에 다른 숫자가 두 번 나왔다.
+          const state = window.__myBlogRecord ? [] : (Array.isArray(dpView.blogState) ? dpView.blogState : []);
           envLine.innerHTML = state.length > 0
             ? '<div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:4px;">지금 내 블로그</div>'
               + state.map((line) => '<div title="' + dpEsc(line.evidence) + '" style="margin:2px 0; color:#cbd5e1; cursor:help;">' + dpEsc(line.text) + '</div>').join('')
@@ -11316,6 +11474,7 @@
           if (!blogUrl) { if (prog) prog.innerHTML = '<span style="color:#fbbf24;">블로그 주소를 넣어 주세요 (예: blog.naver.com/내아이디)</span>'; return; }
           btn.disabled = true; btn.style.opacity = '0.6';
           if (prog) prog.textContent = '블로그를 여는 중…';
+          window.mbSetBusy('measure', true);
           if (window.__dpBlogOff) { try { window.__dpBlogOff(); } catch {} }
           try {
             window.__dpBlogOff = window.electronAPI.on('blog-class-progress', (p) => {
@@ -11332,29 +11491,158 @@
             const env = res.record && res.record.envelope;
             dpView = { result: dpView.result, envelope: env || null, blogState: dpView.blogState };
             window.renderDailyPick();
-            // 무엇을 쟀는지는 자리 실측기와 같은 상자로 그린다 — 두 화면이 다른 말을 하지 않게.
+            // 한 몸(2026-10-06): 잰 기록을 공유 상태에 두고 카드 · 내 글 · 진행 줄 · 오늘 쓸 글 10 배지를 같이 다시 그린다.
+            window.__myBlogRecord = res.record;
             const box = document.getElementById('dpBlogResult');
-            if (box) box.innerHTML = window.blogEnvelopeHtml(res.record);
+            if (box) box.innerHTML = window.myBlogCardHtml(res.record);
+            window.renderMyPosts();
+            window.mbSetBusy('measure', false);
+            if (typeof window.refreshAdvisorDaily === 'function') void window.refreshAdvisorDaily();
+            if (typeof window.refreshAdvisorToday === 'function') void window.refreshAdvisorToday();
             /*
              * 다 재면 곧장 고른다(사장님 2026-09-15 "내 블로그 넣고 크기 재면 오늘 것 고르기가 그걸로 찾아줘야").
              * 잰 것을 쓰려고 한 번 더 누르게 할 이유가 없다.
              */
-            if (prog) prog.innerHTML = '<span style="color:#22c55e;">내 블로그를 다 쟀습니다 — 이어서 내 블로그가 붙어 본 말에서 오늘 쓸 것을 찾습니다.</span>';
+            if (prog) prog.innerHTML = '<span style="color:#22c55e;">내 블로그를 다 쟀습니다 — 아래 내 글 · 홈판 실측 · 오늘 쓸 글 10 이 이 기록으로 다시 그려졌고, 이어서 오늘 쓸 한 편을 고릅니다.</span>';
             if (typeof window.runDailyPick === 'function') window.runDailyPick();
           } catch (error) {
             if (prog) prog.innerHTML = '<span style="color:#fca5a5;">' + String((error && error.message) || error) + '</span>';
           } finally {
             btn.disabled = false; btn.style.opacity = '1';
+            if (window.__mbBusy && window.__mbBusy.measure) window.mbSetBusy('measure', false);
             if (window.__dpBlogOff) { try { window.__dpBlogOff(); } catch {} window.__dpBlogOff = null; }
           }
         };
 
+        /*
+         * 내 블로그 한 몸(2026-10-06) — 사장님 "내 블로그 크기 재고 나서 아래 내 글 · 지금 홈판 뜨는 글 · 오늘 쓸 글이
+         * 전부 따로 되어 있네? 내 크기를 재면 한 번에 한 몸처럼 움직여야". 화면의 판들이 같은 기록 셋을 나눠 쓴다:
+         * __myBlogRecord(내 크기 재기) · __advisorDailyView(홈판 유입 실측) · __advisorTodayPlan(오늘 쓸 글 10).
+         * 어느 하나가 새로 오면 그걸 쓰는 판을 다시 그린다. 값을 새로 지어내지 않는다 — 견주기(포함 여부)만.
+         */
+        window.__myBlogRecord = null;
+        window.__advisorDailyView = null;
+        window.__advisorTodayPlan = null;
+        window.__mbBusy = {};
+        const mbEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const mbFlat = (v) => String(v || '').replace(/\s+/g, '').toLowerCase();
+        const mbDay = (iso) => { const ms = Date.parse(iso || ''); if (!Number.isFinite(ms)) return ''; const d = new Date(ms + 9 * 3600 * 1000); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); };
+
+        /** 내 주제 낱말 — 내 글 전체 제목에서 센 상위 낱말(topicProfile). 없으면 빈 목록. */
+        window.myBlogTopicWords = function myBlogTopicWords() {
+          const t = window.__myBlogRecord && window.__myBlogRecord.topicProfile;
+          return t && Array.isArray(t.words) ? t.words.slice(0, 20).map((w) => w.word).filter((w) => w && w.length >= 2) : [];
+        };
+        /** 이 키워드에 내 주제 낱말이 들었나 — 들었으면 그 낱말. */
+        window.myBlogTopicHit = function myBlogTopicHit(keyword) {
+          const k = mbFlat(keyword);
+          return window.myBlogTopicWords().find((w) => k.includes(mbFlat(w))) || null;
+        };
+
+        /** 진행 줄 — 단계마다 잰 시각 또는 '아직'. 도는 단계는 '도는 중'. */
+        window.renderMbSteps = function renderMbSteps() {
+          const box = document.getElementById('mbSteps');
+          if (!box) return;
+          const rec = window.__myBlogRecord;
+          const daily = window.__advisorDailyView && window.__advisorDailyView.latest;
+          const plan = window.__advisorTodayPlan;
+          const busy = window.__mbBusy || {};
+          const steps = [
+            ['measure', '① 내 크기 · 주제', rec ? mbDay(rec.measuredAt) + ' 잼' : '아직'],
+            ['pick', '② 오늘 쓸 한 편', dpView && dpView.result && dpView.result.builtAt ? mbDay(dpView.result.builtAt) + ' 고름' : '아직'],
+            ['daily', '③ 홈판 유입 실측', daily ? daily.day.slice(5).replace('-', '/') + ' 통계' : '로그인 필요'],
+            ['today', '④ 오늘 쓸 글 10', plan ? mbDay(plan.builtAt) + ' 만듦' : '아직'],
+          ];
+          box.innerHTML = steps.map(([id, label, state]) => {
+            const on = busy[id];
+            const done = !on && !/아직|필요/.test(state);
+            return '<span style="display:inline-flex; gap:6px; align-items:center; padding:4px 10px; border-radius:999px; font-size:11.5px; border:1px solid '
+              + (on ? 'rgba(251,191,36,0.6)' : done ? 'rgba(34,197,94,0.35)' : 'rgba(255,255,255,0.12)') + '; background:'
+              + (on ? 'rgba(251,191,36,0.12)' : done ? 'rgba(34,197,94,0.08)' : 'transparent') + '; color:' + (on ? '#fde68a' : done ? '#bbf7d0' : '#94a3b8') + ';">'
+              + '<b style="font-weight:700;">' + label + '</b><span>' + (on ? '도는 중…' : mbEsc(state)) + '</span></span>';
+          }).join('') + mbAccountWarning(rec, daily, plan);
+        };
+        /*
+         * 계정이 다르면 한 몸이 아니다(2026-10-06 실측) — 내 크기는 leader_145(스포츠)로 쟀는데 홈판 실측 · 오늘 쓸 글 10 은
+         * 네이버 로그인된 다른 계정(leader_248) 어드바이저 기록이라 10개가 전부 '범위 밖'이었다. 다르면 그 사실을 적는다.
+         */
+        function mbAccountWarning(rec, daily, plan) {
+          const mine = rec && rec.blogId ? String(rec.blogId).toLowerCase() : '';
+          const other = String((daily && daily.channelId) || (plan && plan.channelId) || '').toLowerCase();
+          if (!mine || !other || mine === other) return '';
+          return '<div style="flex-basis:100%; margin-top:4px; padding:7px 10px; border-radius:8px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.35); font-size:12px; color:#fde68a;">'
+            + '내 크기는 <b>' + mbEsc(rec.blogId) + '</b> 로 쟀는데, 홈판 유입 실측 · 오늘 쓸 글 10 은 네이버 로그인된 <b>' + mbEsc(other) + '</b> 기록이에요. '
+            + '같은 블로그로 맞추려면 위 주소를 ' + mbEsc(other) + ' 로 바꿔 [내 크기 재기]를 하거나, 네이버 로그인을 ' + mbEsc(rec.blogId) + ' 계정으로 바꾸세요.</div>';
+        }
+        window.mbSetBusy = function mbSetBusy(id, on) { window.__mbBusy = Object.assign({}, window.__mbBusy, { [id]: on }); window.renderMbSteps(); };
+
+        /** 내 블로그 카드 — 블로그 사실(plain-words 문장 그대로) + 내 크기 상자. 자리 실측기에 있던 카드를 여기로. */
+        window.myBlogCardHtml = function myBlogCardHtml(record) {
+          if (!record) return '';
+          const card = record.card || { headline: null, lines: [], notices: [] };
+          const line = (l) => '<div title="' + mbEsc(l.evidence || '') + '" style="margin: 2px 0; color: #e2e8f0; cursor: help;">' + l.text + '</div>';
+          const topics = window.myBlogTopicWords().slice(0, 12);
+          return '<div style="margin-top: 10px; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09); font-size: 13px; color: #cbd5e1;">'
+            + (card.headline ? '<div style="font-size: 15px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">' + card.headline + '</div>' : '')
+            + (card.lines || []).map(line).join('')
+            + ((card.notices || []).length ? '<div style="margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.3);">' + card.notices.map(line).join('') + '</div>' : '')
+            + (topics.length ? '<div style="margin-top: 8px; font-size: 12.5px;"><span style="color:#94a3b8;">내 주제(제목에 자주 쓴 말):</span> ' + topics.map((w) => '<span style="display:inline-block; margin:2px 3px 0 0; padding:1px 8px; border-radius:999px; background:rgba(251,191,36,0.12); color:#fde68a;">' + mbEsc(w) + '</span>').join('') + '</div>' : '')
+            + window.blogEnvelopeHtml(record)
+            + '</div>';
+        };
+
+        /** 내 글 — 최근 15편. 어제 어드바이저 기록에 같은 제목이 있으면 그 글의 조회 · 홈판 유입을 붙인다(실측 그대로). */
+        window.renderMyPosts = function renderMyPosts() {
+          const box = document.getElementById('mbPosts');
+          const rec = window.__myBlogRecord;
+          if (!box) return;
+          const list = (rec && rec.recentTitles) || [];
+          if (!list.length) { box.innerHTML = ''; return; }
+          const daily = window.__advisorDailyView && window.__advisorDailyView.latest;
+          const byTitle = new Map(((daily && daily.posts) || []).map((p) => [mbFlat(p.title), p]));
+          const rows = list.map((p) => {
+            const hit = byTitle.get(mbFlat(p.title));
+            const hf = hit && hit.homefeed;
+            const tag = hit
+              ? '<span style="color:#94a3b8;">조회 ' + mbEsc(hit.views) + '</span>' + (hf ? (hf.count > 0 ? ' · <b style="color:#fbbf24;">홈판 ' + hf.count + '</b>' : ' · 홈판 0') : ' · 홈판 미측정')
+              : '';
+            return '<div style="display:flex; gap:10px; padding:5px 0; border-top:1px solid rgba(255,255,255,0.06);">'
+              + '<span style="color:#64748b; min-width:44px; font-variant-numeric:tabular-nums;">' + mbEsc(String(p.publishedOn || '').slice(5).replace('-', '/')) + '</span>'
+              + '<span style="flex:1; color:#e2e8f0;">' + mbEsc(p.title) + '</span>'
+              + '<span style="font-size:12px; white-space:nowrap;">' + tag + '</span></div>';
+          }).join('');
+          const total = rec.postsAvailable || list.length;
+          box.innerHTML = '<details style="margin-top:10px;" open><summary style="cursor:pointer; font-size:13px; font-weight:700; color:#ffffff;">📝 내 글 · 최근 ' + list.length + '편'
+            + '<span style="font-weight:400; color:#64748b; font-size:11.5px;"> (전체 ' + Number(total).toLocaleString('ko-KR') + '편 중' + (daily ? ' · 조회 · 홈판은 ' + mbEsc(daily.day) + ' 어드바이저 실측' : ' · 네이버 로그인하면 글마다 홈판 유입이 붙어요') + ')</span></summary>'
+            + '<div style="margin-top:6px; font-size:12.5px;">' + rows + '</div></details>';
+        };
+
+        /** 내 블로그 판 전부 다시 그리기 — 저장된 기록을 읽어 카드 · 내 글 · 진행 줄 · 배지(window.__blogBand)를 채운다. */
+        window.refreshMyBlogHub = async function refreshMyBlogHub() {
+          try {
+            const saved = await window.electronAPI.invoke('blog-class-get');
+            window.__myBlogRecord = (saved && saved.success && saved.record) || null;
+          } catch { window.__myBlogRecord = null; }
+          const box = document.getElementById('dpBlogResult');
+          if (box && window.__myBlogRecord) box.innerHTML = window.myBlogCardHtml(window.__myBlogRecord);
+          window.renderMyPosts();
+          window.renderMbSteps();
+          // 기록이 늦게 오면 고르기 판의 옛 '지금 내 블로그' 줄을 지운다(카드가 대신 보인다).
+          if (window.__myBlogRecord && typeof window.renderDailyPick === 'function') window.renderDailyPick();
+        };
+
         window.loadDailyPick = async function loadDailyPick() {
+          // 같은 화면의 다른 판들도 같이 연다 — 앱을 켜자마자 내 크기 배지 · 홈판 실측 · 오늘 쓸 글 10 이 차 있게.
+          void window.refreshMyBlogHub();
+          if (typeof window.refreshNaverSession === 'function') void window.refreshNaverSession();
+          if (typeof window.refreshAdvisorDaily === 'function') void window.refreshAdvisorDaily();
+          if (typeof window.refreshAdvisorToday === 'function') void window.refreshAdvisorToday();
           try {
             const res = await window.electronAPI.invoke('daily-pick-get');
             if (!res || !res.success) return;
             dpView = { result: res.result, envelope: res.envelope, blogState: res.blogState || null };
             window.renderDailyPick();
+            window.renderMbSteps();
           } catch { /* 무시 — 화면은 빈 상태로 둔다 */ }
           // 전에 넣은 주소를 채워 둔다 — 같은 사람이 매번 다시 치게 하지 않는다.
           try {
@@ -11371,6 +11659,7 @@
           if (!btn) return;
           btn.disabled = true; btn.style.opacity = '0.6';
           if (prog) prog.textContent = '후보를 모으는 중…';
+          if (typeof window.mbSetBusy === 'function') window.mbSetBusy('pick', true);
           if (window.__dpOff) { try { window.__dpOff(); } catch {} }
           try {
             window.__dpOff = window.electronAPI.on('daily-pick-progress', (p) => {
@@ -11390,6 +11679,7 @@
             if (prog) prog.textContent = String((error && error.message) || error);
           } finally {
             btn.disabled = false; btn.style.opacity = '1';
+            if (typeof window.mbSetBusy === 'function') window.mbSetBusy('pick', false);
             if (window.__dpOff) { try { window.__dpOff(); } catch {} window.__dpOff = null; }
           }
         };

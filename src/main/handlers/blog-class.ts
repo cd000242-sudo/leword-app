@@ -243,7 +243,9 @@ function forRenderer(record: BlogClassRecord | null) {
   if (!record) return null;
   const { posts, ...light } = record;
   // band — 30위 안에 붙어 본 검색량 범위. 화면의 '내 크기' 배지·거르개가 이 값으로 견준다(2026-09-15).
-  return { ...light, postsAvailable: posts.length, band: buildNearBand(light.wonRows || []) };
+  // recentTitles — '내 블로그' 화면의 내 글 목록(2026-10-06 사장님 "내 크기를 재면 한 몸처럼"). 최근 15편만.
+  const recentTitles = (posts || []).slice(0, 15).map((post) => ({ title: post.title, publishedOn: post.publishedOn, logNo: post.logNo }));
+  return { ...light, postsAvailable: posts.length, band: buildNearBand(light.wonRows || []), recentTitles };
 }
 
 /** 사이트 '내 블로그' 탭(브리지)이 읽는 마지막 기록 — 화면용 판 그대로(2026-09-30). */
@@ -253,10 +255,7 @@ export function readBlogClassForView() {
 
 /** AI 비서 도구(my_blog)가 읽는 기록 — 화면용 판 + 최근 글 제목(2026-10-06). 글 목록 전체는 넘기지 않는다. */
 export function readBlogClassForAssistant() {
-  const record = readLatest();
-  const view = forRenderer(record);
-  if (!record || !view) return null;
-  return { ...view, recentTitles: (record.posts || []).slice(0, 15).map((post) => ({ title: post.title, publishedOn: post.publishedOn })) };
+  return forRenderer(readLatest());
 }
 
 export function setupBlogClassHandlers(): void {

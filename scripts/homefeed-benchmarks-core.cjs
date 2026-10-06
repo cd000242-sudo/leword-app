@@ -288,6 +288,9 @@ function buildPayload(results, now, previous, previousPosts=[]) {
   const sources = results.map(({ posts: list, ...r })=>({ ...r, postCount:list.length }));
   const base = { schemaVersion:1, scope:'leadernam-benchmark', attemptedAt:now, sourceCount:sources.length, sources };
   if (!posts.length && previous?.schemaVersion===1 && Array.isArray(previous.candidates)) return { ...previous, ...base, status:'stale', reason:'이번 수집에서 유효한 게시물을 확보하지 못해 마지막 성공 결과를 유지합니다.' };
-  return { ...base, generatedAt:posts.length?now:null, status:posts.length?(sources.every(s=>s.status==='ok')?'fresh':'partial'):'stale', collectedPostCount:posts.length, candidates:buildCandidates(posts,now,previousPosts) };
+  const candidates = buildCandidates(posts,now,previousPosts);
+  // 홈판 흐름 요약(2026-10-06) — 오늘 자주 뜨는 분야 · 여러 채널이 다룬 소재 · 고수 제목 모양. 사이트 · 앱이 그대로 그린다.
+  const { buildTrends } = require('./homefeed-benchmarks-trends.cjs');
+  return { ...base, generatedAt:posts.length?now:null, status:posts.length?(sources.every(s=>s.status==='ok')?'fresh':'partial'):'stale', collectedPostCount:posts.length, candidates, trends:buildTrends(posts,candidates,now,category) };
 }
 module.exports = { category, assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, likeContentsId, parseLikes, buildCandidates, buildPayload };
