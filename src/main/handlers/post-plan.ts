@@ -15,7 +15,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { runPostPlan, type PostPlanDeps } from '../post-plan-service';
+import { draftAnswer, runInflow, runPostPlan, type InflowDeps, type PostPlanDeps } from '../post-plan-service';
 import { upsertPlan, type PostPlan } from '../../utils/post-plan/post-plan-model';
 
 export const POST_PLAN_PROGRESS_CHANNEL = 'post-plan-progress';
@@ -130,6 +130,72 @@ export async function createPostPlanDeps(): Promise<PostPlanDeps> {
   };
 }
 
+/** 앱 설정 원문(키 이름은 EnvironmentManager 그대로). */
+async function readAppConfig(): Promise<Record<string, any>> {
+  const { EnvironmentManager } = await import('../../utils/environment-manager');
+  const manager: any = typeof (EnvironmentManager as any).getInstance === 'function'
+    ? (EnvironmentManager as any).getInstance() : new (EnvironmentManager as any)();
+  return manager.getConfig() || {};
+}
+
+/*
+ * ⑤ 발행 후 유입의 실제 재료(2026-10-06 2차). 글 분석 · 평가 · 답변 초안은 사이트 브리지와 같은 함수(radar-analysis-service ·
+ * inflow-agents)라 같은 결과가 난다. 커뮤니티(구글)는 켰을 때만 — Bright Data 토큰이 앱 설정 · 환경에 없으면 건너뛰고 이유를 남긴다.
+ */
+export async function createInflowDeps(): Promise<InflowDeps> {
+  const cfg = await readAppConfig();
+  const post = (payload: Record<string, unknown>, timeoutMs: number) => fetchJson(WORKER, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  }, timeoutMs);
+  return {
+    analyze: async (postUrl) => {
+      const { analyzeRadarViaAgent } = await import('../radar-analysis-service');
+      const result: any = await analyzeRadarViaAgent({
+        url: postUrl,
+        keys: {
+          openApiId: cfg.naverClientId || '', openApiSecret: cfg.naverClientSecret || '',
+          searchAdLicense: cfg.naverSearchAdAccessLicense || '', searchAdSecret: cfg.naverSearchAdSecretKey || '', searchAdCustomer: cfg.naverSearchAdCustomerId || '',
+        },
+      });
+      if (!result?.analysis) throw new Error(String(result?.error || '글을 분석하지 못했습니다'));
+      return result.analysis;
+    },
+    search: async (analysis, withCommunity) => {
+      const token = String(cfg.brightDataToken || process.env.BRIGHTDATA_TOKEN || '').trim();
+      const useCommunity = withCommunity && Boolean(token);
+      const data = await post({
+        action: 'radar-search',
+        keys: useCommunity ? { brightDataToken: token, brightDataZone: String(cfg.brightDataZone || process.env.BRIGHTDATA_ZONE || '') } : {},
+        queries: JSON.stringify(analysis.queries || []),
+        coreKeywords: JSON.stringify(analysis.coreKeywords || []),
+        shortQueries: JSON.stringify(analysis.shortQueries || []),
+      }, 150_000);
+      if (!data?.ok) throw new Error(String(data?.message || '레이더 검색 실패'));
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        communityNote: withCommunity && !token ? 'Bright Data 토큰이 앱에 없어 커뮤니티(구글)는 건너뛰었습니다 — 지식인 · 카페만 찾았습니다' : null,
+      };
+    },
+    evaluate: async (items, analysis) => {
+      const { radarEvaluateViaAgent } = await import('../inflow-agents');
+      const result = await radarEvaluateViaAgent({
+        items: items.map((i) => ({ title: String(i.title || ''), source: String(i.source || ''), link: String(i.link || '') })),
+        myTitle: String(analysis.title || ''),
+        mySummary: String(analysis.moneyAngle || ''),
+      });
+      return result.evaluations;
+    },
+    questionBody: async (link) => {
+      const data = await post({ action: 'kin-question', link }, 30_000);
+      return String(data?.body || '');
+    },
+    answer: async (input) => {
+      const { kinAnswerViaAgent } = await import('../inflow-agents');
+      return kinAnswerViaAgent(input);
+    },
+  };
+}
+
 let running = false;
 
 export function setupPostPlanHandlers(): void {
@@ -152,5 +218,42 @@ export function setupPostPlanHandlers(): void {
   }
   if (!ipcMain.listenerCount('post-plan-list')) {
     ipcMain.handle('post-plan-list', async () => ({ success: true, plans: readPlans(), running }));
+  }
+  // ⑤ 발행 후 유입 — 글 주소로 링크 달 자리 찾기(2026-10-06 2차).
+  if (!ipcMain.listenerCount('post-plan-inflow')) {
+    ipcMain.handle('post-plan-inflow', async (_event, payload?: { id?: string; postUrl?: string; withCommunity?: boolean }) => {
+      const plan = readPlans().find((p) => p.id === payload?.id);
+      if (!plan) return { success: false, error: '설계를 찾지 못했습니다 — 먼저 설계를 만들어 주세요' };
+      if (running) return { success: false, error: '다른 설계가 돌고 있습니다 — 끝난 뒤 다시 눌러 주세요' };
+      running = true;
+      try {
+        const next = await runInflow(plan, String(payload?.postUrl || ''), await createInflowDeps(), say, { withCommunity: payload?.withCommunity === true });
+        writePlans(readPlans().map((p) => (p.id === next.id ? next : p)));
+        return { success: true, plan: next };
+      } catch (error: any) {
+        return { success: false, error: String(error?.message || error).slice(0, 200) };
+      } finally {
+        running = false;
+      }
+    });
+  }
+  // 자리 하나의 답변 초안(내 구독 AI) — 게시는 사람이 한다. 만든 초안은 설계에 남긴다.
+  if (!ipcMain.listenerCount('post-plan-answer')) {
+    ipcMain.handle('post-plan-answer', async (_event, payload?: { id?: string; link?: string }) => {
+      const plan = readPlans().find((p) => p.id === payload?.id);
+      const inflow: any = plan?.steps.inflow?.data;
+      const spot = inflow && [...(inflow.spots || []), ...(inflow.unrated || []), ...(inflow.skippedSpots || [])].find((s: any) => s.link === payload?.link);
+      if (!plan || !spot) return { success: false, error: '이 자리를 찾지 못했습니다 — 링크 달 자리를 다시 찾아 주세요' };
+      try {
+        const answer = await draftAnswer(spot, inflow.postUrl, await createInflowDeps());
+        if (!answer) return { success: false, error: 'AI 가 초안을 돌려주지 않았습니다 — 연결된 엔진을 확인해 주세요' };
+        const nextInflow = { ...inflow, answers: { ...(inflow.answers || {}), [spot.link]: answer } };
+        const next: PostPlan = { ...plan, updatedAt: new Date().toISOString(), steps: { ...plan.steps, inflow: { ...plan.steps.inflow!, data: nextInflow } } };
+        writePlans(readPlans().map((p) => (p.id === next.id ? next : p)));
+        return { success: true, answer, plan: next };
+      } catch (error: any) {
+        return { success: false, error: String(error?.message || error).slice(0, 200) };
+      }
+    });
   }
 }

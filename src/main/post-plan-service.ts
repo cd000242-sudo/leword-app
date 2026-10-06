@@ -8,7 +8,10 @@
  * 한 단계가 실패해도 나머지는 계속하고, 못 한 이유를 그 단계에 남긴다. 추정치(확률 · 예상 유입)는 만들지 않는다.
  */
 import type { NearBand, RangeVerdict, CandidateSize } from '../utils/blog-class/envelope';
-import { affiliateCandidates, questionChecklist, type PostPlan, type PostPlanStep } from '../utils/post-plan/post-plan-model';
+import { affiliateCandidates, filterByAnalysis, inflowSpots, questionChecklist, type PostPlan, type PostPlanStep } from '../utils/post-plan/post-plan-model';
+
+/** 발행 후 유입에서 AI 가 한 번에 평가할 자리 수(실측: 147곳은 150초 안에 못 답함). */
+const INFLOW_EVAL_LIMIT = 40;
 
 export interface PlanSeat { verdict: string; facing: number | null; vacancy: number | null; topTitles: string[] }
 
@@ -112,4 +115,67 @@ export async function runPostPlan(keywordRaw: string, deps: PostPlanDeps, say: (
   };
 
   return { id, keyword, createdAt: at, updatedAt: at, steps: { judge, titles, questions: questionStep, money } };
+}
+
+/*
+ * ⑤ 발행 후 유입(2026-10-06 2차) — 발행한 글 주소로 링크 달 자리를 찾는다.
+ *   글 분석(내 구독 AI, 워커가 근거 · 프롬프트) → 그 질의로 레이더 검색(지식인 · 카페 무료, 커뮤니티는 켰을 때만)
+ *   → 판 평가(내 구독 AI) → 지금 답하면 유입 / 지켜볼 자리. 자리마다 답변 초안은 눌렀을 때만 만든다. 게시는 사람이 한다.
+ */
+export interface InflowAnalysis { title?: string; moneyAngle?: string; queries?: string[]; coreKeywords?: Array<{ keyword: string }>; shortQueries?: string[] }
+
+export interface InflowDeps {
+  analyze(postUrl: string): Promise<InflowAnalysis>;
+  search(analysis: InflowAnalysis, withCommunity: boolean): Promise<{ items: Array<Record<string, any>>; communityNote: string | null }>;
+  evaluate(items: Array<Record<string, any>>, analysis: InflowAnalysis): Promise<Array<Record<string, any>>>;
+  questionBody(link: string): Promise<string>;
+  answer(input: { title: string; body?: string; withLink: boolean; blogUrl?: string }): Promise<{ answer: string }>;
+}
+
+export async function runInflow(plan: PostPlan, postUrlRaw: string, deps: InflowDeps, say: (message: string) => void, options: { withCommunity: boolean }): Promise<PostPlan> {
+  const postUrl = String(postUrlRaw || '').trim();
+  if (!/^https?:\/\/\S+$/i.test(postUrl)) throw new Error('발행한 글 주소(https://…)를 넣어 주세요');
+  say('⑤ 글을 읽고 무엇에 답하는 글인지 분석합니다(내 구독 AI)');
+  const analysis = await deps.analyze(postUrl);
+  say(options.withCommunity ? '⑤ 최근 14일 지식인 · 카페 · 커뮤니티에서 같은 문제를 가진 사람을 찾습니다' : '⑤ 최근 14일 지식인 · 카페에서 같은 문제를 가진 사람을 찾습니다');
+  const found = await deps.search(analysis, options.withCommunity);
+  /*
+   * 관련 없는 글은 평가 전에 뺀다(실주행 '우리들의 발라드2' 글: 147곳 중 '신용대출' · '임신 중 퇴사'가 섞였다).
+   * 평가는 최근 순 INFLOW_EVAL_LIMIT 곳만 — 147곳을 한 번에 물으면 AI 가 150초 안에 못 답했다(실측). 나머지는 '평가 밖'.
+   */
+  const when = (item: Record<string, any>) => Date.parse(item.postedAt || `${item.postdate}T00:00:00+09:00`) || 0;
+  const relevant = filterByAnalysis(found.items, analysis).sort((a, b) => when(b) - when(a));
+  const toEvaluate = relevant.slice(0, INFLOW_EVAL_LIMIT);
+  say(`⑤ 찾은 ${found.items.length}곳 중 내 글과 관련된 ${relevant.length}곳 — ${toEvaluate.length}곳을 평가합니다(내 구독 AI)`);
+  const evaluated = await settle(() => (toEvaluate.length ? deps.evaluate(toEvaluate, analysis) : Promise.resolve([])));
+  const sorted = inflowSpots(toEvaluate, evaluated.ok ? evaluated.value : []);
+  const beyond = inflowSpots(relevant.slice(INFLOW_EVAL_LIMIT), []).unrated;
+  const inflow: PostPlanStep<unknown> = {
+    ok: true,
+    data: {
+      postUrl,
+      // 워커가 준 제목은 HTML 기호(&quot; 등)가 그대로라 화면에 '&quot;'가 찍혔다 — 풀고, '네이버 블로그' 꼬리를 뗀다.
+      postTitle: String(analysis.title || '')
+        .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+        .replace(/\s*:\s*네이버 블로그\s*$/, ''),
+      searchedWith: (analysis.coreKeywords || []).map((k) => k.keyword).slice(0, 6),
+      found: found.items.length,
+      relevant: relevant.length,
+      spots: sorted.spots,
+      unrated: [...sorted.unrated, ...beyond],
+      skipped: sorted.skipped,
+      skippedSpots: sorted.skippedSpots,
+      evaluateNote: evaluated.ok ? null : evaluated.note,
+      communityNote: found.communityNote,
+      answers: {},
+    },
+  };
+  return { ...plan, updatedAt: new Date().toISOString(), steps: { ...plan.steps, inflow } };
+}
+
+/** 자리 하나의 답변 초안 — 지식인은 질문 본문까지 읽는다. 링크 금지 판은 링크 없이 쓴다(내 구독 AI). */
+export async function draftAnswer(spot: { title: string; link: string; source: string; linkPolicy: string }, postUrl: string, deps: InflowDeps): Promise<string> {
+  const body = spot.source === 'kin' ? await deps.questionBody(spot.link).catch(() => '') : '';
+  const result = await deps.answer({ title: spot.title, body, withLink: spot.linkPolicy !== 'banned', blogUrl: postUrl });
+  return String(result.answer || '').trim();
 }

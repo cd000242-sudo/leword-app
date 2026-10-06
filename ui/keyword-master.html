@@ -11452,6 +11452,77 @@
          */
         let ppPlans = [];
         let ppProgressOff = null;
+        let ppCurrent = null;
+        /*
+         * ⑤ 발행 후 · 링크 달 자리(2026-10-06 2차) — 글 주소로 레이더(분석 → 최근 14일 검색 → 평가)를 돌린다.
+         * 커뮤니티(구글)는 체크했을 때만 Bright Data 를 쓴다. 답변 초안은 자리마다 눌렀을 때만(내 구독 AI). 게시는 사람이 한다.
+         * 화면에는 AI 점수를 숫자로 내지 않고 묶음(지금 답하면 유입 · 지켜볼 자리)과 근거만.
+         */
+        function ppSpotHtml(spot, answers) {
+          const careful = spot.linkPolicy === 'careful'
+            ? ' <span title="' + ppEsc(spot.policyWhy || '홍보로 보이면 지워질 수 있습니다') + '" style="font-size:10.5px; color:#fbbf24; border:1px solid rgba(251,191,36,0.4); border-radius:4px; padding:0 5px;">링크 조심</span>' : '';
+          const draft = answers && answers[spot.link];
+          return '<div style="padding:9px 0; border-top:1px solid rgba(255,255,255,0.05);">'
+            + '<div style="display:flex; gap:8px; align-items:baseline; flex-wrap:wrap;">'
+            + '<a href="#" data-pp-open="' + ppEsc(spot.link) + '" style="flex:1 1 280px; color:#e2e8f0; font-size:13px; text-decoration:none;">' + ppEsc(spot.title) + '</a>'
+            + '<span style="font-size:11px; color:#64748b;">' + ppEsc(ppDay(spot.postdate)) + ' · ' + ppEsc(spot.where) + '</span>' + careful
+            + '<button data-pp-answer="' + ppEsc(spot.link) + '" style="font:inherit; font-size:11.5px; padding:3px 9px; border-radius:6px; border:1px solid rgba(250,204,21,0.45); background:rgba(250,204,21,0.08); color:#fde68a; cursor:pointer;">' + (draft ? '초안 다시' : '답변 초안') + '</button></div>'
+            + (spot.reason ? '<div style="font-size:11.5px; color:#94a3b8; margin-top:3px;">근거 · ' + ppEsc(spot.reason) + '</div>' : '')
+            + (draft ? '<div style="margin-top:6px; padding:9px 11px; border-radius:8px; background:#0b1220; border:1px solid rgba(255,255,255,0.08); font-size:12.5px; color:#e2e8f0; white-space:pre-wrap;">' + ppEsc(draft)
+              + '<div style="text-align:right;"><button data-pp-copy="' + ppEsc(draft) + '" style="font:inherit; font-size:11px; color:#94a3b8; background:none; border:0; cursor:pointer;">복사</button></div></div>' : '')
+            + '</div>';
+        }
+        function ppInflowHtml(plan) {
+          const inflow = plan.steps && plan.steps.inflow && plan.steps.inflow.data;
+          const form = '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">'
+            + '<input id="ppPostUrl" type="text" placeholder="발행한 글 주소 https://blog.naver.com/…" value="' + ppEsc(inflow ? inflow.postUrl : '') + '" style="flex:1 1 320px; padding:9px 11px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); background:#0b1220; color:#f1f5f9; font-size:13px;">'
+            + '<label style="font-size:12px; color:#a8b6cb; display:flex; gap:5px; align-items:center;"><input id="ppCommunity" type="checkbox">커뮤니티까지(Bright Data 사용)</label>'
+            + '<button data-pp-inflow="1" style="padding:9px 14px; border:0; border-radius:8px; background:#fbbf24; color:#1a1200; font-weight:700; font-size:12.5px; cursor:pointer;">' + (inflow ? '다시 찾기' : '링크 달 자리 찾기') + '</button></div>'
+            + '<div style="font-size:11px; color:#64748b; margin-top:6px;">글을 분석해 최근 14일 안에 같은 문제를 물은 지식인 · 카페(체크하면 커뮤니티까지)를 찾고, 내 글과 견줘 평가합니다. 2~4분 걸립니다.</div>';
+          if (!inflow) return form;
+          const now = (inflow.spots || []).filter((s) => s.action === 'NOW');
+          const watch = (inflow.spots || []).filter((s) => s.action === 'WATCH');
+          const group = (label, list) => (list.length ? '<div style="font-size:12.5px; font-weight:700; color:#e2e8f0; margin:12px 0 2px;">' + label + ' <span style="color:#fbbf24;">' + list.length + '</span></div>' + list.map((s) => ppSpotHtml(s, inflow.answers)).join('') : '');
+          return form
+            + '<div style="font-size:12px; color:#94a3b8; margin-top:10px;">' + ppEsc(inflow.postTitle || inflow.postUrl) + ' · 찾음 ' + ppNum(inflow.found) + '곳 · 내 글과 관련 ' + ppNum(inflow.relevant) + '곳 · 평가에서 제외 ' + ppNum(inflow.skipped) + '곳</div>'
+            + ((inflow.searchedWith || []).length ? '<div style="font-size:11px; color:#64748b; margin-top:2px;">찾은 말: ' + inflow.searchedWith.map(ppEsc).join(' · ') + '</div>' : '')
+            + ppNote(inflow.communityNote) + ppNote(inflow.evaluateNote ? '평가를 못 했습니다: ' + inflow.evaluateNote : '')
+            + group('지금 답하면 유입', now) + group('지켜볼 자리', watch) + group('평가 밖', inflow.unrated || [])
+            + ((inflow.skippedSpots || []).length
+              ? '<details style="margin-top:10px;"><summary style="cursor:pointer; font-size:12px; color:#94a3b8;">AI 가 답할 자리가 아니라고 본 곳 ' + inflow.skippedSpots.length + '곳 (참고 · 근거 포함)</summary>'
+                + inflow.skippedSpots.map((s) => ppSpotHtml(s, inflow.answers)).join('') + '</details>'
+              : '')
+            + ((now.length + watch.length + (inflow.unrated || []).length) === 0 ? '<div style="font-size:12.5px; color:#94a3b8; margin-top:10px;">최근 14일 안에 답할 만한 자리를 찾지 못했습니다.</div>' : '')
+            + '<div style="font-size:11px; color:#64748b; margin-top:10px;">지식인은 정보를 먼저 쓰고 링크는 1개만 · 같은 링크를 여러 질문에 반복하면 정지된 사례가 있습니다. 게시는 직접 하세요.</div>';
+        }
+        async function ppRunInflow(btn) {
+          if (!ppCurrent) return;
+          const status = document.getElementById('ppStatus');
+          const url = (document.getElementById('ppPostUrl') || {}).value || '';
+          const withCommunity = !!(document.getElementById('ppCommunity') || {}).checked;
+          btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '찾는 중…';
+          try {
+            const res = await window.electronAPI.invoke('post-plan-inflow', { id: ppCurrent.id, postUrl: url.trim(), withCommunity });
+            if (res && res.success && res.plan) { ppRender(res.plan); await window.loadPostPlan(); if (status) status.textContent = '링크 달 자리를 찾았습니다.'; }
+            else { if (status) status.textContent = (res && res.error) || '찾지 못했습니다.'; btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '링크 달 자리 찾기'; }
+          } catch (err) {
+            if (status) status.textContent = String((err && err.message) || err);
+            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '링크 달 자리 찾기';
+          }
+        }
+        async function ppDraftAnswer(btn) {
+          if (!ppCurrent) return;
+          const status = document.getElementById('ppStatus');
+          btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '쓰는 중…';
+          try {
+            const res = await window.electronAPI.invoke('post-plan-answer', { id: ppCurrent.id, link: btn.dataset.ppAnswer });
+            if (res && res.success && res.plan) ppRender(res.plan);
+            else { if (status) status.textContent = (res && res.error) || '초안을 만들지 못했습니다.'; btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '답변 초안'; }
+          } catch (err) {
+            if (status) status.textContent = String((err && err.message) || err);
+            btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '답변 초안';
+          }
+        }
         const ppEsc = (text) => String(text == null ? '' : text)
           .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const ppNum = (v) => (typeof v === 'number' && isFinite(v) ? v.toLocaleString('ko-KR') : '—');
@@ -11519,7 +11590,9 @@
             + ppBox('② 제목', titles || '<div style="font-size:12.5px; color:#94a3b8;">만든 제목이 없습니다.</div>')
             + ppBox('③ 사람들이 실제로 물은 것 · 최근 14일', questions)
             + ppBox('④ 돈', money)
-            + '<div style="font-size:11.5px; color:#64748b; margin:4px 2px 0;">발행 후 링크 달 자리 찾기 · 3일/7일 뒤 순위 확인은 다음 업데이트에서 이 화면에 이어집니다.</div>';
+            + ppBox('⑤ 발행 후 · 링크 달 자리', ppInflowHtml(plan))
+            + '<div style="font-size:11.5px; color:#64748b; margin:4px 2px 0;">3일 · 7일 뒤 순위와 홈판 유입 확인은 다음 업데이트에서 이 화면에 이어집니다.</div>';
+          ppCurrent = plan;
         }
         function ppRenderList() {
           const list = document.getElementById('ppList');
@@ -11527,12 +11600,14 @@
           list.innerHTML = ppPlans.slice(0, 12).map((p, i) => '<button data-pp-plan="' + i + '" style="padding:4px 10px; border-radius:20px; border:1px solid rgba(255,255,255,0.14); background:#13202e; color:#a1b3c9; font:inherit; font-size:11.5px; cursor:pointer;">' + ppEsc(p.keyword) + '</button>').join('');
         }
         document.addEventListener('click', (event) => {
-          const el = event.target && event.target.closest ? event.target.closest('[data-pp-copy],[data-pp-open],[data-pp-plan]') : null;
+          const el = event.target && event.target.closest ? event.target.closest('[data-pp-copy],[data-pp-open],[data-pp-plan],[data-pp-inflow],[data-pp-answer]') : null;
           if (!el) return;
           event.preventDefault();
           if (el.dataset.ppCopy != null) lewordCopyText(el.dataset.ppCopy, el);
           else if (el.dataset.ppOpen) lewordOpenExternal(el.dataset.ppOpen);
           else if (el.dataset.ppPlan != null) ppRender(ppPlans[Number(el.dataset.ppPlan)]);
+          else if (el.dataset.ppInflow != null) ppRunInflow(el);
+          else if (el.dataset.ppAnswer) ppDraftAnswer(el);
         });
         window.loadPostPlan = async function loadPostPlan() {
           try {
