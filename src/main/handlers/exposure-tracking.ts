@@ -67,7 +67,7 @@ interface RelatedRecord {
 }
 
 /** 고를 때 잰 값 — leword-proof.ts 의 PickFacts 와 같은 모양이다. */
-interface PickFacts {
+export interface PickFacts {
   source: string;
   searchVolume: number | null;
   documentCount: number | null;
@@ -438,6 +438,32 @@ function normalizeBlogRssUrl(input: string): string | null {
   // 4) 블로그 ID 단독 (영문/숫자/대시/언더스코어/마침표)
   if (/^[a-zA-Z0-9._-]+$/.test(s)) return `https://rss.blog.naver.com/${s}.xml`;
   return null;
+}
+
+/**
+ * 노출 추적에 글 한 쌍(키워드 · 글 주소)을 등록한다. exposure-add-manual 과 설계실(2026-10-06 3차)이 같은 함수를 쓴다.
+ * pick(고른 순간의 실측)은 준 것만 담는다 — 없으면 없는 채로 둔다(빈 값을 잰 것처럼 만들지 않는다).
+ */
+export function addTrackedPost(p: { keyword: string; postUrl: string; postTitle?: string; category?: string; pick?: PickFacts }): { success: boolean; error?: string; totalTracked?: number } {
+  try {
+    const kw = String(p?.keyword || '').trim();
+    const url = String(p?.postUrl || '').trim();
+    if (!kw || !url) return { success: false, error: 'keyword/postUrl 필수' };
+    const tracked = readJson<TrackedKeyword[]>(FILE_TRACKED(), []);
+    if (tracked.find(t => t.keyword === kw && t.postUrl === url)) {
+      return { success: false, error: '이미 등록됨' };
+    }
+    tracked.push({
+      keyword: kw, postUrl: url,
+      postTitle: p.postTitle || '',
+      category: p.category,
+      registeredAt: new Date().toISOString(),
+      history: [],
+      ...(p.pick ? { pick: p.pick } : {}),
+    });
+    writeJson(FILE_TRACKED(), tracked);
+    return { success: true, totalTracked: tracked.length };
+  } catch (err: any) { return { success: false, error: err?.message }; }
 }
 
 export function setupExposureTrackingHandlers(): void {
@@ -835,28 +861,7 @@ export function setupExposureTrackingHandlers(): void {
 
   // 7. 수동 페어 등록 (자동 매칭이 못 잡은 경우)
   if (!ipcMain.listenerCount('exposure-add-manual')) {
-    ipcMain.handle('exposure-add-manual', async (_e, p: { keyword: string; postUrl: string; postTitle?: string; category?: string; pick?: PickFacts }) => {
-      try {
-        const kw = String(p?.keyword || '').trim();
-        const url = String(p?.postUrl || '').trim();
-        if (!kw || !url) return { success: false, error: 'keyword/postUrl 필수' };
-        const tracked = readJson<TrackedKeyword[]>(FILE_TRACKED(), []);
-        if (tracked.find(t => t.keyword === kw && t.postUrl === url)) {
-          return { success: false, error: '이미 등록됨' };
-        }
-        tracked.push({
-          keyword: kw, postUrl: url,
-          postTitle: p.postTitle || '',
-          category: p.category,
-          registeredAt: new Date().toISOString(),
-          history: [],
-          // 준 것만 담는다 — 없으면 없는 채로 둔다(빈 값을 잰 것처럼 만들지 않는다).
-          ...(p.pick ? { pick: p.pick } : {}),
-        });
-        writeJson(FILE_TRACKED(), tracked);
-        return { success: true, totalTracked: tracked.length };
-      } catch (err: any) { return { success: false, error: err?.message }; }
-    });
+    ipcMain.handle('exposure-add-manual', async (_e, p: { keyword: string; postUrl: string; postTitle?: string; category?: string; pick?: PickFacts }) => addTrackedPost(p));
   }
 
   /*

@@ -33,6 +33,9 @@ export interface EnvConfig {
   naverApiHubKeyId?: string;   // X-NCP-APIGW-API-KEY-ID
   naverApiHubKey?: string;     // X-NCP-APIGW-API-KEY
   naverApiHubBase?: string;    // probeApiHub 실측으로 잠근 게이트웨이 URL
+  // Bright Data(2026-10-06 설계실 3차) — 글 한 편 유입 설계실 '커뮤니티까지'에만 쓴다(유료).
+  brightDataToken?: string;
+  brightDataZone?: string;
   naverSearchAdAccessLicense?: string;
   naverSearchAdSecretKey?: string;
   naverSearchAdCustomerId?: string; // 고객 ID (X-Customer 헤더용)

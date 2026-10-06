@@ -179,3 +179,54 @@ export async function draftAnswer(spot: { title: string; link: string; source: s
   const result = await deps.answer({ title: spot.title, body, withLink: spot.linkPolicy !== 'banned', blogUrl: postUrl });
   return String(result.answer || '').trim();
 }
+
+/*
+ * ⑥ 결과 확인(2026-10-06 3차) — 글 주소를 넣은 순간을 발행 시점으로 보고, 3일 · 7일 뒤 실제 순위(블로그탭 data-url)와
+ * 어드바이저 홈판 유입을 '고를 때 판정' 옆에 남긴다. 잴 차례가 아니면 순위는 재지 않는다(홈판 유입만 갱신).
+ */
+export interface ResultDeps {
+  rank(keyword: string, postUrl: string): Promise<{ status: string; rank: number | null; sampled: number }>;
+  advisorLatest(): any;
+}
+
+/** 결과 칸 시작 — 이미 있으면 등록 시각은 그대로(같은 글 다시 찾기). */
+export function startResult(plan: PostPlan, now = Date.now()): PostPlan {
+  const inflow: any = plan.steps.inflow?.data;
+  if (!inflow?.postUrl) return plan;
+  const prev: any = plan.steps.result?.data;
+  if (prev && prev.postUrl === inflow.postUrl) return plan;
+  const judge: any = plan.steps.judge?.data || {};
+  const data = {
+    registeredAt: new Date(now).toISOString(),
+    postUrl: inflow.postUrl,
+    postTitle: inflow.postTitle || '',
+    pick: { seat: judge.seat?.verdict ?? null, facing: judge.seat?.facing ?? null, searchVolume: judge.searchVolume ?? null, range: judge.range?.verdict ?? null },
+    checks: [] as Array<Record<string, unknown>>,
+    latest: null,
+    homefeed: null,
+  };
+  return { ...plan, steps: { ...plan.steps, result: { ok: true, data } } };
+}
+
+export async function checkPlanResult(plan: PostPlan, deps: ResultDeps, now = Date.now(), options: { force?: boolean } = {}): Promise<PostPlan> {
+  const result: any = plan.steps.result?.data;
+  if (!result?.postUrl) return plan;
+  const { dueResultChecks, homefeedForPost } = await import('../utils/post-plan/post-plan-result');
+  const at = new Date(now).toISOString();
+  const due = dueResultChecks(result, now);
+  let checks = [...(result.checks || [])];
+  let latest = result.latest || null;
+  let lastError: string | null = result.lastError || null;
+  if (due.length || options.force) {
+    const measured = await settle(() => deps.rank(plan.keyword, result.postUrl));
+    const row = measured.ok
+      ? { at, rank: measured.value.rank, sampled: measured.value.sampled, status: measured.value.status }
+      : { at, rank: null, sampled: 0, status: `error: ${measured.note}` };
+    if (options.force) latest = row;
+    // 차단 · 오류는 그날 확인으로 치지 않는다 — 기록하지 않고 다음 회차(1시간 뒤)에 다시 잰다.
+    else if (row.status === 'ok') { checks = [...checks, ...due.map((day) => ({ day, ...row }))]; lastError = null; }
+    else lastError = `${at} ${row.status}`;
+  }
+  const homefeed = homefeedForPost(deps.advisorLatest(), result.postUrl) || result.homefeed || null;
+  return { ...plan, updatedAt: at, steps: { ...plan.steps, result: { ok: true, data: { ...result, checks, latest, homefeed, lastError } } } };
+}

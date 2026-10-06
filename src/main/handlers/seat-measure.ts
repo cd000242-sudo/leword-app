@@ -146,6 +146,23 @@ export async function measureKeywords(
   };
 }
 
+/**
+ * 내 글이 이 검색어 블로그탭에서 몇 위인가(설계실 3차, 2026-10-06). 자리 실측과 같은 화면을 이 PC 브라우저로 받아
+ * data-url 순서로 센다(외부 블로그 포함 실제 순위). 30위 밖이면 rank null, 못 읽으면 status 로 알린다.
+ */
+export async function measurePostRank(keyword: string, postUrl: string): Promise<{ status: FetchStatus; rank: number | null; sampled: number }> {
+  const { rankFromBlogTab } = await import('../../utils/post-plan/post-plan-result');
+  const { browserPool } = await import('../../utils/puppeteer-pool');
+  const browser = await browserPool.acquire();
+  try {
+    const page = await fetchHtml(browser, seatBlogTabUrl(keyword));
+    if (page.status !== 'ok') return { status: page.status, rank: null, sampled: 0 };
+    return { status: 'ok', ...rankFromBlogTab(page.html, postUrl) };
+  } finally {
+    try { browserPool.release(browser); } catch { /* 풀 사정 */ }
+  }
+}
+
 export function setupSeatMeasureHandlers(): void {
   if (!ipcMain.listenerCount('seat-measure-abort')) {
     ipcMain.handle('seat-measure-abort', async () => {

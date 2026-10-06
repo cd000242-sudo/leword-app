@@ -15,7 +15,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { draftAnswer, runInflow, runPostPlan, type InflowDeps, type PostPlanDeps } from '../post-plan-service';
+import { checkPlanResult, draftAnswer, runInflow, runPostPlan, startResult, type InflowDeps, type PostPlanDeps, type ResultDeps } from '../post-plan-service';
 import { upsertPlan, type PostPlan } from '../../utils/post-plan/post-plan-model';
 
 export const POST_PLAN_PROGRESS_CHANNEL = 'post-plan-progress';
@@ -196,6 +196,61 @@ export async function createInflowDeps(): Promise<InflowDeps> {
   };
 }
 
+/** 노출 추적에 이 설계의 글을 등록한다(설계실 3차). 실패해도 설계는 계속 — 이유는 로그로만. */
+function trackPlanPost(plan: PostPlan): void {
+  const result: any = plan.steps.result?.data;
+  const judge: any = plan.steps.judge?.data || {};
+  if (!result?.postUrl) return;
+  try {
+    const { addTrackedPost } = require('./exposure-tracking');
+    addTrackedPost({
+      keyword: plan.keyword,
+      postUrl: result.postUrl,
+      postTitle: result.postTitle || '',
+      pick: { source: '글 한 편 유입 설계실', searchVolume: judge.searchVolume ?? null, documentCount: judge.documentCount ?? null, seat: judge.seat?.verdict ?? null, facing: judge.seat?.facing ?? null, measuredAt: plan.createdAt },
+    });
+  } catch (error: any) {
+    console.warn('[설계실] 노출 추적 등록 실패:', error?.message);
+  }
+}
+
+/** 결과 확인 재료 — 순위는 이 PC 브라우저로 블로그탭(자리 실측과 같은 화면), 홈판 유입은 어드바이저 글별 기록. */
+function createResultDeps(): ResultDeps {
+  return {
+    rank: async (keyword, postUrl) => (await import('./seat-measure')).measurePostRank(keyword, postUrl),
+    advisorLatest: () => {
+      try { return require('./advisor-daily').readAdvisorDailyView().latest; } catch { return null; }
+    },
+  };
+}
+
+/** 결과 칸이 있는 설계를 하나씩 확인한다(차례가 된 날만 순위를 잰다). 바뀐 설계만 다시 쓴다. */
+async function checkAllResults(): Promise<void> {
+  if (running) return;
+  running = true;
+  try {
+    const deps = createResultDeps();
+    for (const plan of readPlans().filter((p) => p.steps.result?.data)) {
+      const next = await checkPlanResult(plan, deps);
+      if (JSON.stringify(next.steps.result) !== JSON.stringify(plan.steps.result)) {
+        writePlans(readPlans().map((p) => (p.id === next.id ? next : p)));
+      }
+    }
+  } catch (error: any) {
+    console.warn('[설계실] 결과 확인 실패:', error?.message);
+  } finally {
+    running = false;
+  }
+}
+
+let resultTimer: NodeJS.Timeout | null = null;
+/** 앱이 켜져 있는 동안 1시간마다(처음은 3분 뒤) 결과를 확인한다. */
+export function startPostPlanScheduler(): void {
+  if (resultTimer) return;
+  setTimeout(() => { void checkAllResults(); }, 3 * 60 * 1000);
+  resultTimer = setInterval(() => { void checkAllResults(); }, 60 * 60 * 1000);
+}
+
 let running = false;
 
 export function setupPostPlanHandlers(): void {
@@ -227,7 +282,28 @@ export function setupPostPlanHandlers(): void {
       if (running) return { success: false, error: '다른 설계가 돌고 있습니다 — 끝난 뒤 다시 눌러 주세요' };
       running = true;
       try {
-        const next = await runInflow(plan, String(payload?.postUrl || ''), await createInflowDeps(), say, { withCommunity: payload?.withCommunity === true });
+        const found = await runInflow(plan, String(payload?.postUrl || ''), await createInflowDeps(), say, { withCommunity: payload?.withCommunity === true });
+        // ⑥ 결과 칸 시작 + 노출 추적 등록(3차) — 고른 순간의 실측을 함께 박아 둔다(이미 등록된 쌍이면 그대로).
+        const next = startResult(found);
+        trackPlanPost(next);
+        writePlans(readPlans().map((p) => (p.id === next.id ? next : p)));
+        return { success: true, plan: next };
+      } catch (error: any) {
+        return { success: false, error: String(error?.message || error).slice(0, 200) };
+      } finally {
+        running = false;
+      }
+    });
+  }
+  // ⑥ 지금 재기 — 차례와 상관없이 지금 순위를 latest 로 남기고 홈판 유입을 갱신한다(3차).
+  if (!ipcMain.listenerCount('post-plan-check-now')) {
+    ipcMain.handle('post-plan-check-now', async (_event, payload?: { id?: string }) => {
+      const plan = readPlans().find((p) => p.id === payload?.id);
+      if (!plan || !plan.steps.result?.data) return { success: false, error: '먼저 ⑤ 에서 발행한 글 주소를 넣어 주세요' };
+      if (running) return { success: false, error: '다른 작업이 돌고 있습니다 — 끝난 뒤 다시 눌러 주세요' };
+      running = true;
+      try {
+        const next = await checkPlanResult(plan, createResultDeps(), Date.now(), { force: true });
         writePlans(readPlans().map((p) => (p.id === next.id ? next : p)));
         return { success: true, plan: next };
       } catch (error: any) {

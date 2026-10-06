@@ -121,6 +121,9 @@ export function setupConfigUtilityHandlers(): void {
           anthropicApiKey: env.anthropicApiKey || '',
           aiInferenceMode: env.aiInferenceMode || 'auto',
           manusApiKey: env.manusApiKey || '',
+          // Bright Data(2026-10-06 설계실 3차) — 설계실 '커뮤니티까지'에만 쓴다.
+          brightDataToken: env.brightDataToken || '',
+          brightDataZone: env.brightDataZone || '',
           // 홈판 신호 공개본을 쓸 사이트 폴더(2026-09-17) — 비면 앱이 바탕화면 · 문서에서 찾는다.
           siteRepoDir: env.siteRepoDir || '',
         };
@@ -501,6 +504,9 @@ export function setupConfigUtilityHandlers(): void {
         if (settings.coupangSecretKey !== undefined) envConfig.coupangSecretKey = settings.coupangSecretKey;
         if (settings.coupangSubId !== undefined) envConfig.coupangSubId = settings.coupangSubId;
         // NAVER API HUB — 개발자센터 종료 대비 신규 키 (probe 로 게이트웨이 실측 후 잠금)
+        // Bright Data(2026-10-06) — 칸이 있을 때만 온다. 빈 문자열은 지운 것으로 저장한다.
+        if (settings.brightDataToken !== undefined) envConfig.brightDataToken = settings.brightDataToken;
+        if (settings.brightDataZone !== undefined) envConfig.brightDataZone = settings.brightDataZone;
         if (settings.naverApiHubKeyId !== undefined) envConfig.naverApiHubKeyId = settings.naverApiHubKeyId;
         if (settings.naverApiHubKey !== undefined) envConfig.naverApiHubKey = settings.naverApiHubKey;
 

@@ -34,7 +34,7 @@ export interface PostPlan {
   keyword: string;
   createdAt: string;
   updatedAt: string;
-  steps: Partial<Record<'judge' | 'titles' | 'questions' | 'money' | 'inflow', PostPlanStep<unknown>>>;
+  steps: Partial<Record<'judge' | 'titles' | 'questions' | 'money' | 'inflow' | 'result', PostPlanStep<unknown>>>;
 }
 
 interface RadarLikeItem {
