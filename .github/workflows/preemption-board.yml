@@ -37,7 +37,9 @@ on:
     inputs:
       targetPerTopic:
         description: 주제당 목표 건수
-        default: '4'
+        # 4 → 30 (2026-10-06 사장님 승인 "카테고리마다 최소 30개"). 4 였을 때 10-05 회차는
+        # 판정 통과 162 중 147만 싣고 15건을 목표 초과로 버렸다. 황금비는 원래 목표와 무관하게 전부 싣는다.
+        default: '30'
       # 씨앗 창고만 다시 긁고 끝낸다 — BD 크레딧을 안 쓴다(무료 호출 200여 회).
       # 힌트 창구(2026-09-08)의 실제 응답을 감사하려고 만들었다. 로컬엔 검색광고
       # 키가 없고, 회차를 통째로 돌리면 돈이 나간다. 로그의 순위 구간 표본을 읽는다.
@@ -318,8 +320,11 @@ jobs:
         #
         # starvedFloor=15 — 굶은 주제 판정선. 직전 보드 기준이라, 목표를 주제당
         #   30~50행으로 올린 이상 15행 미만은 굶은 것으로 봐야 한다.
-        # starvedFacing=6 — 굶은 주제에서만 '정면 글 6건 이상'일 때 SERP 전에 버린다
+        # starvedFacing=3 — 굶은 주제에서만 '정면 글 3건 이상'일 때 SERP 전에 버린다
         #   (배부른 주제는 기본 2건 그대로 — 다 풀면 쓰레기가 는다).
+        #   6 → 3 (2026-10-06): 10-05 회차 BD 검증 600 중 296(49%)이 '정면 2건 이상'으로 탈락했다.
+        #   무료 판정(오픈 API 제목)은 정면 2건 이상이면 BD 도 13/13 탈락이었다(후보 스크립트 주석, 08-12 실측 26건) —
+        #   3건 이상은 그보다 엄격한 문턱이다. 아낀 BD 몫은 미검증 후보(배분 재분배)가 쓴다. 황금비는 여전히 건너뛴다.
         #
         # ── 240분에 잘리던 것 (2026-09-15) ────────────────────────────────────
         # 09-12 부터 이 잡이 **매 회차 240분 제한에 걸려 취소**됐다(황금 보드 09-09 이후 6일 정지).
@@ -348,7 +353,7 @@ jobs:
             --perTopic=80 --perSeed=10 --sampleCap=4000 --scanWidth=100 --secondarySeeds=20 \
             --deadlineMinutes=120 --hardStopMinutes=195 \
             --targetTotal=2560 --promotedPerTopic=30 \
-            --starvedFloor=15 --starvedFacing=6 \
+            --starvedFloor=15 --starvedFacing=3 \
             --board=https://raw.githubusercontent.com/cd000242-sudo/naver/main/spa/public/data/preemption-board.json \
             --currentBriefs=current-briefs.json \
             --currentBenchmarks=current-benchmarks.json \
@@ -522,7 +527,7 @@ jobs:
           node scripts/preemption-board-batch.js \
             --in=candidates-trimmed.json \
             --out=board.json \
-            --targetPerTopic=${{ github.event.inputs.targetPerTopic || '4' }} \
+            --targetPerTopic=${{ github.event.inputs.targetPerTopic || '30' }} \
             --signals=signals.json \
             --maxPerRun=1200 \
             --withStructure

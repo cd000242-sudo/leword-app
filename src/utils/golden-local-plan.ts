@@ -38,7 +38,7 @@ export const SITE_WORKFLOW_ARGS = Object.freeze({
     hardStopMinutes: 195,
     promotedPerTopic: 30,
     starvedFloor: 15,
-    starvedFacing: 6,
+    starvedFacing: 3,
   }),
   /** 워크플로는 32주제에 --targetTotal=2560, 주제당 80행이다. 앱은 고른 주제 수에 곱한다. */
   targetTotalPerTopic: 80,

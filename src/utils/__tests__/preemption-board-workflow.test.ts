@@ -377,3 +377,23 @@ describe('선점 보드 워크플로 — 씨앗 잡 키', () => {
         expect(gate).toContain('minSearchVolume: 500,');
     });
 });
+
+describe('선점 보드 워크플로 — 주제당 30 (2026-10-06)', () => {
+    // 예약 회차는 inputs 가 비어 `|| 'N'` 기본값으로 돈다 — 손 실행 기본값만 고치면 예약 회차는 그대로다.
+    it('예약·손 실행 모두 주제당 목표 30 으로 돈다', () => {
+        expect(workflow).toContain("--targetPerTopic=${{ github.event.inputs.targetPerTopic || '30' }}");
+        expect(/targetPerTopic:[\s\S]{0,400}?default: '30'/.test(workflow)).toBe(true);
+    });
+
+    it('굶은 주제 무료 선별 문턱은 정면 3건이다 — BD 탈락 49% 를 SERP 전에 줄인다', () => {
+        expect(workflow).toContain('--starvedFacing=3');
+        expect(workflow).not.toContain('--starvedFacing=6');
+    });
+
+    it('검증 몫 배분은 단일 출처 모듈을 쓰고, 총 호출 상한은 그대로다', () => {
+        const batch = fs.readFileSync(path.join(root, 'scripts', 'preemption-board-batch.js'), 'utf8');
+        expect(batch).toContain("require('../src/utils/preemption-budget-allocation')");
+        expect(batch).not.toContain('function allocateBudget(');
+        expect(workflow).toContain('--maxPerRun=1200');
+    });
+});

@@ -329,6 +329,17 @@ describe('selectWithFill — 껍질 까기', () => {
         expect(outcome.rows.filter((r) => r.tier === 'golden-ratio')).toHaveLength(4);
     });
 
+    // 2026-10-05 회차: 통과 162 · 선발 147 — 목표에 밀린 15건이 원장 어디에도 없었다.
+    it('통과했지만 목표에 밀린 것은 탈락이 아니라 overflow 로 남는다', () => {
+        const outcome = selectWithFill([...topTier(8), ...weakTier(5)], { target: 5 });
+        expect(outcome.rows).toHaveLength(5);
+        expect(outcome.overflow).toHaveLength(8);
+        expect(outcome.overflow.every((r) => r.passed && !outcome.rows.includes(r))).toBe(true);
+        expect(outcome.rejected).toHaveLength(0);
+        // 판정한 것은 하나도 빠짐없이 네 칸 중 한 곳에 있다.
+        expect(outcome.rows.length + outcome.overflow.length + outcome.rejected.length + outcome.undetermined.length).toBe(13);
+    });
+
     it('층별 건수를 세어 몇 층까지 깠는지 알려준다', () => {
         const outcome = selectWithFill([...topTier(2), ...weakTier(3)], { target: 4 });
         expect(outcome.byTier.top3).toBe(2);

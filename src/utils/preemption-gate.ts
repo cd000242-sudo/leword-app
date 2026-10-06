@@ -448,6 +448,12 @@ export interface FillOutcome {
   deepestTier: PreemptionTier | null;
   rejected: PreemptionResult[];
   undetermined: PreemptionResult[];
+  /**
+   * 판정은 통과했지만 목표 개수에 밀려 rows 에 못 든 것.
+   * rejected 에 넣으면 '탈락'으로 오독되고, 아무 데도 안 넣으면 원장에서 사라진다
+   * (2026-10-05 회차: 통과 162 · 선발 147 — 15건이 흔적 없이 증발했다).
+   */
+  overflow: PreemptionResult[];
   /** 목표를 못 채웠는가. 후보 풀을 넓혀야 한다는 신호다. */
   short: boolean;
 }
@@ -544,6 +550,7 @@ export function selectWithFill(
     deepestTier,
     rejected: judged.filter((result) => !result.passed && !result.undetermined),
     undetermined: judged.filter((result) => result.undetermined),
+    overflow: judged.filter((result) => result.passed && !rows.includes(result)),
     short: rows.length < options.target,
   };
 }

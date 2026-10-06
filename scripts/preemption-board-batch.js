@@ -244,33 +244,12 @@ function realtimeState(realtime, keyword) {
   return realtime.keywords.has(keyword.replace(/\s+/g, ''));
 }
 
-/**
- * 주제별로 공평하게 예산을 나눈다.
- * 한 주제가 후보를 많이 냈다고 예산을 독식하면, 그 주제로 블로그를 안 하는
- * 사용자에게는 이번 회차가 통째로 헛돈 것이 된다.
+/*
+ * 주제별 예산 나누기는 preemption-budget-allocation.ts 가 단일 출처다(테스트 포함).
+ * 같은 몫을 먼저 주고, 후보가 적은 주제가 남긴 슬롯은 미검증이 많은 주제부터 돌아가며 준다
+ * (2026-10-06 — 예전엔 목록 앞 주제가 독식해 스타·연예인 후보 62건이 검증되지 않았다).
  */
-function allocateBudget(byTopic, maxPerRun) {
-  const topics = [...byTopic.keys()];
-  if (topics.length === 0) return new Map();
-  const base = Math.floor(maxPerRun / topics.length);
-  const allocation = new Map();
-  let spent = 0;
-  for (const topic of topics) {
-    const take = Math.min(base, byTopic.get(topic).length);
-    allocation.set(topic, take);
-    spent += take;
-  }
-  // 후보가 적어 남은 예산은 후보가 많은 주제에 되돌려 준다.
-  let leftover = maxPerRun - spent;
-  for (const topic of topics) {
-    if (leftover <= 0) break;
-    const rows = byTopic.get(topic).length;
-    const extra = Math.min(leftover, Math.max(0, rows - allocation.get(topic)));
-    allocation.set(topic, allocation.get(topic) + extra);
-    leftover -= extra;
-  }
-  return allocation;
-}
+const { allocateBudget } = require('../src/utils/preemption-budget-allocation');
 
 /** 통합검색 주소. 블로그탭과 달리 AI 브리핑·인플루언서 구획이 함께 온다. */
 function allTabUrl(keyword) {
@@ -491,6 +470,11 @@ async function main() {
   const shortTopics = [];
   const rejectionLog = [];
   /*
+   * 판정은 통과했지만 주제당 목표에 밀린 것(gate 의 overflow). 화면에는 안 나가지만
+   * 원장에는 남긴다 — 2026-10-05 회차는 통과 162 · 선발 147 로 15건이 흔적 없이 사라졌다.
+   */
+  const overflowLog = [];
+  /*
    * 쇼핑 레인으로 라우팅한 행 — 이 보드의 오염이 아니라 쇼핑 커넥트의 소관이다
    * (사장님 지시 2026-08-17: "쇼핑은 이미 탭에 있는데 여기 있을 필요가 없죠").
    * 조용히 버리지 않는다 — 무엇이 어떤 실측 근거로 빠졌는지 원장에 남긴다.
@@ -519,6 +503,7 @@ async function main() {
       topicVerdicts: topicVerdictTotals,
       verified: stats.verified,
       rejections: rejectionLog,
+      overflow: overflowLog,
       routedShopping,
       rows,
     };
@@ -646,6 +631,17 @@ async function main() {
     stats.undetermined += outcome.undetermined.length;
     for (const tier of TIER_ORDER) tierTotals[tier] += outcome.byTier[tier];
     if (outcome.short) shortTopics.push(`${topic}(${outcome.rows.length}/${targetPerTopic})`);
+    for (const result of outcome.overflow || []) {
+      overflowLog.push({
+        topic,
+        keyword: result.keyword,
+        tier: result.tier,
+        openSlot: result.openSlot,
+        searchVolume: result.searchVolume ?? null,
+        documentCount: result.documentCount ?? null,
+        adCount: result.adCount ?? null,
+      });
+    }
 
     // 탈락 사유를 남긴다. 첫 주행에서 45건이 왜 떨어졌는지 되짚을 수가 없어서
     // 게이트를 보정할 근거가 사라졌다. 같은 실수를 반복하지 않는다.
@@ -793,6 +789,7 @@ async function main() {
   const after = brightDataQuotaSnapshot();
   console.log('\n' + '-'.repeat(72));
   console.log(`검증 ${stats.verified}건 → 통과 ${stats.passed} · 탈락 ${stats.rejected} · 판정불가 ${stats.undetermined} · 수집실패 ${stats.failed} · 쇼핑 라우팅 ${routedShopping.length}`);
+  if (overflowLog.length > 0) console.log(`목표(${targetPerTopic})에 밀린 통과분 ${overflowLog.length}건 — 원장 overflow 에 남김(발행 안 함)`);
   /*
    * 속도 조절 결과를 남긴다. 안 재면 다음 회차에도 간격을 추측하게 된다 —
    * 맞은 횟수가 0이면 더 빠르게 가도 되고, 끝 간격이 상한에 붙어 있으면
