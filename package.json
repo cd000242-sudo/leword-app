@@ -1,6 +1,6 @@
 {
   "name": "leword",
-  "version": "2.49.159",
+  "version": "2.49.160",
   "description": "LEWORD - 키워드 마스터 독립 앱",
   "main": "dist/src/main.js",
   "scripts": {
@@ -149,6 +149,11 @@
       "assets/**/*",
       "package.json",
       "scripts/app-script-shim.js",
+      "scripts/adsense-benchmarks.cjs",
+      "scripts/adsense-benchmarks-core.cjs",
+      "scripts/adsense-benchmarks-measure.cjs",
+      "scripts/adsense-benchmarks-sources-all.json",
+      "scripts/homefeed-benchmarks-core.cjs",
       "scripts/preemption-candidates.js",
       "scripts/preemption-current-sources.js",
       "scripts/candidate-shards.js",

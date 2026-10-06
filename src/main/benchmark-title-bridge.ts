@@ -10,9 +10,12 @@ import type { BenchmarkTitleCard } from '../utils/benchmark-title-engine';
 
 export const BENCHMARK_TITLE_ROUTE = '/v1/bridge/benchmark-titles';
 
+/** 'homefeed' = 홈판 후킹형(benchmark-title-engine) · 'adsense' = 구글 · 다음 검색용(adsense-title-engine, 대표 검색어 필수). */
+export type BridgeTitleCard = BenchmarkTitleCard & { kind: 'homefeed' | 'adsense'; query: string };
+
 export interface BenchmarkTitleBridgeDeps {
   allowed: () => Promise<boolean>;
-  generate: (card: BenchmarkTitleCard) => Promise<{ provider: string; titles: string[] }>;
+  generate: (card: BridgeTitleCard) => Promise<{ provider: string; titles: string[] }>;
 }
 
 interface RouteIo {
@@ -25,13 +28,17 @@ const CONTROL = /[\r\n\x00-\x1f]/;
 const text = (value: unknown, max: number): string => (typeof value === 'string' ? value.replace(/\s+/g, ' ').trim().slice(0, max) : '');
 
 /** 사이트가 보낸 카드 — 엔진이 읽는 칸만, 길이를 잘라서. 필수 칸이 비었거나 줄바꿈 · 제어문자가 있으면 null. */
-export function parseBenchmarkCard(input: unknown): BenchmarkTitleCard | null {
+export function parseBenchmarkCard(input: unknown): BridgeTitleCard | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const raw = input as Record<string, unknown>;
   const id = text(raw.id, 64);
   const keyword = typeof raw.keyword === 'string' ? raw.keyword.trim() : '';
   if (!id || keyword.length < 2 || keyword.length > 100 || CONTROL.test(keyword) || CONTROL.test(id)) return null;
   const title = text(raw.title, 200);
+  const kind = raw.kind === 'adsense' ? 'adsense' : 'homefeed';
+  const query = text(raw.query, 40);
+  // 애드센스 검색용 제목은 2단계 실측 대표 검색어가 있어야 짓는다 — 검색어 없는 검색용 제목은 없다.
+  if (kind === 'adsense' && (!query || CONTROL.test(query))) return null;
   const list = (value: unknown, max: number, each: number) => (Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string').map((v) => text(v, each)).filter(Boolean).slice(0, max) : []);
   return {
     id,
@@ -41,6 +48,8 @@ export function parseBenchmarkCard(input: unknown): BenchmarkTitleCard | null {
     summary: text(raw.summary, 600),
     sourceTitles: [title, ...list(raw.sourceTitles, 6, 200)].filter(Boolean),
     relatedKeywords: list(raw.relatedKeywords, 8, 40),
+    kind,
+    query,
   };
 }
 
@@ -51,7 +60,7 @@ export async function handleBenchmarkTitleRoute(req: IncomingMessage, res: Serve
   if (req.method !== 'POST') { io.json(res, 404, { ok: false, error: '지원하지 않는 경로입니다.' }); return true; }
   if (!origin || !io.siteOriginAllowed(origin)) { io.json(res, 403, { ok: false, error: '사이트에서만 쓸 수 있습니다.' }); return true; }
   if (!await deps.allowed()) { io.json(res, 403, { ok: false, error: '앱의 유효한 라이선스를 확인해 주세요.' }); return true; }
-  let card: BenchmarkTitleCard | null = null;
+  let card: BridgeTitleCard | null = null;
   try {
     const body = JSON.parse(await io.readBody(req));
     card = parseBenchmarkCard(body && body.card);
@@ -75,6 +84,12 @@ export function createBenchmarkTitleBridgeDeps(): BenchmarkTitleBridgeDeps {
       return Boolean(license?.isValid && !isLicenseExpired(license));
     },
     generate: async (card) => {
+      if (card.kind === 'adsense') {
+        const { titlesForAdsenseCards } = await import('../utils/adsense-title-engine');
+        const result = await titlesForAdsenseCards([{ id: card.id, query: card.query, keyword: card.keyword, category: card.category, sourceTitles: card.sourceTitles }]);
+        const row = result.results.find((r) => r.id === card.id);
+        return { provider: result.provider, titles: row ? row.titles : [] };
+      }
       const { titlesForCards } = await import('../utils/benchmark-title-engine');
       const result = await titlesForCards([card]);
       const row = result.results.find((r) => r.id === card.id);

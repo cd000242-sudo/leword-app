@@ -602,6 +602,7 @@ const electronApi = {
   on: (channel: string, listener: (...args: any[]) => void) => {
     const allowed = new Set<string>([
       'keyword-expansion-progress',
+      'adsense-bench-progress',      // 2026-10-07 애드센스 고수 벤치마크 6,412곳 수집 진행
       'keyword-discovery-progress',
       'keyword-discovery-chunk',
       'ultimate-niche-progress',

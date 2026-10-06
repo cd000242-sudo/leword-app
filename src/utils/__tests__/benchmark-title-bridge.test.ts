@@ -68,3 +68,21 @@ describe('홈판 벤치마크 제목 브리지', () => {
     expect(parseBenchmarkCard({ ...card, id: '' })).toBeNull();
   });
 });
+
+describe('애드센스 검색용 제목(kind: adsense)', () => {
+  it('kind 와 대표 검색어(query)를 읽는다 — 애드센스는 query 가 없으면 거부', () => {
+    expect(parseBenchmarkCard({ ...card, kind: 'adsense', query: '국민연금추납' })).toMatchObject({ kind: 'adsense', query: '국민연금추납' });
+    expect(parseBenchmarkCard({ ...card, kind: 'adsense' })).toBeNull();
+    expect(parseBenchmarkCard(card)?.kind).toBe('homefeed');
+  });
+  it('엔진에 kind 가 그대로 간다', async () => {
+    const { out, res, io } = harness();
+    const seen: string[] = [];
+    await handleBenchmarkTitleRoute(fakeReq('POST', '/v1/bridge/benchmark-titles', { card: { ...card, kind: 'adsense', query: '국민연금추납' } }), res, {
+      allowed: async () => true,
+      generate: async (c) => { seen.push(String((c as any).kind)); return { provider: 'claude', titles: ['국민연금추납 신청 전 확인할 조건과 비용 정리'] }; },
+    }, io);
+    expect(out.code).toBe(200);
+    expect(seen).toEqual(['adsense']);
+  });
+});

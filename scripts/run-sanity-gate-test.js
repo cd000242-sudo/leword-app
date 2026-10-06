@@ -295,6 +295,10 @@ for (const testFile of testFiles) {
  * 그래서 vitest 를 한 번 불러 같은 게이트 안에서 막는다.
  */
 const VITEST_SUITES = [
+    // 애드센스 고수 벤치마크(2026-10-07) — 검색용 제목 엔진 · 앱 전체판 서비스 · 제목 브리지(홈판 · 애드센스 종류)
+    'src/utils/__tests__/adsense-title-engine.test.ts',
+    'src/utils/__tests__/adsense-bench-service.test.ts',
+    'src/utils/__tests__/benchmark-title-bridge.test.ts',
     'src/utils/__tests__/board-cache.test.ts',
     'src/utils/__tests__/board-bridge.test.ts',
     'src/utils/__tests__/board-bridge-host.test.ts',
@@ -516,6 +520,12 @@ const VITEST_SUITES = [
  * 2026-09-17 까지 이 자리가 없어서, 제휴 로그인 헬퍼 테스트 둘이 저장소에 있으면서도 아무 데서도 안 돌았다.
  */
 const NODE_TEST_FILES = [
+    // 애드센스 고수 벤치마크(2026-10-07) — 출처 고르기 · 수집 · 실측 · 제목 창고, 홈판 제목 동시 생성
+    'scripts/adsense-benchmarks-sources.test.cjs',
+    'scripts/adsense-benchmarks.test.cjs',
+    'scripts/adsense-benchmarks-measure.test.cjs',
+    'scripts/enrich-adsense-titles.test.cjs',
+    'scripts/enrich-benchmark-titles.test.cjs',
     'scripts/affiliate-login-session.test.cjs',
     'scripts/affiliate-session-persistence.test.cjs',
 ];

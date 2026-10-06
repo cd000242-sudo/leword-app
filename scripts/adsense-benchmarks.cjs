@@ -21,29 +21,61 @@ function atomicWrite(file, value) {
   finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
 }
 
-async function collectAll(sources, now, { concurrency = 16, fetcher = core.fetchFeed } = {}) {
+// onProgress(done, total) — 앱 화면이 6,412곳 수집 진행을 그린다(2026-10-07 앱 전체판).
+/*
+ * 티스토리 차단 예방(2026-10-07 사장님 "자동화된 접근차단이 뜬다").
+ * 출처의 74%(앱 4,757곳)가 티스토리 — 블로그가 달라도 같은 서버다. 동시 24로 읽자 티스토리가 이 IP 를 막았고
+ * ("과도한 접근 요청으로 블로그 사용이 잠시 중단… 자동화된 접근"), 같은 IP 로 보는 사장님 브라우저까지 막혔다.
+ *  - 티스토리는 따로 한 줄: 동시 tistoryConcurrency(2) · 요청 사이 tistoryGapMs(700ms) 쉼.
+ *  - 429 가 한 번이라도 오면 그 회차 티스토리는 거기서 멈춘다. 다시 두드리면 차단이 길어진다(남은 곳은 'skipped').
+ *  - 다른 블로그는 서로 다른 서버라 동시 concurrency 로 그대로.
+ */
+const isTistory = (source) => { try { return /(^|.)tistory.com$/i.test(new URL(source.feedUrl).hostname); } catch { return false; } };
+const is429 = (e) => /HTTP 429/.test(String((e && e.message) || e));
+const TISTORY_SKIPPED = '티스토리 차단 예방 — 이번 회차는 건너뜀(429 를 받아 더 묻지 않음)';
+
+async function collectAll(sources, now, { concurrency = 16, tistoryConcurrency = 2, tistoryGapMs = 700, fetcher = core.fetchFeed, onProgress = null, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
   const allow = core.buildAllowlist(sources);
   const results = new Array(sources.length);
-  let next = 0;
-  async function worker() {
-    while (next < sources.length) {
-      const i = next++;
-      const source = sources[i];
-      try {
-        let xml;
-        try { xml = await fetcher(source.feedUrl, allow); } catch (first) {
-          await new Promise((r) => setTimeout(r, 600));
-          // 방화벽이 머리글을 거른 경우(403/406/415)는 흔한 형식 머리글로, 그 밖(시간 초과 등)은 같은 머리글로 한 번 더.
-          const blocked = /HTTP (403|406|415)/.test(String((first && first.message) || first));
-          xml = await fetcher(source.feedUrl, allow, blocked ? { headers: core.PLAIN_HEADERS } : undefined);
-        }
-        results[i] = { id: source.id, status: 'ok', posts: core.parseFeed(xml, source, now).posts };
-      } catch (error) {
-        results[i] = { id: source.id, status: 'error', error: String((error && error.message) || error), posts: [] };
-      }
+  let done = 0;
+  let tistoryHalted = false;
+  const finish = (i, result) => {
+    results[i] = result;
+    done += 1;
+    if (onProgress) { try { onProgress(done, sources.length); } catch { /* 화면 알림 실패는 수집과 무관 */ } }
+  };
+  async function fetchSource(source) {
+    try { return await fetcher(source.feedUrl, allow); } catch (error) {
+      if (is429(error)) throw error;
+      // 그 밖: 한 번만 더. 방화벽이 머리글을 거른 경우(403/406/415)는 흔한 형식 머리글로.
+      await sleep(600);
+      const plain = /HTTP (403|406|415)/.test(String((error && error.message) || error));
+      return fetcher(source.feedUrl, allow, plain ? { headers: core.PLAIN_HEADERS } : undefined);
     }
   }
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, sources.length)) }, worker));
+  function lane(indexes, width, gapMs, tistory) {
+    let next = 0;
+    async function worker() {
+      while (next < indexes.length) {
+        const i = indexes[next++];
+        const source = sources[i];
+        if (tistory && tistoryHalted) { finish(i, { id: source.id, status: 'skipped', error: TISTORY_SKIPPED, posts: [] }); continue; }
+        try {
+          const xml = await fetchSource(source);
+          finish(i, { id: source.id, status: 'ok', posts: core.parseFeed(xml, source, now).posts });
+        } catch (error) {
+          if (tistory && is429(error)) tistoryHalted = true;
+          finish(i, { id: source.id, status: 'error', error: String((error && error.message) || error), posts: [] });
+        }
+        if (gapMs > 0 && next < indexes.length && !(tistory && tistoryHalted)) await sleep(gapMs);
+      }
+    }
+    return Array.from({ length: Math.max(1, Math.min(width, indexes.length)) }, worker);
+  }
+  const tistoryIdx = [];
+  const otherIdx = [];
+  sources.forEach((s, i) => (isTistory(s) ? tistoryIdx : otherIdx).push(i));
+  await Promise.all([...lane(tistoryIdx, tistoryConcurrency, tistoryGapMs, true), ...lane(otherIdx, concurrency, 0, false)]);
   return results;
 }
 

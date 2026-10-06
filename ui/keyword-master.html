@@ -794,9 +794,10 @@
         <button role="tab" data-screen="analyzer" aria-selected="false" onclick="showScreen('analyzer')"><span class="k">14</span>키워드 분석기<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="homefeed" aria-selected="false" onclick="showScreen('homefeed')"><span class="k">15</span>홈판 신호<span class="new">앱 전용</span></button>
         <button role="tab" data-screen="homefeedBench" aria-selected="false" onclick="showScreen('homefeedBench')"><span class="k">16</span>홈판 벤치마크 · 오늘의 흐름</button>
-        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">17</span>사이트에서 보기 ↗</button>
-        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">18</span>설정 · 키</button>
-        <button role="tab" data-screen="assistant" aria-selected="false" onclick="showScreen('assistant')"><span class="k">19</span>AI 비서</button>
+        <button role="tab" data-screen="adsenseBench" aria-selected="false" onclick="showScreen('adsenseBench')"><span class="k">17</span>애드센스 고수 벤치마크<span class="new">앱 전용</span></button>
+        <button role="tab" data-screen="sites" aria-selected="false" onclick="showScreen('sites')"><span class="k">18</span>사이트에서 보기 ↗</button>
+        <button role="tab" data-screen="settings" aria-selected="false" onclick="showScreen('settings')"><span class="k">19</span>설정 · 키</button>
+        <button role="tab" data-screen="assistant" aria-selected="false" onclick="showScreen('assistant')"><span class="k">20</span>AI 비서</button>
       </nav>
 
       <!-- API 키 연동 상태 배지 (id 는 checkApiStatus 가 쓴다) -->
@@ -2288,6 +2289,127 @@
         })();
       </script>
 
+      <!--
+        애드센스 고수 벤치마크(2026-10-07 사장님 "사이트는 그게 한계지만 앱에서는 1000개든 10000개든 상관없지 않니?").
+        사이트 판(786곳 · 1,000장)의 상위호환 — 엑셀 6,412곳 전부를 이 PC 에서 읽고 카드도 자르지 않는다.
+        실측(대표 검색어 · 문서수 · 입찰가)과 검색용 제목은 카드 하나씩, 사장님 키 · 구독 AI 로.
+      -->
+      <section class="leword-screen" data-screen="adsenseBench">
+        <div style="padding: 18px 20px; border-radius: 14px; border: 1px solid rgba(52,211,153,0.3); background: linear-gradient(135deg, rgba(52,211,153,0.08), rgba(15,23,42,0.9) 55%);">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="flex: 1 1 320px;">
+              <div style="font-size: 10.5px; letter-spacing: 1.6px; font-weight: 800; color: #6ee7b7;">ADSENSE BENCHMARK · 앱 전용 전체판</div>
+              <h2 style="margin: 4px 0 6px; font-size: 21px; color: #fff;">애드센스 고수 벤치마크</h2>
+              <p style="margin: 0; font-size: 13px; color: #a8b6cb;">애드센스 고수 블로그 6,412곳(사장님 엑셀 전체)이 최근 7일 안에 쓴 글을 소재별로 모읍니다. 사이트는 786곳 · 1,000장까지, 앱은 전부입니다.</p>
+            </div>
+            <button type="button" id="adsBenchCollect" onclick="adsBenchCollect()" style="padding: 9px 16px; border-radius: 9px; border: 0; background: #34d399; color: #052e1f; font-weight: 800; cursor: pointer;">지금 6,412곳 수집</button>
+          </div>
+          <div id="adsBenchMeta" style="margin-top: 10px; font-size: 12.5px; color: #94a3b8;">아직 수집하지 않았습니다 — [지금 6,412곳 수집]을 누르면 약 4~5분 걸립니다.</div>
+        </div>
+        <div id="adsBenchShape" style="margin-top: 12px;"></div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0;">
+          <button type="button" data-ads-mode="all" onclick="adsBenchSetMode('all')" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,.3); background: #152035; color: #cbd5e1; cursor: pointer;">전체</button>
+          <button type="button" data-ads-mode="star" onclick="adsBenchSetMode('star')" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,.3); background: #152035; color: #cbd5e1; cursor: pointer;">★ 고수 3곳 이상</button>
+          <select id="adsBenchCategory" onchange="adsBenchRender()" style="padding: 6px 10px; border-radius: 8px; background: #101828; color: #e2e8f0; border: 1px solid rgba(148,163,184,.3);"><option value="">분야 전체</option></select>
+          <input id="adsBenchQuery" type="search" placeholder="키워드·제목 검색" oninput="adsBenchRender()" style="flex: 1 1 200px; padding: 7px 11px; border-radius: 8px; background: #101828; color: #e2e8f0; border: 1px solid rgba(148,163,184,.3);" />
+        </div>
+        <div id="adsBenchList" style="display: grid; gap: 12px;"></div>
+        <button type="button" id="adsBenchMore" onclick="adsBenchMore()" style="display: none; margin: 14px auto 0; padding: 9px 22px; border-radius: 9px; border: 1px solid #2f6f5a; background: #10241d; color: #a7f3d0; cursor: pointer;">소재 더 보기</button>
+      </section>
+      <script>
+        (() => {
+          const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+          const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (ch) => ESC_MAP[ch]);
+          const num = (v) => (typeof v === 'number' ? v.toLocaleString('ko-KR') : '미측정');
+          let board = null; let mode = 'all'; let limit = 40;
+          const day = (iso) => { if (!iso) return ''; const d = new Date(iso); return Number.isFinite(d.getTime()) ? (d.getMonth() + 1) + '/' + d.getDate() : ''; };
+          function filtered() {
+            const cat = (document.getElementById('adsBenchCategory') || {}).value || '';
+            const q = String((document.getElementById('adsBenchQuery') || {}).value || '').replace(/\s+/g, '').toLowerCase();
+            return (board && board.candidates || []).filter((c) => (mode !== 'star' || c.recommended) && (!cat || c.category === cat)
+              && (!q || [c.keyword, c.title].concat((c.sources || []).map((s) => s.title)).join(' ').replace(/\s+/g, '').toLowerCase().includes(q)));
+          }
+          function cardHtml(c) {
+            const blogs = new Set((c.sources || []).map((s) => s.id)).size;
+            const m = c.metrics || {};
+            const titles = Array.isArray(c.titles) ? c.titles : [];
+            const head = '<div style="display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; align-items: center;"><span style="padding: 2px 8px; border-radius: 5px; background: #124638; color: #a7f3d0; font-weight: 800;">' + esc(c.grade) + '등급 블로그</span>'
+              + (c.recommended ? '<span style="color: #fcd34d; font-weight: 800;">★ 고수 ' + blogs + '곳</span>' : (blogs > 1 ? '<span style="color: #a5b4fc;">고수 ' + blogs + '곳</span>' : ''))
+              + '<span style="color: #a5b4fc;">' + esc(c.category) + '</span><span style="margin-left: auto; color: #8296ae;">발행 ' + esc(day(c.publishedAt)) + '</span></div>';
+            const metrics = '<div style="display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: #94a3b8; align-items: center;"><b style="color: #e0e7ff;">' + esc(m.query || c.keyword) + '</b>'
+              + '<span>월 검색량 <b style="color: #cbd5e1;">' + num(m.searchVolume) + '</b></span><span>문서수 <b style="color: #cbd5e1;">' + num(m.documentCount) + '</b></span>'
+              + '<span>파워링크 3위 입찰가 <b style="color: #cbd5e1;">' + (typeof m.bid === 'number' ? num(m.bid) + '원' : '미측정') + '</b></span>'
+              + '<button type="button" data-ads-measure="' + esc(c.id) + '" style="padding: 2px 9px; border-radius: 6px; border: 1px solid #2f6f5a; background: #10241d; color: #a7f3d0; cursor: pointer;">' + (m.query ? '다시 재기' : '검색량 재기') + '</button></div>';
+            const sources = '<div style="margin-top: 10px; display: grid; gap: 5px;">' + (c.sources || []).slice(0, 6).map((s) => '<div style="display: flex; gap: 8px; font-size: 12.5px;"><span style="color: #67e8f9; min-width: 18px;">' + esc(s.grade) + '</span><a href="#" data-ads-open="' + esc(s.url) + '" style="flex: 1; color: #e2e8f0; text-decoration: none;">' + esc(s.title) + '</a><span style="color: #8296ae;">' + esc(s.name) + '</span></div>').join('') + '</div>';
+            const titleBox = titles.length
+              ? '<div style="font-size: 11.5px; color: #a8b6cb; margin-bottom: 4px;">검색용 제목 ' + titles.length + '개</div>' + titles.map((t) => '<div style="display: flex; gap: 8px; font-size: 13px; padding: 3px 0;"><span style="flex: 1; color: #f1f5f9;">' + esc(t) + '</span><button type="button" data-ads-copy="' + esc(t) + '" style="border: 0; background: none; color: #a8b6cb; cursor: pointer;">복사</button></div>').join('')
+              : '<button type="button" data-ads-titles="' + esc(c.id) + '" style="padding: 6px 12px; border-radius: 8px; border: 0; background: #67e8f9; color: #0b1220; font-weight: 800; cursor: pointer;"' + (m.query ? '' : ' disabled title="먼저 [검색량 재기]로 대표 검색어를 실측해 주세요"') + '>검색용 제목 20개 만들기 · 내 구독 AI</button>';
+            return '<article style="padding: 16px 18px; border-radius: 13px; border: 1px solid ' + (c.recommended ? '#a98a48' : 'rgba(148,163,184,.22)') + '; background: #121b2c;">'
+              + head + '<h3 style="margin: 8px 0; font-size: 16px; color: #f1f5f9;">' + esc(c.title) + '</h3>' + metrics + sources
+              + '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(148,163,184,.22);">' + titleBox
+              + '<small data-ads-note="' + esc(c.id) + '" style="display: block; margin-top: 4px; color: #fcd9aa;"></small></div></article>';
+          }
+          window.adsBenchRender = function adsBenchRender() {
+            const list = document.getElementById('adsBenchList'); const more = document.getElementById('adsBenchMore');
+            if (!list) return;
+            document.querySelectorAll('[data-ads-mode]').forEach((b) => { b.style.background = b.getAttribute('data-ads-mode') === mode ? '#3d2b63' : '#152035'; });
+            const items = filtered();
+            list.innerHTML = items.length ? items.slice(0, limit).map(cardHtml).join('') : '<p style="color: #94a3b8; font-size: 13px;">' + (board ? '조건에 맞는 소재가 없습니다.' : '아직 판이 없습니다.') + '</p>';
+            if (more) { more.style.display = items.length > limit ? 'block' : 'none'; more.textContent = '소재 더 보기 · ' + Math.min(limit, items.length) + '/' + items.length; }
+          };
+          window.adsBenchSetMode = function adsBenchSetMode(next) { mode = next; limit = 40; window.adsBenchRender(); };
+          window.adsBenchMore = function adsBenchMore() { limit += 40; window.adsBenchRender(); };
+          function paint() {
+            const meta = document.getElementById('adsBenchMeta'); const shapeBox = document.getElementById('adsBenchShape'); const sel = document.getElementById('adsBenchCategory');
+            if (!board) return;
+            const cards = board.candidates || [];
+            if (meta) meta.textContent = '수집 ' + new Date(board.generatedAt || board.attemptedAt).toLocaleString('ko-KR') + ' · 출처 ' + board.okCount + '/' + board.sourceCount + '곳 · 최근 ' + board.windowDays + '일 글 ' + Number(board.collectedPostCount || 0).toLocaleString('ko-KR') + '개 · 소재 ' + cards.length.toLocaleString('ko-KR') + '개(★ ' + cards.filter((c) => c.recommended).length + ')'
+              + ((board.sources || []).some((s) => s.status === 'skipped') ? ' · 티스토리가 잠시 쉬어 가라고 해서 ' + (board.sources || []).filter((s) => s.status === 'skipped').length.toLocaleString('ko-KR') + '곳은 다음 수집에서 읽습니다' : '');
+            const s = board.trends && board.trends.titleShape;
+            if (shapeBox && s && s.count) shapeBox.innerHTML = '<div style="padding: 12px 14px; border-radius: 10px; background: rgba(167,139,250,.07); font-size: 12.5px; color: #d3def0;"><b style="color: #c4b5fd;">애드센스 고수는 이렇게 썼다 · 제목 ' + s.count.toLocaleString('ko-KR') + '개</b><div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 16px;"><span>길이 중앙값 <b>' + s.lengthMedian + '자</b></span><span>숫자 <b>' + s.numberPct + '%</b></span><span>연도 <b>' + s.yearPct + '%</b></span><span>질문형 <b>' + s.questionPct + '%</b></span><span>괄호 <b>' + s.bracketPct + '%</b></span></div></div>';
+            if (sel) {
+              const counts = {}; cards.forEach((c) => { counts[c.category] = (counts[c.category] || 0) + 1; });
+              const keep = sel.value;
+              sel.innerHTML = '<option value="">분야 전체</option>' + Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map((k) => '<option value="' + esc(k) + '">' + esc(k) + ' ' + counts[k] + '</option>').join('');
+              sel.value = keep;
+            }
+            window.adsBenchRender();
+          }
+          window.loadAdsenseBench = async function loadAdsenseBench() {
+            try { const r = await window.electronAPI.invoke('adsense-bench-load'); if (r && r.board) { board = r.board; paint(); } } catch (e) { /* 판이 없으면 안내문 그대로 */ }
+          };
+          window.adsBenchCollect = async function adsBenchCollect() {
+            const btn = document.getElementById('adsBenchCollect'); const meta = document.getElementById('adsBenchMeta');
+            if (btn) { btn.disabled = true; btn.textContent = '수집 중…'; }
+            const off = window.electronAPI.on ? window.electronAPI.on('adsense-bench-progress', (p) => { if (meta && p) meta.textContent = '수집 중 · ' + p.done.toLocaleString('ko-KR') + '/' + p.total.toLocaleString('ko-KR') + '곳 · 티스토리는 차단되지 않게 천천히 읽어 30~40분 걸립니다'; }) : null;
+            try {
+              const r = await window.electronAPI.invoke('adsense-bench-collect');
+              if (!r || !r.success) { if (meta) meta.textContent = '수집하지 못했습니다 — ' + ((r && r.error) || '알 수 없는 오류'); return; }
+              await window.loadAdsenseBench();
+            } finally {
+              if (typeof off === 'function') off();
+              if (btn) { btn.disabled = false; btn.textContent = '지금 6,412곳 수집'; }
+            }
+          };
+          document.addEventListener('click', async (event) => {
+            const el = event.target && event.target.closest ? event.target.closest('[data-ads-measure],[data-ads-titles],[data-ads-copy],[data-ads-open]') : null;
+            if (!el) return;
+            event.preventDefault();
+            if (el.hasAttribute('data-ads-open')) { if (window.electronAPI.openLink) window.electronAPI.openLink(el.getAttribute('data-ads-open')); return; }
+            if (el.hasAttribute('data-ads-copy')) { try { await navigator.clipboard.writeText(el.getAttribute('data-ads-copy')); el.textContent = '복사됨'; setTimeout(() => { el.textContent = '복사'; }, 1200); } catch (e) { /* 선택해 복사 */ } return; }
+            const id = el.getAttribute('data-ads-measure') || el.getAttribute('data-ads-titles');
+            const note = document.querySelector('[data-ads-note="' + CSS.escape(id) + '"]');
+            const channel = el.hasAttribute('data-ads-measure') ? 'adsense-bench-measure' : 'adsense-bench-titles';
+            el.disabled = true; const label = el.textContent; el.textContent = channel === 'adsense-bench-measure' ? '재는 중…' : '만드는 중… (약 1~2분)';
+            try {
+              const r = await window.electronAPI.invoke(channel, { id });
+              if (!r || !r.success) { if (note) note.textContent = (r && r.error) || '실패했습니다 — 잠시 뒤 다시 눌러 주세요'; return; }
+              await window.loadAdsenseBench();
+            } finally { el.disabled = false; el.textContent = label; }
+          });
+        })();
+      </script>
+
       <!-- 화면 18: AI 비서(2026-10-01) — 사용자 본인 구독 AI 로 사용법 · 결과 해석 · 문제 해결. 사이트 비서와 같은 함수(assistant-chat). -->
       <section class="leword-screen" data-screen="assistant">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
@@ -2482,6 +2604,7 @@
           homefeed: { load: 'loadHomefeedBoard' },
           // 홈판 벤치마크 · 오늘의 흐름(2026-10-06) — 사이트와 같은 공개 판(매시 CI)을 받아 그린다.
           homefeedBench: { load: 'loadHomefeedBench' },
+          adsenseBench: { load: 'loadAdsenseBench' },
           // 사이트에서 보기 — 열 때 보드 넷의 회차 현황을 읽는다(무엇이 언제 실렸나).
           sites: { load: 'loadBoardStatus' },
           seat: { open: 'openSeatMeasureModal', root: 'seatMeasureModal' },

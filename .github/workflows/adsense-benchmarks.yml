@@ -22,23 +22,27 @@ jobs:
     env:
       LEWORD_SEARCHAD_SOFT_CEILING: '60'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 수집 1~2분 · 실측 · 제목(동시 4 · 시간 상한 8분)까지.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      # 수집은 cheerio 만 쓴다 — electron 바이너리가 필요 없어 설치 스크립트를 건너뛴다.
+      # 3단계 제목 엔진(agent-cli)이 electron 을 import 해서 --ignore-scripts 면 제목이 통째로 죽는다(홈판 벤치마크와 같은 이유).
       - name: npm ci (행업 방어)
         run: |
           for i in 1 2 3; do
-            timeout 600 npm ci --ignore-scripts && exit 0
+            timeout 600 npm ci && exit 0
             echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
           done
           exit 1
       - name: Test adsense benchmark rules
-        run: node --test scripts/adsense-benchmarks.test.cjs scripts/adsense-benchmarks-sources.test.cjs scripts/adsense-benchmarks-measure.test.cjs
+        run: node --test scripts/adsense-benchmarks.test.cjs scripts/adsense-benchmarks-sources.test.cjs scripts/adsense-benchmarks-measure.test.cjs scripts/enrich-adsense-titles.test.cjs
+      # 소재 1개당 구글 · 다음 검색용 제목 20개는 구독 CLI 가 짓는다(홈판 벤치마크 제목과 같은 구조).
+      - name: 구독 CLI 폴백 준비
+        uses: ./.github/actions/setup-subscription-agents
       - name: Checkout website
         uses: actions/checkout@v4
         with:
@@ -64,6 +68,17 @@ jobs:
           --board site/spa/public/data/adsense-benchmarks.json
           --cache site/data/adsense-measure-cache.json
           --max 60
+      # 회차당 20장(사장님 결정 2026-10-07: 홈판 40 → 20, 줄인 만큼 애드센스 20). 실측 대표 검색어가 있는 카드만.
+      - name: 소재별 검색용 제목 20개 생성·부착
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: >-
+          node scripts/enrich-adsense-titles.js
+          --board=site/spa/public/data/adsense-benchmarks.json
+          --store=site/spa/public/data/adsense-benchmark-titles.json
+          --max=20
+          --concurrency=4
+          --budget-min=8
       - name: Publish only the adsense benchmark board
         working-directory: site
         run: |
@@ -71,6 +86,7 @@ jobs:
           git config user.email 'bot@leaderspro.kr'
           git add spa/public/data/adsense-benchmarks.json
           [ -f data/adsense-measure-cache.json ] && git add data/adsense-measure-cache.json
+          [ -f spa/public/data/adsense-benchmark-titles.json ] && git add spa/public/data/adsense-benchmark-titles.json
           if git diff --cached --quiet; then
             echo 'No adsense benchmark changes.'
             exit 0
