@@ -154,3 +154,65 @@ describe('제목 재료 연관어 — 엉뚱하게 번진 말은 뺀다', () => 
     ]);
   });
 });
+
+/*
+ * ③ 검색에서 궁금해하는 것(2026-10-07 사장님 "지식인이랑 카페만 볼 게 아니라 실제 검색에서 사람들이 뭘 궁금해하는지").
+ * 재료는 워커 keyword-expansions(자동완성 · 검색광고 연관어 + 실측 검색량). 띄어쓰기 없는 긴 키워드는 확장이 0개라(실측)
+ * 흔한 앞말 · 뒷말 자리에 띄어쓰기를 넣어 다시 찾는다.
+ */
+describe('검색에서 궁금해하는 것', () => {
+  it('띄어쓰기 없는 긴 키워드 — 흔한 앞말(가수) · 뒷말(별세 · 이유) 자리에 띄어쓰기 · 이미 띄어 쓴 말 · 짧은 말은 그대로(null)', async () => {
+    const { spaceOutKeyword } = await import('../post-plan/post-plan-model');
+    expect(spaceOutKeyword('가수주현미별세이유')).toBe('가수 주현미 별세 이유');
+    expect(spaceOutKeyword('배우김OO나이')).toBe('배우 김OO 나이');
+    expect(spaceOutKeyword('청년도약계좌신청방법')).toBe('청년도약계좌 신청 방법');
+    expect(spaceOutKeyword('자동차 보험 갱신')).toBeNull();
+    expect(spaceOutKeyword('주현미')).toBeNull();
+  });
+
+  it('다시 찾을 말 — 직업 앞말은 뗀다(가수를 붙이면 확장이 가수 일반으로 번져 3개뿐이었다 → 떼면 10개, 2026-10-07 실측)', async () => {
+    const { expansionRetryQueries } = await import('../post-plan/post-plan-model');
+    expect(expansionRetryQueries('가수주현미별세이유')).toEqual(['주현미 별세 이유', '가수 주현미 별세 이유']);
+    expect(expansionRetryQueries('청년도약계좌신청방법')).toEqual(['청년도약계좌 신청 방법']);
+    expect(expansionRetryQueries('자동차 보험 갱신')).toEqual([]);
+  });
+
+  it('키워드 낱말이 많이 겹치는 말 먼저 → 같으면 검색량 순 · 자기 자신 · 번진 말 · 3자 이상 안 겹치는 말(주현민 · 가수 김OO)은 뺀다 · 못 잰 검색량은 null 그대로', async () => {
+    const { searchCuriosities } = await import('../post-plan/post-plan-model');
+    const items = [
+      { keyword: '가수주현미별세', searchVolume: 301600 },
+      { keyword: '가수주현미별세이유', searchVolume: 19560 },
+      { keyword: '주현미', searchVolume: 118900 },
+      { keyword: '주현미 죽음', searchVolume: 250 },
+      { keyword: '주현미 콘서트', searchVolume: 3360 },
+      { keyword: '주현민', searchVolume: 900 },
+      { keyword: '가수 김호중', searchVolume: 50000 },
+      { keyword: '가수별세', searchVolume: 7000 },
+      { keyword: '현대차', searchVolume: 665800, drifted: true },
+      { keyword: '주현미 근황 2026', searchVolume: null },
+    ];
+    const rows = searchCuriosities('가수주현미별세이유', items, 10);
+    expect(rows.map((r) => r.keyword)).toEqual(['가수주현미별세', '주현미', '주현미 콘서트', '주현미 죽음', '주현미 근황 2026']);
+    expect(rows[rows.length - 1].searchVolume).toBeNull();
+  });
+
+  it('띄어 쓴 키워드 — 갱신처럼 의도 낱말까지 든 말이 먼저(브랜드 큰 검색량보다)', async () => {
+    const { searchCuriosities } = await import('../post-plan/post-plan-model');
+    const rows = searchCuriosities('자동차 보험 갱신', [
+      { keyword: 'KB자동차보험', searchVolume: 115300 },
+      { keyword: '자동차보험 갱신 기간', searchVolume: 2100 },
+      { keyword: '자동차보험료계산', searchVolume: 8290 },
+      { keyword: '보험 비교', searchVolume: 40000 },
+    ], 10);
+    expect(rows.map((r) => r.keyword)).toEqual(['자동차보험 갱신 기간', 'KB자동차보험', '자동차보험료계산']);
+  });
+
+  it('질문 체크리스트 — 띄운 말(alsoKeywords)로도 관련성을 본다(띄어쓰기 없는 키워드가 늘 0건이던 결함)', () => {
+    const items = [
+      { source: 'kin', title: '주현미 별세 소식 사실인가요', link: 'k1', postdate: '2026-10-06' },
+      { source: 'kin', title: '트로트 가수 추천해 주세요', link: 'k2', postdate: '2026-10-06' },
+    ];
+    expect(questionChecklist(items, 10, '가수주현미별세이유')).toEqual([]);
+    expect(questionChecklist(items, 10, '가수주현미별세이유', ['가수 주현미 별세 이유']).map((q) => q.link)).toEqual(['k1']);
+  });
+});

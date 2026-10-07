@@ -11771,14 +11771,26 @@
             + (t.homefeed || []).map((x) => ppTitleRow('홈판용', x, '')).join('')
             + (t.homefeedNote ? ppNote('홈판용 제목: ' + t.homefeedNote) : '')
             + ((t.news || []).length ? '<div style="font-size:11px; color:#64748b; margin-top:6px;">홈판 제목의 사실 재료(최근 뉴스): ' + t.news.map(ppEsc).join(' · ') + '</div>' : '');
+          // ③ 검색에서 궁금해하는 것(2026-10-07) — 자동완성 · 연관 키워드 + 월 검색량(실측). 예전 설계엔 이 칸이 없어 비운다.
+          const sr = s.searches;
+          const searches = !sr ? '' : '<div style="font-size:12px; font-weight:700; color:#fbbf24; margin-bottom:6px;">검색에서</div>' + (!sr.ok
+            ? ppNote('검색 궁금증을 받지 못했습니다: ' + (sr.note || ''))
+            : (sr.data || []).length === 0
+              ? '<div style="font-size:12.5px; color:#94a3b8;">검색 자동완성 · 연관 키워드에서 이 키워드와 겹치는 말을 찾지 못했습니다.</div>'
+              : '<div style="font-size:11.5px; color:#94a3b8; margin-bottom:8px;">사람들이 검색으로 실제로 찾는 말입니다. 소제목 · 본문에서 답해 주면 그 검색까지 받습니다. 숫자는 월 검색량(실측).</div>'
+                + sr.data.map((x) => '<div style="display:flex; gap:8px; align-items:baseline; padding:6px 0; border-top:1px solid rgba(255,255,255,0.05);">'
+                  + '<span style="flex:none; color:#64748b;">□</span>'
+                  + '<span style="flex:1; color:#e2e8f0; font-size:13px;">' + ppEsc(x.keyword) + '</span>'
+                  + '<span style="flex:none; font-size:12px; color:#94a3b8; font-variant-numeric:tabular-nums;">' + (x.searchVolume == null ? '미측정' : ppNum(x.searchVolume)) + '</span></div>').join(''))
+            + '<div style="font-size:12px; font-weight:700; color:#fbbf24; margin:14px 0 6px;">지식인 · 카페 · 최근 14일</div>';
           const q = s.questions || {};
-          const questions = !q.ok ? ppNote('질문을 찾지 못했습니다: ' + (q.note || '')) : (q.data || []).length === 0
+          const questions = searches + (!q.ok ? ppNote('질문을 찾지 못했습니다: ' + (q.note || '')) : (q.data || []).length === 0
             ? '<div style="font-size:12.5px; color:#94a3b8;">최근 14일 안에 이 키워드로 새로 올라온 질문이 없습니다.</div>'
             : '<div style="font-size:11.5px; color:#94a3b8; margin-bottom:8px;">글에 이 질문들의 답을 담으면, 같은 걸 찾는 사람에게 맞는 글이 됩니다.</div>'
               + q.data.map((x) => '<div style="display:flex; gap:8px; align-items:baseline; padding:6px 0; border-top:1px solid rgba(255,255,255,0.05);">'
                 + '<span style="flex:none; color:#64748b;">□</span>'
                 + '<a href="#" data-pp-open="' + ppEsc(x.link) + '" style="flex:1; color:#e2e8f0; font-size:13px; text-decoration:none;">' + ppEsc(x.title) + '</a>'
-                + '<span style="flex:none; font-size:11px; color:#64748b;">' + ppEsc(ppDay(x.postdate)) + ' · ' + ppEsc(x.where) + '</span></div>').join('');
+                + '<span style="flex:none; font-size:11px; color:#64748b;">' + ppEsc(ppDay(x.postdate)) + ' · ' + ppEsc(x.where) + '</span></div>').join(''));
           const m = (s.money && s.money.data) || {};
           const money = '<div style="display:flex; gap:8px; flex-wrap:wrap;">'
             + ppStat('모바일 파워링크 3위 입찰가', m.bid == null ? '—' : ppNum(m.bid) + '원', m.bidNote || '검색광고 입찰가 조회(실측)')
@@ -11791,7 +11803,7 @@
           box.innerHTML = '<div style="font-size:12px; color:#64748b; margin:0 2px 8px;">' + ppEsc(plan.keyword) + ' · ' + ppEsc(when) + ' 설계</div>'
             + ppBox('① 이 키워드, 내가 이길 수 있나', judge)
             + ppBox('② 제목', titles || '<div style="font-size:12.5px; color:#94a3b8;">만든 제목이 없습니다.</div>')
-            + ppBox('③ 사람들이 실제로 물은 것 · 최근 14일', questions)
+            + ppBox(s.searches ? '③ 사람들이 궁금해하는 것' : '③ 사람들이 실제로 물은 것 · 최근 14일', questions)
             + ppBox('④ 돈', money)
             + ppBox('⑤ 발행 후 · 링크 달 자리', ppInflowHtml(plan))
             + ppBox('⑥ 결과 · 고를 때 판정 vs 실제', ppResultHtml(plan));

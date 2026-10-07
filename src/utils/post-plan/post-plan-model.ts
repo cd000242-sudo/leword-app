@@ -34,7 +34,7 @@ export interface PostPlan {
   keyword: string;
   createdAt: string;
   updatedAt: string;
-  steps: Partial<Record<'judge' | 'titles' | 'questions' | 'money' | 'inflow' | 'result', PostPlanStep<unknown>>>;
+  steps: Partial<Record<'judge' | 'titles' | 'searches' | 'questions' | 'money' | 'inflow' | 'result', PostPlanStep<unknown>>>;
 }
 
 interface RadarLikeItem {
@@ -59,18 +59,19 @@ const whereOf = (item: RadarLikeItem): string => {
  * 레이더 검색 결과 → 글에 담을 질문 체크리스트. 최근 글부터, 같은 주소는 한 번.
  * 작성일 없는 글은 넣지 않는다 — 서버(워커)가 14일 안의 글만 보내지만 한 번 더 막는다.
  */
-export function questionChecklist(items: readonly RadarLikeItem[], limit: number, keyword = ''): PlanQuestion[] {
+export function questionChecklist(items: readonly RadarLikeItem[], limit: number, keyword = '', alsoKeywords: readonly string[] = []): PlanQuestion[] {
   const seen = new Set<string>();
   const when = (item: RadarLikeItem) => Date.parse(item.postedAt || `${item.postdate}T00:00:00+09:00`) || 0;
   /*
    * 관련성(2026-10-06 실주행 '자동차 보험 갱신'): 카페 검색은 낱말 하나만 맞아도 줘서 '개인회생' · '장갑차 대형면허 갱신'이
    * 섞였다. 키워드 낱말(2자 이상) 절반 이상이 제목(띄어쓰기 뺀)에 든 것만 남긴다.
+   * 띄어쓰기 없는 키워드('가수주현미별세이유')는 낱말이 하나라 늘 0건이었다(2026-10-07) → 띄운 말(alsoKeywords)로도 본다.
    */
-  const words = String(keyword).split(/\s+/).filter((w) => w.length >= 2);
+  const wordSets = [keyword, ...alsoKeywords].map((k) => String(k).split(/\s+/).filter((w) => w.length >= 2)).filter((ws) => ws.length);
   const relevant = (title: string) => {
-    if (!words.length) return true;
+    if (!wordSets.length) return true;
     const compactTitle = title.replace(/\s+/g, '');
-    return words.filter((w) => compactTitle.includes(w)).length * 2 >= words.length;
+    return wordSets.some((words) => words.filter((w) => compactTitle.includes(w)).length * 2 >= words.length);
   };
   return [...items]
     .filter((item) => item && item.title && item.link && item.postdate && relevant(String(item.title)))
@@ -83,6 +84,88 @@ export function questionChecklist(items: readonly RadarLikeItem[], limit: number
     })
     .slice(0, limit)
     .map((item) => ({ title: String(item.title), link: String(item.link), where: whereOf(item), postdate: String(item.postdate) }));
+}
+
+/*
+ * ③ 검색에서 궁금해하는 것(2026-10-07 사장님 "지식인 · 카페만 볼 게 아니라 실제 검색에서 사람들이 뭘 궁금해하는지").
+ * 재료는 워커 keyword-expansions(자동완성 · 검색광고 연관어 + 실측 검색량). 사이트 postPlanSiteModel 과 같은 규칙(두 곳을 같이 고칠 것).
+ */
+const ROLE_PREFIXES = ['트로트가수', '개그우먼', '개그맨', '아나운서', '방송인', '여배우', '남배우', '유튜버', '아이돌', '배우', '가수', '모델', '감독', '작가', '선수'];
+const INTENT_SUFFIXES = ['사망원인', '나무위키', '총정리', '프로필', '이유', '원인', '나이', '근황', '남편', '아내', '부인', '학력', '재산', '결혼', '이혼', '사망', '별세', '부고', '장례',
+  '방법', '신청', '기간', '조건', '대상', '자격', '후기', '가격', '추천', '순위', '일정', '시간', '예매', '차이', '종류', '비교', '정리'];
+
+/**
+ * 띄어쓰기 없는 긴 키워드에 흔한 앞말(직업) · 뒷말(의도) 자리 띄어쓰기를 넣는다 — 띄어쓰기가 없으면 확장이 0개라서(실측).
+ * '가수주현미별세이유' → '가수 주현미 별세 이유'. 이미 띄어 썼거나 떼어 낼 말이 없으면 null. 가운데(핵심) 말은 2자 이상 남긴다.
+ */
+export function spaceOutKeyword(keyword: string): string | null {
+  const raw = String(keyword || '').trim();
+  if (!raw || /\s/.test(raw) || raw.length < 5) return null;
+  let core = raw;
+  const head: string[] = [];
+  const tail: string[] = [];
+  const prefix = ROLE_PREFIXES.find((p) => core.startsWith(p) && core.length - p.length >= 2);
+  if (prefix) { head.push(prefix); core = core.slice(prefix.length); }
+  for (let guard = 0; guard < 4; guard += 1) {
+    const suffix = INTENT_SUFFIXES.find((s) => core.endsWith(s) && core.length - s.length >= 2);
+    if (!suffix) break;
+    tail.unshift(suffix);
+    core = core.slice(0, -suffix.length);
+  }
+  if (!head.length && !tail.length) return null;
+  return [...head, core, ...tail].join(' ');
+}
+
+/**
+ * 확장이 0개일 때 다시 찾을 말(순서대로) — 직업 앞말은 뗀 것 먼저('주현미 별세 이유'), 그다음 띄운 말 그대로.
+ * '가수'를 붙인 채 찾으면 확장이 가수 일반으로 번져 3개뿐이었다 → 떼면 10개(2026-10-07 실측). 띄울 게 없으면 빈 목록.
+ */
+export function expansionRetryQueries(keyword: string): string[] {
+  const spaced = spaceOutKeyword(keyword);
+  if (!spaced) return [];
+  const words = spaced.split(' ');
+  const noRole = ROLE_PREFIXES.includes(words[0]) && words.length >= 3 ? words.slice(1).join(' ') : spaced;
+  return [...new Set([noRole, spaced])];
+}
+
+/** 두 말(띄어쓰기 뺀)이 함께 가진 가장 긴 연속 글자 수. */
+function longestShared(a: string, b: string): number {
+  let best = 0;
+  const prev = new Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i += 1) {
+    let diag = 0;
+    for (let j = 1; j <= b.length; j += 1) {
+      const keep = prev[j];
+      prev[j] = a[i - 1] === b[j - 1] ? diag + 1 : 0;
+      if (prev[j] > best) best = prev[j];
+      diag = keep;
+    }
+  }
+  return best;
+}
+
+/**
+ * 검색에서 궁금해하는 말 — 키워드와 3자 이상 겹치는 말만(2자짜리 '가수' · '보험' 하나만 겹치는 엉뚱한 말 제외),
+ * 키워드 낱말이 많이 든 순 → 같으면 검색량 순(못 잰 값은 뒤, null 그대로). 자기 자신 · 번진 말 제외.
+ */
+export function searchCuriosities(keyword: string, items: ReadonlyArray<{ keyword: string; searchVolume?: number | null; drifted?: boolean }>, limit: number): Array<{ keyword: string; searchVolume: number | null }> {
+  const compactOf = (s: string) => String(s || '').replace(/\s+/g, '');
+  const self = compactOf(keyword);
+  const words = String(spaceOutKeyword(keyword) || keyword).split(/\s+/).filter((w) => w.length >= 2);
+  const seen = new Set<string>();
+  const rows: Array<{ keyword: string; searchVolume: number | null; score: number }> = [];
+  for (const item of items || []) {
+    if (!item || !item.keyword || item.drifted) continue;
+    const c = compactOf(item.keyword);
+    if (!c || c === self || seen.has(c) || longestShared(c, self) < 3) continue;
+    seen.add(c);
+    const volume = typeof item.searchVolume === 'number' && Number.isFinite(item.searchVolume) ? item.searchVolume : null;
+    rows.push({ keyword: item.keyword, searchVolume: volume, score: words.filter((w) => c.includes(w)).length });
+  }
+  return rows
+    .sort((a, b) => b.score - a.score || (b.searchVolume ?? -1) - (a.searchVolume ?? -1))
+    .slice(0, limit)
+    .map(({ keyword: k, searchVolume }) => ({ keyword: k, searchVolume }));
 }
 
 /** 상품 맞추기에서 버리는 낱말 — 어느 상품에나 붙는 말이라 겹쳐도 관련이 없다. */

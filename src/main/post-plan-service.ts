@@ -2,13 +2,13 @@
  * 글 한 편 유입 설계실 진행기(2026-10-06 사장님 승인 "진행") — 키워드 하나로 ①~④ 를 잇는다.
  *   ① 이길 수 있나: 검색량 · 문서수 · 1페이지 자리 실측 · 내 블로그 크기 판정 · 선점 보드에 있으면 그 행
  *   ② 제목: 검색용(1페이지 빈 틀, AI 없음) · 홈판용(내 구독 AI, 1페이지 제목 + 최근 뉴스 사실을 재료로)
- *   ③ 사람들이 실제로 물은 것: 최근 14일 지식인 · 카페(레이더 검색, 무료)
+ *   ③ 사람들이 궁금해하는 것: 검색 자동완성 · 연관 키워드(실측 검색량) + 최근 14일 지식인 · 카페(레이더 검색, 무료)
  *   ④ 돈: 모바일 파워링크 3위 입찰가(실측) · 관련 제휴 상품 후보
  * 재료는 주입받는다(post-plan.ts 가 실제 재료를 잇고, 테스트는 가짜를 끼운다).
  * 한 단계가 실패해도 나머지는 계속하고, 못 한 이유를 그 단계에 남긴다. 추정치(확률 · 예상 유입)는 만들지 않는다.
  */
 import type { NearBand, RangeVerdict, CandidateSize } from '../utils/blog-class/envelope';
-import { affiliateCandidates, filterByAnalysis, inflowSpots, questionChecklist, type PostPlan, type PostPlanStep } from '../utils/post-plan/post-plan-model';
+import { affiliateCandidates, filterByAnalysis, inflowSpots, questionChecklist, searchCuriosities, spaceOutKeyword, expansionRetryQueries, type PostPlan, type PostPlanStep } from '../utils/post-plan/post-plan-model';
 
 /** 발행 후 유입에서 AI 가 한 번에 평가할 자리 수(실측: 147곳은 150초 안에 못 답함). */
 const INFLOW_EVAL_LIMIT = 40;
@@ -29,7 +29,10 @@ export interface PostPlanDeps {
   preemptionRow(keyword: string): Promise<{ tierLabel?: string; openSlot?: number | null; measuredAt?: string } | null>;
   news(keyword: string): Promise<string[]>;
   homefeedTitles(input: { keyword: string; question: string; uncovered: string[]; topTitles: string[]; whyNow: string; news?: string[] }): Promise<{ titles: string[]; note: string | null }>;
-  questions(keyword: string): Promise<Array<Record<string, any>>>;
+  /** 지식인 · 카페 최근 14일. extraQueries = 띄운 말 · 검색 궁금증 맨 위 말(함께 찾는다). */
+  questions(keyword: string, extraQueries: string[]): Promise<Array<Record<string, any>>>;
+  /** 자동완성 · 검색광고 연관어 + 실측 검색량(워커 keyword-expansions). */
+  expansions(keyword: string): Promise<Array<{ keyword: string; searchVolume?: number | null; drifted?: boolean }>>;
   bid(keyword: string): Promise<number | null>;
   affiliateSnapshot(): Promise<any | null>;
 }
@@ -48,13 +51,27 @@ export async function runPostPlan(keywordRaw: string, deps: PostPlanDeps, say: (
   const id = `plan-${now.toString(36)}`;
 
   say('① 이 키워드, 내가 이길 수 있나 — 검색량 · 문서수 · 1페이지 자리를 잽니다');
+  // ③ 검색에서 궁금해하는 것 — 띄어쓰기 없는 긴 키워드는 확장이 0개라(실측) 띄운 말로 다시 찾는다(2026-10-07)
+  const spaced = spaceOutKeyword(keyword);
+  const searchesRun = settle(async () => {
+    say('③ 사람들이 궁금해하는 것 — 검색 자동완성 · 연관 키워드 검색량을 봅니다');
+    let items = await deps.expansions(keyword);
+    for (const retry of expansionRetryQueries(keyword)) { if (items.length) break; items = await deps.expansions(retry); }
+    return searchCuriosities(keyword, items, 10);
+  });
+  // 지식인 · 카페는 띄운 말 · 검색 궁금증 맨 위 말로도 함께 찾는다(검색 궁금증이 실패해도 키워드로는 찾는다)
+  const alsoRun = searchesRun.then((s) => [...new Set([spaced, s.ok ? s.value[0]?.keyword : null].filter((x): x is string => Boolean(x)))]);
+  const questionsRun = alsoRun.then((also) => settle(() => { say('③ 사람들이 실제로 물은 것 — 최근 14일 지식인 · 카페를 찾습니다'); return deps.questions(keyword, also); }));
+
   // ①(자리 실측은 이 PC 브라우저) · ③ · ④(네트워크)는 서로 기다릴 필요가 없다.
-  const [volumes, docs, kit, preemption, questions, bid, snapshot] = await Promise.all([
+  const [volumes, docs, kit, preemption, searches, questions, also, bid, snapshot] = await Promise.all([
     settle(() => deps.volumes([keyword])),
     settle(() => deps.docs([keyword])),
     settle(() => deps.writingKit(keyword)),
     settle(() => deps.preemptionRow(keyword)),
-    settle(() => { say('③ 사람들이 실제로 물은 것 — 최근 14일 지식인 · 카페를 찾습니다'); return deps.questions(keyword); }),
+    searchesRun,
+    questionsRun,
+    alsoRun,
     settle(() => deps.bid(keyword)),
     settle(() => deps.affiliateSnapshot()),
   ]);
@@ -100,8 +117,9 @@ export async function runPostPlan(keywordRaw: string, deps: PostPlanDeps, say: (
   };
 
   const questionStep: PostPlanStep<unknown> = questions.ok
-    ? { ok: true, data: questionChecklist(questions.value, 10, keyword) }
+    ? { ok: true, data: questionChecklist(questions.value, 10, keyword, also) }
     : { ok: false, note: questions.note };
+  const searchStep: PostPlanStep<unknown> = searches.ok ? { ok: true, data: searches.value } : { ok: false, note: searches.note };
 
   say('④ 돈 — 파워링크 입찰가 · 관련 제휴 상품');
   const money: PostPlanStep<unknown> = {
@@ -114,7 +132,7 @@ export async function runPostPlan(keywordRaw: string, deps: PostPlanDeps, say: (
     },
   };
 
-  return { id, keyword, createdAt: at, updatedAt: at, steps: { judge, titles, questions: questionStep, money } };
+  return { id, keyword, createdAt: at, updatedAt: at, steps: { judge, titles, searches: searchStep, questions: questionStep, money } };
 }
 
 /*

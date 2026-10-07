@@ -20,6 +20,7 @@ function deps(over: Partial<PostPlanDeps> = {}): PostPlanDeps {
     news: async () => ['자동차보험 갱신 할인 특약 확대'],
     homefeedTitles: vi.fn(async () => ({ titles: ['"갱신 문자 받고 그냥 넘겼다가…" 다들 놓치는 할인'], note: null })),
     questions: async () => [{ source: 'kin', title: '자동차 보험 갱신 때 블랙박스 할인 따로 신청해야 하나요?', link: 'https://kin.naver.com/qna/detail.naver?docId=1', postdate: '2026-10-04', postedAt: '2026-10-04T03:00:00Z' }],
+    expansions: async () => [],
     bid: async () => 1240,
     affiliateSnapshot: async () => ({ sites: { toss: { label: '토스쇼핑', items: [{ name: '차량용 블랙박스', keyword: '블랙박스' }, { name: '자동차 방향제', keyword: '방향제' }] } } }),
     ...over,
@@ -78,5 +79,46 @@ describe('runPostPlan', () => {
     await runPostPlan('자동차 보험 갱신', deps(), (m) => said.push(m));
     expect(said.some((m) => /이길 수 있나/.test(m))).toBe(true);
     expect(said.some((m) => /제목/.test(m))).toBe(true);
+  });
+});
+
+describe('③ 검색에서 궁금해하는 것(2026-10-07)', () => {
+  it('자동완성 · 연관 키워드(실측 검색량)를 searches 칸으로 — 키워드 낱말이 많이 든 말 먼저', async () => {
+    const d = deps({
+      expansions: async () => [
+        { keyword: 'KB자동차보험', searchVolume: 115300 },
+        { keyword: '자동차보험 갱신 기간', searchVolume: 2100 },
+        { keyword: '보험 비교', searchVolume: 40000 },
+      ],
+    });
+    const plan = await runPostPlan('자동차 보험 갱신', d, () => {}, Date.parse('2026-10-06T08:00:00Z'));
+    expect(plan.steps.searches?.ok).toBe(true);
+    expect((plan.steps.searches?.data as any[]).map((r) => r.keyword)).toEqual(['자동차보험 갱신 기간', 'KB자동차보험']);
+  });
+
+  it('띄어쓰기 없는 키워드 — 확장이 0개면 띄운 말로 다시 · 지식인 · 카페도 띄운 말 · 가장 많이 겹치는 검색어로 함께 찾고 거른다', async () => {
+    const seenExpansions: string[] = [];
+    const questions = vi.fn(async () => [
+      { source: 'kin', title: '주현미 별세 소식 사실인가요', link: 'k1', postdate: '2026-10-06' },
+      { source: 'kin', title: '트로트 가수 추천해 주세요', link: 'k2', postdate: '2026-10-06' },
+    ]);
+    const d = deps({
+      expansions: async (kw: string) => { seenExpansions.push(kw); return kw === '주현미 별세 이유' ? [{ keyword: '가수주현미별세', searchVolume: 301600 }, { keyword: '주현미', searchVolume: 118900 }] : []; },
+      questions,
+    });
+    const plan = await runPostPlan('가수주현미별세이유', d, () => {}, Date.parse('2026-10-07T08:00:00Z'));
+    expect(seenExpansions).toEqual(['가수주현미별세이유', '주현미 별세 이유']);
+    expect((plan.steps.searches?.data as any[]).map((r) => r.keyword)).toEqual(['가수주현미별세', '주현미']);
+    expect(questions.mock.calls[0]).toEqual(['가수주현미별세이유', ['가수 주현미 별세 이유', '가수주현미별세']]);
+    expect((plan.steps.questions?.data as any[]).map((q) => q.link)).toEqual(['k1']);
+  });
+
+  it('확장이 실패해도 지식인 · 카페는 키워드로 그대로 찾고, 실패 이유는 searches 칸에', async () => {
+    const questions = vi.fn(async () => []);
+    const d = deps({ expansions: async () => { throw new Error('워커 응답 없음'); }, questions });
+    const plan = await runPostPlan('자동차 보험 갱신', d, () => {}, Date.parse('2026-10-06T08:00:00Z'));
+    expect(plan.steps.searches).toEqual({ ok: false, note: '워커 응답 없음' });
+    expect(questions.mock.calls[0]).toEqual(['자동차 보험 갱신', []]);
+    expect(plan.steps.questions?.ok).toBe(true);
   });
 });

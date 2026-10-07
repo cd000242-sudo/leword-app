@@ -114,20 +114,32 @@ export async function createPostPlanDeps(): Promise<PostPlanDeps> {
       const result = await homefeedTitlesFor([input]);
       return { titles: result.titles.get(input.keyword) || [], note: result.note };
     },
-    questions: async (keyword) => {
+    questions: async (keyword, extraQueries) => {
       // 커뮤니티(구글 · Bright Data)는 부르지 않는다 — keys 를 비워 지식인 · 카페만(무료).
+      // 띄운 말 · 검색 궁금증 맨 위 말로도 함께 찾는다(띄어쓰기 없는 키워드가 늘 0건이던 결함, 2026-10-07)
+      const extra = (extraQueries || []).filter((q) => compact(q) !== compact(keyword)).slice(0, 2);
       const data = await fetchJson(WORKER, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'radar-search',
           keys: {},
-          queries: JSON.stringify([keyword, `${keyword} 질문`]),
-          coreKeywords: JSON.stringify([{ keyword }]),
-          shortQueries: JSON.stringify([keyword]),
+          queries: JSON.stringify([keyword, `${keyword} 질문`, ...extra]),
+          coreKeywords: JSON.stringify([{ keyword }, ...extra.map((q) => ({ keyword: q }))]),
+          shortQueries: JSON.stringify([keyword, ...extra]),
         }),
       }, 90_000);
       if (!data?.ok) throw new Error(String(data?.message || '레이더 검색 실패'));
+      return Array.isArray(data.items) ? data.items : [];
+    },
+    expansions: async (keyword) => {
+      // 사이트 설계실과 같은 재료(워커 keyword-expansions · 키 없이 · 검색량은 워커가 실측해 붙임) — 앱과 사이트가 같은 목록을 낸다
+      const data = await fetchJson(WORKER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'keyword-expansions', keyword }),
+      }, 60_000);
+      if (!data?.ok) throw new Error(String(data?.message || '검색 확장 실패'));
       return Array.isArray(data.items) ? data.items : [];
     },
     bid: async (keyword) => {
