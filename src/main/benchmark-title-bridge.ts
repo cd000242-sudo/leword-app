@@ -15,7 +15,8 @@ export type BridgeTitleCard = BenchmarkTitleCard & { kind: 'homefeed' | 'adsense
 
 export interface BenchmarkTitleBridgeDeps {
   allowed: () => Promise<boolean>;
-  generate: (card: BridgeTitleCard) => Promise<{ provider: string; titles: string[] }>;
+  /** edges — 애드센스만: 제목과 같은 순서로 그 제목이 고수 제목보다 나은 점. */
+  generate: (card: BridgeTitleCard) => Promise<{ provider: string; titles: string[]; edges?: string[] }>;
 }
 
 interface RouteIo {
@@ -68,7 +69,7 @@ export async function handleBenchmarkTitleRoute(req: IncomingMessage, res: Serve
   if (!card) { io.json(res, 400, { ok: false, error: '소재 정보가 올바르지 않습니다.' }); return true; }
   try {
     const made = await deps.generate(card);
-    io.json(res, 200, { ok: true, result: { id: card.id, provider: made.provider, titles: made.titles } });
+    io.json(res, 200, { ok: true, result: { id: card.id, provider: made.provider, titles: made.titles, ...(Array.isArray(made.edges) ? { edges: made.edges } : {}) } });
   } catch {
     io.json(res, 503, { ok: false, error: '앱에서 제목을 만들지 못했습니다 — 잠시 뒤 다시 눌러 주세요.' });
   }
@@ -88,7 +89,7 @@ export function createBenchmarkTitleBridgeDeps(): BenchmarkTitleBridgeDeps {
         const { titlesForAdsenseCards } = await import('../utils/adsense-title-engine');
         const result = await titlesForAdsenseCards([{ id: card.id, query: card.query, keyword: card.keyword, category: card.category, sourceTitles: card.sourceTitles }]);
         const row = result.results.find((r) => r.id === card.id);
-        return { provider: result.provider, titles: row ? row.titles : [] };
+        return { provider: result.provider, titles: row ? row.titles : [], edges: row ? row.edges : [] };
       }
       const { titlesForCards } = await import('../utils/benchmark-title-engine');
       const result = await titlesForCards([card]);

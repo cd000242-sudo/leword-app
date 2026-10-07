@@ -15,7 +15,8 @@ const path = require('path');
 const { freshEntries, mergeEntries, generateTitles } = require('./enrich-benchmark-titles.js');
 const { serialize } = require('./homefeed-benchmarks-core.cjs');
 
-const ADSENSE_TITLE_RULES = '2026-10-07-search';
+// 2026-10-07-superior: 고수 제목과 같은 채점표로 재서 가장 높은 고수 제목을 넘는 것만(사장님 "고수 제목보다 훨씬 상위호환").
+const ADSENSE_TITLE_RULES = '2026-10-07-superior';
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -34,15 +35,27 @@ function attachAdsenseTitles(board, entries) {
   const byId = new Map(entries.map((e) => [e.id, e]));
   const candidates = (board && Array.isArray(board.candidates) ? board.candidates : []).map((card) => {
     const hit = byId.get(card.id);
-    return { ...card, titles: hit ? [...hit.titles] : [], ...(hit ? { titlesAt: hit.at } : {}) };
+    return {
+      ...card,
+      titles: hit ? [...hit.titles] : [],
+      // 제목과 같은 순서 — 그 제목이 고수 제목보다 나은 점. 예전 규칙 제목엔 없다(빈 목록).
+      titleEdges: hit && Array.isArray(hit.edges) ? [...hit.edges] : [],
+      ...(hit && Number.isFinite(hit.masterBest) ? { masterBest: hit.masterBest } : {}),
+      ...(hit ? { titlesAt: hit.at } : {}),
+    };
   });
   return { ...board, candidates };
 }
 
-/** 이번 회차 — 창고에 없는 카드(판 순서 = ★ 먼저) 최대 max. */
+/**
+ * 이번 회차 — 예전 규칙으로 지은 카드(이미 화면에 보이는 고수 다시 쓰기 제목)를 먼저, 그다음 창고에 없는 카드. 판 순서(★ 먼저), 최대 max.
+ * 규칙 표시가 없는 항목은 건드리지 않는다.
+ */
 function pickAdsenseTargets(cards, kept, max) {
-  const have = new Set(kept.map((e) => e.id));
-  return cards.filter((c) => !have.has(c.id)).slice(0, Math.max(0, max));
+  const byId = new Map(kept.map((e) => [e.id, e]));
+  const stale = cards.filter((c) => { const e = byId.get(c.id); return e && typeof e.rules === 'string' && e.rules !== ADSENSE_TITLE_RULES; });
+  const missing = cards.filter((c) => !byId.has(c.id));
+  return [...stale, ...missing].slice(0, Math.max(0, max));
 }
 
 async function main() {
@@ -63,8 +76,15 @@ async function main() {
     const { cardsFromAdsenseBoard, titlesForAdsenseCards, ADSENSE_TITLE_BATCH } = require('../src/utils/adsense-title-engine');
     const cards = pickAdsenseTargets(cardsFromAdsenseBoard(board), kept, max);
     console.log(`애드센스 제목 대상 ${cards.length}장 (창고 유지 ${kept.length}장) · 배치 ${ADSENSE_TITLE_BATCH} · 동시 ${concurrency}`);
-    ({ made, provider } = await generateTitles(cards, kept, { batchSize: ADSENSE_TITLE_BATCH, concurrency, budgetMs, titlesFor: (batch) => titlesForAdsenseCards(batch) }));
-    made = made.map((e) => ({ ...e, rules: ADSENSE_TITLE_RULES }));
+    // 공용 생성기(홈판과 같음)는 titles 만 옮긴다 — 고수보다 나은 점(edges)과 기준 점수는 여기서 따로 받아 붙인다.
+    const extras = new Map();
+    const titlesFor = async (batch) => {
+      const result = await titlesForAdsenseCards(batch);
+      for (const row of result.results) extras.set(row.id, { edges: row.edges, masterBest: row.masterBest });
+      return result;
+    };
+    ({ made, provider } = await generateTitles(cards, kept, { batchSize: ADSENSE_TITLE_BATCH, concurrency, budgetMs, titlesFor }));
+    made = made.map((e) => ({ ...e, ...(extras.get(e.id) || {}), rules: ADSENSE_TITLE_RULES }));
   } catch (error) {
     console.log(`!! 애드센스 제목 생성 실패(부착은 계속): ${String((error && error.message) || error).slice(0, 200)}`);
   }

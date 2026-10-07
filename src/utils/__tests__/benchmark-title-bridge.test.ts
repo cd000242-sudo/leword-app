@@ -85,4 +85,15 @@ describe('애드센스 검색용 제목(kind: adsense)', () => {
     expect(out.code).toBe(200);
     expect(seen).toEqual(['adsense']);
   });
+  it('애드센스는 고수보다 나은 점(edges)도 제목과 같은 순서로 돌려준다 — 없으면 빼고', async () => {
+    const h = harness();
+    await handleBenchmarkTitleRoute(fakeReq('POST', '/v1/bridge/benchmark-titles', { card: { ...card, kind: 'adsense', query: '국민연금추납' } }), h.res, {
+      allowed: async () => true,
+      generate: async () => ({ provider: 'claude', titles: ['t1'], edges: ["고수 2명이 안 다룬 '주의·불이익'까지"] }),
+    }, h.io);
+    expect(h.out.value.result.edges).toEqual(["고수 2명이 안 다룬 '주의·불이익'까지"]);
+    const g = harness();
+    await handleBenchmarkTitleRoute(fakeReq('POST', '/v1/bridge/benchmark-titles', { card }), g.res, { allowed: async () => true, generate: async () => ({ provider: 'x', titles: ['t'] }) }, g.io);
+    expect('edges' in g.out.value.result).toBe(false);
+  });
 });

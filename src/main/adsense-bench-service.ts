@@ -41,8 +41,9 @@ export function selectAppRound<T extends { weekPosts?: number }>(sources: T[], c
   return { sources: [...active, ...slice], nextCursor: (start + count) % idle.length };
 }
 
-export function withCardTitles<T extends { candidates: any[] }>(board: T, id: string, titles: string[]): T {
-  return { ...board, candidates: board.candidates.map((c) => (c.id === id ? { ...c, titles: [...titles], titlesAt: new Date().toISOString() } : c)) };
+/** edges — 제목과 같은 순서로 그 제목이 고수 제목보다 나은 점, masterBest — 같은 채점표의 가장 높은 고수 제목 점수(사이트 판과 같은 칸). */
+export function withCardTitles<T extends { candidates: any[] }>(board: T, id: string, titles: string[], edges: string[] = [], masterBest?: number): T {
+  return { ...board, candidates: board.candidates.map((c) => (c.id === id ? { ...c, titles: [...titles], titleEdges: [...edges], ...(Number.isFinite(masterBest) ? { masterBest } : {}), titlesAt: new Date().toISOString() } : c)) };
 }
 
 export function withCardMetrics<T extends { candidates: any[] }>(board: T, id: string, entry: { query: string; searchVolume: number | null; documentCount: number | null; bid: number | null; at: string }): T {

@@ -36,3 +36,9 @@ test('카드에 붙이기 — 실측 칸만 채우고 나머지는 그대로', (
   assert.deepEqual(out.metrics, { query: '국민연금추납', searchVolume: 2400, documentCount: 3000, bid: 520, measuredAt: '2026-10-07T00:00:00Z' });
   assert.equal(card.metrics.searchVolume, null, '원본은 바꾸지 않는다');
 });
+
+// 2026-10-07: 대표 검색어가 '실업급여구직급여'(같은 뜻 말 두 개)로 잡혀 제목이 "실업급여 구직급여 …"로 어색해졌다 — 같은 뜻 말은 앞의 하나만.
+test('후보 검색어 — 같은 뜻 말(실업급여 · 구직급여)은 앞의 하나만 남기고 붙인다', () => {
+  assert.deepEqual(m.candidatesOf({ keyword: '실업급여 구직급여 신청 조건' }), ['실업급여신청', '실업급여신청조건']);
+  assert.deepEqual(m.candidatesOf({ keyword: '부가세 부가가치세' }), ['부가세']);
+});

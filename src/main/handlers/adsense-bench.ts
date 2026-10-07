@@ -138,9 +138,9 @@ export function setupAdsenseBenchHandlers(): void {
       const { titlesForAdsenseCards } = await import('../../utils/adsense-title-engine');
       const result = await titlesForAdsenseCards([{ id: card.id, query: card.metrics.query, keyword: card.keyword, category: card.category, sourceTitles: (card.sources || []).map((s: any) => s.title).slice(0, 6) }]);
       const row = result.results.find((r) => r.id === card.id);
-      if (!row || !row.titles.length) return { success: false, error: '검사를 통과한 제목이 없었습니다 — 한 번 더 눌러 주세요' };
-      writeBoard(withCardTitles(readBoard() || board, card.id, row.titles));
-      return { success: true, titles: row.titles, provider: result.provider };
+      if (!row || !row.titles.length) return { success: false, error: '고수 제목보다 나은 제목이 아직 없었습니다 — 한 번 더 눌러 주세요' };
+      writeBoard(withCardTitles(readBoard() || board, card.id, row.titles, row.edges, row.masterBest));
+      return { success: true, titles: row.titles, edges: row.edges, provider: result.provider };
     } catch (error: any) {
       return { success: false, error: String(error?.message || error).slice(0, 200) };
     }

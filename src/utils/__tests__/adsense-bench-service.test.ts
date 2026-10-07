@@ -62,3 +62,13 @@ describe('앱 수집 회차 고르기', () => {
     expect(selectAppRound([src('i', 0)], -5, 300).sources.map((s) => s.id)).toEqual(['i']);
   });
 });
+
+describe('앱 제목 붙이기 — 고수보다 나은 점', () => {
+  it('제목과 같은 순서로 titleEdges · masterBest 를 싣고, 안 주면 빈 목록', () => {
+    const b = board(1);
+    const t = withCardTitles(b, 'c0', ['t1', 't2'], ['e1', 'e2'], 9) as any;
+    expect(t.candidates[0].titleEdges).toEqual(['e1', 'e2']);
+    expect(t.candidates[0].masterBest).toBe(9);
+    expect((withCardTitles(b, 'c0', ['t1']) as any).candidates[0].titleEdges).toEqual([]);
+  });
+});

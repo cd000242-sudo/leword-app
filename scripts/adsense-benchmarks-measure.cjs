@@ -19,7 +19,7 @@ const compact = (v) => String(v || '').replace(/\s+/g, '');
 
 /** 검색광고 힌트 — 카드 앞 낱말 둘을 붙인 말(15자 안). 넘으면 첫 낱말, 그것도 넘으면 빈 값. */
 function hintOf(card) {
-  const words = String(card && card.keyword || '').split(/\s+/).filter(Boolean);
+  const words = withoutSynonymRepeats(String(card && card.keyword || '').split(/\s+/).filter(Boolean));
   const two = compact(words.slice(0, 2).join(''));
   if (two && two.length <= 15) return two;
   const one = compact(words[0]);
@@ -27,8 +27,24 @@ function hintOf(card) {
 }
 
 /** 후보 검색어 — 앞 낱말 2개 · 3개를 붙인 말(검색광고 15자 한도 안). 낱말이 하나뿐이면 그 말. */
+/** 같은 뜻 말 — 앞의 하나만 남긴다(실업급여 구직급여 → 실업급여). src/utils/adsense-title-engine.ts 의 SYNONYM_GROUPS 와 같은 목록(쌍둥이). */
+const SYNONYM_GROUPS = [
+  ['실업급여', '구직급여'], ['부가세', '부가가치세'], ['종소세', '종합소득세'], ['건보료', '건강보험료'],
+  ['기초연금', '노령연금'], ['양도세', '양도소득세'], ['자동차세', '차량세'],
+];
+function withoutSynonymRepeats(words) {
+  const usedGroups = new Set();
+  return words.filter((word) => {
+    const group = SYNONYM_GROUPS.findIndex((g) => g.includes(compact(word)));
+    if (group < 0) return true;
+    if (usedGroups.has(group)) return false;
+    usedGroups.add(group);
+    return true;
+  });
+}
+
 function candidatesOf(card) {
-  const words = String(card && card.keyword || '').split(/\s+/).filter(Boolean);
+  const words = withoutSynonymRepeats(String(card && card.keyword || '').split(/\s+/).filter(Boolean));
   if (words.length === 1) return compact(words[0]).length <= 15 ? [compact(words[0])] : [];
   return [...new Set([2, 3].map((n) => compact(words.slice(0, n).join(''))).filter((w) => w && w.length <= 15))];
 }
