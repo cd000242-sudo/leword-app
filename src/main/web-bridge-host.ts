@@ -252,23 +252,25 @@ export function startWebBridgeHost(): void {
        */
       apiKeys: async () => {
         const { EnvironmentManager } = await import('../utils/environment-manager');
+        const { configToSiteKeys } = await import('../utils/api-key-sync');
         const env = EnvironmentManager.getInstance().getConfig() as any;
-        const map: Record<string, string | undefined> = {
-          openApiId: env.naverClientId,
-          openApiSecret: env.naverClientSecret,
-          apihubKeyId: env.naverApiHubKeyId,
-          apihubKey: env.naverApiHubKey,
-          searchAdLicense: env.naverSearchAdAccessLicense,
-          searchAdSecret: env.naverSearchAdSecretKey,
-          searchAdCustomer: env.naverSearchAdCustomerId,
-          youtubeKey: env.youtubeApiKey,
-        };
-        const keys: Record<string, string> = {};
-        for (const [field, value] of Object.entries(map)) {
-          const trimmed = String(value || '').trim();
-          if (trimmed) keys[field] = trimmed;
-        }
-        return { ok: true, keys, count: Object.keys(keys).length };
+        const keys = configToSiteKeys(env);
+        // savedAt — 앱 키 칸이 마지막으로 바뀐 시각(없으면 빈 값 = 언제인지 모름). 사이트가 마지막 저장 판정에 쓴다.
+        return { ok: true, keys, count: Object.keys(keys).length, savedAt: String(env.apiKeysSavedAt || '') };
+      },
+      /*
+       * 사이트에서 저장한 키 → 앱 설정(2026-10-07 "둘이 한 몸"). 아는 칸 · 값 있는 것만 넣고(빈 값으로 덮지 않음),
+       * 사이트의 저장 시각을 그대로 남긴다 — 다음 판정에서 핑퐁이 생기지 않게.
+       */
+      apiKeysSave: async (body: unknown) => {
+        const { EnvironmentManager } = await import('../utils/environment-manager');
+        const { siteKeysToConfigPartial } = await import('../utils/api-key-sync');
+        const input = (body && typeof body === 'object' ? body : {}) as { keys?: Record<string, unknown>; savedAt?: unknown };
+        const partial = siteKeysToConfigPartial(input.keys && typeof input.keys === 'object' ? input.keys : {}, input.savedAt);
+        const saved = Object.keys(partial).filter((k) => k !== 'apiKeysSavedAt').length;
+        if (!saved) return { ok: true, saved: 0 };
+        await EnvironmentManager.getInstance().saveConfig(partial as any);
+        return { ok: true, saved, savedAt: partial.apiKeysSavedAt };
       },
       adsenseStatus: async () => {
         const { EnvironmentManager } = await import('../utils/environment-manager');

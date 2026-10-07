@@ -9,7 +9,9 @@ import { createWebBridge } from '../../main/web-bridge';
  * 키워드 고정 템플릿만(임의 프롬프트 통로 아님), 본문 한도.
  */
 
+const savedBodies: unknown[] = [];
 const deps = {
+  apiKeysSave: async (body: unknown) => { savedBodies.push(body); return { ok: true, saved: 1 }; },
   appVersion: 'test-1.0.0',
   getAgentStatuses: async () => [{ provider: 'claude', installed: true, loggedIn: true, available: true, detail: '' }],
   forgeInsights: async (keyword: string, options?: { loose?: boolean }) => ({
@@ -149,5 +151,28 @@ describe('어드민 작업자 — 사장님 PC 의 gh 인증 대행', () => {
         expect((await status.json()).result.conclusion).toBe('success');
         const dispatch = await fetch(`${base}/v1/bridge/admin/worker-test`, { method: 'POST', headers: { Origin: 'https://leaderspro.kr' } });
         expect((await dispatch.json()).result.dispatched).toBe(true);
+    });
+});
+
+// 사장님(2026-10-07) "앱에 api 키를 저장했는데 사이트에서도 따로 저장해야 하나 — 한 몸이어야". 사이트에서 저장한 키를 앱 설정으로.
+describe('키 저장 통로 — 사이트(leaderspro.kr)만 앱 설정에 쓴다', () => {
+    const body = JSON.stringify({ keys: { openApiId: 'abc' }, savedAt: '2026-10-07T01:00:00.000Z' });
+    it('사이트 출처면 받아서 앱에 넘긴다', async () => {
+        const res = await fetch(`${base}/v1/bridge/api-keys-save`, { method: 'POST', headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' }, body });
+        expect(res.status).toBe(200);
+        expect((await res.json()).result.ok).toBe(true);
+        expect(savedBodies.at(-1)).toEqual({ keys: { openApiId: 'abc' }, savedAt: '2026-10-07T01:00:00.000Z' });
+    });
+    it('출처 없는 요청 · 크롬 확장은 쓰지 못한다(읽기와 달리 쓰기는 사이트만)', async () => {
+        const before = savedBodies.length;
+        const none = await fetch(`${base}/v1/bridge/api-keys-save`, { method: 'POST', headers: { 'content-type': 'application/json' }, body });
+        expect(none.status).toBe(403);
+        const ext = await fetch(`${base}/v1/bridge/api-keys-save`, { method: 'POST', headers: { Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop', 'content-type': 'application/json' }, body });
+        expect(ext.status).toBe(403);
+        expect(savedBodies.length).toBe(before);
+    });
+    it('깨진 본문은 400', async () => {
+        const res = await fetch(`${base}/v1/bridge/api-keys-save`, { method: 'POST', headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' }, body: '{oops' });
+        expect(res.status).toBe(400);
     });
 });

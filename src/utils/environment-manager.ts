@@ -33,6 +33,8 @@ export interface EnvConfig {
   naverApiHubKeyId?: string;   // X-NCP-APIGW-API-KEY-ID
   naverApiHubKey?: string;     // X-NCP-APIGW-API-KEY
   naverApiHubBase?: string;    // probeApiHub 실측으로 잠근 게이트웨이 URL
+  // 앱 ↔ 사이트 키 한 몸(2026-10-07) — API 키 칸(api-key-sync.API_KEY_FIELD_MAP)이 마지막으로 바뀐 시각. 충돌은 마지막 저장이 이긴다.
+  apiKeysSavedAt?: string;
   // Bright Data(2026-10-06 설계실 3차) — 글 한 편 유입 설계실 '커뮤니티까지'에만 쓴다(유료).
   brightDataToken?: string;
   brightDataZone?: string;
@@ -467,6 +469,12 @@ export class EnvironmentManager {
    */
   async saveConfig(config: Partial<EnvConfig>): Promise<void> {
     try {
+      // 키 칸이 실제로 바뀌면 그 시각을 남긴다 — 사이트와 충돌할 때 마지막 저장이 이기도록(저장 경로가 여럿이라 여기 한 곳에서).
+      // 사이트에서 넘어온 저장은 사이트의 저장 시각을 그대로 싣고 온다(apiKeysSavedAt 이 이미 있으면 덮지 않는다).
+      const { apiKeysChanged } = require('./api-key-sync');
+      if (!config.apiKeysSavedAt && apiKeysChanged(this.config as any, config as any)) {
+        config = { ...config, apiKeysSavedAt: new Date().toISOString() };
+      }
       this.config = { ...this.config, ...config };
 
       // Electron 앱인 경우 올바른 경로 확인

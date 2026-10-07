@@ -159,6 +159,8 @@ export interface WebBridgeDeps {
   adsensePageRpm?: (input: { pageUrl: string; days: number; currencyCode: string }) => Promise<unknown>;
   /** 앱 설정의 API 키 묶음(사이트 '내 API 키' 필드명으로) — 같은 기기 사이트만 받는다. */
   apiKeys?: () => Promise<unknown>;
+  /** 사이트에서 저장한 키 → 앱 설정(2026-10-07 앱 ↔ 사이트 한 몸). body = { keys, savedAt }. */
+  apiKeysSave?: (body: unknown) => Promise<unknown>;
   /**
    * CLI 로그인 시작(사장님 지시 2026-08-20 "나머지도 버튼으로 바로 연동") —
    * 코덱스·제미나이·그록은 OAuth 리다이렉트가 이 PC 로 오므로 사이트가 직접
@@ -358,6 +360,20 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
        */
       if (deps.apiKeys && req.method === 'POST' && req.url === '/v1/bridge/api-keys') {
         json(res, 200, { ok: true, result: await deps.apiKeys() });
+        return;
+      }
+
+      /*
+       * 사이트에서 저장한 키를 앱 설정에 넣는다 — 사장님 2026-10-07 "둘이 한 몸이 되어야 정상". 충돌은 마지막 저장이 이긴다(사이트가 판정).
+       * 읽기와 달리 **쓰기는 leaderspro.kr 출처만** 받는다 — 출처 없는 로컬 도구 · 크롬 확장은 앱 설정을 못 바꾼다.
+       * 받은 키는 앱이 다시 거른다(아는 칸 · 값 있는 것만 — 빈 값으로 덮지 않음). 로그에 남기지 않는다.
+       */
+      if (deps.apiKeysSave && req.method === 'POST' && req.url === '/v1/bridge/api-keys-save') {
+        if (!origin || !ALLOWED_ORIGINS.has(origin)) { json(res, 403, { ok: false, error: '사이트에서만 쓸 수 있습니다.' }); return; }
+        let parsed: unknown;
+        try { parsed = JSON.parse((await readBody(req)) || ''); } catch { json(res, 400, { ok: false, error: '본문이 올바르지 않습니다.' }); return; }
+        if (!parsed || typeof parsed !== 'object') { json(res, 400, { ok: false, error: '본문이 올바르지 않습니다.' }); return; }
+        json(res, 200, { ok: true, result: await deps.apiKeysSave(parsed) });
         return;
       }
 
