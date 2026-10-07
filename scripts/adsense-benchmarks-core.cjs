@@ -299,10 +299,22 @@ function isOffSeasonTitle(title, now) {
   return false;
 }
 
+/*
+ * 블로그 안내 페이지 — 소재가 아니다(2026-10-07 실회차 '개인정보처리방침' 카드). 티스토리 고정 페이지(/pages/) · 공지(/notice/)와
+ * 개인정보처리방침 · 이용약관 같은 제목. '면책'은 개인회생 소재에도 쓰이므로 조항 · 고지 꼴만 본다.
+ */
+const BOILERPLATE_TITLE = /개인정보\s*처리\s*방침|이용\s*약관|저작권\s*(정책|안내)|면책\s*(조항|고지|공고)|블로그\s*소개|문의\s*하기|privacy\s*policy|terms\s*of\s*(use|service)|about\s*(me|us)/i;
+function isBoilerplatePost(p) {
+  let pathname = '';
+  try { pathname = decodeURIComponent(new URL(p.url).pathname); } catch { pathname = ''; }
+  return /^\/(pages|notice)\//i.test(pathname) || BOILERPLATE_TITLE.test(String(p.title || ''));
+}
+
 function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = WINDOW_DAYS } = {}) {
   const nowMs = Date.parse(now);
   const posts = results.flatMap((r) => (r.status === 'ok' ? r.posts : []))
-    .filter((p) => p.publishedAt && nowMs - Date.parse(p.publishedAt) <= windowDays * DAY && Date.parse(p.publishedAt) <= nowMs + 300000);
+    .filter((p) => p.publishedAt && nowMs - Date.parse(p.publishedAt) <= windowDays * DAY && Date.parse(p.publishedAt) <= nowMs + 300000)
+    .filter((p) => !isBoilerplatePost(p));
   const allCards = groupPosts(posts).map((g) => toCard(g, now));
   const inSeason = allCards.filter((c) => !isOffSeasonTitle(c.title, now));
   const candidates = inSeason

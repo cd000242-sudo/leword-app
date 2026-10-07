@@ -189,3 +189,15 @@ test('판에서 지난 명절 카드를 빼고 몇 장 뺐는지 남긴다', () 
   assert.deepEqual(board.candidates.map((c) => c.title), ['근로장려금 지급일과 신청 대상']);
   assert.equal(board.offSeasonDropped, 1);
 });
+
+// 2026-10-07 실회차: '개인정보처리방침' 카드 — 블로그 안내 페이지(/pages/ · /notice/, 개인정보처리방침 · 이용약관)가 RSS 에 섞여 소재가 됐다.
+test('블로그 안내 페이지(개인정보처리방침 · 이용약관 · /pages/ · /notice/)는 소재에서 뺀다 — 개인회생 "면책" 같은 진짜 소재는 남긴다', () => {
+  const all = [
+    post('a', '개인정보처리방침', 'https://a.tistory.com/pages/privacy-policy'),
+    post('b', 'LIMSTORY 개인정보처리방침', 'https://b.tistory.com/notice/33'),
+    post('a', '블로그 이용약관 안내', 'https://a.tistory.com/88'),
+    post('b', '개인회생 신청 자격과 원금 최대 90% 면책 조건', 'https://b.tistory.com/90'),
+  ];
+  const board = core.buildBoard(['a', 'b'].map((id) => ({ id, status: 'ok', posts: all.filter((p) => p.sourceId === id) })), SOURCES, NOW);
+  assert.deepEqual(board.candidates.map((c) => c.title), ['개인회생 신청 자격과 원금 최대 90% 면책 조건']);
+});
