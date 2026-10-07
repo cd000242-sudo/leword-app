@@ -11,6 +11,7 @@
 
 import { buildPurchaseDesireAngles } from '../shopping-purchase-angle';
 import { classifyTitleFrame, findEmptyFrames, countFrames, type TitleFrame } from './frame-analysis';
+import { displayKeyword } from './issue';
 
 export interface DerivedKeyword {
   keyword: string;
@@ -69,7 +70,34 @@ export const SEO_SUFFIX: Record<TitleFrame, string> = {
    * 우리는 그런 걸 잰 적이 없다(사장님 지적 2026-08-22).
    */
   generic: '어떤 정보가 있는지',
+  // 인물 · 이슈(2026-10-07) — 확인 안 된 사실(가짜 뉴스일 수 있다)을 단정하지 않는다. 실제 제목은 issue.ts 가 만든다.
+  issue: '확인된 사실만',
 };
+
+/**
+ * 키워드에 이미 있는 낱말이 꼬리말에 또 나올 때 쓰는 꼬리말(2026-10-07 "청년도약계좌 신청 방법 단계별 방법").
+ * 같은 약속을 다른 말로 한다 — 단정 · 상투구 없이(회귀 테스트가 금지 정규식과 대조한다).
+ */
+export const SEO_SUFFIX_ALT: Partial<Record<TitleFrame, string>> = {
+  recipe: '실패 없는 순서',
+  review: '써 보고 알게 된 것',
+  compare: '무엇을 보고 고를지',
+  price: '실제로 드는 금액',
+  schedule: '놓치지 않는 날짜',
+  mistake: '왜 생기고 어떻게 푸는지',
+  recommend: '고를 때 보는 기준',
+  howto: '처음 해도 막히지 않는 순서',
+  checklist: '빠뜨리기 쉬운 것들',
+};
+
+/** 꼬리말 고르기 — 키워드 낱말(2자 이상)과 겹치면 대체 꼬리말. 대체도 겹치거나 없으면 원래 꼬리말. */
+function suffixFor(frame: TitleFrame, keyword: string): string {
+  const words = keyword.split(/\s+/).filter((w) => w.length >= 2);
+  const overlaps = (suffix: string) => suffix.split(' ').some((token) => words.some((w) => w.includes(token) || token.includes(w)));
+  const base = SEO_SUFFIX[frame];
+  const alt = SEO_SUFFIX_ALT[frame];
+  return overlaps(base) && alt && !overlaps(alt) ? alt : base;
+}
 
 export const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => string> = {
   recipe: (kw) => `${kw}, 이 순서대로만 하면 됩니다`,
@@ -90,6 +118,7 @@ export const HOME_TEMPLATE: Record<TitleFrame, (kw: string, extra: string) => st
    * 쉼표 이분법도 피한다(홈판 교리 ②).
    */
   generic: (kw) => `${kw} 이게 뭔지 몰라서 찾아봤습니다`,
+  issue: (kw) => `${kw} 소식 돌던데… 직접 확인해 봤습니다`,
 };
 
 /**
@@ -136,6 +165,16 @@ function splitExtra(derived: string, keyword: string): { before: string; after: 
   };
 }
 
+/**
+ * 끝나지 않은 조각(…면 · …는데 · …려면 · …지만)은 뒤에서 뗀다 — 검색어 '갱신 기간 놓치면'의 '놓치면'이 끼어
+ * "자동차 보험 갱신 기간 놓치면 언제부터 언제까지"가 됐다(2026-10-07). 2자 이상 낱말만 본다('라면' 같은 명사는 '면' 앞이 1자라 남는다).
+ */
+function withoutDangling(extra: string): string {
+  const tokens = extra.split(' ').filter(Boolean);
+  while (tokens.length && /^[가-힣]{2,}(려면|으면|는데|지만|하면|면)$/.test(tokens[tokens.length - 1]) && !/^[가-힣]라면$/.test(tokens[tokens.length - 1])) tokens.pop();
+  return tokens.join(' ');
+}
+
 /** 뒤 문구에 이미 있는 말은 뺀다 — "방법 단계별 방법" 같은 겹침을 막는다. */
 function withoutRepeats(extra: string, suffix: string): string {
   return extra.split(' ').filter((token) => token && !suffix.includes(token)).join(' ');
@@ -164,6 +203,9 @@ export function supportedFrames(input: TitleForgeInput): TitleFrame[] {
   const frames: TitleFrame[] = [];
   for (const derived of ordered) {
     const frame = classifyTitleFrame(derived.keyword);
+    // 일반 틀은 근거가 아니다 — 'KB자동차보험'(115,300)이 일반 틀을 맨 앞에 세워 "어떤 정보가 있는지"가 나왔다(2026-10-07).
+    // 근거 틀이 하나도 없을 때만 pickFrame · forgeVariedTitles 가 일반 틀로 떨어진다.
+    if (frame === 'generic') continue;
     if (!frames.includes(frame)) frames.push(frame);
   }
   if (input.timing && !frames.includes('schedule')) frames.push('schedule');
@@ -200,15 +242,18 @@ function basisFor(input: TitleForgeInput, frame: TitleFrame, derived: DerivedKey
 }
 
 export function forgeTitles(input: TitleForgeInput): ForgedTitles {
-  const keyword = collapse(input.keyword);
+  // 붙여 쓴 키워드는 띄워서 박는다('가수주현미별세이유' → '가수 주현미 별세 이유', 2026-10-07)
+  const keyword = displayKeyword(input.keyword);
   const frame = pickFrame(input);
   const derived = derivedForFrame(input, frame);
-  const { before, after } = derived ? splitExtra(derived.keyword, keyword) : { before: '', after: '' };
+  const split = derived ? splitExtra(derived.keyword, keyword) : { before: '', after: '' };
+  const before = split.before;
+  const after = withoutDangling(split.after);
   const basis = basisFor(input, frame, derived);
 
   // 검색용은 키워드가 맨 앞이어야 하므로 앞에 붙은 말(before)은 끌리는 제목에만 싣는다.
   const seo: ForgedTitle = {
-    text: fitWithin(`${keyword} ${withoutRepeats(after, SEO_SUFFIX[frame])} ${SEO_SUFFIX[frame]}`, SEO_MAX),
+    text: fitWithin(`${keyword} ${withoutRepeats(after, suffixFor(frame, keyword))} ${suffixFor(frame, keyword)}`, SEO_MAX),
     frame,
     basis,
   };

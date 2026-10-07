@@ -87,12 +87,14 @@ export async function createPostPlanDeps(): Promise<PostPlanDeps> {
     volumes: (keywords) => tools.volumes(keywords),
     docs: (keywords) => tools.docs(keywords),
     news: async (keyword) => (await tools.news(keyword)).map((item) => item.title).filter(Boolean),
-    writingKit: async (keyword) => {
+    writingKit: async (keyword, derived) => {
       const { buildWritingKit } = await import('./golden-writing-kit');
       /*
        * 연관 검색어(검색량 실측)를 제목 재료로 넘긴다(2026-10-06 4차) — 안 넘기면 제목 엔진이 고를 유형이 없어
        * '어떤 정보가 있는지' 같은 일반 제목만 나왔다(1차 실주행). 자리는 본 키워드만 잰다(relatedSeats 0).
        */
+      // 2026-10-07: ③ 검색 궁금증(실측 검색량)을 먼저 쓴다 — 붙여 쓴 키워드는 아래 연관어 필터를 하나도 못 넘어 일반형 제목만 나왔다.
+      if (derived && derived.length) return buildWritingKit({ keyword, related: derived.slice(0, 20), relatedSeats: 0 });
       const expanded = await tools.expand(keyword).catch(() => ({ autocomplete: [] as string[], related: [] as Array<{ keyword: string; volume: number | null }> }));
       const related = relatedForTitles(keyword, expanded.related);
       return buildWritingKit({ keyword, related, relatedSeats: 0 });

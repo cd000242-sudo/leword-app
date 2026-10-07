@@ -216,3 +216,12 @@ describe('검색에서 궁금해하는 것', () => {
     expect(questionChecklist(items, 10, '가수주현미별세이유', ['가수 주현미 별세 이유']).map((q) => q.link)).toEqual(['k1']);
   });
 });
+
+describe('뉴스 · 홈판 재료를 찾을 말(2026-10-07)', () => {
+  it('붙여 쓴 인물 키워드는 직업 · 이유 뗀 짧은 말 · 띄어 쓴 키워드는 그대로', async () => {
+    const { newsQueryFor } = await import('../post-plan/post-plan-model');
+    expect(newsQueryFor('가수주현미별세이유')).toBe('주현미 별세');
+    expect(newsQueryFor('자동차 보험 갱신')).toBe('자동차 보험 갱신');
+    expect(newsQueryFor('청년도약계좌신청방법')).toBe('청년도약계좌 신청 방법');
+  });
+});

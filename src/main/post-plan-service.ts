@@ -8,7 +8,7 @@
  * 한 단계가 실패해도 나머지는 계속하고, 못 한 이유를 그 단계에 남긴다. 추정치(확률 · 예상 유입)는 만들지 않는다.
  */
 import type { NearBand, RangeVerdict, CandidateSize } from '../utils/blog-class/envelope';
-import { affiliateCandidates, filterByAnalysis, inflowSpots, questionChecklist, searchCuriosities, spaceOutKeyword, expansionRetryQueries, type PostPlan, type PostPlanStep } from '../utils/post-plan/post-plan-model';
+import { affiliateCandidates, filterByAnalysis, inflowSpots, questionChecklist, searchCuriosities, spaceOutKeyword, expansionRetryQueries, newsQueryFor, type PostPlan, type PostPlanStep } from '../utils/post-plan/post-plan-model';
 
 /** 발행 후 유입에서 AI 가 한 번에 평가할 자리 수(실측: 147곳은 150초 안에 못 답함). */
 const INFLOW_EVAL_LIMIT = 40;
@@ -19,7 +19,8 @@ export interface PostPlanDeps {
   volumes(keywords: string[]): Promise<Map<string, number | null>>;
   docs(keywords: string[]): Promise<Map<string, number | null>>;
   /** 자리 실측 + 검색용 제목(golden-writing-kit). */
-  writingKit(keyword: string): Promise<{
+  /** derived = ③ 검색 궁금증 중 검색량을 잰 말(제목 근거 · 재료). */
+  writingKit(keyword: string, derived: Array<{ keyword: string; searchVolume: number }>): Promise<{
     seed: { seat: string; facing: number | null; vacancy: number | null; topTitles: string[] } | null;
     titles: Array<{ text: string; kind: string; frameLabel: string; basis: string }>;
     message: string | null;
@@ -57,17 +58,21 @@ export async function runPostPlan(keywordRaw: string, deps: PostPlanDeps, say: (
     say('③ 사람들이 궁금해하는 것 — 검색 자동완성 · 연관 키워드 검색량을 봅니다');
     let items = await deps.expansions(keyword);
     for (const retry of expansionRetryQueries(keyword)) { if (items.length) break; items = await deps.expansions(retry); }
-    return searchCuriosities(keyword, items, 10);
+    return searchCuriosities(keyword, items, 20);
   });
   // 지식인 · 카페는 띄운 말 · 검색 궁금증 맨 위 말로도 함께 찾는다(검색 궁금증이 실패해도 키워드로는 찾는다)
   const alsoRun = searchesRun.then((s) => [...new Set([spaced, s.ok ? s.value[0]?.keyword : null].filter((x): x is string => Boolean(x)))]);
+  // ② 검색용 제목 재료 = ③ 검색 궁금증(실측 검색량) — 붙여 쓴 키워드는 연관어 필터를 하나도 못 넘어 일반형 제목만 나왔다(2026-10-07)
+  const kitRun = searchesRun.then((s) => settle(() => deps.writingKit(keyword, s.ok
+    ? s.value.filter((v) => typeof v.searchVolume === 'number' && v.searchVolume > 0).map((v) => ({ keyword: v.keyword, searchVolume: v.searchVolume as number }))
+    : [])));
   const questionsRun = alsoRun.then((also) => settle(() => { say('③ 사람들이 실제로 물은 것 — 최근 14일 지식인 · 카페를 찾습니다'); return deps.questions(keyword, also); }));
 
   // ①(자리 실측은 이 PC 브라우저) · ③ · ④(네트워크)는 서로 기다릴 필요가 없다.
   const [volumes, docs, kit, preemption, searches, questions, also, bid, snapshot] = await Promise.all([
     settle(() => deps.volumes([keyword])),
     settle(() => deps.docs([keyword])),
-    settle(() => deps.writingKit(keyword)),
+    kitRun,
     settle(() => deps.preemptionRow(keyword)),
     searchesRun,
     questionsRun,
@@ -96,11 +101,14 @@ export async function runPostPlan(keywordRaw: string, deps: PostPlanDeps, say: (
   };
 
   say('② 제목 — 검색용(1페이지 빈 틀) · 홈판용(1페이지 제목 + 최근 뉴스 사실로)');
-  const news = await settle(() => deps.news(keyword));
+  // 뉴스는 짧은 말로('주현미 별세') — 붙인 채 찾으면 남의 별세 기사가 와서 홈판 제목이 비었다(2026-10-07)
+  const news = await settle(() => deps.news(newsQueryFor(keyword)));
+  const questionList = questions.ok ? questionChecklist(questions.value, 10, keyword, also) : [];
   const homefeed = await settle(() => deps.homefeedTitles({
     keyword,
-    question: '',
-    uncovered: [],
+    // 홈판 AI 재료 — 사람들이 실제로 물은 것(카페 · 지식인) · 검색으로 찾는 말(③). '별세는 가짜 뉴스' 같은 사실이 여기서 들어간다
+    question: questionList[0]?.title || '',
+    uncovered: searches.ok ? searches.value.slice(0, 5).map((v) => v.keyword) : [],
     topTitles: seat ? seat.topTitles : [],
     whyNow: '',
     news: news.ok ? news.value.slice(0, 5) : [],
@@ -108,18 +116,20 @@ export async function runPostPlan(keywordRaw: string, deps: PostPlanDeps, say: (
   const titles: PostPlanStep<unknown> = {
     ok: true,
     data: {
-      search: kit.ok ? kit.value.titles.filter((t) => t.text).slice(0, 3).map((t) => ({ text: t.text, frameLabel: t.frameLabel, basis: t.basis })) : [],
+      search: kit.ok ? kit.value.titles.filter((t) => t.text).slice(0, 3).map((t) => ({ text: t.text, kind: t.kind, frameLabel: t.frameLabel, basis: t.basis })) : [],
       searchNote: kit.ok ? null : kit.note,
       homefeed: homefeed.ok ? homefeed.value.titles.slice(0, 3) : [],
-      homefeedNote: homefeed.ok ? homefeed.value.note : homefeed.note,
+      homefeedNote: homefeed.ok
+        ? (homefeed.value.note || (homefeed.value.titles.length ? null : '홈판 제목을 만들지 못했습니다 — 이 키워드와 맞는 최근 뉴스 · 질문이 부족했습니다'))
+        : homefeed.note,
       news: news.ok ? news.value.slice(0, 3) : [],
     },
   };
 
   const questionStep: PostPlanStep<unknown> = questions.ok
-    ? { ok: true, data: questionChecklist(questions.value, 10, keyword, also) }
+    ? { ok: true, data: questionList }
     : { ok: false, note: questions.note };
-  const searchStep: PostPlanStep<unknown> = searches.ok ? { ok: true, data: searches.value } : { ok: false, note: searches.note };
+  const searchStep: PostPlanStep<unknown> = searches.ok ? { ok: true, data: searches.value.slice(0, 10) } : { ok: false, note: searches.note };
 
   say('④ 돈 — 파워링크 입찰가 · 관련 제휴 상품');
   const money: PostPlanStep<unknown> = {

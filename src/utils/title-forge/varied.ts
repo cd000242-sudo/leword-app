@@ -5,6 +5,7 @@
  */
 import { forgeTitles, supportedFrames, type DerivedKeyword } from './forge';
 import { findEmptyFrames, type TitleFrame } from './frame-analysis';
+import { isPersonIssueKeyword, issueTitles } from './issue';
 
 /** 제목 유형 수. 유형마다 검색용·끌리는 두 개가 나온다. */
 export const FRAME_CAP = 3;
@@ -21,6 +22,7 @@ export const FRAME_LABEL: Record<TitleFrame, string> = {
   howto: '방법',
   checklist: '체크',
   generic: '일반',
+  issue: '인물·이슈',
 };
 
 export interface VariedTitle {
@@ -44,6 +46,14 @@ export function forgeVariedTitles(
   serpTitles: readonly string[],
   frameCap: number = FRAME_CAP,
 ): VariedTitle[] {
+  // 인물 · 이슈는 전용 틀(상품 · 생활정보 틀로는 '별세 이유 원인과 해결법' 같은 말이 됐다, 2026-10-07)
+  if (isPersonIssueKeyword(keyword)) {
+    const t = issueTitles(keyword, derived);
+    return [
+      { text: t.home.text, kind: '끌리는', frame: 'issue', frameLabel: FRAME_LABEL.issue, basis: t.home.basis },
+      { text: t.seo.text, kind: '검색용', frame: 'issue', frameLabel: FRAME_LABEL.issue, basis: t.seo.basis },
+    ];
+  }
   const base = { keyword, derivedKeywords: derived, serpTitles };
   const supported = supportedFrames(base);
   if (supported.length === 0) {

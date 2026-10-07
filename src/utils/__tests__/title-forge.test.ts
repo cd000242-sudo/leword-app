@@ -168,3 +168,91 @@ describe('붙어 온 연관어 다듬기 — 키워드와 겹치는 부분은 �
         expect(out.home.text).not.toMatch(/\s,/);
     });
 });
+
+/*
+ * 인물 · 이슈 키워드(2026-10-07 사장님 "제목이 그게 왜 나오니 — 상위노출 · 홈판 노출을 겨냥한 제목이어야지").
+ * 실사고: '가수주현미별세이유' → "가수주현미별세이유 어떤 정보가 있는지" · "… 이게 뭔지 몰라서 찾아봤습니다".
+ * 원인 ① 붙여 쓴 키워드를 그대로 박음 ② 틀이 상품 · 생활정보용이라 '이유' → '원인과 해결법'이 됐을 것.
+ * 인물 · 이슈는 확인 안 된 사실을 단정하지 않고(가짜 뉴스일 수 있다), 실제로 많이 찾는 말(근황)을 붙인다.
+ */
+describe('인물 · 이슈 제목', () => {
+  it('인물 · 이슈 판별 — 직업 앞말 또는 별세 · 근황 · 프로필 같은 말 · 생활정보(결혼 준비 비용 · 만 나이 계산)는 아님', async () => {
+    const { isPersonIssueKeyword } = await import('../title-forge/issue');
+    expect(isPersonIssueKeyword('가수주현미별세이유')).toBe(true);
+    expect(isPersonIssueKeyword('주현미 근황')).toBe(true);
+    expect(isPersonIssueKeyword('배우김OO나이')).toBe(true);
+    expect(isPersonIssueKeyword('자동차 보험 갱신')).toBe(false);
+    expect(isPersonIssueKeyword('결혼 준비 비용')).toBe(false);
+    expect(isPersonIssueKeyword('만 나이 계산')).toBe(false);
+  });
+
+  it('검색용은 띄운 키워드 맨 앞 + 실제 많이 찾는 인물 말(근황) · 홈판용은 직업 · 이유 뗀 짧은 말로 답 숨김 · 둘 다 단정 없음', async () => {
+    const { forgeVariedTitles } = await import('../title-forge/varied');
+    const derived = [
+      { keyword: '가수주현미별세', searchVolume: 301600 },
+      { keyword: '가수주현미', searchVolume: 15760 },
+      { keyword: '주현미 별세', searchVolume: 9130 },
+      { keyword: '가수주현미근황', searchVolume: 2490 },
+      { keyword: '주현미 노래', searchVolume: 2510 },
+    ];
+    const titles = forgeVariedTitles('가수주현미별세이유', derived, ['가수 주현미 별세? 사실은…']);
+    expect(titles.map((t) => [t.kind, t.text])).toEqual([
+      ['끌리는', '주현미 별세 소식 돌던데… 직접 확인해 봤습니다'],
+      ['검색용', '가수 주현미 별세 이유, 근황까지 확인된 사실만'],
+    ]);
+    expect(titles.every((t) => t.frameLabel === '인물·이슈')).toBe(true);
+    expect(titles[1].basis).toContain('가수주현미근황');
+    for (const t of titles) expect(/원인과 해결법|어떤 정보가 있는지|이게 뭔지 몰라서/.test(t.text), t.text).toBe(false);
+  });
+
+  it('인물 말 근거가 없으면 검색용은 키워드 + 확인된 사실만 · 근황 · 프로필은 홈판용을 소식이 아니라 찾아본 말로', async () => {
+    const { forgeVariedTitles } = await import('../title-forge/varied');
+    const titles = forgeVariedTitles('배우김OO프로필', [], []);
+    expect(titles.map((t) => t.text)).toEqual(['김OO 프로필 궁금해서 직접 찾아봤습니다', '배우 김OO 프로필, 확인된 사실만']);
+  });
+
+  it('인물 · 이슈가 아닌 붙여 쓴 키워드도 제목에는 띄어서 박는다', async () => {
+    const { forgeVariedTitles } = await import('../title-forge/varied');
+    const titles = forgeVariedTitles('청년도약계좌신청방법', [{ keyword: '청년도약계좌 신청방법', searchVolume: 900 }], []);
+    for (const t of titles) expect(t.text.startsWith('청년도약계좌 신청 방법'), t.text).toBe(true);
+  });
+});
+
+describe('꼬리말 겹침(2026-10-07 "청년도약계좌 신청 방법 단계별 방법")', () => {
+  it('키워드에 이미 있는 낱말이 꼬리말에 또 나오면 다른 꼬리말 · 겹침 없는 키워드는 예전 그대로', () => {
+    const howto = forgeTitles({ keyword: '청년도약계좌 신청 방법', derivedKeywords: [{ keyword: '청년도약계좌 신청방법', searchVolume: 900 }], serpTitles: [] });
+    expect(howto.seo.text.split('방법').length - 1).toBe(1);
+    const price = forgeTitles({ keyword: '이사 비용', derivedKeywords: [{ keyword: '이사 비용 견적', searchVolume: 500 }], serpTitles: [] });
+    expect(price.seo.text.split('비용').length - 1).toBe(1);
+    const plain = forgeTitles({ keyword: '엑셀 함수', derivedKeywords: [{ keyword: '엑셀 함수 사용법', searchVolume: 800 }], serpTitles: [] });
+    expect(plain.seo.text).toBe('엑셀 함수 사용법 단계별 방법');
+  });
+});
+
+describe('일반 틀은 마지막 수단(2026-10-07 "자동차 보험 갱신 어떤 정보가 있는지")', () => {
+  it('근거 없는 연관어(KB자동차보험)가 검색량이 커도 일반 틀을 세우지 않는다 · 다른 근거 틀만 쓴다', async () => {
+    const { forgeVariedTitles } = await import('../title-forge/varied');
+    const titles = forgeVariedTitles('자동차 보험 갱신', [
+      { keyword: 'KB자동차보험', searchVolume: 115300 },
+      { keyword: '자동차보험비교', searchVolume: 63700 },
+      { keyword: '자동차 보험 갱신 기간 놓치면', searchVolume: 90 },
+      { keyword: '자동차 보험 갱신 방법', searchVolume: 70 },
+    ], []);
+    expect(titles.some((t) => t.frame === 'generic')).toBe(false);
+    for (const t of titles) expect(/어떤 정보가 있는지|이게 뭔지 몰라서/.test(t.text), t.text).toBe(false);
+    expect(new Set(titles.map((t) => t.frameLabel))).toEqual(new Set(['비교', '시기', '방법']));
+  });
+
+  it('근거 틀이 하나도 없을 때만 일반 틀', async () => {
+    const { forgeVariedTitles } = await import('../title-forge/varied');
+    const titles = forgeVariedTitles('엑셀 단축키', [{ keyword: 'KB자동차보험', searchVolume: 100 }], []);
+    expect(titles.every((t) => t.frame === 'generic')).toBe(true);
+  });
+});
+
+describe('끝나지 않은 조각(2026-10-07 "자동차 보험 갱신 기간 놓치면 언제부터 언제까지")', () => {
+  it('연관어 끝의 …면 · …는데 · …려면 조각은 떼고 붙인다', () => {
+    const t = forgeTitles({ keyword: '자동차 보험 갱신', derivedKeywords: [{ keyword: '자동차 보험 갱신 기간 놓치면', searchVolume: 90 }], serpTitles: [] });
+    expect(t.seo.text).toBe('자동차 보험 갱신 기간 언제부터 언제까지');
+  });
+});

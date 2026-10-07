@@ -20,6 +20,7 @@ export type TitleFrame =
   | 'recommend'   // 추천·순위
   | 'howto'       // 방법·사용법
   | 'checklist'   // 총정리·목록
+  | 'issue'       // 인물·이슈(별세·근황·프로필 …) — 2026-10-07. 파생 키워드 분류로는 안 나오고 키워드로 고른다(issue.ts)
   | 'generic';
 
 /**

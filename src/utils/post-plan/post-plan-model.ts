@@ -5,6 +5,8 @@
  * 여기는 계산만 한다(네트워크 · 파일 없음). 추정치(확률 · 예상 유입)는 만들지 않고 받은 값을 정리만 한다.
  */
 
+import { ROLE_PREFIXES, spaceOutKeyword } from '../title-forge/issue';
+
 export interface PlanQuestion {
   title: string;
   link: string;
@@ -90,31 +92,8 @@ export function questionChecklist(items: readonly RadarLikeItem[], limit: number
  * ③ 검색에서 궁금해하는 것(2026-10-07 사장님 "지식인 · 카페만 볼 게 아니라 실제 검색에서 사람들이 뭘 궁금해하는지").
  * 재료는 워커 keyword-expansions(자동완성 · 검색광고 연관어 + 실측 검색량). 사이트 postPlanSiteModel 과 같은 규칙(두 곳을 같이 고칠 것).
  */
-const ROLE_PREFIXES = ['트로트가수', '개그우먼', '개그맨', '아나운서', '방송인', '여배우', '남배우', '유튜버', '아이돌', '배우', '가수', '모델', '감독', '작가', '선수'];
-const INTENT_SUFFIXES = ['사망원인', '나무위키', '총정리', '프로필', '이유', '원인', '나이', '근황', '남편', '아내', '부인', '학력', '재산', '결혼', '이혼', '사망', '별세', '부고', '장례',
-  '방법', '신청', '기간', '조건', '대상', '자격', '후기', '가격', '추천', '순위', '일정', '시간', '예매', '차이', '종류', '비교', '정리'];
-
-/**
- * 띄어쓰기 없는 긴 키워드에 흔한 앞말(직업) · 뒷말(의도) 자리 띄어쓰기를 넣는다 — 띄어쓰기가 없으면 확장이 0개라서(실측).
- * '가수주현미별세이유' → '가수 주현미 별세 이유'. 이미 띄어 썼거나 떼어 낼 말이 없으면 null. 가운데(핵심) 말은 2자 이상 남긴다.
- */
-export function spaceOutKeyword(keyword: string): string | null {
-  const raw = String(keyword || '').trim();
-  if (!raw || /\s/.test(raw) || raw.length < 5) return null;
-  let core = raw;
-  const head: string[] = [];
-  const tail: string[] = [];
-  const prefix = ROLE_PREFIXES.find((p) => core.startsWith(p) && core.length - p.length >= 2);
-  if (prefix) { head.push(prefix); core = core.slice(prefix.length); }
-  for (let guard = 0; guard < 4; guard += 1) {
-    const suffix = INTENT_SUFFIXES.find((s) => core.endsWith(s) && core.length - s.length >= 2);
-    if (!suffix) break;
-    tail.unshift(suffix);
-    core = core.slice(0, -suffix.length);
-  }
-  if (!head.length && !tail.length) return null;
-  return [...head, core, ...tail].join(' ');
-}
+// 띄어쓰기 규칙의 단일 출처는 제목 엔진(title-forge/issue.ts) — 제목도 같은 규칙으로 띄워 박는다(2026-10-07)
+export { spaceOutKeyword };
 
 /**
  * 확장이 0개일 때 다시 찾을 말(순서대로) — 직업 앞말은 뗀 것 먼저('주현미 별세 이유'), 그다음 띄운 말 그대로.
@@ -126,6 +105,18 @@ export function expansionRetryQueries(keyword: string): string[] {
   const words = spaced.split(' ');
   const noRole = ROLE_PREFIXES.includes(words[0]) && words.length >= 3 ? words.slice(1).join(' ') : spaced;
   return [...new Set([noRole, spaced])];
+}
+
+/**
+ * 뉴스 · 홈판 제목 재료를 찾을 말 — 붙여 쓴 키워드는 직업 앞말 · '이유'를 뗀 짧은 말로('주현미 별세').
+ * 붙인 채 찾으면 '고 현철 별세' · '송대관 별세' 같은 남의 기사가 와서 홈판 제목이 비었다(2026-10-07 실측).
+ */
+export function newsQueryFor(keyword: string): string {
+  const retry = expansionRetryQueries(keyword)[0];
+  if (!retry) return String(keyword || '').trim();
+  const words = retry.split(' ');
+  const trimmed = words.filter((w, i) => !(i === words.length - 1 && (w === '이유' || w === '원인')));
+  return trimmed.length >= 2 ? trimmed.join(' ') : retry;
 }
 
 /** 두 말(띄어쓰기 뺀)이 함께 가진 가장 긴 연속 글자 수. */

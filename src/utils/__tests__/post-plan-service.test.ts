@@ -122,3 +122,28 @@ describe('③ 검색에서 궁금해하는 것(2026-10-07)', () => {
     expect(plan.steps.questions?.ok).toBe(true);
   });
 });
+
+describe('② 제목 재료(2026-10-07 사장님 "상위노출 · 홈판 노출을 겨냥한 제목이어야지")', () => {
+  it('검색용 제목 재료 = ③ 검색 궁금증(실측 검색량) · 뉴스는 짧은 말로 · 홈판 AI 에 카페 질문 · 검색 궁금증을 넘긴다 · 제목 종류 표시', async () => {
+    const writingKit = vi.fn(async () => ({ seed: null, titles: [{ text: '가수 주현미 별세 이유, 근황까지 확인된 사실만', kind: '검색용', frameLabel: '인물·이슈', basis: 'b' }, { text: '주현미 별세 소식 돌던데… 직접 확인해 봤습니다', kind: '끌리는', frameLabel: '인물·이슈', basis: 'b' }], message: '자리 못 잼' }));
+    const news = vi.fn(async () => ['가수 주현미 측 "별세설은 사실무근"']);
+    const homefeedTitles = vi.fn(async () => ({ titles: ['"주현미 별세" 검색했다가 놀란 이유'], note: null }));
+    const d = deps({
+      expansions: async (kw: string) => (kw === '주현미 별세 이유' ? [{ keyword: '가수주현미별세', searchVolume: 301600 }, { keyword: '가수주현미근황', searchVolume: 2490 }, { keyword: '주현미 근황 2026', searchVolume: null }] : []),
+      questions: async () => [{ source: 'cafearticle', title: '가수 주현미 별세 이런 가짜뉴스 처벌 안되냐?', link: 'c1', postdate: '2026-10-04' }],
+      writingKit, news, homefeedTitles,
+    });
+    const plan = await runPostPlan('가수주현미별세이유', d, () => {}, Date.parse('2026-10-07T08:00:00Z'));
+    expect((writingKit.mock.calls[0] as any)[1]).toEqual([{ keyword: '가수주현미별세', searchVolume: 301600 }, { keyword: '가수주현미근황', searchVolume: 2490 }]);
+    expect(news.mock.calls[0]).toEqual(['주현미 별세']);
+    expect((homefeedTitles.mock.calls[0] as any)[0]).toMatchObject({ question: '가수 주현미 별세 이런 가짜뉴스 처벌 안되냐?', uncovered: ['가수주현미별세', '가수주현미근황', '주현미 근황 2026'] });
+    const titles: any = plan.steps.titles?.data;
+    expect(titles.search.map((t: any) => t.kind)).toEqual(['검색용', '끌리는']);
+  });
+
+  it('홈판 AI 가 제목을 못 내고 이유도 없으면 빈칸 대신 이유를 적는다', async () => {
+    const d = deps({ homefeedTitles: vi.fn(async () => ({ titles: [], note: null })) });
+    const plan = await runPostPlan('자동차 보험 갱신', d, () => {}, Date.parse('2026-10-06T08:00:00Z'));
+    expect((plan.steps.titles?.data as any).homefeedNote).toMatch(/홈판 제목을 만들지 못했습니다/);
+  });
+});

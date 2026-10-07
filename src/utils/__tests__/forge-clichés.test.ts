@@ -27,3 +27,12 @@ describe('대장간 문구는 금지 상투구를 절대 내지 않는다', () =
     expect(TITLE_CLICHES.test('여름휴가 시기 총정리')).toBe(true);
   });
 });
+
+describe('대체 꼬리말도 금지 상투구를 내지 않는다(2026-10-07)', () => {
+  it('SEO 대체 꼬리말 전 프레임', async () => {
+    const { SEO_SUFFIX_ALT } = await import('../title-forge/forge');
+    for (const [frame, suffix] of Object.entries(SEO_SUFFIX_ALT)) {
+      expect(TITLE_CLICHES.test(String(suffix)), `${frame}: "${suffix}"`).toBe(false);
+    }
+  });
+});

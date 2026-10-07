@@ -11766,7 +11766,7 @@
             + (pre ? ppStat('선점 보드', pre.tierLabel || '실림', pre.openSlot ? '빈자리 ' + pre.openSlot + '위' : '') : '')
             + '</div>';
           const t = (s.titles && s.titles.data) || {};
-          const titles = (t.search || []).map((x) => ppTitleRow('검색용', x.text, x.basis)).join('')
+          const titles = (t.search || []).map((x) => ppTitleRow(x.kind === '끌리는' ? '끌리는' : '검색용', x.text, x.basis)).join('')
             + (t.searchNote ? ppNote('검색용 제목: ' + t.searchNote) : '')
             + (t.homefeed || []).map((x) => ppTitleRow('홈판용', x, '')).join('')
             + (t.homefeedNote ? ppNote('홈판용 제목: ' + t.homefeedNote) : '')
