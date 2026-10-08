@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { baseProbes, followUpProbes, yesterday, type AdvisorProbeSpec } from '../../utils/advisor/daily-plan';
 import {
+  attachTopicVolumes,
   buildDailyRecord,
   homefeedDayPattern,
   pickBlogChannelId,
@@ -21,6 +22,38 @@ import {
 import { isWatchDue } from '../../utils/seat-watch';
 import { advisorFetch, naverSessionStatus } from './naver-session';
 import { collectAutopsyHistory, readAutopsyHistory } from './advisor-autopsy';
+
+/** 워커 실측 월 검색량(키 없이 — 워커가 사장님 검색광고 키로 잰다). 응답 키는 띄어쓰기 없는 꼴. 100개 상한. */
+const KEYWORD_WORKER = 'https://leword-keyword-api.leword.workers.dev/';
+async function askWorkerVolumes(keywords: string[]): Promise<Record<string, number>> {
+  const res = await fetch(KEYWORD_WORKER, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'keyword-volumes', keywords: keywords.join(String.fromCharCode(10)) }),
+    signal: AbortSignal.timeout(60_000),
+  });
+  const data: any = await res.json().catch(() => null);
+  if (!res.ok || !data?.ok) throw new Error(String(data?.message || `검색량 조회 실패(${res.status})`));
+  return data.volumes && typeof data.volumes === 'object' ? data.volumes : {};
+}
+/**
+ * 한 번에 많이 물으면 워커가 일부를 빠뜨린다(2026-10-08 실측: 20개 묶음에서 'gv80 하이브리드' 등 4개 빔, 따로 물으면 나옴)
+ * → 10개씩 나눠 묻고, 빠진 말만 3개씩 한 번 더 묻는다.
+ */
+async function fetchWorkerVolumes(keywords: string[]): Promise<Record<string, number>> {
+  const key = (s: string) => String(s || '').replace(/\s+/g, '').toUpperCase();
+  const got: Record<string, number> = {};
+  const ask = async (list: string[], size: number) => {
+    for (let i = 0; i < list.length; i += size) {
+      try { Object.assign(got, await askWorkerVolumes(list.slice(i, i + size))); } catch (error: any) { console.warn('[ADVISOR-DAILY] 검색량 일부 실패:', error?.message); }
+    }
+  };
+  const wanted = keywords.slice(0, 100);
+  await ask(wanted, 10);
+  const have = new Set(Object.keys(got).map(key));
+  await ask(wanted.filter((k) => !have.has(key(k))), 3);
+  return got;
+}
 
 /** 자리 감시(05:00)와 같은 시각 — 어제 통계가 채워지는 시각을 실측하면 조정한다. */
 export const ADVISOR_DAILY_RUN_HOUR = 5;
@@ -135,7 +168,8 @@ export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: {
     const results: Record<string, AdvisorProbeResult> = {};
     await runProbes(baseProbes(ctx), results);
     await runProbes(followUpProbes(ctx, { topics: pickTopics(results), postIds: pickPostIds(results) }), results);
-    const record = buildDailyRecord({ ...ctx, collectedAt: new Date() }, results);
+    // 주제별 인기 검색어에 실측 월 검색량(워커 keyword-volumes · 키 없이 · 한 번에) — 실패해도 기록은 저장한다(2026-10-08)
+    const record = await attachTopicVolumes(buildDailyRecord({ ...ctx, collectedAt: new Date() }, results), fetchWorkerVolumes);
 
     writeJson(path.join(DIR(), `${record.day}.json`), record);
     writeJson(LATEST(), record);

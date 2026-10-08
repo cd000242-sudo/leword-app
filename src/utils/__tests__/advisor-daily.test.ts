@@ -77,16 +77,18 @@ describe('후속 창구 — 기본 응답을 보고 정한다', () => {
     const trend = probes.filter((p) => p.key.startsWith('trendCategory:'));
     const hours = probes.filter((p) => p.key.startsWith('categoryHour:'));
     const posts = probes.filter((p) => p.key.startsWith('referrerDomain:'));
-    expect(trend).toHaveLength(ADVISOR_DAILY_TOPIC_CAP);
+    // 주제별 인기 검색어 = 고정 5주제(카톡방 아침 배달용, 2026-10-08) + 내 유입 주제(상한 3) — 겹치면 한 번
+    expect(trend.map((p) => p.key)).toEqual(['스타·연예인', '방송', '드라마', '자동차', 'IT·컴퓨터', '리빙'].map((t) => `trendCategory:${t}`));
     expect(hours).toHaveLength(ADVISOR_DAILY_TOPIC_CAP);
     expect(posts).toHaveLength(ADVISOR_DAILY_POST_CAP);
-    expect(trend[0].path).toBe('/trend/category?service=naver_blog&categories=%EC%9E%90%EB%8F%99%EC%B0%A8&contentType=text&interval=day&date=2026-09-28&hasRankChange=true&limit=20');
+    expect(trend[3].path).toBe('/trend/category?service=naver_blog&categories=%EC%9E%90%EB%8F%99%EC%B0%A8&contentType=text&interval=day&date=2026-09-28&hasRankChange=true&limit=20');
     expect(posts[0].path).toContain('contentId=http%3A%2F%2Fblog.naver.com%2Fleadernam-%2F22440000');
     expect(posts[0].path).toContain('/inflow-analysis/referrer-domain?');
   });
 
-  it('주제·글이 없으면 후속 창구도 없다 — 빈 값을 지어내지 않는다', () => {
-    expect(followUpProbes({ channelId: 'leadernam-', now: TUE }, { topics: [], postIds: [] })).toEqual([]);
+  it('내 주제·글이 없어도 고정 5주제 인기 검색어는 받는다 · 시간대 · 글별 창구는 없다(빈 값을 지어내지 않는다)', () => {
+    const probes = followUpProbes({ channelId: 'leadernam-', now: TUE }, { topics: [], postIds: [] });
+    expect(probes.map((p) => p.key)).toEqual(['스타·연예인', '방송', '드라마', '자동차', 'IT·컴퓨터'].map((t) => `trendCategory:${t}`));
   });
 });
 
@@ -230,5 +232,41 @@ describe('홈판 탄 날 패턴 — 잰 것만 센다', () => {
   it('홈판 탄 글이 하나도 없으면 빈 패턴 — 기본값을 지어내지 않는다', () => {
     const pattern = homefeedDayPattern([day('2026-09-28', [post('c', '2026-09-28T12:00:00+09:00', null)])]);
     expect(pattern).toEqual({ daysMeasured: 1, daysWithHomefeed: 0, hours: [], postsPerDay: [], gapsMinutes: [] });
+  });
+});
+
+describe('주제별 인기 검색어에 실측 검색량(2026-10-08 카톡방 "주제별 인기검색어 TOP 20 · 17.3만")', () => {
+  it('키워드마다 검색량을 붙인다(워커는 띄어쓰기 없는 키로 준다) · 못 잰 말은 null · 원본은 바꾸지 않는다 · 한 번에 묻는다', async () => {
+    const { attachTopicVolumes } = await import('../advisor/daily-summary');
+    const record: any = { day: '2026-10-07', topicKeywords: [
+      { topic: '스타·연예인', keyword: '김소희 둘째 임신', rank: 1, rankChange: null },
+      { topic: '방송', keyword: '김민', rank: 1, rankChange: 15 },
+      { topic: '스타·연예인', keyword: '김민', rank: 3, rankChange: 6 },
+      { topic: '드라마', keyword: '못 잰 말', rank: 1, rankChange: 0 },
+    ] };
+    const asked: string[][] = [];
+    const next = await attachTopicVolumes(record, async (keywords) => { asked.push(keywords); return { 김소희둘째임신: 173000, 김민: 1090000 }; });
+    expect(asked).toEqual([['김소희 둘째 임신', '김민', '못 잰 말']]);
+    expect(next.topicKeywords.map((r: any) => r.searchVolume)).toEqual([173000, 1090000, 1090000, null]);
+    expect(record.topicKeywords[0].searchVolume).toBeUndefined();
+  });
+
+  it('검색량 조회가 실패해도 키워드는 그대로(검색량만 null)', async () => {
+    const { attachTopicVolumes } = await import('../advisor/daily-summary');
+    const record: any = { topicKeywords: [{ topic: '자동차', keyword: '투싼', rank: 1, rankChange: 3 }] };
+    const next = await attachTopicVolumes(record, async () => { throw new Error('워커 응답 없음'); });
+    expect(next.topicKeywords).toEqual([{ topic: '자동차', keyword: '투싼', rank: 1, rankChange: 3, searchVolume: null }]);
+  });
+});
+
+describe('검색량 키 대소문자(2026-10-08 실측: 워커는 "테슬라모델Y"처럼 대문자로 준다)', () => {
+  it('"테슬라 모델y" · "gv80 하이브리드"도 대소문자 무시하고 찾는다', async () => {
+    const { attachTopicVolumes } = await import('../advisor/daily-summary');
+    const record: any = { topicKeywords: [
+      { topic: '자동차', keyword: '테슬라 모델y', rank: 3, rankChange: 0 },
+      { topic: '자동차', keyword: 'gv80 하이브리드', rank: 7, rankChange: -5 },
+    ] };
+    const next = await attachTopicVolumes(record, async () => ({ 테슬라모델Y: 98000, GV80하이브리드: 41000 }));
+    expect(next.topicKeywords.map((r: any) => r.searchVolume)).toEqual([98000, 41000]);
   });
 });

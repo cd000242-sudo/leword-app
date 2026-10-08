@@ -38,7 +38,8 @@ export interface AdvisorDailyRecord {
   myHours: AdvisorHourRow[];
   topicHours: { topic: string; hours: { hour: number; ratio: number }[] }[];
   popularKeywords: { topic: string; items: { keyword: string; ratio: number }[] } | null;
-  topicKeywords: { topic: string; keyword: string; rank: number; rankChange: number | null }[];
+  /** searchVolume = 실측 월 검색량(워커 keyword-volumes · 2026-10-08) — 못 잰 말 null, 예전 기록엔 없음. */
+  topicKeywords: { topic: string; keyword: string; rank: number; rankChange: number | null; searchVolume?: number | null }[];
   homefeedTitles: { title: string; url: string }[];
   /** 어제 + 그 전 6일 홈판 상위 20(main-inflow-content-ranks). rank 는 응답 순서(응답에 rank 칸이 없다). 날짜 내림차순. */
   homefeedWeek: { day: string; rank: number; title: string; url: string }[];
@@ -264,5 +265,28 @@ export function homefeedDayPattern(records: readonly AdvisorDailyRecord[]): Home
     hours: [...hourCount.entries()].sort((a, b) => a[0] - b[0]).map(([hour, posts]) => ({ hour, posts })),
     postsPerDay,
     gapsMinutes,
+  };
+}
+
+/**
+ * 주제별 인기 검색어에 실측 월 검색량을 붙인다(2026-10-08 카톡방 아침 "주제별 인기검색어 TOP 20 · 17.3만").
+ * 겹치는 키워드는 한 번만 묻는다. 워커는 띄어쓰기 없는 키로 준다. 조회가 실패해도 키워드는 그대로(검색량만 null). 원본은 바꾸지 않는다.
+ */
+export async function attachTopicVolumes(
+  record: AdvisorDailyRecord,
+  fetchVolumes: (keywords: string[]) => Promise<Record<string, number>>,
+): Promise<AdvisorDailyRecord> {
+  // 워커는 띄어쓰기 없는 대문자 꼴로 준다('테슬라모델Y') — 띄어쓰기 · 대소문자 무시하고 맞춘다
+  const compact = (s: string) => String(s || '').replace(/\s+/g, '').toUpperCase();
+  const keywords = [...new Set((record.topicKeywords || []).map((r) => r.keyword))];
+  let volumes: Record<string, number> = {};
+  try { volumes = keywords.length ? await fetchVolumes(keywords) : {}; } catch { volumes = {}; }
+  const byKey = new Map(Object.entries(volumes || {}).map(([k, v]) => [compact(k), v]));
+  return {
+    ...record,
+    topicKeywords: (record.topicKeywords || []).map((r) => {
+      const v = byKey.get(compact(r.keyword));
+      return { ...r, searchVolume: typeof v === 'number' && Number.isFinite(v) ? v : null };
+    }),
   };
 }

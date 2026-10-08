@@ -24,6 +24,8 @@ export interface AdvisorProbeSpec {
 export const ADVISOR_DAILY_POST_CAP = 30;
 /** 인기 검색어·독자 시간대를 붙일 내 상위 유입 주제 상한. */
 export const ADVISOR_DAILY_TOPIC_CAP = 3;
+/** 늘 받는 주제별 인기 검색어 주제(2026-10-08 사장님 "스타·연예인 · 방송 · 드라마 + 자동차 · 테크") — 32주제 이름 그대로. */
+export const ADVISOR_TREND_TOPICS = ['스타·연예인', '방송', '드라마', '자동차', 'IT·컴퓨터'];
 /** 전체 홈판 상위 20 을 어제 앞으로 더 받는 날수 — '오늘 쓸 글' 제목 본보기(최근 7일). 날짜마다 한 요청. */
 export const ADVISOR_HOMEFEED_WEEK_DAYS = 6;
 /** cv-ranks 한 번에 받는 글 수. 줄 수가 이보다 적으면 그날 조회 있는 글이 전부 들어온 것이다(0명 글 부검이 기댄다). */
@@ -100,8 +102,10 @@ export function followUpProbes(ctx: AdvisorDailyContext, input: AdvisorFollowUpI
   const day = yesterday(ctx.now);
   const topics = input.topics.filter((t) => t.trim()).slice(0, ADVISOR_DAILY_TOPIC_CAP);
   const posts = input.postIds.filter((p) => p.trim()).slice(0, ADVISOR_DAILY_POST_CAP);
+  // 주제별 인기 검색어는 고정 5주제 + 내 유입 주제(겹치면 한 번) — 카톡방 아침 "주제별 인기검색어 TOP 20"(2026-10-08)
+  const trendTopics = [...new Set([...ADVISOR_TREND_TOPICS, ...topics])];
   return [
-    ...topics.map((topic) => ({
+    ...trendTopics.map((topic) => ({
       key: `trendCategory:${topic}`,
       path: `/trend/category?${query({ service, categories: topic, contentType: 'text', interval: 'day', date: day, hasRankChange: true, limit: 20 })}`,
     })),
