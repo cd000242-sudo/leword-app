@@ -36,6 +36,13 @@ const TITLE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
  * 2026-10-01(2): 원제목 변주 10 + 새 각도 10 — 사장님 "벤치마킹 제목이랑 갭 차이가 너무 크다".
  */
 const TITLE_RULES = '2026-10-01-variants';
+/**
+ * 2026-10-10 사장님 "제목도 전부 채워 달라" — 카드 전부를 짓는 제목 작업(homefeed-guides.yml titles)이 창고만 쓰고,
+ * 판 수집(homefeed-benchmarks.yml)은 붙이기만 한다(--attach-only). 창고는 지금 판 카드(id · 원문 주소)와 24시간 안의 것만 —
+ * 전부 채우면 7일치가 20MB 를 넘는다. 0개 통과한 카드는 12시간 쉰다(같은 재료면 같은 결과).
+ */
+const GRACE_MS = 24 * 60 * 60 * 1000;
+const MISS_RETRY_MS = 12 * 60 * 60 * 1000;
 
 function arg(name, fallback = '') {
   const found = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -84,14 +91,32 @@ function mergeEntries(kept, made) {
   return [...kept.filter((e) => !replaced.has(e.id)), ...made];
 }
 
-/** 판의 카드마다 창고 제목을 `homeTitles` 로 얹는다. 없으면 빈 목록 — 화면이 "준비 중" 을 그린다. */
+/** 판의 카드마다 창고 제목을 `homeTitles` 로 얹는다(카드 id → 없으면 같은 원문 주소). 없으면 빈 목록 — 화면이 [지금 제목 만들기]를 그린다. */
 function attachTitles(board, entries) {
   const byId = new Map(entries.map((e) => [e.id, e]));
+  const byUrl = new Map();
+  for (const e of entries) for (const u of (Array.isArray(e.urls) ? e.urls : [])) if (u && !byUrl.has(u)) byUrl.set(u, e);
   const candidates = (board && Array.isArray(board.candidates) ? board.candidates : []).map((card) => {
-    const hit = byId.get(card.id);
+    const hit = byId.get(card.id) || (Array.isArray(card.sources) ? card.sources.map((src) => byUrl.get(src && src.url)).find(Boolean) : undefined);
     return { ...card, homeTitles: hit ? [...hit.titles] : [], ...(hit ? { homeTitlesAt: hit.at } : {}) };
   });
   return { ...board, candidates };
+}
+
+/** 지금 판 카드와 맞거나(id · 원문 주소) 24시간 안에 지은 제목만 남긴다. */
+function pruneEntries(entries, board, nowMs) {
+  const candidates = board && Array.isArray(board.candidates) ? board.candidates : [];
+  const ids = new Set(candidates.map((c) => c && c.id).filter(Boolean));
+  const urls = new Set(candidates.flatMap((c) => (Array.isArray(c && c.sources) ? c.sources : []).map((src) => src && src.url).filter(Boolean)));
+  return entries.filter((e) => ids.has(e.id) || (Array.isArray(e.urls) && e.urls.some((u) => urls.has(u))) || Date.parse(e.at) > nowMs - GRACE_MS);
+}
+
+/** 지을 후보 — 같은 원문 주소로 이미 지금 규칙 제목이 있는 카드 · 12시간 안에 0개 통과한 카드는 빼고, 추천 → 우선순위 순. */
+function openTitleCards(cards, kept, misses, nowMs) {
+  const covered = new Set(kept.filter((e) => e.rules === TITLE_RULES).flatMap((e) => (Array.isArray(e.urls) ? e.urls : [])));
+  const missed = new Set((Array.isArray(misses) ? misses : []).filter((m) => m && Date.parse(m.at) > nowMs - MISS_RETRY_MS).map((m) => m.id));
+  return cards.filter((c) => !missed.has(c.id) && !(Array.isArray(c.urls) && c.urls.some((u) => covered.has(u))))
+    .sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)) || (b.priority || 0) - (a.priority || 0));
 }
 
 /** 탈락 이유를 세어 한 줄로 — "20 (NO_ANCHOR 14, ARTICLE_COPY 3)". 규칙이 너무 조이는지 CI 로그에서 바로 보인다. */
@@ -111,6 +136,7 @@ async function generateTitles(cards, kept, { batchSize, concurrency, budgetMs, t
   const batches = [];
   for (let i = 0; i < cards.length; i += batchSize) batches.push(cards.slice(i, i + batchSize));
   const made = [];
+  const missed = [];
   let provider = '';
   let next = 0;
   let skipped = 0;
@@ -123,9 +149,9 @@ async function generateTitles(cards, kept, { batchSize, concurrency, budgetMs, t
         provider = result.provider || provider;
         for (const row of result.results) {
           const why = reasonSummary(row.rejected);
-          if (row.titles.length === 0) { console.log(`  - ${row.id} 통과 제목 0건 (탈락 ${why})`); continue; }
+          if (row.titles.length === 0) { missed.push(row.id); console.log(`  - ${row.id} 통과 제목 0건 (탈락 ${why})`); continue; }
           const card = batch.find((c) => c.id === row.id);
-          made.push({ id: row.id, keyword: card ? card.keyword : '', category: card ? card.category : '', titles: row.titles, rejected: row.rejected.length, provider: result.provider, at: stamp, rules: TITLE_RULES });
+          made.push({ id: row.id, keyword: card ? card.keyword : '', category: card ? card.category : '', urls: card && Array.isArray(card.urls) ? card.urls : [], titles: row.titles, rejected: row.rejected.length, provider: result.provider, at: stamp, rules: TITLE_RULES });
           console.log(`  ✚ ${row.id} ${card ? card.keyword : ''} → ${row.titles.length}개 (탈락 ${why}, ${result.provider})`);
         }
       } catch (error) {
@@ -135,14 +161,20 @@ async function generateTitles(cards, kept, { batchSize, concurrency, budgetMs, t
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, batches.length)) }, worker));
   if (skipped > 0) console.log(`  · 시간 상한(${Math.round(budgetMs / 60000)}분)으로 배치 ${skipped}개는 다음 회차로`);
-  return { made, provider, asked: cards.length };
+  return { made, provider, asked: cards.length, missed };
 }
 
-async function generate(board, kept, max, concurrency, budgetMs) {
+async function generate(board, kept, misses, max, concurrency, budgetMs) {
   // ts-node 는 생성 단계에서만 필요하다 — 부착만 할 때는 없어도 돈다.
   require('ts-node/register/transpile-only');
   const { cardsFromBenchmarks, titlesForCards, BENCHMARK_TITLE_BATCH } = require('../src/utils/benchmark-title-engine');
-  const cards = pickTitleTargets(cardsFromBenchmarks(board), kept, max);
+  // 원문 주소 · 추천 · 우선순위는 판 카드에서 — 창고가 카드 id 가 바뀌어도 제목을 찾는 열쇠 · 고르는 순서
+  const rows = new Map((board.candidates || []).map((c) => [c.id, c]));
+  const withMeta = cardsFromBenchmarks(board).map((c) => {
+    const row = rows.get(c.id) || {};
+    return { ...c, urls: [...new Set((row.sources || []).map((src) => String((src && src.url) || '')).filter(Boolean))], recommended: row.recommended === true, priority: Number(row.priority) || 0 };
+  });
+  const cards = pickTitleTargets(openTitleCards(withMeta, kept, misses, Date.now()), kept, max);
   const outdated = cards.filter((c) => kept.some((e) => e.id === c.id)).length;
   console.log(`제목 대상 ${cards.length}장 (새 카드 ${cards.length - outdated} · 옛 규칙 다시 짓기 ${outdated} · 창고 유지 ${kept.length}장) · 배치 ${BENCHMARK_TITLE_BATCH} · 동시 ${concurrency}`);
   return generateTitles(cards, kept, { batchSize: BENCHMARK_TITLE_BATCH, concurrency, budgetMs, titlesFor: (batch) => titlesForCards(batch) });
@@ -161,29 +193,40 @@ async function main() {
   }
   const board = readJson(boardPath);
   if (!board || !Array.isArray(board.candidates)) throw new Error(`벤치마크 판을 읽지 못했습니다: ${boardPath}`);
-  const kept = freshEntries(readJson(storePath));
+  const store = readJson(storePath) || {};
+  // --attach-only: 판 수집 작업 — 창고 제목을 판에 붙이기만(창고는 안 쓴다, 쓰는 쪽은 제목 작업 하나)
+  // --store-only : 제목 작업 — 짓고 창고만 쓴다(판은 안 쓴다, 판 파일을 두 작업이 고치면 판 발행 rebase 충돌)
+  const attachOnly = flag('attach-only');
+  const storeOnly = flag('store-only');
+  const nowMs = Date.now();
+  const kept = attachOnly ? freshEntries(store) : pruneEntries(freshEntries(store), board, nowMs);
+  const keptMisses = (Array.isArray(store.misses) ? store.misses : []).filter((m) => m && typeof m.id === 'string' && Date.parse(m.at) > nowMs - MISS_RETRY_MS);
 
   let made = [];
+  let missed = [];
   let provider = '';
   let asked = 0;
-  if (flag('no-ai')) console.log('AI 생성 건너뜀(--no-ai) · 창고 부착만 한다.');
+  if (flag('no-ai') || attachOnly) console.log('AI 생성 건너뜀 · 창고 부착만 한다.');
   else {
-    try { ({ made, provider, asked } = await generate(board, kept, max, concurrency, budgetMs)); }
+    try { ({ made, provider, asked, missed } = await generate(board, kept, keptMisses, max, concurrency, budgetMs)); }
     catch (error) { console.log(`!! 생성 단계 실패(부착은 계속): ${String((error && error.message) || error).slice(0, 200)}`); }
   }
 
   const entries = mergeEntries(kept, made);
-  const previousProvider = (readJson(storePath) || {}).provider || '';
-  atomicWrite(storePath, { generatedAt: new Date().toISOString(), provider: provider || previousProvider, total: entries.length, entries });
-  atomicWrite(boardPath, attachTitles(board, entries));
+  if (!attachOnly) {
+    const madeIds = new Set(made.map((e) => e.id));
+    const misses = [...keptMisses.filter((m) => !madeIds.has(m.id) && !missed.includes(m.id)), ...missed.map((id) => ({ id, at: new Date(nowMs).toISOString() }))];
+    atomicWrite(storePath, { generatedAt: new Date().toISOString(), provider: provider || store.provider || '', total: entries.length, entries, misses });
+  }
+  if (!storeOnly) atomicWrite(boardPath, attachTitles(board, entries));
 
-  const attached = board.candidates.filter((c) => entries.some((e) => e.id === c.id)).length;
+  const attached = attachTitles(board, entries).candidates.filter((c) => c.homeTitles.length > 0).length;
   console.log(`\n제목 창고 ${entries.length}장 (새로 ${made.length}/${asked}장) → ${storePath}`);
   console.log(`판 부착: 카드 ${board.candidates.length}장 중 제목 있는 카드 ${attached}장`);
   if (asked > 0 && made.length === 0) console.log('::warning::이번 회차 새 제목 0건 — 구독 CLI 상태를 확인하세요. 판은 창고 제목으로 나갑니다.');
 }
 
-module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, TITLE_RULES, TITLE_TTL_MS };
+module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, pruneEntries, openTitleCards, TITLE_RULES, TITLE_TTL_MS, GRACE_MS, MISS_RETRY_MS };
 
 if (require.main === module) {
   main().catch((error) => { console.error('벤치마크 제목 창고 실패:', error); process.exit(1); });

@@ -1,7 +1,9 @@
-name: 홈판 벤치마크 작성 안내
+name: 홈판 벤치마크 작성 안내 · 제목
 
-# 2026-10-10 사장님 "전부 다 붙이고 싶다 — 12장만이 아니라, 확인하는 사람이 있거든".
-# 판 수집(홈판 벤치마크 발행)이 끝날 때마다 이어서 돌아, 안내가 없는 카드를 전부 구독 AI(Sonnet)로 짓는다.
+# 2026-10-10 사장님 "전부 다 붙이고 싶다 — 12장만이 아니라, 확인하는 사람이 있거든" · "제목도 전부 채워 달라".
+# 판 수집(홈판 벤치마크 발행)이 끝날 때마다 이어서 돌아, 안내(Sonnet) · 홈판 제목 20개(Opus)가 없는 카드를 전부 짓는다.
+# 두 작업은 나란히 돌고 각자 자기 파일만 쓴다(안내 = guides.json · 제목 = titles.json) — 서로 · 판 수집과 파일이 안 겹친다.
+# 제목은 판 수집이 다음 회차에 판에 붙인다(앱 AI 비서 · 오늘의 추천이 판의 homeTitles 를 읽는다).
 # 회차마다 새 카드 228~501장(실측) — 판 수집 30분 안에서는 못 지어서 따로 뺐다.
 # 결과는 자기 파일(spa/public/data/homefeed-benchmark-guides.json)에만 쓴다. 판 파일을 두 작업이 같이 고치면
 # 판 발행의 rebase 가 충돌로 멈춘다. 사이트가 판과 합친다(카드 id → 없으면 원문 주소).
@@ -84,4 +86,66 @@ jobs:
             sleep 10
           done
           echo '::error::Guide publication failed.'
+          exit 1
+
+  # 홈판 후킹형 제목 20개 — 카드 전부(Opus, 사장님 선택: 같은 PC 비교에서 Sonnet 보다 2배 빠름 132초 vs 247초).
+  # 회차마다 새 카드 200~300장 · 카드 2장 배치 ~80초 → 동시 6 이면 20~35분. 처음 940장은 2~3회차에 걸쳐 채운다.
+  titles:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
+      - name: Test title store rules
+        run: node --test scripts/enrich-benchmark-titles.test.cjs
+      - name: 구독 CLI 폴백 준비
+        uses: ./.github/actions/setup-subscription-agents
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+      - name: 소재별 홈판 제목 20개 생성(창고만)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: >-
+          node scripts/enrich-benchmark-titles.js
+          --board=site/spa/public/data/homefeed-benchmarks.json
+          --store=site/spa/public/data/homefeed-benchmark-titles.json
+          --store-only
+          --max=${{ inputs.max || '1000' }}
+          --concurrency=6
+          --budget-min=40
+      - name: Publish only the title store
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/homefeed-benchmark-titles.json
+          if git diff --cached --quiet; then
+            echo 'No title changes.'
+            exit 0
+          fi
+          git commit -m "chore(homefeed): refresh benchmark home titles"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+              echo '::error::Concurrent title change requires review.'
+              exit 1
+            fi
+            sleep 10
+          done
+          echo '::error::Title publication failed.'
           exit 1

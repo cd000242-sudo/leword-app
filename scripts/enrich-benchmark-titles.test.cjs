@@ -67,3 +67,50 @@ test('제목 짓기는 배치를 동시에 돌리되 동시 개수 상한과 시
   const none = await generateTitles(cards, [], { batchSize: 2, concurrency: 3, budgetMs: 0, titlesFor });
   assert.equal(none.made.length, 0);
 });
+
+// 2026-10-10 사장님 "제목도 전부 채워 달라" — 판 수집과 따로 도는 제목 작업이 창고만 쓰고, 판 수집은 붙이기만 한다.
+// 회차마다 카드 id 가 바뀌어도 같은 원문이면 제목을 찾고(urls), 창고는 지금 판 + 24시간만 남긴다(전부 채우면 7일치 = 20MB+).
+const { pruneEntries, openTitleCards, MISS_RETRY_MS, GRACE_MS } = require('./enrich-benchmark-titles.js');
+
+test('제목 부착 — 카드 id 가 없으면 같은 원문 주소의 창고 제목을 붙인다', () => {
+  const b = { candidates: [{ id: 'new-id', keyword: 'k', sources: [{ url: 'https://blog.naver.com/a/1' }] }, { id: 'z', keyword: 'z', sources: [{ url: 'https://x/9' }] }] };
+  const out = attachTitles(b, [{ id: 'old-id', urls: ['https://blog.naver.com/a/1'], titles: ['가', '나'], at: now }]);
+  assert.deepEqual(out.candidates[0].homeTitles, ['가', '나']);
+  assert.deepEqual(out.candidates[1].homeTitles, []);
+});
+
+test('제목 창고 정리 — 지금 판 카드(id · 원문 주소)와 맞거나 24시간 안에 지은 것만', () => {
+  const nowMs = Date.parse(now);
+  const b = { candidates: [{ id: 'a1', sources: [] }, { id: 'n', sources: [{ url: 'https://u/1' }] }] };
+  const entries = [
+    { id: 'a1', titles: ['가'], at: new Date(nowMs - 3 * 86400000).toISOString() },
+    { id: 'by-url', urls: ['https://u/1'], titles: ['가'], at: new Date(nowMs - 3 * 86400000).toISOString() },
+    { id: 'gone-old', urls: [], titles: ['가'], at: new Date(nowMs - GRACE_MS - 1000).toISOString() },
+    { id: 'gone-fresh', urls: [], titles: ['가'], at: new Date(nowMs - 1000).toISOString() },
+  ];
+  assert.deepEqual(pruneEntries(entries, b, nowMs).map((e) => e.id), ['a1', 'by-url', 'gone-fresh']);
+});
+
+test('제목 지을 카드 — 원문 주소로 이미 덮인 카드(지금 규칙) · 최근 0개 통과 카드는 빼고, 추천 → 우선순위 순', () => {
+  const nowMs = Date.parse(now);
+  const cards = [
+    { id: 'url-covered', urls: ['https://u/1'], recommended: true, priority: 99 },
+    { id: 'missed', urls: [], recommended: true, priority: 98 },
+    { id: 'missed-long-ago', urls: [], recommended: false, priority: 1 },
+    { id: 'p50', urls: [], recommended: false, priority: 50 },
+    { id: 'rec', urls: [], recommended: true, priority: 5 },
+  ];
+  const kept = [{ id: 'other', urls: ['https://u/1'], titles: ['가'], rules: TITLE_RULES_FOR_TEST() }];
+  const misses = [{ id: 'missed', at: new Date(nowMs - 1000).toISOString() }, { id: 'missed-long-ago', at: new Date(nowMs - MISS_RETRY_MS - 1000).toISOString() }];
+  assert.deepEqual(openTitleCards(cards, kept, misses, nowMs).map((c) => c.id), ['rec', 'p50', 'missed-long-ago']);
+});
+function TITLE_RULES_FOR_TEST() { return require('./enrich-benchmark-titles.js').TITLE_RULES; }
+
+test('제목 짓기 — 0개 통과 카드는 missed 로 돌려주고, 지은 항목엔 원문 주소(urls)를 싣는다', async () => {
+  const { generateTitles } = require('./enrich-benchmark-titles.js');
+  const cards = [{ id: 'a', keyword: 'ka', urls: ['https://u/a'] }, { id: 'b', keyword: 'kb', urls: ['https://u/b'] }];
+  const titlesFor = async (batch) => ({ provider: 'fake', results: batch.map((c) => ({ id: c.id, titles: c.id === 'b' ? [] : ['제목'], rejected: [] })) });
+  const out = await generateTitles(cards, [], { batchSize: 2, concurrency: 1, budgetMs: 60_000, titlesFor });
+  assert.deepEqual(out.made.map((e) => [e.id, e.urls]), [['a', ['https://u/a']]]);
+  assert.deepEqual(out.missed, ['b']);
+});
