@@ -274,11 +274,14 @@ function buildCandidates(posts, now, previousPosts = []) {
       summaryAttribution: lead.summary?`${lead.name} 공개 요약 발췌 · 사실 확인 전`:'공개 제목에서 발견 · 본문 미확인',
       // 제목은 템플릿으로 채우지 않는다 — enrich-benchmark-titles 가 카드마다 homeTitles(20개)를 얹는다.
       homeTitles: [],
-      writingDirection: `${keyword}를 검색하는 독자의 질문에 답하는 해설을 작성하세요. 위 벤치마크의 주장과 원출처에서 확인한 사실을 구분하고, 새로 확인한 날짜·조건·변경점부터 제시하세요.`,
-      mustInclude: [`${keyword}의 원문 링크와 발행일`, '사건 발생일과 지금 다시 다룰 이유', '독자가 직접 확인할 절차 또는 비교 기준'],
-      mustAvoid: ['벤치마크의 경험을 직접 경험한 것처럼 쓰기', '확인하지 않은 가격·정책·인물 주장을 사실로 단정', '실측하지 않은 홈판 노출 확률·수익 보장'],
+      // 작성 안내는 찍지 않는다(2026-10-10 사장님 "하드코딩 — 뻔한 소리") — enrich-benchmark-titles 가 카드 재료로 짓는다(없으면 빈칸)
+      writingDirection: '',
+      searchTargets: [],
+      mustInclude: [],
+      mustAvoid: [],
       relatedKeywords: tokens(lead.title).slice(0,6),
-      verificationNeeded: ['원출처의 실제 사건 날짜와 최신 변경 사항', '사진 원작자와 재사용 조건', ...(flags.includes('sensitive-claim')?['당사자·공식 자료 확인 전 인물 관련 의혹 제외']:[]), ...(flags.includes('sponsored')?['상업적 관계와 홍보성 주장 확인']:[])],
+      // 작성 전 확인은 그 카드에 해당하는 경고만(어느 카드에나 붙던 '사건 날짜 · 사진 원작자'는 뺐다)
+      verificationNeeded: [...(flags.includes('sensitive-claim')?['당사자·공식 자료 확인 전 인물 관련 의혹 제외']:[]), ...(flags.includes('sponsored')?['상업적 관계와 홍보성 주장 확인']:[])],
       imageGuide: { url: lead.url, instruction: `${lead.name} 원문에서 이미지의 원출처를 먼저 확인하세요. 원본 게시물의 제목·게시일·관련 장면을 확인한 뒤 사용 조건에 맞게 캡처하고 출처를 남기세요. 벤치마크 사진 자체의 재사용 허용 여부는 미확인입니다.` },
       metrics: { searchVolume: null, documentCount: null, rankingPossibility:'unmeasured', reactionGrowth: growth }, homefeedExposure:'unverified',
       sources: sorted.slice(0,5).map(p=>({ id:p.sourceId, platform:p.platform, name:p.name, title:p.title, url:p.url, publishedAt:p.publishedAt, summary:plainText(p.summary,140), metrics:p.metrics, ...(p.reactionCount!=null?{reactionCount:p.reactionCount,reactionLabel:p.reactionLabel}:{}), ...(p.metricNote?{metricNote:p.metricNote}:{}), ...(growthOf.get(p.url)?{growth:growthOf.get(p.url)}:{}), discoveryOnly:true })), flags,

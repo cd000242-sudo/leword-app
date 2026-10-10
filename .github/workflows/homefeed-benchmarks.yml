@@ -20,7 +20,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     # 제목 생성은 배치(2장)당 최대 3분 × 4배치 = 12분까지 걸릴 수 있다.
-    timeout-minutes: 30
+    # 작성 안내(2026-10-10)가 5분 상한 + 진행 중 배치(최대 3분)를 더한다 — 최근 회차 13~21분이라 30분은 빠듯하다.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -81,6 +82,8 @@ jobs:
           --max=${{ inputs.max || '20' }}
           --concurrency=4
           --budget-min=12
+          --guide-max=12
+          --guide-budget-min=5
       - name: Publish only the benchmark board, title store and observation state
         working-directory: site
         run: |

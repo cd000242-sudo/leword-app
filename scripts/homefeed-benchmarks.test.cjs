@@ -248,3 +248,21 @@ test('분야 — 요약까지 보고, 요약이 있으면 블로그 주제를 �
   assert.equal(core.category('요즘 다들 이렇게 한다는 그것', IT, '신형 그랜저를 한 달 타 보니 연비가 이렇게 나왔습니다'), '자동차·IT');
   assert.equal(core.category('요즘 다들 이렇게 한다는 그것', IT, ''), '자동차·IT', '요약이 없으면 예전처럼 블로그 주제');
 });
+
+// 2026-10-10 사장님 "이렇게 쓰세요 · 반드시 · 넣지 말 것이 하드코딩 — 뻔한 소리". 수집 단계는 안내를 찍지 않는다(CI 구독 AI 가 카드별로 짓는다).
+test('카드에 고정 작성 안내를 찍지 않는다 — 작성 전 확인은 그 카드 경고(협찬 · 민감 의혹)만', () => {
+  const at = new Date().toISOString();
+  const posts = [
+    { sourceId: 's1', platform: 'naver-blog', name: 'a', title: '장기전세 만기 연장 조건 바뀐다', url: 'https://blog.naver.com/a/1', publishedAt: at, capturedAt: at, summary: '장기전세 만기 연장 조건이 바뀐다는 공고', metrics: {} },
+    { sourceId: 's2', platform: 'naver-blog', name: 'b', title: '독감 무료 접종 대상 정리', url: 'https://blog.naver.com/b/1', publishedAt: at, capturedAt: at, summary: '제품을 무상으로 제공받아 작성한 독감 무료 접종 대상', metrics: {} },
+  ];
+  const cards = core.buildCandidates(posts, at);
+  assert.ok(cards.length >= 1);
+  for (const c of cards) {
+    assert.equal(c.writingDirection, '');
+    assert.deepEqual(c.mustInclude, []);
+    assert.deepEqual(c.mustAvoid, []);
+    assert.equal(c.verificationNeeded.some((v) => /원출처의 실제 사건 날짜|사진 원작자/.test(v)), false);
+  }
+  assert.ok(cards.some((c) => c.verificationNeeded.includes('상업적 관계와 홍보성 주장 확인')), '협찬 카드 경고는 남는다');
+});
