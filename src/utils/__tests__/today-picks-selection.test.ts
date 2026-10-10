@@ -54,7 +54,8 @@ describe('추천키워드 7일 이력과 30개 선정', () => {
  });
  it('발행 이력은 기존 추천일을 보존하고 이번 추천만 현재 시각으로 갱신한다', () => {
   const updated = updateHistory(board(['이전'],1),[row('신규')],date(0));
-  expect(updated).toEqual({windowDays:7,entries:[{keyword:'신규',lastShownAt:date(0)},{keyword:'이전',lastShownAt:date(1)}]});
+  // days(날짜별 실린 말, 2026-10-10 전날 중복 금지)가 함께 실린다
+  expect(updated).toEqual({windowDays:7,entries:[{keyword:'신규',lastShownAt:date(0)},{keyword:'이전',lastShownAt:date(1)}],days:{'2026-09-28':['신규'],'2026-09-27':['이전']}});
  });
  it('신규 후보와 재추천 후보 예산을 분리해 신규 실측 실패 시 보충할 수 있다', () => {
   const history = recentHistory(board(['기존']),now);
@@ -78,5 +79,34 @@ describe('추천키워드 7일 이력과 30개 선정', () => {
   const current={...old,keep:30,selectionVersion:2,history:{windowDays:7,entries:[]}};
   expect(await readCompletedRound('https://example.com/picks',30,async()=>({ok:true,json:async()=>current}),now)).toBe(true);
   expect(await readCompletedRound('https://example.com/picks',30,async()=>{throw new Error('offline')},now)).toBe(false);
+ });
+});
+
+// 2026-10-10 사장님 "30개인데 전에 추천한 게 또 있으니 오늘도 똑같다고 안 본다 — 매일 전날과 중복 없이, 매일 새롭게".
+// 실측: 10/10 저녁 판 956개 중 604개가 전날 판과 겹쳤다(황금 612개 중 602개 = 직전 판 황금을 먼저 다시 싣는 구조).
+describe('추천키워드 전날(KST) 중복 금지 · 새로 올리기', () => {
+ const { blockedKeywords, shownByDay } = require('../../../scripts/today-picks-selection');
+ // 2026-10-10 저녁(KST 19:30) 회차 기준
+ const at = '2026-10-10T10:30:00Z';
+ it('어제(KST) 어느 회차에든 실린 말은 막고, 오늘 앞 회차에 실린 말은 그대로 둔다(같은 날 회차끼리는 이어 실어도 된다)', () => {
+  const carried = {builtAt:'2026-10-10T04:30:00Z',topics:[{topic:'경제',rows:[row('오늘아침말')]}],
+   history:{windowDays:7,entries:[],days:{'2026-10-09':['어제저녁말','어제아침말'],'2026-10-08':['그제말']}}};
+  const blocked = blockedKeywords(carried, at);
+  expect([...blocked].sort()).toEqual(['어제아침말','어제저녁말']);
+ });
+ it('새로 올리기(fresh)는 오늘 이미 실린 말까지 막는다 — 지금 판과 완전히 다른 말로', () => {
+  const carried = {builtAt:'2026-10-10T04:30:00Z',topics:[{topic:'경제',rows:[row('오늘아침말')]}],history:{windowDays:7,entries:[],days:{'2026-10-09':['어제말']}}};
+  expect([...blockedKeywords(carried, at, {fresh:true})].sort()).toEqual(['어제말','오늘아침말']);
+ });
+ it('일자별 기록이 없던 옛 판 — 직전 판이 어제 판이면 그 행을, 이력에서 어제 마지막으로 실린 말을 막는다', () => {
+  const carried = {builtAt:'2026-10-09T10:30:00Z',topics:[{topic:'경제',rows:[row('어제저녁말')]}],
+   history:{windowDays:7,entries:[{keyword:'어제아침말',lastShownAt:'2026-10-08T21:30:00Z'},{keyword:'그제말',lastShownAt:'2026-10-08T10:30:00Z'}]}};
+  expect([...blockedKeywords(carried, at)].sort()).toEqual(['어제아침말','어제저녁말']);
+ });
+ it('일자별 기록은 오늘 실린 말을 더하고 최근 3일만 남긴다(공개 판에 실려 회차를 넘어간다)', () => {
+  const carried = {builtAt:'2026-10-10T04:30:00Z',topics:[{topic:'경제',rows:[row('오늘아침말')]}],history:{windowDays:7,entries:[],days:{'2026-10-09':['어제말'],'2026-10-07':['나흘전말']}}};
+  const history = updateHistory(carried,[row('저녁새말')],at);
+  expect(history.days).toEqual({'2026-10-10':['오늘아침말','저녁새말'],'2026-10-09':['어제말']});
+  expect(shownByDay({history}).get('2026-10-10').has('저녁새말')).toBe(true);
  });
 });

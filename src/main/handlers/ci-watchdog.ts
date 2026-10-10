@@ -321,6 +321,34 @@ export async function checkOnce(nowMs: number = Date.now()): Promise<{ acted: bo
  */
 const REFRESH_COOLDOWN_MS = 10 * 60_000;
 
+/*
+ * 사장님 PC 판별(2026-10-10 사장님 "새롭게 다시 올리고 싶으면 앱에서 버튼 — 나만 보고 나만 사용해야 돼, 내 계정이 관리자니까").
+ * 앱 라이선스엔 관리자 표시가 없다(사장님도 LIFE — 같은 등급 고객이 있다). 이 버튼이 실제로 깨우는 힘은 이 PC 의
+ * gh 로그인이므로, 레포 주인 계정(cd000242-sudo)으로 로그인된 PC 만 사장님 PC 로 본다. 화면도 처리기도 둘 다 확인한다.
+ */
+const OWNER_LOGIN = REPO.split('/')[0];
+let ownerCache: { at: number; owner: boolean } | null = null;
+
+export function isOwnerLogin(login: string): boolean {
+  return String(login || '').trim().toLowerCase() === OWNER_LOGIN.toLowerCase();
+}
+
+/** gh 가 레포 주인 계정으로 로그인돼 있나 — 사장님 PC 면 30분, 아니면 2분 기억한다(gh 가 잠깐 막혀도 금방 다시 본다). */
+export async function isOwnerPc(nowMs: number = Date.now()): Promise<boolean> {
+  if (ownerCache && nowMs - ownerCache.at < (ownerCache.owner ? 30 : 2) * 60_000) return ownerCache.owner;
+  const login = await new Promise<string>((resolve) => {
+    execFile('gh', ['api', 'user', '-q', '.login'], { timeout: 20_000 }, (error, stdout) => resolve(error ? '' : String(stdout || '')));
+  });
+  ownerCache = { at: nowMs, owner: isOwnerLogin(login) };
+  return ownerCache.owner;
+}
+
+/** 수동 갱신 명령 — 추천키워드만 fresh(오늘 실린 말까지 빼고 새 키워드로 다시 고르기)를 받는다. */
+export function refreshArgs(workflow: string, opts: { fresh?: boolean } = {}): string[] {
+  const args = ['workflow', 'run', workflow, '--repo', REPO, '--ref', 'main'];
+  return opts.fresh && workflow === 'today-picks.yml' ? [...args, '-f', 'fresh=true'] : args;
+}
+
 function refreshLedgerKey(workflow: string): string {
   return `수동:${workflow}`;
 }
@@ -333,7 +361,7 @@ export function refreshCooldownLeft(lastIso: string | undefined, nowMs: number):
   return Math.max(0, REFRESH_COOLDOWN_MS - (nowMs - at));
 }
 
-export async function refreshNow(workflow: string, nowMs: number = Date.now()): Promise<{ ok: boolean; detail: string }> {
+export async function refreshNow(workflow: string, nowMs: number = Date.now(), opts: { fresh?: boolean } = {}): Promise<{ ok: boolean; detail: string }> {
   const board = BOARDS.find((b) => b.workflow === workflow);
   if (!board) return { ok: false, detail: `모르는 보드다: ${workflow}` };
 
@@ -362,7 +390,7 @@ export async function refreshNow(workflow: string, nowMs: number = Date.now()): 
   }
 
   return new Promise((resolve) => {
-    execFile('gh', ['workflow', 'run', workflow, '--repo', REPO, '--ref', 'main'], { timeout: 60_000 }, (error, stdout, stderr) => {
+    execFile('gh', refreshArgs(workflow, opts), { timeout: 60_000 }, (error, stdout, stderr) => {
       if (error) {
         const detail = String(stderr || error.message);
         resolve({
@@ -374,7 +402,9 @@ export async function refreshNow(workflow: string, nowMs: number = Date.now()): 
       } else {
         // 성공했을 때만 적는다 — 실패한 시도까지 세면 고칠 기회를 막는다.
         writeLedger({ ...readLedger(), [refreshLedgerKey(workflow)]: new Date(nowMs).toISOString() });
-        resolve({ ok: true, detail: `${board.name} 회차를 깨웠습니다. 결과가 사이트에 실리기까지 시간이 걸립니다.` });
+        resolve({ ok: true, detail: opts.fresh && workflow === 'today-picks.yml'
+          ? `${board.name}를 새 키워드로 다시 고릅니다(오늘 · 어제 실린 말 제외). 사이트에 실리기까지 30분~1시간 걸립니다.`
+          : `${board.name} 회차를 깨웠습니다. 결과가 사이트에 실리기까지 시간이 걸립니다.` });
       }
     });
   });
@@ -429,7 +459,9 @@ export function setupCiWatchdogHandlers(): void {
   if (!ipcMain.listenerCount('ci-board-status')) {
     ipcMain.handle('ci-board-status', async () => {
       try {
-        return { success: true, boards: await boardStatuses() };
+        // 사장님 PC 가 아니면 현황도 버튼도 주지 않는다 — 화면은 owner 가 아니면 패널을 숨긴다
+        if (!(await isOwnerPc())) return { success: true, owner: false, boards: [] };
+        return { success: true, owner: true, boards: await boardStatuses() };
       } catch (error) {
         return { success: false, error: String((error as Error)?.message || error) };
       }
@@ -437,10 +469,11 @@ export function setupCiWatchdogHandlers(): void {
   }
 
   if (!ipcMain.listenerCount('ci-board-refresh')) {
-    ipcMain.handle('ci-board-refresh', async (_event, payload?: { workflow?: string }) => {
+    ipcMain.handle('ci-board-refresh', async (_event, payload?: { workflow?: string; fresh?: boolean }) => {
+      if (!(await isOwnerPc())) return { success: false, error: '관리자(사장님) PC 에서만 쓸 수 있습니다.' };
       const workflow = String(payload?.workflow || '').trim();
       if (!workflow) return { success: false, error: '어느 보드를 갱신할지 알 수 없습니다.' };
-      const got = await refreshNow(workflow);
+      const got = await refreshNow(workflow, Date.now(), { fresh: payload?.fresh === true });
       return got.ok ? { success: true, message: got.detail } : { success: false, error: got.detail };
     });
   }

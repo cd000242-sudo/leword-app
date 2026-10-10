@@ -2,6 +2,46 @@
 const WINDOW_DAYS = 7;
 const normalizeKeyword = (value) => String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
 const rowsOf = (board) => (Array.isArray(board?.topics) ? board.topics : []).flatMap(t => Array.isArray(t.rows) ? t.rows : []);
+/*
+ * 전날(KST) 중복 금지(2026-10-10 사장님 "전에 추천한 게 또 있으니 오늘도 똑같다고 안 본다 — 매일 전날과 중복 없이, 매일 새롭게").
+ * 실측: 10/10 저녁 판 956개 중 604개가 전날 판과 겹쳤다(황금 612개 중 602개 — 직전 판 황금을 먼저 다시 싣는 구조).
+ * 날짜별로 실린 말(history.days, 최근 3일)을 공개 판에 싣고, 어제 실린 말은 황금이어도 다시 싣지 않는다.
+ * 같은 날 회차끼리는 이어 실어도 된다. 앱의 [새 키워드로 다시 올리기](--fresh)는 오늘 실린 말까지 막는다.
+ */
+const DAYS_KEPT = 3;
+const kstDayOf = (ms) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
+
+/** 날짜(KST)별로 실린 말 — 판의 history.days + 그 판의 행(판 시각의 날). 일자별 기록이 없던 옛 판은 이력의 마지막 시각 날짜로 대신한다. */
+function shownByDay(board) {
+  const days = new Map();
+  const add = (day, keyword) => {
+    const key = normalizeKeyword(keyword);
+    if (!day || !key) return;
+    if (!days.has(day)) days.set(day, new Set());
+    days.get(day).add(key);
+  };
+  const recorded = board?.history?.days;
+  if (recorded && typeof recorded === 'object' && !Array.isArray(recorded)) {
+    for (const [day, list] of Object.entries(recorded)) for (const keyword of Array.isArray(list) ? list : []) add(day, keyword);
+  } else {
+    for (const entry of Array.isArray(board?.history?.entries) ? board.history.entries : []) {
+      const time = Date.parse(entry?.lastShownAt);
+      if (Number.isFinite(time)) add(kstDayOf(time), entry.keyword);
+    }
+  }
+  const built = Date.parse(board?.builtAt);
+  if (Number.isFinite(built)) for (const row of rowsOf(board)) add(kstDayOf(built), row.keyword);
+  return days;
+}
+
+/** 이번 회차에 다시 싣지 않을 말 — 어제(KST) 실린 말 전부, fresh 면 오늘 이미 실린 말까지. */
+function blockedKeywords(carried, builtAt, { fresh = false } = {}) {
+  const at = Date.parse(builtAt);
+  const days = shownByDay(carried);
+  const blocked = new Set(days.get(kstDayOf(at - 86400000)) || []);
+  if (fresh) for (const key of days.get(kstDayOf(at)) || []) blocked.add(key);
+  return blocked;
+}
 
 function recentHistory(board, now = Date.now()) {
   const entries = Array.isArray(board?.history?.entries) ? board.history.entries : [];
@@ -19,7 +59,14 @@ function recentHistory(board, now = Date.now()) {
 function updateHistory(previous, selected, builtAt) {
   const history = recentHistory(previous,Date.parse(builtAt));
   for (const row of selected) history.set(normalizeKeyword(row.keyword),builtAt);
-  return {windowDays:WINDOW_DAYS,entries:[...history].map(([keyword,lastShownAt])=>({keyword,lastShownAt})).sort((a,b)=>b.lastShownAt.localeCompare(a.lastShownAt)||a.keyword.localeCompare(b.keyword))};
+  const at = Date.parse(builtAt);
+  const today = kstDayOf(at);
+  const byDay = shownByDay(previous);
+  if (!byDay.has(today)) byDay.set(today, new Set());
+  for (const row of selected) { const key = normalizeKeyword(row.keyword); if (key) byDay.get(today).add(key); }
+  const oldest = kstDayOf(at - (DAYS_KEPT - 1) * 86400000);
+  const days = Object.fromEntries([...byDay].filter(([day]) => day >= oldest && day <= today).sort((a, b) => b[0].localeCompare(a[0])).map(([day, keys]) => [day, [...keys].sort()]));
+  return {windowDays:WINDOW_DAYS,entries:[...history].map(([keyword,lastShownAt])=>({keyword,lastShownAt})).sort((a,b)=>b.lastShownAt.localeCompare(a.lastShownAt)||a.keyword.localeCompare(b.keyword)),days};
 }
 
 function unique(rows) {
@@ -71,4 +118,4 @@ function completeRound(board, roundId, keep) {
     && board.history?.windowDays===WINDOW_DAYS && Array.isArray(board.history.entries) && rowsOf(board).length>0;
 }
 
-module.exports = {WINDOW_DAYS,normalizeKeyword,recentHistory,updateHistory,candidatePools,selectRows,priorGoldenRows,completeRound};
+module.exports = {WINDOW_DAYS,normalizeKeyword,recentHistory,updateHistory,candidatePools,selectRows,priorGoldenRows,completeRound,shownByDay,blockedKeywords};

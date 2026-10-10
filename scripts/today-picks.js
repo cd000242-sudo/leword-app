@@ -38,7 +38,7 @@ const { getNaverSearchAdBidPairs } = require('../src/utils/naver-searchad-api');
 const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-keywords');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { roundAt, cachedMeasurement, canPublish, describeChanges } = require('./today-picks-rounds');
-const { WINDOW_DAYS, normalizeKeyword, recentHistory, updateHistory, candidatePools, selectRows, priorGoldenRows, completeRound } = require('./today-picks-selection');
+const { WINDOW_DAYS, normalizeKeyword, recentHistory, updateHistory, candidatePools, selectRows, priorGoldenRows, completeRound, blockedKeywords } = require('./today-picks-selection');
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -104,6 +104,14 @@ async function main() {
   measurements = Object.fromEntries(Object.entries(measurements).filter(([, entry]) => cachedMeasurement(entry)));
   const flat = normalizeKeyword;
   const history = recentHistory(carried, Date.parse(startedAt));
+  /*
+   * 전날(KST) 중복 금지(2026-10-10 사장님 "전에 추천한 게 또 있으니 오늘도 똑같다고 안 본다 — 매일 전날과 중복 없이").
+   * 어제 어느 회차에든 실린 말은 황금이어도 다시 싣지 않는다. --fresh=true(앱의 [새 키워드로 다시 올리기])는 오늘 실린 말까지 막는다.
+   */
+  const fresh = arg('fresh') === 'true';
+  const blocked = blockedKeywords(carried, startedAt, { fresh });
+  const isOpen = (keyword) => !blocked.has(flat(keyword));
+  console.log(`전날 중복 금지 — 어제${fresh ? ' · 오늘' : ''} 실린 말 ${blocked.size.toLocaleString('ko-KR')}개는 다시 싣지 않는다${fresh ? ' (새 키워드로 다시 올리기)' : ''}`);
 
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const cfg = manager.getConfig();
@@ -160,6 +168,7 @@ async function main() {
     method: {
       searchVolume: '검색광고 키워드도구 월간 검색량 실측(PC+모바일)',
       documentCount: '네이버 블로그 오픈 API 문서수 실측 · 24시간 이내 실측은 재사용(행별 measuredAt)',
+      daily: '어제(KST) 실린 말은 황금이어도 다시 싣지 않는다 — 매일 새 키워드(같은 날 회차끼리는 이어 실을 수 있다)',
       ratio: `검색량 ÷ 문서수 ${minRatio} 이상(황금)은 최근 ${WINDOW_DAYS}일 추천 이력과 무관하게 먼저, 그 안에서는 입찰가 높은 순 · 직전 판 황금과 선점 보드 황금을 창고 후보보다 먼저 실측 · 일반 후보는 미추천 우선, 신규 부족 시 오래전에 추천한 순으로 재추천`,
       bid: '네이버 검색광고 파워링크 3위 평균 입찰가 실측(PC · 모바일 중 큰 값) — 70원이면 3위 자리까지 광고 경쟁이 없다',
       season: '이번 달·다음 달 피크인 계절 씨앗은 seasonPeakMonth 로 표시 — 트래픽 몰릴 예정',
@@ -202,7 +211,7 @@ async function main() {
   const passesGuards = (kw) => kw.length >= 2 && kw.length <= 15 && !judgeAnswerCardKeyword(kw).answerCard && !judgeEphemeralKeyword(kw).ephemeral && !isListedName(kw, listedNames);
   for (const t of topics) {
     const prev = resumedTopics.get(t);
-    if (resumed?.selectionVersion === 2 && resumed?.round?.id === round.id && prev && (prev.golden || 0) >= keep && prev.rows.length === keep && prev.rows.every(row => !history.has(flat(row.keyword)) && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt}))) {
+    if (resumed?.selectionVersion === 2 && resumed?.round?.id === round.id && prev && (prev.golden || 0) >= keep && prev.rows.length === keep && prev.rows.every(row => !history.has(flat(row.keyword)) && isOpen(row.keyword) && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt}))) {
       result.topics.push({...prev,rows:selectRows(prev.rows,history,keep,minRatio,orderGoldenByMoney),targetCount:keep,shortfall:0});
       console.log(`  ${t.padEnd(8)} 이전 결과 재사용 — 황금 ${prev.golden} 이미 찼다`);
       continue;
@@ -212,7 +221,7 @@ async function main() {
     const measuredKeys = new Set();
     const keepRow = (row) => { measuredKeys.add(flat(row.keyword)); if (row.ratio >= minRatio) golden.push(row); else others.push(row); };
     // 1) 이미 황금으로 잰 말(직전 판 · 선점 보드)을 먼저 — 오래된 실측은 다시 잰다. 황금이 아니게 됐으면 채움으로 내려간다.
-    const prior = priorGoldenRows(carried, goldenBoard, t, minRatio).filter((c) => passesGuards(String(c.keyword)));
+    const prior = priorGoldenRows(carried, goldenBoard, t, minRatio).filter((c) => passesGuards(String(c.keyword)) && isOpen(c.keyword));
     for (const c of prior) {
       const { documentCount, measuredAt, cached } = await measureDocs(c);
       if (Number.isFinite(documentCount) && documentCount > 0) keepRow(toRow(c, documentCount, measuredAt));
@@ -220,7 +229,7 @@ async function main() {
     }
     const priorGolden = golden.length;
     // 2) 창고 후보 — 신규를 먼저 측정한다. 부족할 때만 별도 예산 안에서 과거 추천을 오래된 순으로 잰다.
-    const pools = candidatePools(byTopic.get(t), history, perTopic);
+    const pools = candidatePools(byTopic.get(t).filter((c) => isOpen(c.keyword)), history, perTopic);
     const cand = pools.fresh.concat(pools.repeated).filter((c) => !measuredKeys.has(flat(c.keyword)));
     for (const c of cand) {
       // 신규가 충분하면 반복 후보는 재지 않는다. 황금이 목표만큼 차면 조기 종료한다.
@@ -258,7 +267,7 @@ async function main() {
   result.measurements = { requested: calls, reused, succeeded: successes };
   const selected = result.topics.flatMap(topic=>topic.rows);
   const repeatedCount = selected.filter(row=>row.freshness.status==='repeated').length;
-  result.novelty = {windowDays:WINDOW_DAYS,newCount:selected.length-repeatedCount,repeatedCount};
+  result.novelty = {windowDays:WINDOW_DAYS,newCount:selected.length-repeatedCount,repeatedCount,blockedYesterday:blocked.size,fresh};
   result.history = updateHistory(carried,selected,result.builtAt);
   fs.writeFileSync(`${outPath}.partial`, JSON.stringify(result, null, 1), 'utf8');
   fs.renameSync(`${outPath}.partial`, outPath);

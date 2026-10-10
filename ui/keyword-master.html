@@ -1821,7 +1821,7 @@
         남의 PC 에는 그 로그인이 없다. 사이트에 달면 아무나 누르고, 막으려면 서버에
         깃허브 토큰을 새로 심어야 한다.
       -->
-      <div id="boardStatusPanel" style="margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #0f172a; border: 1px solid rgba(255,255,255,0.09);">
+      <div id="boardStatusPanel" style="display: none; margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; background: #0f172a; border: 1px solid rgba(255,255,255,0.09);">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
           <b style="font-size: 13px; color: #e2e8f0;">회차 현황</b>
           <span style="font-size: 11.5px; color: #64748b;">예약이 빠지면 앱이 20분마다 대신 깨웁니다. 급하면 여기서 바로 깨우세요.</span>
@@ -6217,6 +6217,10 @@
             box.innerHTML = '<span style="color:#fca5a5;">' + ((res && res.error) || '현황을 읽지 못했습니다') + '</span>';
             return;
           }
+          // 회차 현황 · 갱신 버튼은 사장님(관리자) PC 에서만 — 처리기가 gh 로그인 계정으로 판별한다(2026-10-10 "나만 보고 나만 사용")
+          const statusPanel = document.getElementById('boardStatusPanel');
+          if (res.owner !== true) { if (statusPanel) statusPanel.style.display = 'none'; return; }
+          if (statusPanel) statusPanel.style.display = '';
           const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
           const when = (iso) => {
             if (!iso) return '못 읽음';
@@ -6243,9 +6247,14 @@
                   ? '<span style="color:#fbbf24;">이번 회차 비었음</span>'
                   : '<span style="color:#64748b;">못 읽음</span>';
             const label = b.dueLabel && b.dueLabel !== '회차' ? ' · ' + esc(b.dueLabel) : '';
+            // 추천키워드는 [새 키워드로 다시 올리기]도 — 오늘 · 어제 실린 말을 빼고 새로 고른다(2026-10-10 사장님 "버튼 누르면 알아서 새롭게")
+            const freshButton = b.workflow === 'today-picks.yml'
+              ? '<button data-refresh="today-picks.yml" data-fresh="1" onclick="refreshBoardNow(this)" '
+                + 'style="padding:5px 11px; border:1px solid #fbbf24; border-radius:7px; font-size:11.5px; font-weight:600; background:transparent; color:#fbbf24; cursor:pointer;">새 키워드로 다시 올리기</button>'
+              : '';
             const tail = wakeable
-              ? '<button data-refresh="' + esc(b.workflow) + '" onclick="refreshBoardNow(this)" '
-                + 'style="margin-left:auto; padding:5px 11px; border:0; border-radius:7px; font-size:11.5px; font-weight:600; background:#fbbf24; color:#1a1200; cursor:pointer;">지금 갱신</button>'
+              ? '<span style="margin-left:auto; display:flex; gap:6px;">' + freshButton + '<button data-refresh="' + esc(b.workflow) + '" onclick="refreshBoardNow(this)" '
+                + 'style="padding:5px 11px; border:0; border-radius:7px; font-size:11.5px; font-weight:600; background:#fbbf24; color:#1a1200; cursor:pointer;">지금 갱신</button></span>'
               : '<span style="margin-left:auto; font-size:11.5px; color:#64748b; text-align:right; max-width:340px;">' + esc(b.note || '') + '</span>';
             return '<div style="display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid rgba(255,255,255,0.055);">'
               + '<b style="min-width:150px; color:#e2e8f0; font-size:12.5px;">' + esc(b.name) + '</b>'
@@ -6264,18 +6273,23 @@
         window.refreshBoardNow = async function refreshBoardNow(btn) {
           const workflow = btn?.dataset?.refresh;
           if (!workflow) return;
-          const row = btn.parentElement;
+          const fresh = btn?.dataset?.fresh === '1';
+          const row = btn.closest('div');
           const name = row?.querySelector('b')?.textContent || '이 보드';
           // 줄바꿈은 템플릿 리터럴의 실제 줄바꿈으로 넣는다 — 역슬래시 이스케이프는 패치 도구가 먹는다(실측).
           const ask = `${name} 회차를 지금 깨웁니다.
 
 결과가 사이트에 실리기까지 시간이 걸립니다(선점 보드는 4시간).
 계속할까요?`;
-          if (!window.confirm(ask)) return;
+          const askFresh = `${name}를 새 키워드로 다시 올립니다.
+
+오늘 · 어제 실린 키워드는 모두 빼고 새로 고릅니다. 사이트에 실리기까지 30분~1시간 걸립니다.
+계속할까요?`;
+          if (!window.confirm(fresh ? askFresh : ask)) return;
           const label = btn.textContent;
           btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '깨우는 중…';
           try {
-            const res = await window.electronAPI.invoke('ci-board-refresh', { workflow });
+            const res = await window.electronAPI.invoke('ci-board-refresh', fresh ? { workflow, fresh: true } : { workflow });
             btn.textContent = res && res.success ? '깨웠습니다' : '실패';
             if (!res || !res.success) window.alert((res && res.error) || '깨우지 못했습니다');
           } catch (err) {

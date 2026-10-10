@@ -215,3 +215,33 @@ describe('지금 갱신을 연달아 못 누른다', () => {
     expect(refreshCooldownLeft(at(11), kst(9, 12, 10, 12))).toBeGreaterThan(0);
   });
 });
+
+// 2026-10-10 사장님 "새롭게 다시 올리고 싶으면 앱에서 버튼 누르면 알아서 — 나만 보고 나만 사용해야 돼(관리자 계정)".
+// 앱 라이선스엔 관리자 표시가 없다(사장님도 LIFE · 같은 등급 고객 있음). 버튼이 실제로 깨우는 힘 = 이 PC 의 gh 로그인이라
+// 레포 주인 계정(cd000242-sudo)으로 로그인된 PC 만 사장님 PC 로 본다.
+describe('회차 현황 · 수동 갱신은 사장님 PC 에서만', () => {
+  it('레포 주인 계정만 사장님 — 대소문자 · 줄바꿈은 무시, 빈 값 · 다른 계정은 아니다', async () => {
+    const { isOwnerLogin } = await import('../../main/handlers/ci-watchdog');
+    expect(isOwnerLogin('cd000242-sudo\n')).toBe(true);
+    expect(isOwnerLogin('CD000242-SUDO')).toBe(true);
+    expect(isOwnerLogin('')).toBe(false);
+    expect(isOwnerLogin('someone-else')).toBe(false);
+  });
+  it('추천키워드만 [새 키워드로 다시 올리기](fresh=true)를 받는다 — 다른 보드는 그냥 갱신', async () => {
+    const { refreshArgs } = await import('../../main/handlers/ci-watchdog');
+    expect(refreshArgs('today-picks.yml', { fresh: true })).toEqual(['workflow', 'run', 'today-picks.yml', '--repo', 'cd000242-sudo/leword-app', '--ref', 'main', '-f', 'fresh=true']);
+    expect(refreshArgs('today-picks.yml')).toEqual(['workflow', 'run', 'today-picks.yml', '--repo', 'cd000242-sudo/leword-app', '--ref', 'main']);
+    expect(refreshArgs('topic-briefs.yml', { fresh: true })).toEqual(['workflow', 'run', 'topic-briefs.yml', '--repo', 'cd000242-sudo/leword-app', '--ref', 'main']);
+  });
+  it('배선 — 상태 · 갱신 IPC 가 사장님 PC 를 확인하고, 화면은 사장님 PC 가 아니면 패널을 숨긴다', () => {
+    const main = fs.readFileSync(path.resolve(__dirname, '../../main/handlers/ci-watchdog.ts'), 'utf8');
+    const statusAt = main.indexOf("ipcMain.handle('ci-board-status'");
+    const refreshAt = main.indexOf("ipcMain.handle('ci-board-refresh'");
+    expect(main.slice(statusAt, statusAt + 400)).toMatch(/isOwnerPc\(\)/);
+    expect(main.slice(refreshAt, refreshAt + 500)).toMatch(/isOwnerPc\(\)/);
+    const ui = fs.readFileSync(path.resolve(__dirname, '../../../ui/keyword-master.html'), 'utf8');
+    expect(ui).toMatch(/res\.owner !== true/);
+    expect(ui).toMatch(/새 키워드로 다시 올리기/);
+    expect(ui).toMatch(/fresh: ?true/);
+  });
+});

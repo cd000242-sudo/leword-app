@@ -14,6 +14,11 @@ on:
       respectDone:
         description: 이미 실린 회차면 건너뛴다 (감시견이 깨울 때 true)
         default: 'false'
+      # 앱의 [새 키워드로 다시 올리기](사장님 PC 만 보임, 2026-10-10) — 오늘 이미 실린 말까지 빼고 다시 고른다.
+      # 평소 회차도 어제(KST) 실린 말은 다시 싣지 않는다(전날 중복 금지).
+      fresh:
+        description: 오늘 이미 실린 말까지 빼고 새 키워드로 다시 고른다 (앱 버튼이 true)
+        default: 'false'
 
 concurrency:
   group: today-picks
@@ -129,7 +134,7 @@ jobs:
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
           NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
-        run: node scripts/today-picks.js --out=today-picks.json --perTopic=120 --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }}
+        run: node scripts/today-picks.js --out=today-picks.json --perTopic=120 --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
 
       - name: 다음 회차를 위한 실측·씨앗 캐시 저장
         uses: actions/cache/save@v4
