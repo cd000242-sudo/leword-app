@@ -54,6 +54,15 @@ const compact = (s: string) => s.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
 const clean = (s: unknown, max: number) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 const kstDayIso = (dateYmd: string) => new Date(Date.parse(`${dateYmd}T00:00:00+09:00`)).toISOString();
 
+/*
+ * 같은 소식 묶기(2026-10-11 첫 라이브: NCT WISH 컴백이 언론사별 제목으로 5장 · '신인감독 김연경2' 3장).
+ * 날짜가 같고 핵심 낱말(일정 · 날짜 · 흔한 말 빼고 2자 이상)이 둘 이상 겹치면 한 사건이다.
+ */
+const EVENT_STOP = new Set(['오는', '오늘', '내일', '모레', '이번', '드디어', '첫', '방송', '첫방송', '첫방', '컴백', '개봉', '공개', '데뷔', '무대', '최초', '예정', '이벤트', '앞두고', '기념', '출연', '확정', '시상식', '콘서트', '팬미팅', '출시', '개막', '단독', '종합', '포토', '사진', '영상', '신곡', '앨범', '발매', '관련', '오후', '오전']);
+const eventTokens = (title: string) => new Set(title.toLowerCase().split(/[^\p{L}\p{N}]+/u)
+  .filter((w) => w.length >= 2 && !EVENT_STOP.has(w) && !/^\d+(일|월|시|분)?$/.test(w)));
+const overlap = (a: Set<string>, b: Set<string>) => { let n = 0; for (const w of a) if (b.has(w)) n += 1; return n; };
+
 /** 네이버 스포츠 일정 → 앞으로 days 일 안 경기. gameDateTime 은 KST(시간대 없음). */
 export function sportsEvents(games: unknown[], nowMs: number, days: number): UpcomingEvent[] {
   const out: UpcomingEvent[] = [];
@@ -74,6 +83,7 @@ export function scheduleEventsFromNews(items: unknown[], nowMs: number, days: nu
   const last = new Date(nowMs + KST + days * DAY).toISOString().slice(0, 10);
   const seen = new Set<string>();
   const out: UpcomingEvent[] = [];
+  const tokensOf: Set<string>[] = [];
   for (const raw of Array.isArray(items) ? items : []) {
     const it = (raw || {}) as Record<string, unknown>;
     const title = plain(it.title); const description = plain(it.description);
@@ -85,7 +95,18 @@ export function scheduleEventsFromNews(items: unknown[], nowMs: number, days: nu
     const date = extractDates(`${title} ${description}`, new Date(published).toISOString()).filter((d) => d >= today && d <= last).sort()[0];
     if (!date) continue;
     seen.add(key);
-    out.push({ id: `schedule-${key.slice(0, 40)}`, kind: 'schedule', title, startsAt: kstDayIso(date), dateOnly: true, articles: [{ title, description, url, publishedAt: new Date(published).toISOString() }] });
+    const article = { title, description, url, publishedAt: new Date(published).toISOString() };
+    const tokens = eventTokens(title);
+    const startsAt = kstDayIso(date);
+    const same = out.findIndex((e, i) => e.startsAt === startsAt && overlap(tokensOf[i], tokens) >= 2);
+    if (same >= 0) {
+      const e = out[same];
+      out[same] = { ...e, articles: [...e.articles, article].slice(0, 8) };
+      tokensOf[same] = new Set([...tokensOf[same], ...tokens]);
+      continue;
+    }
+    out.push({ id: `schedule-${key.slice(0, 40)}`, kind: 'schedule', title, startsAt, dateOnly: true, articles: [article] });
+    tokensOf.push(tokens);
   }
   return out.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 }
@@ -148,10 +169,18 @@ export function upcomingCards(
 ): UpcomingCard[] {
   const volumeKey = (s: string) => s.replace(/\s+/g, '').toUpperCase();
   const volumes = new Map(Object.entries(metrics.volumes || {}).map(([k, v]) => [volumeKey(k), v]));
-  return events
-    .map((e) => ({ e, watch: watchById.get(e.id) || [] }))
+  // 같은 날 같은 사람은 처음 나온 사건에만(묶기를 빠져나간 같은 소식이 또 카드가 되지 않게)
+  const shown = new Set<string>();
+  const firstOnDay = (e: UpcomingEvent) => (w: WatchItem) => {
+    const key = `${new Date(Date.parse(e.startsAt) + KST).toISOString().slice(0, 10)}|${compact(w.name)}`;
+    if (shown.has(key)) return false;
+    shown.add(key);
+    return true;
+  };
+  return [...events]
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    .map((e) => ({ e, watch: (watchById.get(e.id) || []).filter(firstOnDay(e)) }))
     .filter(({ watch }) => watch.length > 0)
-    .sort((a, b) => a.e.startsAt.localeCompare(b.e.startsAt))
     .map(({ e, watch }) => ({
       id: e.id, kind: e.kind, ...(e.league ? { league: e.league } : {}), title: e.title, startsAt: e.startsAt, dateOnly: e.dateOnly,
       articleCount: e.articles.length,

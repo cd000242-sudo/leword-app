@@ -82,3 +82,29 @@ describe('카드', () => {
     expect(cards[0].articleCount).toBe(2);
   });
 });
+
+// 2026-10-11 첫 라이브: 같은 소식이 언론사마다 제목이 달라 카드가 갈렸다(NCT WISH 컴백 5장 · '신인감독 김연경2' 3장)
+describe('같은 소식 묶기', () => {
+  const pub = 'Sat, 11 Oct 2026 08:00:00 +0900';
+  it('날짜가 같고 핵심 낱말이 둘 이상 겹치는 기사는 한 사건으로 — 기사는 모아 둔다', () => {
+    const items = [
+      { title: 'NCT WISH, ‘I SPY YOU’ 오는 13일 컴백…무대 최초 공개', description: 'NCT WISH가 오는 13일 컴백한다.', link: 'https://n.news/1', pubDate: pub },
+      { title: '엔시티 위시, 컴백 전야 이벤트 ‘I SPY YOU’로 팬들 만난다', description: '오는 13일 컴백을 앞두고', link: 'https://n.news/2', pubDate: pub },
+      { title: "'신인감독 김연경2' 오는 13일 첫 방송", description: '오는 13일 첫 방송된다.', link: 'https://n.news/3', pubDate: pub },
+      { title: "[TF초점] '신인감독 김연경2', 오는 13일 첫 방송 앞두고 과제", description: '오는 13일 첫 방송', link: 'https://n.news/4', pubDate: pub },
+      { title: '가수 B 오는 13일 컴백', description: '오는 13일 컴백', link: 'https://n.news/5', pubDate: pub },
+    ];
+    const events = scheduleEventsFromNews(items, now, 7);
+    expect(events.map((e) => e.articles.length).sort()).toEqual([1, 2, 2]);
+    expect(events.find((e) => e.title.includes('NCT WISH'))!.articles.map((a) => a.url)).toEqual(['https://n.news/1', 'https://n.news/2']);
+  });
+
+  it('카드 — 같은 날 같은 사람은 처음 나온 사건에만(다른 날이면 둘 다)', () => {
+    const w = (name: string) => ({ name, signal: '컴백', quote: 'q', url: 'u', angles: ['a'], publishAt: '당일' });
+    const a: UpcomingEvent = { ...event, id: 'a', startsAt: '2026-10-13T15:00:00.000Z' };
+    const b: UpcomingEvent = { ...event, id: 'b', startsAt: '2026-10-13T15:00:00.000Z' };
+    const c: UpcomingEvent = { ...event, id: 'c', startsAt: '2026-10-15T15:00:00.000Z' };
+    const cards = upcomingCards([a, b, c], new Map([['a', [w('NCT WISH')]], ['b', [w('NCT WISH'), w('새얼굴')]], ['c', [w('NCT WISH')]]]), { volumes: {}, documents: {}, suggestions: {} });
+    expect(cards.map((x) => [x.id, x.watch.map((y) => y.name)])).toEqual([['a', ['NCT WISH']], ['b', ['새얼굴']], ['c', ['NCT WISH']]]);
+  });
+});
