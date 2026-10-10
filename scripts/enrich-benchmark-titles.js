@@ -94,105 +94,6 @@ function attachTitles(board, entries) {
   return { ...board, candidates };
 }
 
-/*
- * 작성 안내(2026-10-10 사장님 "이렇게 쓰세요 · 반드시 · 넣지 말 것이 하드코딩 — 면밀하게 분석해서 트래픽을 가져올 올바른 방향").
- * 수집기는 이제 안내를 찍지 않는다. 여기서 구독 AI 가 카드 재료(제목 · 요약 · 채널들이 쓴 제목 · 네이버 자동완성)로 짓고
- * (src/utils/homefeed/writing-guide.ts), 창고(guides, 7일)에 쌓아 판에 붙인다. 안내가 없는 카드는 빈칸 — 뻔한 말로 채우지 않는다.
- */
-const GUIDE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-function freshGuides(store, nowMs = Date.now()) {
-  const list = Array.isArray(store && store.guides) ? store.guides : [];
-  return list.filter((g) => g && typeof g.id === 'string' && g.guide && typeof g.guide.direction === 'string'
-    && Number.isFinite(Date.parse(String(g.at || ''))) && Date.parse(g.at) > nowMs - GUIDE_TTL_MS);
-}
-
-/** 이번 회차에 안내를 지을 카드 — 지금 규칙으로 지은 게 없는 카드 중 추천 먼저, 그다음 우선순위 순. 최대 max. */
-function pickGuideTargets(cards, kept, rules, max) {
-  const done = new Set(kept.filter((g) => g.rules === rules).map((g) => g.id));
-  return cards.filter((c) => !done.has(c.id))
-    .sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)) || (b.priority || 0) - (a.priority || 0))
-    .slice(0, max);
-}
-
-/** 판의 카드마다 안내를 붙인다. 없으면 빈칸. 작성 전 확인은 안내의 확인 항목 + 수집기가 단 그 카드 경고(협찬 · 민감 의혹). */
-function attachGuides(board, guides) {
-  const byId = new Map(guides.map((g) => [g.id, g.guide]));
-  const candidates = (board && Array.isArray(board.candidates) ? board.candidates : []).map((card) => {
-    const g = byId.get(card.id);
-    const warnings = Array.isArray(card.verificationNeeded) ? card.verificationNeeded : [];
-    if (!g) return { ...card, writingDirection: '', searchTargets: [], mustInclude: [], mustAvoid: [], verificationNeeded: warnings };
-    return {
-      ...card,
-      writingDirection: g.direction,
-      searchTargets: [...(g.searchTargets || [])],
-      mustInclude: [...(g.mustInclude || [])],
-      mustAvoid: [...(g.mustAvoid || [])],
-      verificationNeeded: [...new Set([...(g.checkBefore || []), ...warnings])],
-    };
-  });
-  return { ...board, candidates };
-}
-
-/** 네이버 검색창 자동완성(무료 · 쿼터 없음) — 사람들이 이 소재로 실제로 검색하는 말. */
-async function naverAutocomplete(query) {
-  const url = `https://ac.search.naver.com/nx/ac?q=${encodeURIComponent(query)}&con=1&frm=nv&ans=2&r_format=json&r_enc=UTF-8&r_unicode=0&t_koreng=1&run=2&rev=4&q_enc=UTF-8&st=100`;
-  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0', referer: 'https://www.naver.com/' }, signal: AbortSignal.timeout(8000) });
-  const data = await res.json();
-  return (data && Array.isArray(data.items) && Array.isArray(data.items[0]) ? data.items[0] : []).map((x) => (Array.isArray(x) ? x[0] : x)).filter((x) => typeof x === 'string');
-}
-
-/** 검색어 통째 → 앞 3어절 → 앞 2어절로 자동완성을 모은다(긴 검색어는 자동완성이 비어서). 10개까지 · 검색어 자신 · 같은 말 제외. */
-async function suggestionsFor(keyword, fetchAc = naverAutocomplete) {
-  const words = String(keyword || '').trim().split(/\s+/).filter(Boolean);
-  const queries = [...new Set([words.join(' '), words.slice(0, 3).join(' '), words.slice(0, 2).join(' ')].filter(Boolean))];
-  const key = (s) => String(s).replace(/\s+/g, '');
-  const seen = new Set([key(keyword)]);
-  const out = [];
-  for (const q of queries) {
-    let got = [];
-    try { got = await fetchAc(q); } catch { got = []; }
-    for (const s of got) { if (out.length >= 10) break; const k = key(s); if (!k || seen.has(k)) continue; seen.add(k); out.push(s); }
-    if (out.length >= 10) break;
-  }
-  return out;
-}
-
-async function generateGuides(board, kept, max, concurrency, budgetMs, now = Date.now) {
-  require('ts-node/register/transpile-only');
-  const { guideCardsFromBoard, guidesForCards, GUIDE_BATCH, GUIDE_RULES } = require('../src/utils/homefeed/writing-guide');
-  const targets = pickGuideTargets(guideCardsFromBoard(board), kept, GUIDE_RULES, max);
-  console.log(`작성 안내 대상 ${targets.length}장 (창고 유지 ${kept.length}장) · 배치 ${GUIDE_BATCH} · 동시 ${concurrency}`);
-  const startedAt = now();
-  const stamp = new Date(startedAt).toISOString();
-  const cards = [];
-  for (const c of targets) cards.push({ ...c, searchSuggestions: await suggestionsFor(c.keyword) });
-  const batches = [];
-  for (let i = 0; i < cards.length; i += GUIDE_BATCH) batches.push(cards.slice(i, i + GUIDE_BATCH));
-  const made = [];
-  let next = 0;
-  async function worker() {
-    while (next < batches.length) {
-      if (now() - startedAt >= budgetMs) { console.log(`  · 시간 상한으로 안내 배치 ${batches.length - next}개는 다음 회차로`); next = batches.length; return; }
-      const batch = batches[next++];
-      try {
-        const result = await guidesForCards(batch);
-        for (const row of result.results) {
-          made.push({ id: row.id, guide: row.guide, at: stamp, rules: GUIDE_RULES, provider: result.provider });
-          const card = batch.find((c) => c.id === row.id);
-          console.log(`  ✎ ${row.id} ${card ? card.keyword : ''} → 반드시 ${row.guide.mustInclude.length} · 노릴 검색어 ${row.guide.searchTargets.length}`);
-        }
-        const missing = batch.filter((c) => !result.results.some((r) => r.id === c.id));
-        for (const c of missing) console.log(`  - ${c.id} ${c.keyword} 안내 통과 못 함(뻔한 말 · 재료 없음)`);
-      } catch (error) {
-        console.log(`  !! 안내 배치 실패(계속): ${String((error && error.message) || error).slice(0, 160)}`);
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, batches.length)) }, worker));
-  return made;
-}
-
 /** 탈락 이유를 세어 한 줄로 — "20 (NO_ANCHOR 14, ARTICLE_COPY 3)". 규칙이 너무 조이는지 CI 로그에서 바로 보인다. */
 function reasonSummary(rejected) {
   const counts = rejected.flatMap((r) => r.reasons).reduce((acc, reason) => ({ ...acc, [reason]: (acc[reason] || 0) + 1 }), {});
@@ -272,20 +173,9 @@ async function main() {
   }
 
   const entries = mergeEntries(kept, made);
-  // 작성 안내 — 제목과 따로 시간 상한(제목이 실패해도 · 안내가 실패해도 판은 나간다)
-  const keptGuides = freshGuides(readJson(storePath));
-  let madeGuides = [];
-  if (!flag('no-ai')) {
-    const guideMax = Math.max(0, Number(arg('guide-max')) || 12);
-    const guideBudgetMs = Math.max(0, Number(arg('guide-budget-min')) || 5) * 60_000;
-    try { madeGuides = await generateGuides(board, keptGuides, guideMax, concurrency, guideBudgetMs); }
-    catch (error) { console.log(`!! 작성 안내 단계 실패(부착은 계속): ${String((error && error.message) || error).slice(0, 200)}`); }
-  }
-  const guides = mergeEntries(keptGuides, madeGuides);
   const previousProvider = (readJson(storePath) || {}).provider || '';
-  atomicWrite(storePath, { generatedAt: new Date().toISOString(), provider: provider || previousProvider, total: entries.length, entries, guides });
-  atomicWrite(boardPath, attachGuides(attachTitles(board, entries), guides));
-  console.log(`작성 안내 창고 ${guides.length}장 (새로 ${madeGuides.length}장)`);
+  atomicWrite(storePath, { generatedAt: new Date().toISOString(), provider: provider || previousProvider, total: entries.length, entries });
+  atomicWrite(boardPath, attachTitles(board, entries));
 
   const attached = board.candidates.filter((c) => entries.some((e) => e.id === c.id)).length;
   console.log(`\n제목 창고 ${entries.length}장 (새로 ${made.length}/${asked}장) → ${storePath}`);
@@ -293,7 +183,7 @@ async function main() {
   if (asked > 0 && made.length === 0) console.log('::warning::이번 회차 새 제목 0건 — 구독 CLI 상태를 확인하세요. 판은 창고 제목으로 나갑니다.');
 }
 
-module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, TITLE_RULES, TITLE_TTL_MS, attachGuides, freshGuides, pickGuideTargets, suggestionsFor, GUIDE_TTL_MS };
+module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, TITLE_RULES, TITLE_TTL_MS };
 
 if (require.main === module) {
   main().catch((error) => { console.error('벤치마크 제목 창고 실패:', error); process.exit(1); });

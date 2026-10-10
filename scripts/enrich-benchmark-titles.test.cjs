@@ -67,39 +67,3 @@ test('제목 짓기는 배치를 동시에 돌리되 동시 개수 상한과 시
   const none = await generateTitles(cards, [], { batchSize: 2, concurrency: 3, budgetMs: 0, titlesFor });
   assert.equal(none.made.length, 0);
 });
-
-// 2026-10-10 사장님 "이렇게 쓰세요 · 반드시 · 넣지 말 것이 하드코딩 — 면밀하게 분석해서 트래픽을 가져올 올바른 방향".
-const { attachGuides, freshGuides, pickGuideTargets, suggestionsFor, GUIDE_TTL_MS } = require('./enrich-benchmark-titles.js');
-
-test('작성 안내 부착 — 있는 카드는 방향 · 노릴 검색어 · 반드시 · 넣지 말 것 · 작성 전 확인(+그 카드 경고), 없는 카드는 빈칸(뻔한 말 안 채움)', () => {
-  const b = { candidates: [
-    { id: 'a1', keyword: '장기전세 만기', verificationNeeded: ['상업적 관계와 홍보성 주장 확인'] },
-    { id: 'b2', keyword: '독감 무료 접종', writingDirection: '옛 고정 문장', mustInclude: ['옛'], mustAvoid: ['옛'], verificationNeeded: [] },
-  ] };
-  const guide = { direction: '장기전세 만기 검색 수요를 노린다', searchTargets: ['장기전세 만기 연장'], mustInclude: ['만기 6개월 전 통지 일정', '재계약 조건'], mustAvoid: ['보증금 반환 보장 단정'], checkBefore: ['SH 공고의 재계약 기준'] };
-  const out = attachGuides(b, [{ id: 'a1', guide, at: now, rules: 'x' }]);
-  assert.equal(out.candidates[0].writingDirection, guide.direction);
-  assert.deepEqual(out.candidates[0].searchTargets, ['장기전세 만기 연장']);
-  assert.deepEqual(out.candidates[0].mustInclude, guide.mustInclude);
-  assert.deepEqual(out.candidates[0].verificationNeeded, ['SH 공고의 재계약 기준', '상업적 관계와 홍보성 주장 확인']);
-  assert.equal(out.candidates[1].writingDirection, '');
-  assert.deepEqual([out.candidates[1].mustInclude, out.candidates[1].mustAvoid, out.candidates[1].searchTargets], [[], [], []]);
-});
-
-test('작성 안내 창고 — 7일 · 규칙 판이 다르면 다시 짓는다 · 지을 카드는 추천 먼저 → 우선순위 순, 최대 N', () => {
-  const old = new Date(Date.parse(now) - GUIDE_TTL_MS - 1000).toISOString();
-  const guides = [{ id: 'a', guide: { direction: 'x' }, at: now, rules: 'R' }, { id: 'old', guide: { direction: 'x' }, at: old, rules: 'R' }, { id: 'nog', at: now, rules: 'R' }];
-  assert.deepEqual(freshGuides({ guides }, Date.parse(now)).map((g) => g.id), ['a']);
-  const cards = [{ id: 'a', recommended: true, priority: 10 }, { id: 'b', recommended: false, priority: 90 }, { id: 'c', recommended: true, priority: 50 }, { id: 'd', recommended: false, priority: 20 }];
-  assert.deepEqual(pickGuideTargets(cards, [{ id: 'a', rules: 'R' }], 'R', 2).map((c) => c.id), ['c', 'b']);
-  assert.deepEqual(pickGuideTargets(cards, [{ id: 'a', rules: '옛' }], 'R', 2).map((c) => c.id), ['c', 'a']);
-});
-
-test('자동완성 — 검색어 통째 → 앞 3어절 → 앞 2어절 순으로 모아 10개까지 · 같은 말 · 검색어 자신은 빼고 · 실패해도 빈 목록', async () => {
-  const asked = [];
-  const fake = async (q) => { asked.push(q); return { '대전 동구동락 축제 리센느 가수': [], '대전 동구동락 축제': ['대전 동구동락 축제 라인업', '대전 동구동락 축제'], '대전 동구동락': ['대전 동구동락 축제 라인업', '대전 동구동락 주차'] }[q] || []; };
-  const got = await suggestionsFor('대전 동구동락 축제 리센느 가수', fake);
-  assert.deepEqual(got, ['대전 동구동락 축제 라인업', '대전 동구동락 축제', '대전 동구동락 주차']);
-  assert.deepEqual(asked, ['대전 동구동락 축제 리센느 가수', '대전 동구동락 축제', '대전 동구동락']);
-  assert.deepEqual(await suggestionsFor('장기전세', async () => { throw new Error('막힘'); }), []);
-});

@@ -116,7 +116,12 @@ export function validateGuide(card: GuideCard, raw: unknown): WritingGuide | nul
   };
 }
 
-const runDefault = (prompt: string) => runWithAnyAgent(prompt, createDefaultAgentChain({ claudeModel: 'opus' }), { timeoutMs: 180_000, validate: requireJsonArray() });
+/**
+ * 2026-10-10 사장님 "전부 다 붙이고 싶다" — 하루 1,000~1,400장이라 Sonnet(사장님 선택).
+ * 같은 카드 3장 비교에서 opus 와 품질이 거의 같았고(빈 각도 · 자동완성 고르기 · 소재별 주의) 구독 한도 부담이 훨씬 작다.
+ */
+export const GUIDE_MODEL = 'sonnet';
+const runDefault = (prompt: string) => runWithAnyAgent(prompt, createDefaultAgentChain({ claudeModel: GUIDE_MODEL }), { timeoutMs: 180_000, validate: requireJsonArray() });
 
 /** 카드 묶음의 안내를 짓는다. 못 읽는 답은 빈 결과 — 지어내지 않는다. */
 export async function guidesForCards(
@@ -133,30 +138,4 @@ export async function guidesForCards(
     if (guide) results.push({ id: card.id, guide });
   }
   return { provider: run.provider, results };
-}
-
-/** 판(homefeed-benchmarks.json)에서 안내를 지을 카드 — 낡은 · 협찬 소재는 뺀다. 자동완성은 부르는 쪽이 채운다. */
-export function guideCardsFromBoard(payload: unknown): Array<Omit<GuideCard, 'searchSuggestions'> & { recommended: boolean; priority: number }> {
-  const candidates = Array.isArray((payload as { candidates?: unknown })?.candidates) ? (payload as { candidates: unknown[] }).candidates : [];
-  const out: Array<Omit<GuideCard, 'searchSuggestions'> & { recommended: boolean; priority: number }> = [];
-  for (const raw of candidates) {
-    const row = (raw || {}) as Record<string, unknown>;
-    const id = clean(row.id, 120);
-    const keyword = clean(row.keyword, 80);
-    const flags = Array.isArray(row.flags) ? row.flags.map(String) : [];
-    if (!id || !keyword || row.status === 'stale' || flags.includes('sponsored')) continue;
-    const sources = Array.isArray(row.sources) ? row.sources : [];
-    out.push({
-      id,
-      keyword,
-      category: clean(row.category, 40),
-      title: clean(row.title, 200),
-      summary: clean(row.summary, 400),
-      sourceTitles: [...new Set(sources.map((s) => clean((s as { title?: unknown })?.title, 200)).filter(Boolean))].slice(0, 6),
-      relatedKeywords: list(row.relatedKeywords, 8),
-      recommended: row.recommended === true,
-      priority: Number(row.priority) || 0,
-    });
-  }
-  return out;
 }
