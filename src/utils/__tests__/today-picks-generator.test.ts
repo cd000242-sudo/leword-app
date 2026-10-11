@@ -32,6 +32,7 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
     if (id.includes('today-picks-rounds')) return rounds;
     if (id.includes('today-picks-selection')) return require('../../../scripts/today-picks-selection');
     if (id.includes('today-picks-expand')) return require('../../../scripts/today-picks-expand');
+    if (id.includes('today-picks-inventory')) return require('../../../scripts/today-picks-inventory');
     if (id.includes('seed-db')) return { topicOfSeed: () => '경제' };
     if (id.includes('naver-blog-topics')) return { NAVER_BLOG_TOPICS: [{ label: '경제' }] };
     if (id.includes('preemption-supply-guards')) return { judgeAnswerCardKeyword: () => ({}), judgeEphemeralKeyword: () => ({}), listedNamesFromSeeds: () => new Set(), isListedName: () => false };
@@ -47,7 +48,7 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
     setTimeout: (fn: () => void) => fn(),
     process: { argv: ['node', 'today-picks.js', '--warehouse=warehouse.json', '--out=output.json', '--carry=carry.json', '--measurementCache=cache.json', goldenBoard ? '--goldenBoard=golden.json' : '', keepArg, ...extraArgs].filter(Boolean), env: {}, exit: () => {} },
   });
-  return { run: () => mod.exports.main(), output: () => files.get(file('output.json'))!, calls: () => calls };
+  return { run: () => mod.exports.main(), output: () => files.get(file('output.json'))!, calls: () => calls, file: (name: string) => files.get(file(name))! };
 }
 
 describe('추천 생성과 발행 경계', () => {
@@ -173,5 +174,17 @@ describe('추천 생성과 발행 경계', () => {
     expect(asked).toEqual(['창고씨앗']);
     expect(rows.map((r: any) => [r.keyword, r.source, r.ratio])).toEqual([['창고씨앗 일정', 'related', 3], ['창고씨앗', 'hint', 0.9]]);
     expect(JSON.parse(h.output()).topics[0].expandedGolden).toBe(1);
+  });
+  // 2026-10-11 사장님 "황금이 많아야 돼" — 황금 재고(문서 수 14일 기억)의 황금을 다시 재서 싣고, 잰 것은 재고에 남긴다
+  it('황금 재고(--inventory)의 황금은 다시 재서 싣고, 이번에 잰 것은 재고에 저장한다', async () => {
+    const twoDays = new Date(Date.now() - 2 * 86400000).toISOString();
+    const inventory = JSON.stringify({ entries: { 재고황금: { keyword: '재고황금', documentCount: 300, measuredAt: twoDays, searchVolume: 3000, topic: '경제', source: 'hint' } } });
+    const h = harness(500, {}, null, ['--inventory=inv/inventory.json'], [{ keyword: '창고말', searchVolume: 900, source: 'hint' }], '--keep=3', undefined, { 'inv/inventory.json': inventory });
+    await h.run();
+    const rows = JSON.parse(h.output()).topics[0].rows;
+    expect(rows.find((r: any) => r.keyword === '재고황금')).toMatchObject({ documentCount: 500, ratio: 6 });
+    const saved = JSON.parse(h.file('inv/inventory.json'));
+    expect(saved.entries['재고황금'].documentCount).toBe(500);
+    expect(saved.entries['창고말']).toMatchObject({ documentCount: 500, topic: '경제' });
   });
 });

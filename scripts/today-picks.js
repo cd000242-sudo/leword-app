@@ -36,6 +36,7 @@ const { judgeAnswerCardKeyword, judgeEphemeralKeyword, listedNamesFromSeeds, isL
 const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
 const { getNaverSearchAdBidPairs, getNaverSearchAdKeywordSuggestions } = require('../src/utils/naver-searchad-api');
 const { expansionSeeds, relatedCandidates } = require('./today-picks-expand');
+const { inventoryFromJson, inventoryToJson, inventoryGoldenRows, remember } = require('./today-picks-inventory');
 const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-keywords');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { roundAt, cachedMeasurement, canPublish, describeChanges } = require('./today-picks-rounds');
@@ -135,6 +136,17 @@ async function main() {
     } catch { /* 보관함이 없으면 직전 판 · 선점 보드만 */ }
     console.log(`보관함 — 지난 판 ${archivedBoards.length}개에서 그제 이전 황금을 다시 잰다`);
   }
+  /*
+   * --inventory: 황금 재고(today-picks-inventory.js) — 문서 수 실측 14일 기억. 2026-10-11 사장님 "황금이 많아야 돼".
+   * 재고의 황금(어제 실린 말 제외)을 선측정 후보에 합치고, 이번 회차에 잰 것은 모두 재고에 남긴다(창고 훑기는 today-picks-sweep.js).
+   */
+  const inventoryPath = arg('inventory') ? path.resolve(arg('inventory')) : '';
+  let inventory = new Map();
+  if (inventoryPath) {
+    try { inventory = inventoryFromJson(fs.existsSync(inventoryPath) ? JSON.parse(fs.readFileSync(inventoryPath, 'utf8')) : {}); } catch { inventory = new Map(); }
+    console.log(`황금 재고 — 실측 ${inventory.size.toLocaleString('ko-KR')}개를 기억하고 있다`);
+  }
+  let currentTopic = '';
 
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const cfg = manager.getConfig();
@@ -215,6 +227,7 @@ async function main() {
     successes += 1;
     const measuredAt = new Date().toISOString();
     measurements[key] = { count: documentCount, measuredAt };
+    if (inventoryPath && currentTopic) remember(inventory, c.keyword, { documentCount, measuredAt, searchVolume: c.searchVolume, topic: currentTopic, source: String(c.source || '').split(':')[0] || null });
     return { documentCount, measuredAt, cached: false };
   };
   const toRow = (c, documentCount, measuredAt) => {
@@ -233,6 +246,7 @@ async function main() {
   };
   const passesGuards = (kw) => kw.length >= 2 && kw.length <= 15 && !judgeAnswerCardKeyword(kw).answerCard && !judgeEphemeralKeyword(kw).ephemeral && !isListedName(kw, listedNames);
   for (const t of topics) {
+    currentTopic = t;
     const prev = resumedTopics.get(t);
     if (resumed?.selectionVersion === 2 && resumed?.round?.id === round.id && prev && (prev.golden || 0) >= keep && prev.rows.length === keep && prev.rows.every(row => !history.has(flat(row.keyword)) && isOpen(row.keyword) && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt}))) {
       result.topics.push({...prev,rows:selectRows(prev.rows,history,keep,minRatio,orderGoldenByMoney),targetCount:keep,shortfall:0});
@@ -244,7 +258,9 @@ async function main() {
     const measuredKeys = new Set();
     const keepRow = (row) => { measuredKeys.add(flat(row.keyword)); if (row.ratio >= minRatio) golden.push(row); else others.push(row); };
     // 1) 이미 황금으로 잰 말(직전 판 · 선점 보드)을 먼저 — 오래된 실측은 다시 잰다. 황금이 아니게 됐으면 채움으로 내려간다.
-    const prior = priorGoldenRows(carried, goldenBoard, t, minRatio, archivedGoldenRows(archivedBoards, t, minRatio)).filter((c) => passesGuards(String(c.keyword)) && isOpen(c.keyword));
+    // 선측정 = 직전 판 · 보관함 · 재고 · 선점 보드의 황금(어제 실린 말 제외). 재고가 크면 주제당 keep × 3 까지만 다시 잰다.
+    const remembered = [...archivedGoldenRows(archivedBoards, t, minRatio), ...inventoryGoldenRows(inventory, t, minRatio, Date.parse(startedAt))];
+    const prior = priorGoldenRows(carried, goldenBoard, t, minRatio, remembered).filter((c) => passesGuards(String(c.keyword)) && isOpen(c.keyword)).slice(0, keep * 3);
     for (const c of prior) {
       const { documentCount, measuredAt, cached } = await measureDocs(c);
       if (Number.isFinite(documentCount) && documentCount > 0) keepRow(toRow(c, documentCount, measuredAt));
@@ -322,6 +338,12 @@ async function main() {
   result.history = updateHistory(carried,selected,result.builtAt);
   fs.writeFileSync(`${outPath}.partial`, JSON.stringify(result, null, 1), 'utf8');
   fs.renameSync(`${outPath}.partial`, outPath);
+  if (inventoryPath) {
+    fs.mkdirSync(path.dirname(inventoryPath), { recursive: true });
+    const saved = inventoryToJson(inventory, Date.now());
+    fs.writeFileSync(inventoryPath, JSON.stringify(saved), 'utf8');
+    console.log(`황금 재고 저장 — ${Object.keys(saved.entries).length.toLocaleString('ko-KR')}개`);
+  }
   const total = result.topics.reduce((n, t) => n + t.rows.length, 0);
   const goldenTotal = result.topics.reduce((n, t) => n + t.golden, 0);
   console.log(`끝 — 행 ${total} · 황금 비율 ${goldenTotal} · 채움 ${total - goldenTotal} · 오픈 API 호출 ${calls} → ${outPath}`);

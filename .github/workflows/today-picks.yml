@@ -109,6 +109,14 @@ jobs:
           key: today-picks-v1-${{ steps.day.outputs.value }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: today-picks-v1-${{ steps.day.outputs.value }}-
 
+      # 황금 재고(2026-10-11 사장님 "황금이 많아야 돼") — 문서 수 실측 14일 기억. 날짜를 넘어 이어지게 restore-keys 는 접두어만.
+      - name: 황금 재고 복원
+        uses: actions/cache/restore@v4
+        with:
+          path: .today-picks-inventory
+          key: today-picks-inventory-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: today-picks-inventory-
+
       # 창고가 안 바뀌면 뽑는 답도 안 바뀐다 — 매일 새로 긁는다(무료 호출 200여 회, BD 안 씀).
       # 실패해도 회차는 살린다: 레포에 있는 직전 창고로 계속 간다.
       - name: 씨앗 창고 갱신 (매일)
@@ -137,7 +145,7 @@ jobs:
         # perTopic 120 → 240 · --archive(2026-10-11 사장님 "황금키워드는 하나도 안 보이네" → 그제 황금 다시 + 새 황금 더 찾기)
         # --expandSeeds 연관어 확장: 주제당 씨앗 4 × 32 = 회차당 검색광고 128콜(장부 경유) — 입찰가 64 와 합쳐 상한 550 안
         # (창고 갱신 build-seed-db 는 장부를 거치지 않고 하루 첫 회차에 직접 ~1,870콜 — 상한 표에 안 잡힌다, 2026-10-11 실측)
-        run: node scripts/today-picks.js --out=today-picks.json --perTopic=240 --archive=site/spa/public/data/today-picks-archive --expandSeeds=4 --expandMeasure=60 --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
+        run: node scripts/today-picks.js --out=today-picks.json --perTopic=240 --archive=site/spa/public/data/today-picks-archive --expandSeeds=4 --expandMeasure=60 --inventory=.today-picks-inventory/inventory.json --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
 
       - name: 다음 회차를 위한 실측·씨앗 캐시 저장
         uses: actions/cache/save@v4
@@ -166,3 +174,22 @@ jobs:
           git commit -m "chore(picks): 오늘의 네이버 추천키워드 $(date -u '+%Y-%m-%d %H:%M UTC')"
           git pull --rebase origin main
           git push
+
+      # 창고 훑기(2026-10-11 사장님 "황금이 많아야 돼") — 발행 뒤 남는 시간에 아직 안 잰 창고 후보(검색량 2천+)의 문서 수를 재서
+      # 황금 재고에 남긴다. 창고 표본 실측으로 황금 ~1,900개가 숨어 있었다. 회차당 2,500콜(약 14분) — 판을 늦추지 않는다.
+      - name: 창고 훑기 (황금 재고 채우기)
+        if: always()
+        continue-on-error: true
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+        run: node scripts/today-picks-sweep.js --warehouse=data/seed-db.json --inventory=.today-picks-inventory/inventory.json --calls=2500
+
+      - name: 황금 재고 저장
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .today-picks-inventory
+          key: today-picks-inventory-${{ github.run_id }}-${{ github.run_attempt }}
