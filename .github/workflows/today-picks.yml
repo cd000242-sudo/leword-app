@@ -135,7 +135,9 @@ jobs:
           NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
         # perTopic 120 → 240 · --archive(2026-10-11 사장님 "황금키워드는 하나도 안 보이네" → 그제 황금 다시 + 새 황금 더 찾기)
-        run: node scripts/today-picks.js --out=today-picks.json --perTopic=240 --archive=site/spa/public/data/today-picks-archive --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
+        # --expandSeeds 연관어 확장: 주제당 씨앗 4 × 32 = 회차당 검색광고 128콜(장부 경유) — 입찰가 64 와 합쳐 상한 550 안
+        # (창고 갱신 build-seed-db 는 장부를 거치지 않고 하루 첫 회차에 직접 ~1,870콜 — 상한 표에 안 잡힌다, 2026-10-11 실측)
+        run: node scripts/today-picks.js --out=today-picks.json --perTopic=240 --archive=site/spa/public/data/today-picks-archive --expandSeeds=4 --expandMeasure=60 --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
 
       - name: 다음 회차를 위한 실측·씨앗 캐시 저장
         uses: actions/cache/save@v4

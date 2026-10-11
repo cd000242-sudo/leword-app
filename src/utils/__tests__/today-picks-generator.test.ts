@@ -6,7 +6,7 @@ import * as vm from 'vm';
 const rounds = require('../../../scripts/today-picks-rounds');
 const source = fs.readFileSync(path.resolve(__dirname, '../../../scripts/today-picks.js'), 'utf8');
 
-function harness(documentCount: number | null, cache: Record<string, unknown> = {}, carry: unknown = null, extraArgs: string[] = [], seeds = [{ keyword: '테스트', searchVolume: 1000, source: 'hint' }], keepArg = '--keep=1', goldenBoard: unknown = null, extraFiles: Record<string, string> = {}) {
+function harness(documentCount: number | null, cache: Record<string, unknown> = {}, carry: unknown = null, extraArgs: string[] = [], seeds = [{ keyword: '테스트', searchVolume: 1000, source: 'hint' }], keepArg = '--keep=1', goldenBoard: unknown = null, extraFiles: Record<string, string> = {}, overrides: Record<string, unknown> = {}) {
   const files = new Map<string, string>();
   const file = (name: string) => path.resolve(name);
   files.set(file('warehouse.json'), JSON.stringify({ seeds }));
@@ -25,11 +25,13 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
     renameSync: (from: string, to: string) => { files.set(to, files.get(from)!); files.delete(from); },
   };
   const fakeRequire: any = (id: string) => {
+    for (const [fragment, value] of Object.entries(overrides)) if (id.includes(fragment)) return value;
     if (id === 'fs') return fakeFs;
     if (id === 'path') return path;
     if (id.includes('load-project-env')) return { loadProjectEnv: () => {} };
     if (id.includes('today-picks-rounds')) return rounds;
     if (id.includes('today-picks-selection')) return require('../../../scripts/today-picks-selection');
+    if (id.includes('today-picks-expand')) return require('../../../scripts/today-picks-expand');
     if (id.includes('seed-db')) return { topicOfSeed: () => '경제' };
     if (id.includes('naver-blog-topics')) return { NAVER_BLOG_TOPICS: [{ label: '경제' }] };
     if (id.includes('preemption-supply-guards')) return { judgeAnswerCardKeyword: () => ({}), judgeEphemeralKeyword: () => ({}), listedNamesFromSeeds: () => new Set(), isListedName: () => false };
@@ -154,5 +156,22 @@ describe('추천 생성과 발행 경계', () => {
     expect(keywords).not.toContain('어제말');
     expect(result.topics[0].rows.find((r: any) => r.keyword === '그제황금')).toMatchObject({ documentCount: 400, ratio: 5 });
     void old;
+  });
+  // 2026-10-11 연관어 확장 — 황금이 모자라면 그날 황금(없으면 큰 후보)을 씨앗으로 검색광고 연관어를 받아 문서 수만 잰다
+  it('연관어 확장(--expandSeeds) — 씨앗 낱말을 담은 연관어를 재서 황금이면 "related" 출처로 싣는다', async () => {
+    const asked: string[] = [];
+    const searchad = {
+      getNaverSearchAdBidPairs: async () => new Map(),
+      getNaverSearchAdKeywordSuggestions: async (_cfg: unknown, seed: string) => { asked.push(seed); return [
+        { keyword: `${seed} 일정`, totalSearchVolume: 3000 }, { keyword: '엉뚱한말', totalSearchVolume: 9000 }, { keyword: `${seed} 후기`, totalSearchVolume: 200 },
+      ]; },
+    };
+    const env = { EnvironmentManager: { getInstance: () => ({ getConfig: () => ({ naverClientId: 'fake', naverClientSecret: 'fake', naverSearchAdAccessLicense: 'fake', naverSearchAdSecretKey: 'fake' }) }) } };
+    const h = harness(1000, {}, null, ['--expandSeeds=2', '--expandMeasure=10'], [{ keyword: '창고씨앗', searchVolume: 900, source: 'hint' }], '--keep=3', undefined, {}, { 'naver-searchad-api': searchad, 'environment-manager': env });
+    await h.run();
+    const rows = JSON.parse(h.output()).topics[0].rows;
+    expect(asked).toEqual(['창고씨앗']);
+    expect(rows.map((r: any) => [r.keyword, r.source, r.ratio])).toEqual([['창고씨앗 일정', 'related', 3], ['창고씨앗', 'hint', 0.9]]);
+    expect(JSON.parse(h.output()).topics[0].expandedGolden).toBe(1);
   });
 });

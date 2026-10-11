@@ -34,7 +34,8 @@ const { topicOfSeed } = require('../src/utils/seed-db');
 const { NAVER_BLOG_TOPICS } = require('../src/utils/naver-blog-topics');
 const { judgeAnswerCardKeyword, judgeEphemeralKeyword, listedNamesFromSeeds, isListedName } = require('../src/utils/preemption-supply-guards');
 const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
-const { getNaverSearchAdBidPairs } = require('../src/utils/naver-searchad-api');
+const { getNaverSearchAdBidPairs, getNaverSearchAdKeywordSuggestions } = require('../src/utils/naver-searchad-api');
+const { expansionSeeds, relatedCandidates } = require('./today-picks-expand');
 const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-keywords');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { roundAt, cachedMeasurement, canPublish, describeChanges } = require('./today-picks-rounds');
@@ -64,6 +65,9 @@ async function main() {
   if (!Number.isInteger(keep) || keep < 1 || keep > 100 || !Number.isInteger(perTopic) || perTopic < keep || perTopic > 1000) throw new Error('keep는 1~100, perTopic은 keep 이상 1000 이하 정수여야 합니다.');
   const gapMs = Number(arg('gapMs')) || 120;
   const minRatio = Number(arg('minRatio')) || 1;
+  // 연관어 확장(2026-10-11) — 주제당 씨앗 수 · 문서 수를 잴 연관어 상한. 0 이면 끈다(워크플로가 켠다).
+  const expandSeedCount = Math.max(0, Number(arg('expandSeeds')) || 0);
+  const expandMeasure = Math.max(0, Number(arg('expandMeasure')) || 60);
   const months = upcomingMonths();
   // --resume: 이전 결과에서 황금 keep 개가 찬 주제는 그대로 옮기고, 얇은 주제만 다시(더 넓게) 잰다.
   const resumePath = arg('resume') ? path.resolve(arg('resume')) : '';
@@ -257,6 +261,34 @@ async function main() {
       if (Number.isFinite(documentCount) && documentCount > 0) keepRow(toRow(c, documentCount, measuredAt));
       if (!cached) await sleep(gapMs);
     }
+    /*
+     * 3) 연관어 확장(2026-10-11 사장님 "설계해서 진행해봐") — 어제 실린 말 금지 뒤 황금이 171 · 12주제 0개였다.
+     * 황금이 목표에 못 미치면 그날 황금(없으면 큰 후보)을 씨앗으로 검색광고 연관어를 받아(검색량 동봉) 문서 수만 잰다.
+     */
+    let expanded = 0;
+    if (canBid && expandSeedCount > 0 && golden.length < keep && typeof getNaverSearchAdKeywordSuggestions === 'function') {
+      const pool = [];
+      for (const seed of expansionSeeds(golden, others, expandSeedCount)) {
+        let list = [];
+        try { list = await getNaverSearchAdKeywordSuggestions(searchAd, seed, 300); } catch (error) {
+          console.log(`  !! ${t} 연관어(${seed}) — ${String((error && error.message) || error).slice(0, 70)}`);
+        }
+        pool.push(...relatedCandidates(seed, list, { minVolume: 500, isOpen, measured: measuredKeys, guard: passesGuards }));
+        await sleep(gapMs);
+      }
+      const seenRelated = new Set();
+      const related = pool.sort((a, b) => b.searchVolume - a.searchVolume).filter((c) => { const k = flat(c.keyword); if (seenRelated.has(k)) return false; seenRelated.add(k); return true; });
+      for (const c of related.slice(0, expandMeasure)) {
+        if (golden.length >= keep) break;
+        const { documentCount, measuredAt, cached } = await measureDocs(c);
+        if (Number.isFinite(documentCount) && documentCount > 0) {
+          const before = golden.length;
+          keepRow(toRow(c, documentCount, measuredAt));
+          if (golden.length > before) expanded += 1;
+        }
+        if (!cached) await sleep(gapMs);
+      }
+    }
     // 시즌 앞(피크 임박) 비황금을 먼저, 그다음 황금비 순
     others.sort((a, b) => (Number(!!b.seasonPeakMonth) - Number(!!a.seasonPeakMonth)) || (b.ratio - a.ratio));
     const shown = selectRows([...golden,...others],history,keep,minRatio);
@@ -270,9 +302,9 @@ async function main() {
     // 황금 안에서는 돈 되는 순(입찰가 구간 → 입찰가 → 황금비). 못 잰 것끼리는 예전처럼 황금비 순이다.
     const rows = selectRows(shown.map(priced),history,keep,minRatio,orderGoldenByMoney);
     const goldenCount=rows.filter(row=>row.ratio>=minRatio).length;
-    result.topics.push({ topic: t, candidates: cand.length, measured: golden.length + others.length, golden: goldenCount, priorGolden, targetCount:keep, shortfall:keep-rows.length, rows });
+    result.topics.push({ topic: t, candidates: cand.length, measured: golden.length + others.length, golden: goldenCount, priorGolden, expandedGolden: expanded, targetCount:keep, shortfall:keep-rows.length, rows });
     const repeated = rows.filter((r) => r.freshness.status === 'repeated').length;
-    console.log(`  ${t.padEnd(8)} 선측정 황금 ${String(priorGolden).padStart(2)} · 후보 ${String(cand.length).padStart(3)} → 황금 ${String(goldenCount).padStart(2)} + 채움 ${String(rows.length - goldenCount).padStart(2)}  (7일 신규 ${rows.length - repeated}/${rows.length} · 누적 호출 ${calls})`);
+    console.log(`  ${t.padEnd(8)} 선측정 황금 ${String(priorGolden).padStart(2)} · 후보 ${String(cand.length).padStart(3)} · 연관 확장 황금 ${String(expanded).padStart(2)} → 황금 ${String(goldenCount).padStart(2)} + 채움 ${String(rows.length - goldenCount).padStart(2)}  (7일 신규 ${rows.length - repeated}/${rows.length} · 누적 호출 ${calls})`);
     // Keep partial work separate: a failed run never replaces a previously good public payload.
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(`${outPath}.partial`, JSON.stringify(result, null, 1), 'utf8');
