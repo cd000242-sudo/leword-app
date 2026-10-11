@@ -38,7 +38,7 @@ const { getNaverSearchAdBidPairs } = require('../src/utils/naver-searchad-api');
 const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-keywords');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { roundAt, cachedMeasurement, canPublish, describeChanges } = require('./today-picks-rounds');
-const { WINDOW_DAYS, normalizeKeyword, recentHistory, updateHistory, candidatePools, selectRows, priorGoldenRows, completeRound, blockedKeywords } = require('./today-picks-selection');
+const { WINDOW_DAYS, normalizeKeyword, recentHistory, updateHistory, candidatePools, selectRows, priorGoldenRows, completeRound, blockedKeywords, archivedGoldenRows } = require('./today-picks-selection');
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -112,6 +112,25 @@ async function main() {
   const blocked = blockedKeywords(carried, startedAt, { fresh });
   const isOpen = (keyword) => !blocked.has(flat(keyword));
   console.log(`전날 중복 금지 — 어제${fresh ? ' · 오늘' : ''} 실린 말 ${blocked.size.toLocaleString('ko-KR')}개는 다시 싣지 않는다${fresh ? ' (새 키워드로 다시 올리기)' : ''}`);
+  /*
+   * --archive: 날짜별 보관함(today-picks-archive.js) — 7일 안 지난 판들. 그제 이전 황금을 다시 잰다(2026-10-11 사장님
+   * "황금키워드는 하나도 안 보이네" → "어제만 피하고 그제 황금은 다시"). 어제 판도 읽히지만 blocked 가 거른다.
+   */
+  const archiveDir = arg('archive') ? path.resolve(arg('archive')) : '';
+  const archivedBoards = [];
+  if (archiveDir) {
+    const dayOf = (ms) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
+    const today = dayOf(Date.parse(startedAt));
+    const oldest = dayOf(Date.parse(startedAt) - 7 * 86400000);
+    try {
+      for (const file of fs.readdirSync(archiveDir)) {
+        const m = /^(\d{4}-\d{2}-\d{2})\.json$/.exec(file);
+        if (!m || m[1] < oldest || m[1] >= today) continue;
+        try { archivedBoards.push(JSON.parse(fs.readFileSync(path.join(archiveDir, file), 'utf8'))); } catch { /* 깨진 보관본은 건너뛴다 */ }
+      }
+    } catch { /* 보관함이 없으면 직전 판 · 선점 보드만 */ }
+    console.log(`보관함 — 지난 판 ${archivedBoards.length}개에서 그제 이전 황금을 다시 잰다`);
+  }
 
   const manager = typeof EnvironmentManager.getInstance === 'function' ? EnvironmentManager.getInstance() : new EnvironmentManager();
   const cfg = manager.getConfig();
@@ -221,7 +240,7 @@ async function main() {
     const measuredKeys = new Set();
     const keepRow = (row) => { measuredKeys.add(flat(row.keyword)); if (row.ratio >= minRatio) golden.push(row); else others.push(row); };
     // 1) 이미 황금으로 잰 말(직전 판 · 선점 보드)을 먼저 — 오래된 실측은 다시 잰다. 황금이 아니게 됐으면 채움으로 내려간다.
-    const prior = priorGoldenRows(carried, goldenBoard, t, minRatio).filter((c) => passesGuards(String(c.keyword)) && isOpen(c.keyword));
+    const prior = priorGoldenRows(carried, goldenBoard, t, minRatio, archivedGoldenRows(archivedBoards, t, minRatio)).filter((c) => passesGuards(String(c.keyword)) && isOpen(c.keyword));
     for (const c of prior) {
       const { documentCount, measuredAt, cached } = await measureDocs(c);
       if (Number.isFinite(documentCount) && documentCount > 0) keepRow(toRow(c, documentCount, measuredAt));

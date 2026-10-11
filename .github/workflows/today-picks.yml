@@ -134,7 +134,8 @@ jobs:
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
           NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
-        run: node scripts/today-picks.js --out=today-picks.json --perTopic=120 --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
+        # perTopic 120 → 240 · --archive(2026-10-11 사장님 "황금키워드는 하나도 안 보이네" → 그제 황금 다시 + 새 황금 더 찾기)
+        run: node scripts/today-picks.js --out=today-picks.json --perTopic=240 --archive=site/spa/public/data/today-picks-archive --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
 
       - name: 다음 회차를 위한 실측·씨앗 캐시 저장
         uses: actions/cache/save@v4
@@ -148,12 +149,17 @@ jobs:
       - name: 사이트에 싣기
         run: cp today-picks.json site/spa/public/data/today-picks.json
 
+      # 날짜별 보관함(2026-10-11 사장님 "어제 꺼는 어떻게 보니?") — 사이트 [어제 · 그제] 보기 + 그제 황금 다시 재는 재료. 7일.
+      - name: 날짜별 보관함
+        run: node scripts/today-picks-archive.js --board=site/spa/public/data/today-picks.json --dir=site/spa/public/data/today-picks-archive --keep=7
+
       - name: 커밋·푸시
         working-directory: site
         run: |
           git config user.name 'leword-bot'
           git config user.email 'bot@leaderspro.kr'
           git add spa/public/data/today-picks.json
+          git add -A spa/public/data/today-picks-archive
           if git diff --cached --quiet; then echo '변경 없음.'; exit 0; fi
           git commit -m "chore(picks): 오늘의 네이버 추천키워드 $(date -u '+%Y-%m-%d %H:%M UTC')"
           git pull --rebase origin main

@@ -6,7 +6,7 @@ import * as vm from 'vm';
 const rounds = require('../../../scripts/today-picks-rounds');
 const source = fs.readFileSync(path.resolve(__dirname, '../../../scripts/today-picks.js'), 'utf8');
 
-function harness(documentCount: number | null, cache: Record<string, unknown> = {}, carry: unknown = null, extraArgs: string[] = [], seeds = [{ keyword: '테스트', searchVolume: 1000, source: 'hint' }], keepArg = '--keep=1', goldenBoard: unknown = null) {
+function harness(documentCount: number | null, cache: Record<string, unknown> = {}, carry: unknown = null, extraArgs: string[] = [], seeds = [{ keyword: '테스트', searchVolume: 1000, source: 'hint' }], keepArg = '--keep=1', goldenBoard: unknown = null, extraFiles: Record<string, string> = {}) {
   const files = new Map<string, string>();
   const file = (name: string) => path.resolve(name);
   files.set(file('warehouse.json'), JSON.stringify({ seeds }));
@@ -14,9 +14,11 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
   if (carry) files.set(file('carry.json'), JSON.stringify(carry));
   if (goldenBoard) files.set(file('golden.json'), JSON.stringify(goldenBoard));
   files.set(file('output.json'), 'LAST_GOOD_OUTPUT');
+  for (const [name, value] of Object.entries(extraFiles)) files.set(file(name), value);
   let calls = 0;
   const fakeFs = {
     existsSync: (p: string) => files.has(p),
+    readdirSync: (dir: string) => [...files.keys()].filter((p) => path.dirname(p) === path.resolve(dir)).map((p) => path.basename(p)),
     readFileSync: (p: string) => files.get(p),
     writeFileSync: (p: string, value: string) => files.set(p, value),
     mkdirSync: () => {},
@@ -135,5 +137,22 @@ describe('추천 생성과 발행 경계', () => {
     const fresh=harness(400,{},carry,['--fresh=true'],seeds,'--keep=2');
     await fresh.run();
     expect(JSON.parse(fresh.output()).topics[0].rows.map((r:any)=>r.keyword)).toEqual(['다른말']);
+  });
+  // 2026-10-11 사장님 "황금키워드는 하나도 안 보이네" → "어제만 피하고 그제 황금은 다시"
+  it('보관함(--archive)의 그제 황금은 다시 재서 싣고, 어제 판의 말은 보관함에 있어도 막는다', async () => {
+    const kstDayAgo = (n: number) => new Date(Date.now() + 9 * 3600000 - n * 86400000).toISOString().slice(0, 10);
+    const old = new Date(Date.now() - 3 * 86400000).toISOString();
+    const yesterday = new Date(Date.now() - 86400000).toISOString();
+    const archived = (builtAt: string, keyword: string) => JSON.stringify({ builtAt, topics: [{ topic: '경제', rows: [{ keyword, searchVolume: 2000, documentCount: 500, ratio: 4, measuredAt: builtAt }] }] });
+    const carry = { builtAt: yesterday, topics: [{ topic: '경제', rows: [{ keyword: '어제말', searchVolume: 2000, documentCount: 500, ratio: 4, measuredAt: yesterday }] }], history: { windowDays: 7, entries: [] } };
+    const files = { [`archive/${kstDayAgo(2)}.json`]: archived(new Date(Date.now() - 2 * 86400000).toISOString(), '그제황금'), [`archive/${kstDayAgo(1)}.json`]: archived(yesterday, '어제말'), 'archive/index.json': '{}' };
+    const h = harness(400, {}, carry, ['--archive=archive'], [{ keyword: '창고말', searchVolume: 900, source: 'hint' }], '--keep=3', undefined, files);
+    await h.run();
+    const result = JSON.parse(h.output());
+    const keywords = result.topics[0].rows.map((r: any) => r.keyword);
+    expect(keywords).toContain('그제황금');
+    expect(keywords).not.toContain('어제말');
+    expect(result.topics[0].rows.find((r: any) => r.keyword === '그제황금')).toMatchObject({ documentCount: 400, ratio: 5 });
+    void old;
   });
 });

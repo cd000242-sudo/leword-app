@@ -110,3 +110,24 @@ describe('추천키워드 전날(KST) 중복 금지 · 새로 올리기', () => 
   expect(shownByDay({history}).get('2026-10-10').has('저녁새말')).toBe(true);
  });
 });
+
+// 2026-10-11 사장님 "황금키워드는 하나도 안 보이네" — 어제 실린 말을 막자 매일 다시 싣던 황금 600여 개가 빠졌다(새 황금 171).
+// 결정: 어제만 피하고 그제 이전(7일 안) 황금은 날짜별 보관함에서 꺼내 다시 잰다.
+describe('보관함의 지난 황금', () => {
+ const { archivedGoldenRows, priorGoldenRows: prior } = require('../../../scripts/today-picks-selection');
+ const day = (builtAt: string, rows: any[]) => ({ builtAt, topics: [{ topic: '경제', rows }] });
+ it('지난 판들의 그 주제 황금(비율 1+)만, 같은 말은 가장 최근 판 것, 판 시각을 lastShownAt 으로', () => {
+  const boards = [
+   day('2026-10-08T10:30:00Z', [row('옛황금', 2), row('일반말', 0.4)]),
+   day('2026-10-09T10:30:00Z', [{ ...row('옛황금', 3), documentCount: 300 }, row('그제황금', 1.5)]),
+  ];
+  const got = archivedGoldenRows(boards, '경제', 1);
+  expect(got.map((r: any) => [r.keyword, r.documentCount, r.lastShownAt])).toEqual([['옛황금', 300, '2026-10-09T10:30:00Z'], ['그제황금', 2000, '2026-10-09T10:30:00Z']]);
+ });
+ it('선측정 후보 = 직전 판 황금 + 보관함 황금 + 선점 보드 황금(같은 말은 직전 판 → 보관함 → 보드 순으로 이긴다)', () => {
+  const carried = { topics: [{ topic: '경제', rows: [{ ...row('겹침', 2), documentCount: 100, searchVolume: 1000 }] }] };
+  const archived = [{ ...row('겹침', 3), documentCount: 50, searchVolume: 1000, lastShownAt: '2026-10-09T10:30:00Z' }, { ...row('보관황금', 2), documentCount: 400, searchVolume: 1000, lastShownAt: '2026-10-09T10:30:00Z' }];
+  const got = prior(carried, null, '경제', 1, archived);
+  expect(got.map((r: any) => [r.keyword, r.documentCount])).toEqual([['겹침', 100], ['보관황금', 400]]);
+ });
+});

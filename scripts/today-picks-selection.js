@@ -104,13 +104,38 @@ function selectRows(rows, history, keep, minRatio = 1, orderGolden = rows => [..
  *     BD 로 자리까지 잰 황금인데 추천 표엔 실리지 않고 있었다(145행 중 96행).
  * 문서수·실측 시각을 그대로 옮긴다 — 24시간이 지났으면 호출부가 다시 잰다. 같은 말은 직전 판이 이긴다.
  */
-function priorGoldenRows(carried, goldenBoard, topic, minRatio = 1) {
+function priorGoldenRows(carried, goldenBoard, topic, minRatio = 1, archived = []) {
   const carriedRows = (Array.isArray(carried?.topics) ? carried.topics : []).filter(t => t?.topic === topic).flatMap(t => Array.isArray(t.rows) ? t.rows : [])
     .filter(row => row?.keyword && row.searchVolume > 0 && row.documentCount > 0 && row.searchVolume / row.documentCount >= minRatio)
     .map(row => ({keyword:row.keyword,searchVolume:row.searchVolume,documentCount:row.documentCount,measuredAt:row.measuredAt,depth:typeof row.depth==='number'?row.depth:null,comp:row.comp||null,source:row.source||null}));
   const boardRows = (Array.isArray(goldenBoard?.rows) ? goldenBoard.rows : []).filter(row => row?.topic === topic && row.keyword && row.searchVolume > 0 && row.documentCount > 0 && row.searchVolume / row.documentCount >= minRatio)
     .map(row => ({keyword:row.keyword,searchVolume:row.searchVolume,documentCount:row.documentCount,measuredAt:goldenBoard.publishedAt,depth:null,comp:null,source:'preemption'}));
-  return unique([...carriedRows, ...boardRows]);
+  // 보관함(그제 이전 판)의 황금 — 2026-10-11 "어제만 피하고 그제 황금은 다시". 어제 실린 말은 호출부의 blocked 가 거른다.
+  const archivedRows = (Array.isArray(archived) ? archived : []).map(row => ({keyword:row.keyword,searchVolume:row.searchVolume,documentCount:row.documentCount,measuredAt:row.measuredAt,depth:typeof row.depth==='number'?row.depth:null,comp:row.comp||null,source:row.source||null}));
+  return unique([...carriedRows, ...archivedRows, ...boardRows]);
+}
+
+/**
+ * 날짜별 보관함(지난 판들)에서 그 주제의 황금(비율 minRatio+) — 같은 말은 가장 최근 판 것(최근 판에서 황금이 아니면 뺀다),
+ * lastShownAt = 그 판 시각. 2026-10-11 사장님 "황금키워드는 하나도 안 보이네": 어제 실린 말을 막자 매일 다시 싣던 황금 600여 개가 빠졌다.
+ */
+function archivedGoldenRows(boards, topic, minRatio = 1) {
+  const latest = new Map();
+  const ordered = [...(Array.isArray(boards) ? boards : [])].sort((a, b) => String(a?.builtAt || '').localeCompare(String(b?.builtAt || '')));
+  for (const board of ordered) {
+    for (const t of Array.isArray(board?.topics) ? board.topics : []) {
+      if (t?.topic !== topic) continue;
+      for (const row of Array.isArray(t.rows) ? t.rows : []) {
+        const key = normalizeKeyword(row?.keyword);
+        if (!key) continue;
+        const ratio = typeof row.ratio === 'number' ? row.ratio : (row.searchVolume > 0 && row.documentCount > 0 ? row.searchVolume / row.documentCount : 0);
+        if (row.searchVolume > 0 && row.documentCount > 0 && ratio >= minRatio) {
+          latest.set(key, {keyword:row.keyword,searchVolume:row.searchVolume,documentCount:row.documentCount,measuredAt:row.measuredAt,depth:row.depth,comp:row.comp,source:row.source,lastShownAt:board.builtAt});
+        } else latest.delete(key);
+      }
+    }
+  }
+  return [...latest.values()];
 }
 
 function completeRound(board, roundId, keep) {
@@ -118,4 +143,4 @@ function completeRound(board, roundId, keep) {
     && board.history?.windowDays===WINDOW_DAYS && Array.isArray(board.history.entries) && rowsOf(board).length>0;
 }
 
-module.exports = {WINDOW_DAYS,normalizeKeyword,recentHistory,updateHistory,candidatePools,selectRows,priorGoldenRows,completeRound,shownByDay,blockedKeywords};
+module.exports = {WINDOW_DAYS,normalizeKeyword,recentHistory,updateHistory,candidatePools,selectRows,priorGoldenRows,completeRound,shownByDay,blockedKeywords,archivedGoldenRows};
