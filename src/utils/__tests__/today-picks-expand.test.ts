@@ -30,3 +30,14 @@ describe('연관어 후보', () => {
     expect(got.map((c: any) => c.keyword)).toEqual(['단풍 시기', '제주 가을 여행']);
   });
 });
+
+// 2026-10-11 실주행: 연관어엔 띄어쓰기가 없어 '씨앗 낱말 통째로 담기'가 같은 갈래까지 버렸다(인스타스토리 → 인스타그램스토리 ×)
+describe('연관어 관련도 — 띄어쓰기 없는 말', () => {
+  const sugg = (keyword: string, total: number) => ({ keyword, pcSearchVolume: null, mobileSearchVolume: null, totalSearchVolume: total });
+  const open = { minVolume: 500, isOpen: () => true, measured: new Set<string>(), guard: () => true };
+  it('씨앗이 4자 이상이면 연속 3자가 겹치는 말은 같은 갈래, 3자 이하면 통째로 담아야', () => {
+    const got = relatedCandidates('인스타스토리', [sugg('인스타그램스토리', 2030), sugg('인스타팔로워늘리기', 2070), sugg('카드뉴스만들기', 1250), sugg('페이스북광고관리자', 1060)], open);
+    expect(got.map((c: any) => c.keyword)).toEqual(['인스타팔로워늘리기', '인스타그램스토리']);
+    expect(relatedCandidates('청춘', [sugg('청춘기록', 3000), sugg('청년도약계좌', 9000)], open).map((c: any) => c.keyword)).toEqual(['청춘기록']);
+  });
+});

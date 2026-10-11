@@ -5,7 +5,8 @@
  * 매일 새 황금이 모자라다. 그날 찾은 황금(없으면 큰 후보)을 씨앗으로 검색광고 연관어를 받아 새 황금을 캔다.
  * 연관어는 검색량이 함께 오므로 블로그 문서 수만 재면 된다(today-picks.js 가 잰다).
  *
- * 관련도: 씨앗의 2자 이상 낱말 하나를 담은 말만(김도영 → 김도영 홈런 ○ · 홈런왕 ×). 씨앗 그 자체는 뺀다.
+ * 관련도: 씨앗 낱말(2자+)이 3자 이하면 통째로, 4자 이상이면 연속 3자 조각 하나가 겹치면 같은 갈래(김도영 → 김도영 홈런 ○ · 홈런왕 ×,
+ *   인스타스토리 → 인스타그램스토리 ○ · 카드뉴스만들기 ×). 씨앗 그 자체는 뺀다.
  * 추정 검색량(svEstimated) · 10 미만 표시 말은 뺀다 — 황금비는 실측끼리만 나눈다.
  */
 'use strict';
@@ -34,6 +35,8 @@ function expansionSeeds(golden, others, k) {
 function relatedCandidates(seed, suggestions, opts) {
   const words = String(seed || '').split(/\s+/).map(flat).filter((w) => w.length >= 2);
   const seedKey = flat(seed);
+  // 연관어엔 띄어쓰기가 없다(인스타스토리 → 인스타그램스토리). 4자 이상 낱말은 연속 3자 조각 하나가 겹치면 같은 갈래, 3자 이하는 통째로.
+  const pieces = words.flatMap((w) => (w.length <= 3 ? [w] : Array.from({ length: w.length - 2 }, (_, i) => w.slice(i, i + 3))));
   const seen = new Set();
   const out = [];
   for (const s of Array.isArray(suggestions) ? suggestions : []) {
@@ -42,7 +45,7 @@ function relatedCandidates(seed, suggestions, opts) {
     const volume = s && s.totalSearchVolume;
     if (!key || key === seedKey || seen.has(key)) continue;
     if (!Number.isFinite(volume) || volume < opts.minVolume || s.svEstimated || s.pcSearchVolumeLt10 || s.mobileSearchVolumeLt10) continue;
-    if (!words.some((w) => key.includes(w))) continue;
+    if (!pieces.some((w) => key.includes(w))) continue;
     if (!opts.guard(keyword) || !opts.isOpen(keyword) || opts.measured.has(key)) continue;
     seen.add(key);
     out.push({ keyword, searchVolume: volume, source: 'related', comp: s.competition || null });
