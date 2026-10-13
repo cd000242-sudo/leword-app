@@ -92,7 +92,8 @@ describe('추천키워드 전날(KST) 중복 금지 · 새로 올리기', () => 
   const carried = {builtAt:'2026-10-10T04:30:00Z',topics:[{topic:'경제',rows:[row('오늘아침말')]}],
    history:{windowDays:7,entries:[],days:{'2026-10-09':['어제저녁말','어제아침말'],'2026-10-08':['그제말']}}};
   const blocked = blockedKeywords(carried, at);
-  expect([...blocked].sort()).toEqual(['어제아침말','어제저녁말']);
+  // 2026-10-13: 어제만이 아니라 최근 7일 — 그제말도 막힌다
+  expect([...blocked].sort()).toEqual(['그제말','어제아침말','어제저녁말']);
  });
  it('새로 올리기(fresh)는 오늘 이미 실린 말까지 막는다 — 지금 판과 완전히 다른 말로', () => {
   const carried = {builtAt:'2026-10-10T04:30:00Z',topics:[{topic:'경제',rows:[row('오늘아침말')]}],history:{windowDays:7,entries:[],days:{'2026-10-09':['어제말']}}};
@@ -101,12 +102,17 @@ describe('추천키워드 전날(KST) 중복 금지 · 새로 올리기', () => 
  it('일자별 기록이 없던 옛 판 — 직전 판이 어제 판이면 그 행을, 이력에서 어제 마지막으로 실린 말을 막는다', () => {
   const carried = {builtAt:'2026-10-09T10:30:00Z',topics:[{topic:'경제',rows:[row('어제저녁말')]}],
    history:{windowDays:7,entries:[{keyword:'어제아침말',lastShownAt:'2026-10-08T21:30:00Z'},{keyword:'그제말',lastShownAt:'2026-10-08T10:30:00Z'}]}};
-  expect([...blockedKeywords(carried, at)].sort()).toEqual(['어제아침말','어제저녁말']);
+  expect([...blockedKeywords(carried, at)].sort()).toEqual(['그제말','어제아침말','어제저녁말']);
  });
- it('일자별 기록은 오늘 실린 말을 더하고 최근 3일만 남긴다(공개 판에 실려 회차를 넘어간다)', () => {
+ it('최근 7일 안(오늘 제외)에 실린 말은 다 막고, 8일 전에 실린 말은 풀린다 — 재추천 없음(2026-10-13)', () => {
+  const carried = {builtAt:'2026-10-10T04:30:00Z',topics:[{topic:'경제',rows:[row('오늘아침말')]}],history:{windowDays:7,entries:[],days:{'2026-10-03':['7일전말'],'2026-10-02':['8일전말'],'2026-10-09':['어제말']}}};
+  expect([...blockedKeywords(carried, at)].sort()).toEqual(['7일전말','어제말']);
+ });
+ it('일자별 기록은 오늘 실린 말을 더하고 최근 8일만 남긴다(공개 판에 실려 회차를 넘어간다)', () => {
   const carried = {builtAt:'2026-10-10T04:30:00Z',topics:[{topic:'경제',rows:[row('오늘아침말')]}],history:{windowDays:7,entries:[],days:{'2026-10-09':['어제말'],'2026-10-07':['나흘전말']}}};
   const history = updateHistory(carried,[row('저녁새말')],at);
-  expect(history.days).toEqual({'2026-10-10':['오늘아침말','저녁새말'],'2026-10-09':['어제말']});
+  // 막을 7일 + 오늘 = 8일치를 남긴다(10/03 ~ 10/10) — 10/07 도 남는다
+  expect(history.days).toEqual({'2026-10-10':['오늘아침말','저녁새말'],'2026-10-09':['어제말'],'2026-10-07':['나흘전말']});
   expect(shownByDay({history}).get('2026-10-10').has('저녁새말')).toBe(true);
  });
 });

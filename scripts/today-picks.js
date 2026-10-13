@@ -116,7 +116,7 @@ async function main() {
   const fresh = arg('fresh') === 'true';
   const blocked = blockedKeywords(carried, startedAt, { fresh });
   const isOpen = (keyword) => !blocked.has(flat(keyword));
-  console.log(`전날 중복 금지 — 어제${fresh ? ' · 오늘' : ''} 실린 말 ${blocked.size.toLocaleString('ko-KR')}개는 다시 싣지 않는다${fresh ? ' (새 키워드로 다시 올리기)' : ''}`);
+  console.log(`재추천 금지 — 최근 7일${fresh ? ' · 오늘' : ''} 실린 말 ${blocked.size.toLocaleString('ko-KR')}개는 황금이어도 다시 싣지 않는다${fresh ? ' (새 키워드로 다시 올리기)' : ''}`);
   /*
    * --archive: 날짜별 보관함(today-picks-archive.js) — 7일 안 지난 판들. 그제 이전 황금을 다시 잰다(2026-10-11 사장님
    * "황금키워드는 하나도 안 보이네" → "어제만 피하고 그제 황금은 다시"). 어제 판도 읽히지만 blocked 가 거른다.
@@ -203,7 +203,7 @@ async function main() {
     method: {
       searchVolume: '검색광고 키워드도구 월간 검색량 실측(PC+모바일)',
       documentCount: '네이버 블로그 오픈 API 문서수 실측 · 24시간 이내 실측은 재사용(행별 measuredAt)',
-      daily: '어제(KST) 실린 말은 황금이어도 다시 싣지 않는다 — 매일 새 키워드(같은 날 회차끼리는 이어 실을 수 있다)',
+      daily: '최근 7일(KST) 실린 말은 황금이어도 다시 싣지 않는다 — 매일 새 키워드, 재추천 없음(같은 날 회차끼리는 이어 실을 수 있다)',
       ratio: `검색량 ÷ 문서수 ${minRatio} 이상(황금)은 최근 ${WINDOW_DAYS}일 추천 이력과 무관하게 먼저, 그 안에서는 입찰가 높은 순 · 직전 판 황금과 선점 보드 황금을 창고 후보보다 먼저 실측 · 일반 후보는 미추천 우선, 신규 부족 시 오래전에 추천한 순으로 재추천`,
       bid: '네이버 검색광고 파워링크 3위 평균 입찰가 실측(PC · 모바일 중 큰 값) — 70원이면 3위 자리까지 광고 경쟁이 없다',
       season: '이번 달·다음 달 피크인 계절 씨앗은 seasonPeakMonth 로 표시 — 트래픽 몰릴 예정',

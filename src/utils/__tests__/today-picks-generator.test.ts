@@ -108,14 +108,15 @@ describe('추천 생성과 발행 경계', () => {
     expect(result.topics[0]).toMatchObject({golden:2,priorGolden:2});
     expect(result.novelty).toMatchObject({windowDays:7,newCount:1,repeatedCount:1});
   });
-  it('후보 부족 시 목표 미달과 재추천을 숨기지 않는다', async () => {
-    // 그제 판 — 어제 판이면 전날 중복 금지(2026-10-10)로 '테스트'가 아예 빠진다
-    const carry={builtAt:new Date(Date.now()-2*86400000).toISOString(),topics:[{topic:'경제',rows:[{keyword:'테스트'}]}]};
+  // 2026-10-13 재추천 금지 — 모자라면 재추천으로 채우지 않고 목표 미달을 그대로 보인다
+  it('후보 부족 시 목표 미달을 숨기지 않는다(재추천으로 채우지 않는다)', async () => {
+    // 9일 전 판 — 최근 7일 안이면 재추천 금지(2026-10-13)로 '테스트'가 아예 빠진다
+    const carry={builtAt:new Date(Date.now()-9*86400000).toISOString(),topics:[{topic:'경제',rows:[{keyword:'테스트'}]}]};
     const h=harness(100,{},carry,[],undefined,'');
     await h.run();
     const result=JSON.parse(h.output());
     expect(result.topics[0]).toMatchObject({targetCount:30,shortfall:29});
-    expect(result.novelty).toMatchObject({windowDays:7,newCount:0,repeatedCount:1});
+    expect(result.novelty).toMatchObject({windowDays:7,newCount:1,repeatedCount:0});
   });
 
   // 2026-10-10 사장님 "매일 전날과 중복 없이, 매일 새롭게" · "앱에서 버튼 누르면 알아서 새롭게"
