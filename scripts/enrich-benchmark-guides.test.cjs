@@ -95,3 +95,10 @@ test('자동완성 — 검색어 통째 → 앞 3어절 → 앞 2어절 순으�
   assert.deepEqual(asked, ['대전 동구동락 축제 리센느 가수', '대전 동구동락 축제', '대전 동구동락']);
   assert.deepEqual(await suggestionsFor('장기전세', async () => { throw new Error('막힘'); }), []);
 });
+
+// 2026-10-13 애드센스 벤치마크 안내 — 자동완성은 실측한 대표 검색어(metrics.query)로, 없으면 소재 키워드로
+test('자동완성을 물을 말 — 애드센스 판은 대표 검색어(metrics.query), 없으면 키워드', () => {
+  const cards = cardsForGuides({ candidates: [card('a', { keyword: '근로장려금 기한 받습니다', metrics: { query: '근로장려금 기한후신청' } }), card('b')] });
+  assert.equal(cards[0].suggestQuery, '근로장려금 기한후신청');
+  assert.equal(cards[1].suggestQuery, '키워드 b');
+});

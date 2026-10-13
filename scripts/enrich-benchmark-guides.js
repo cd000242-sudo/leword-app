@@ -69,6 +69,8 @@ function cardsForGuides(board) {
       recommended: row.recommended === true,
       priority: Number(row.priority) || 0,
       urls: [...new Set(sources.map((s) => String((s && s.url) || '')).filter(Boolean))],
+      // 자동완성을 물을 말 — 애드센스 판은 실측한 대표 검색어(metrics.query)가 있으면 그것(소재 낱말 조합보다 정확)
+      suggestQuery: clean(row.metrics && row.metrics.query, 80) || keyword,
     });
   }
   return out;
@@ -145,7 +147,7 @@ async function generateGuides(cards, { batchSize, concurrency, budgetMs, guidesF
       if (now() - startedAt >= budgetMs) { skipped = batches.length - next; next = batches.length; return; }
       const batch = batches[next++];
       try {
-        const withSuggestions = await Promise.all(batch.map(async (c) => ({ ...c, searchSuggestions: await suggest(c.keyword) })));
+        const withSuggestions = await Promise.all(batch.map(async (c) => ({ ...c, searchSuggestions: await suggest(c.suggestQuery || c.keyword) })));
         const result = await guidesFor(withSuggestions);
         provider = result.provider || provider;
         for (const row of result.results) {
@@ -205,7 +207,9 @@ async function main() {
     const budgetMs = Math.max(0, Number(arg('budget-min')) || 40) * 60_000;
     const targets = pickGuideTargets(cards, store, GUIDE_RULES, max);
     console.log(`안내 대상 ${targets.length}장 (판 카드 ${cards.length} · 창고 ${store.guides.length} · 통과 못 함 대기 ${store.misses.length}) · ${GUIDE_MODEL} · 배치 ${GUIDE_BATCH} · 동시 ${concurrency}`);
-    const result = await generateGuides(targets, { batchSize: GUIDE_BATCH, concurrency, budgetMs, guidesFor: (batch) => guidesForCards(batch), rules: GUIDE_RULES, log: console.log });
+    // --mode=adsense: 애드센스 고수 벤치마크(2026-10-13) — 검색 유입 · 광고 수익 기준 지시문
+    const mode = arg('mode') === 'adsense' ? 'adsense' : 'homefeed';
+    const result = await generateGuides(targets, { batchSize: GUIDE_BATCH, concurrency, budgetMs, guidesFor: (batch) => guidesForCards(batch, undefined, mode), rules: GUIDE_RULES, log: console.log });
     store = mergeStore(store, result, nowMs);
     console.log(`새 안내 ${result.made.length}장 · 통과 못 함 ${result.missed.length}장${result.skipped ? ` · 시간 상한으로 배치 ${result.skipped}개는 다음 회차로` : ''}`);
     if (targets.length > 0 && result.made.length === 0) console.log('::warning::이번 회차 새 안내 0건 — 구독 CLI 상태를 확인하세요.');

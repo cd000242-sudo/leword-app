@@ -67,13 +67,32 @@ function anchorsOf(card: GuideCard): string[] {
 }
 const hasAnchor = (item: string, anchors: readonly string[]) => { const c = compact(item); return anchors.some((a) => c.includes(compact(a))); };
 
-export function buildGuidePrompt(cards: GuideCard[]): string {
-  return [
+/**
+ * homefeed = 네이버 홈판 벤치마크(홈판 vs 검색 판단). adsense = 애드센스 고수 벤치마크(2026-10-13 사장님 "애드센스도 글 쓰는 방향 ·
+ * 넣을 것 · 넣지 말 것") — 티스토리 · 워드프레스 검색 유입으로 광고 수익을 내는 글이라 판단 기준이 다르다.
+ */
+export type GuideMode = 'homefeed' | 'adsense';
+const MODE_INTRO: Record<GuideMode, string[]> = {
+  homefeed: [
     '너는 네이버 블로그 트래픽 전략가다. 아래 소재마다 블로거가 "이 소재로 글을 써서 실제로 방문자를 데려오는 방법"을 짚어 준다.',
+  ],
+  adsense: [
+    '너는 티스토리 · 워드프레스 애드센스 수익 블로그의 검색 유입 전략가다. 아래 소재는 애드센스 고수 블로그들이 최근 함께 다룬 것이다.',
+    '소재마다 블로거가 "이 소재로 검색 유입을 받아 끝까지 읽히고 광고가 보이는 글"을 쓰는 방향을 짚어 준다.',
+  ],
+};
+const MODE_DIRECTION: Record<GuideMode, string> = {
+  homefeed: '1) direction(3문장 · 300자 이내): ① 홈판(피드 후킹)과 검색(검색어로 찾아오는 사람) 중 무엇을 노릴지와 그 이유 — 자동완성에 실용 검색어가 많으면 검색, 화제성 사건이면 홈판. ② "벤치마크 채널들이 쓴 제목"을 보고 이미 나온 각도와 아직 비어 있는 각도. ③ 독자가 이 글에서 얻어 갈 것(저장 · 공유할 이유).',
+  adsense: '1) direction(3문장 · 300자 이내): ① 검색으로 들어올 사람이 실제로 궁금해하는 것 — 자동완성 근거로, 어떤 검색어를 대표로 잡을지와 그 이유. ② "고수 블로그들이 쓴 제목"을 보고 이미 나온 각도와 아직 비어 있는 각도(고수 글보다 나아질 지점). ③ 독자가 끝까지 읽고 다시 찾을 이유(조건표 · 계산 · 신청 순서 · 체크리스트 등).',
+};
+
+export function buildGuidePrompt(cards: GuideCard[], mode: GuideMode = 'homefeed'): string {
+  return [
+    ...MODE_INTRO[mode],
     '일반론은 쓸모없다 — "정확한 정보를 담아라 · 원문 링크를 남겨라 · 과장하지 마라" 같은, 어느 글에나 맞는 말은 쓰면 버려진다. 이 소재에만 해당하는 말만 쓴다.',
     '',
     '소재마다 다음을 판단해서 JSON 으로 준다:',
-    '1) direction(3문장 · 300자 이내): ① 홈판(피드 후킹)과 검색(검색어로 찾아오는 사람) 중 무엇을 노릴지와 그 이유 — 자동완성에 실용 검색어가 많으면 검색, 화제성 사건이면 홈판. ② "벤치마크 채널들이 쓴 제목"을 보고 이미 나온 각도와 아직 비어 있는 각도. ③ 독자가 이 글에서 얻어 갈 것(저장 · 공유할 이유).',
+    MODE_DIRECTION[mode],
     '2) searchTargets(2~4개): 아래 "자동완성" 목록에서 그대로 고른다. 소제목으로 답해 줄 검색어. 목록에 없는 말은 쓰지 마라.',
     '3) mustInclude(3~5개 · 항목마다 80자 이내): 이 글에 꼭 들어가야 트래픽이 붙는 구체 항목 — 사람 · 날짜 · 장소 · 수치 · 정리표 · 비교 등 이 소재의 말로. 재료에 없는 사실은 "(확인 필요: 어디서)"를 붙인다.',
     '4) mustAvoid(2~3개): 이 소재에서 특히 위험하거나 독자를 잃는 것 — 이 소재의 말로(예: 특정 인물 사생활 추측, 비슷한 다른 행사와 혼동).',
@@ -87,8 +106,8 @@ export function buildGuidePrompt(cards: GuideCard[]): string {
       `   분야: ${card.category || '(미분류)'}`,
       `   제목: ${card.title}`,
       `   요약: ${card.summary || '(요약 없음)'}`,
-      card.sourceTitles.length ? `   벤치마크 채널들이 쓴 제목: ${card.sourceTitles.join(' / ')}` : '',
-      card.searchSuggestions.length ? `   자동완성(실제 검색어): ${card.searchSuggestions.join(', ')}` : '   자동완성: (없음 — 검색 수요를 확인하지 못함, 홈판 쪽으로 판단)',
+      card.sourceTitles.length ? `   ${mode === 'adsense' ? '고수 블로그들이 쓴 제목' : '벤치마크 채널들이 쓴 제목'}: ${card.sourceTitles.join(' / ')}` : '',
+      card.searchSuggestions.length ? `   자동완성(실제 검색어): ${card.searchSuggestions.join(', ')}` : (mode === 'adsense' ? '   자동완성: (없음 — 소재 제목의 핵심어로 판단)' : '   자동완성: (없음 — 검색 수요를 확인하지 못함, 홈판 쪽으로 판단)'),
     ].filter(Boolean).join('\n')),
   ].join('\n');
 }
@@ -127,8 +146,9 @@ const runDefault = (prompt: string) => runWithAnyAgent(prompt, createDefaultAgen
 export async function guidesForCards(
   cards: GuideCard[],
   runAgent: (prompt: string) => Promise<{ reply: string; provider: string }> = runDefault,
+  mode: GuideMode = 'homefeed',
 ): Promise<{ provider: string; results: Array<{ id: string; guide: WritingGuide }> }> {
-  const run = await runAgent(buildGuidePrompt(cards));
+  const run = await runAgent(buildGuidePrompt(cards, mode));
   const parsed = tryExtractJson(String(run.reply || ''));
   const byId = new Map<string, unknown>();
   if (Array.isArray(parsed)) for (const row of parsed) { const id = clean((row as { id?: unknown })?.id, 120); if (id && !byId.has(id)) byId.set(id, row); }

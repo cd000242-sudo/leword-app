@@ -75,3 +75,21 @@ describe('작성 안내 만들기 — 두뇌 답을 id 별로 거른다', () => 
     expect(bad.results).toEqual([]);
   });
 });
+
+// 2026-10-13 사장님 "오늘의 글감처럼 애드센스 · 홈판 벤치마킹도 글 쓰는 방향과 넣을 것 · 넣지 말 것 알려줘야" — 애드센스는 검색 유입 · 광고 수익 기준
+describe('애드센스 작성 안내 지시문', () => {
+  it('애드센스 모드는 검색 유입 · 고수 제목의 빈 각도 · 다시 찾을 이유를 묻고 홈판(피드 후킹) 판단은 묻지 않는다', () => {
+    const p = buildGuidePrompt([card], 'adsense');
+    expect(p).toMatch(/애드센스/);
+    expect(p).toMatch(/검색/);
+    expect(p).toMatch(/고수/);
+    expect(p).not.toMatch(/홈판\(피드 후킹\)/);
+    expect(p).toContain(card.sourceTitles[1]);
+    expect(buildGuidePrompt([card])).toMatch(/홈판\(피드 후킹\)/);
+  });
+  it('안내 만들기는 모드를 지시문에 넘긴다', async () => {
+    let asked = '';
+    await guidesForCards([card], async (prompt) => { asked = prompt; return { reply: '[]', provider: 'fake' }; }, 'adsense');
+    expect(asked).toMatch(/애드센스/);
+  });
+});

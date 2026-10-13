@@ -1,0 +1,86 @@
+name: 애드센스 벤치마크 작성 안내
+
+# 2026-10-13 사장님 "오늘의 글감처럼 애드센스 · 홈판 벤치마킹도 글 쓰는 방향과 넣을 것 · 넣지 말 것 알려줘야".
+# 애드센스 판 발행이 끝날 때마다 이어서, 안내가 없는 카드를 구독 AI(Sonnet)로 짓는다 — 검색 유입 · 광고 수익 기준 지시문(--mode=adsense).
+# 재료: 소재 제목 · 고수 블로그들이 쓴 제목 · 네이버 자동완성(대표 검색어 metrics.query 우선). 결과는 자기 파일(adsense-benchmark-guides.json)에만,
+# 사이트가 판과 합친다(homefeedGuides.mjs withGuides — 카드 id → 원문 주소). 홈판 안내(homefeed-guides.yml)와 같은 엔진 · 거르개.
+
+on:
+  workflow_run:
+    workflows: ['애드센스 고수 벤치마크 발행']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      max:
+        description: '이번 실행에서 새로 안내를 지을 카드 수 상한'
+        default: '1000'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adsense-guides
+  cancel-in-progress: false
+
+jobs:
+  guides:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    # 생성 40분 상한 + 진행 중 배치(최대 3분) + 준비 — 처음 1,000장은 1~2회차에 걸쳐 채운다.
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # --ignore-scripts 금지: 엔진(agent-cli)이 electron 을 import 한다.
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
+      - name: Test guide store rules
+        run: node --test scripts/enrich-benchmark-guides.test.cjs
+      - name: 구독 CLI 폴백 준비
+        uses: ./.github/actions/setup-subscription-agents
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+      - name: 카드별 작성 안내 생성(애드센스)
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: >-
+          node scripts/enrich-benchmark-guides.js
+          --mode=adsense
+          --board=site/spa/public/data/adsense-benchmarks.json
+          --store=site/spa/public/data/adsense-benchmark-guides.json
+          --max=${{ inputs.max || '1000' }}
+          --concurrency=6
+          --budget-min=40
+      - name: Publish only the guide store
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/adsense-benchmark-guides.json
+          if git diff --cached --quiet; then
+            echo 'No guide changes.'
+            exit 0
+          fi
+          git commit -m "chore(adsense): refresh benchmark writing guides"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+              echo '::error::Concurrent guide change requires review.'
+              exit 1
+            fi
+            sleep 10
+          done
+          echo '::error::Guide publication failed.'
+          exit 1
