@@ -104,9 +104,10 @@ describe('추천 생성과 발행 경계', () => {
     const result=JSON.parse(h.output());
     expect(h.calls()).toBe(1); // 보드황금만 다시 잰다(3일 전) — 어제황금은 1시간 전 실측 재사용, 창고말은 황금 2개가 차서 안 잰다
     expect(result.topics[0].rows.map((r:any)=>[r.keyword,r.documentCount,r.source])).toEqual([['보드황금',400,'preemption'],['어제황금',1000,'biztp']]);
-    expect(result.topics[0].rows[1].freshness.status).toBe('repeated');
+    // 2026-10-13: 오늘 앞 회차에 실린 말은 재추천이 아니다(같은 날 회차끼리 이어 싣기) — 어제 이전에 실린 것만 재추천 표시
+    expect(result.topics[0].rows[1].freshness.status).toBe('new');
     expect(result.topics[0]).toMatchObject({golden:2,priorGolden:2});
-    expect(result.novelty).toMatchObject({windowDays:7,newCount:1,repeatedCount:1});
+    expect(result.novelty).toMatchObject({windowDays:7,newCount:2,repeatedCount:0});
   });
   // 2026-10-13 재추천 금지 — 모자라면 재추천으로 채우지 않고 목표 미달을 그대로 보인다
   it('후보 부족 시 목표 미달을 숨기지 않는다(재추천으로 채우지 않는다)', async () => {

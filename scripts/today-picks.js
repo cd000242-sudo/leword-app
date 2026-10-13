@@ -108,7 +108,10 @@ async function main() {
   if (!measurements || typeof measurements !== 'object' || Array.isArray(measurements)) measurements = {};
   measurements = Object.fromEntries(Object.entries(measurements).filter(([, entry]) => cachedMeasurement(entry)));
   const flat = normalizeKeyword;
-  const history = recentHistory(carried, Date.parse(startedAt));
+  // 재추천 표시 · 신규 우선은 어제 이전에 실린 말만 센다 — 오늘 앞 회차 말은 같은 날 이어 싣기라 재추천이 아니다
+  // (2026-10-13 저녁 판: 재추천 262개가 전부 그날 아침 회차 말이었다)
+  const todayKst = new Date(Date.parse(startedAt) + 9 * 3600000).toISOString().slice(0, 10);
+  const history = new Map([...recentHistory(carried, Date.parse(startedAt))].filter(([, lastShownAt]) => new Date(Date.parse(lastShownAt) + 9 * 3600000).toISOString().slice(0, 10) < todayKst));
   /*
    * 전날(KST) 중복 금지(2026-10-10 사장님 "전에 추천한 게 또 있으니 오늘도 똑같다고 안 본다 — 매일 전날과 중복 없이").
    * 어제 어느 회차에든 실린 말은 황금이어도 다시 싣지 않는다. --fresh=true(앱의 [새 키워드로 다시 올리기])는 오늘 실린 말까지 막는다.
