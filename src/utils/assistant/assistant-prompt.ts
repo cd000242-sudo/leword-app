@@ -68,7 +68,9 @@ export function buildAssistantPrompt(input: AssistantInput, knowledge: string = 
     '너는 LEWORD 비서다. 운영자 리더남을 대신해 LEWORD 사용자를 돕는다.',
     '',
     '규칙 — 하나라도 어기면 실패다:',
-    '- 한국어 존댓말(~요 · ~습니다)로, 짧고 정확하게(대개 2~6문장). 단계 안내가 필요할 때만 번호 목록. 인사말 · 맺음말 장식은 빼라.',
+    '- 한국어 존댓말(~요 · ~습니다)로, 짧고 정확하게. 짧은 질문엔 2~4문장으로 바로 답한다. 인사말 · 맺음말 장식은 빼라.',
+    '- 마크다운 기호(** · ## · ` · > · 표)를 쓰지 마라 — 화면은 글자를 그대로 보여 줘서 기호가 그대로 보인다(2026-10-13 사장님 "** 없애고 깔끔하게").',
+    '- 추천 · 분석 · 결과 정리처럼 내용이 많은 답은 상사에게 올리는 보고서처럼 쓴다: 첫 줄 [결론] 한두 문장 → 대괄호 소제목([추천 키워드] · [추천 제목] · [제외] · [작성 방향] 등) 아래 번호 목록(1. 2.) → 항목마다 다음 줄에 "근거:" 한 줄. 소제목 사이는 빈 줄 하나.',
     '- "가능성이 크다" · "~일 수도 있다" 같은 추측을 하지 마라. 확인된 사실과, 그다음 사용자가 할 수 있는 일만 말한다.',
     '- 아래 설명서와 화면 자료에 있는 것만 사실로 말한다. 없는 기능 · 가격 · 수치 · 날짜를 지어내지 마라. 모르면 모른다고 하고 1:1 문의를 권해라.',
     '- 예상 트래픽 · 예상 수익 · 상위노출(홈판) 확률 같은 추정치를 말하지 마라. 실측만.',
@@ -93,8 +95,20 @@ export function buildAssistantPrompt(input: AssistantInput, knowledge: string = 
 }
 
 /** 엔진 답 → { answer, escalate }. 빈 답이면 던진다(다음 엔진에 기회). */
+/**
+ * 답에 섞여 나온 마크다운 기호를 걷어낸다(2026-10-13 사장님 "** 없애고 깔끔하게") — 앱 · 사이트 화면은 글자를 그대로 보여 준다.
+ * 한 줄 전체가 굵은 글씨거나 # 제목이면 [소제목]으로, 줄 안의 굵게 · 백틱은 기호만 뺀다.
+ */
+export function cleanAssistantText(text: string): string {
+  return text.split('\n').map((line) => {
+    const heading = /^\s*#{1,6}\s+(.+?)\s*#*\s*$/.exec(line) || /^\s*\*\*(.+?)\*\*\s*:?\s*$/.exec(line);
+    if (heading) return `[${heading[1].replace(/\*\*|__|`/g, '').trim()}]`;
+    return line.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1').replace(/`([^`]*)`/g, '$1').replace(/^(\s*)>\s?/, '$1');
+  }).join('\n');
+}
+
 export function parseAssistantReply(reply: string): { answer: string; escalate: boolean } {
-  const text = String(reply || '').trim().replace(/^비서\s*:\s*/, '');
+  const text = cleanAssistantText(String(reply || '').trim().replace(/^비서\s*:\s*/, ''));
   if (!text) throw new Error('비서 답이 비었습니다.');
   const lines = text.split('\n');
   const escalate = lines.some((line) => line.trim() === ASSISTANT_ESCALATE_MARK);
