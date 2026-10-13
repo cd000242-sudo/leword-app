@@ -18,12 +18,14 @@ function cachedMeasurement(entry, now = Date.now()) {
   return Number.isFinite(age) && age >= 0 && age < 24 * 3600000 ? entry : null;
 }
 
-/** A failed refresh must not replace the last useful board or mark its round completed. */
+/**
+ * A failed refresh must not replace the last useful board or mark its round completed.
+ * 2026-10-13: 7일 재추천 금지로 후보가 적은 주제(사진 · 원예 · 좋은글 등)가 비거나 줄어든다 — 그건 실패가 아니다.
+ * 막는 것은 실측 실패(성공률 80% 미만)와 판 전체 붕괴(직전 판 행의 절반 미만)뿐이다.
+ */
 function canPublish(next, previous, attempts, successes) {
   if (!rowsOf(next).length || (attempts > 0 && successes / attempts < 0.8)) return false;
-  if (rowsOf(next).length < rowsOf(previous).length * 0.8) return false;
-  const populated = new Set((next?.topics || []).filter((t) => t.rows?.length).map((t) => t.topic));
-  return (previous?.topics || []).every((t) => !t.rows?.length || populated.has(t.topic));
+  return rowsOf(next).length >= rowsOf(previous).length * 0.5;
 }
 
 function describeChanges(next, previous) {
