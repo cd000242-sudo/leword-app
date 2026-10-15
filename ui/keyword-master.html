@@ -880,6 +880,8 @@
             style="flex:1; min-width:180px; max-width:100%; background:#0b1220; border:1px solid #fbbf24; border-radius:8px; padding:9px 12px; color:#f8fafc; font:inherit; font-size:13px; color-scheme:dark;">
             <option value="">저장된 블로그가 없습니다</option>
           </select>
+          <button id="dpBlogOpen" onclick="openSelectedMyBlog()" title="선택한 블로그를 기본 브라우저로 열기" disabled
+            style="padding:8px 12px; border:1px solid #38bdf8; border-radius:8px; background:#102a43; color:#bae6fd; font-weight:700; cursor:pointer;">블로그 바로 열기 ↗</button>
           <button id="dpBlogAdd" onclick="addMyBlog()" style="padding:8px 12px; border:1px solid #64748b; border-radius:8px; background:#1e293b; color:#f8fafc; cursor:pointer;">＋ 블로그 추가</button>
           <input id="dpBlogInput" placeholder="blog.naver.com/내아이디" autocomplete="off"
             style="flex: 1; min-width: 200px; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 7px 10px; color: #e2e8f0; font: inherit; font-size: 12.5px;">
@@ -10960,6 +10962,9 @@
             const res = await window.electronAPI.invoke('advisor-daily-view', { blogId });
             if (blogId !== (window.__myBlogRecord?.blogId || '')) return;
             if (!res || !res.success) { meta.textContent = '판을 읽지 못했어요'; return; }
+            if (res.latest && String(res.latest.channelId || '').toLowerCase() !== blogId.toLowerCase()) {
+              window.__advisorDailyView = null; body.innerHTML = ''; meta.textContent = '선택한 블로그의 통계만 표시합니다.'; return;
+            }
             renderAdvisorDaily(res, meta, body);
             // 한 몸(2026-10-06): 내 글 목록이 이 기록으로 글마다 홈판 유입을 붙인다.
             window.__advisorDailyView = res;
@@ -11017,7 +11022,10 @@
             body.innerHTML = '';
             return;
           }
-          meta.textContent = r.day + ' 통계 · 글 ' + r.posts.length + '편 · 쌓인 날 ' + view.days + ' · 못 받은 창구 ' + r.missing.length + (st.lastSkip ? ' · 마지막 건너뜀: ' + st.lastSkip.reason : '');
+          meta.textContent = r.channelId + ' · 통계 기준 ' + r.day + ' · 수집 ' + kstTime(r.collectedAt)
+            + (view.freshness?.stale ? ' · 과거 자료 — 최신 통계 갱신 필요' : '')
+            + (view.running ? ' · 수집 중…' : '') + (st.lastSkip ? ' · ' + st.lastSkip.reason : '');
+          meta.style.color = view.freshness?.stale ? '#fbbf24' : '#94a3b8';
 
           // 1) 내 글 홈판 실적 — 홈판 건수 내림차순. referrer-domain 을 못 받은 글은 '미측정'(0 아님).
           const posts = r.posts.slice().sort((a, b) => ((b.homefeed && b.homefeed.count) || 0) - ((a.homefeed && a.homefeed.count) || 0));
@@ -11030,8 +11038,8 @@
             + '</tr>').join('');
           const hit = posts.filter((p) => p.homefeed && p.homefeed.count > 0).length;
           const measured = posts.filter((p) => p.homefeed).length;
-          let html = section('1. 내 글 홈판 실적', '어제 유입 있던 글 ' + posts.length + '편 중 홈판 실측 ' + measured + '편, 그중 홈판 탄 글 <b style="color:#fbbf24;">' + hit + '편</b>. "네이버 메인_모바일_홈판" 유입 건수 그대로.',
-            posts.length ? table(th('글') + th('발행', true) + th('조회', true) + th('홈판', true) + th('비율', true) + th('검색', true), postRows) : '<div style="color:#64748b; margin-top:6px;">어제 유입 있던 글이 없어요.</div>');
+          let html = section('1. 내 글 홈판 실적', esc(r.day) + ' 기준 유입 있던 글 ' + posts.length + '편 중 홈판 실측 ' + measured + '편, 그중 홈판 탄 글 <b style="color:#fbbf24;">' + hit + '편</b>. "네이버 메인_모바일_홈판" 유입 건수 그대로.',
+            posts.length ? table(th('글') + th('발행', true) + th('조회', true) + th('홈판', true) + th('비율', true) + th('검색', true), postRows) : '<div style="color:#64748b; margin-top:6px;">이날 유입 있던 글이 없어요.</div>');
 
           // 홈판 탄 날 패턴 — 실측된 글만. 없으면 규칙을 지어내지 않고 사실 한 줄.
           const pat = view.pattern || {};
@@ -11039,32 +11047,24 @@
             ? '홈판 탄 날 ' + pat.daysWithHomefeed + '/' + pat.daysMeasured + '일 · 그날 홈판 탄 글 ' + pat.postsPerDay.join(', ') + '편 · 발행 시(KST) ' + pat.hours.map((h) => String(h.hour).padStart(2, '0') + '시×' + h.posts).join(' ') + (pat.gapsMinutes.length ? ' · 홈판 탄 글끼리 발행 간격 ' + pat.gapsMinutes.map((m) => Math.round(m / 60 * 10) / 10 + 'h').join(', ') : '')
             : '홈판 탄 글이 아직 실측되지 않아 발행 시각·간격 패턴이 없어요(쌓인 날 ' + (pat.daysMeasured || 0) + ').';
           const myTop = r.myHours.slice().sort((a, b) => b.yesterday - a.yesterday).slice(0, 3).filter((h) => h.yesterday > 0);
-          html += '<div style="margin-top:6px; font-size:12px; color:#cbd5e1;">' + esc(patLine) + (myTop.length ? '<br>어제 내 유입 많은 시각: ' + myTop.map((h) => String(h.hour).padStart(2, '0') + '시 ' + h.yesterday).join(' · ') : '') + '</div>';
+          html += '<div style="margin-top:6px; font-size:12px; color:#cbd5e1;">' + esc(patLine) + (myTop.length ? '<br>기준일 내 유입 많은 시각: ' + myTop.map((h) => String(h.hour).padStart(2, '0') + '시 ' + h.yesterday).join(' · ') : '') + '</div>';
 
           // 2) 내 유입 주제 — d1-ranks 옆에 32주제 비교(판 크기)를 나란히. 두 숫자만.
           const sizeOf = (topic) => { const m = r.categoryComparison.find((c) => c.topic === topic); return m ? m.value : null; };
           const weekOf = (topic) => { const m = r.topicsWeek.find((c) => c.topic === topic); return m ? m.value : null; };
           const topicRows = r.topicsDay.map((t) => '<tr>' + td(esc(t.topic)) + td(t.value, true) + td(weekOf(t.topic) == null ? '—' : weekOf(t.topic), true, '#94a3b8') + td(sizeOf(t.topic) == null ? '미측정' : sizeOf(t.topic).toLocaleString(), true, sizeOf(t.topic) == null ? '#64748b' : '#e2e8f0') + '</tr>').join('');
-          const kw = r.popularKeywords;
+          const selectedTopic = window.__myBlogRecord?.snapshot?.declaredTopic;
+          const allowedTopics = selectedTopic === '스타·연예인' ? ['스타·연예인', '방송', '드라마'] : selectedTopic ? [selectedTopic] : r.topicsDay.map((t) => t.topic);
+          const kw = allowedTopics.includes(r.popularKeywords?.topic) ? r.popularKeywords : null;
           const kwLine = kw && kw.items.length ? '<div style="margin-top:6px; font-size:12px;"><span style="color:#94a3b8;">' + esc(kw.topic) + ' 인기 검색어(지난주):</span> ' + kw.items.map((k) => esc(k.keyword)).join(' · ') + '</div>' : '';
-          const rising = r.topicKeywords.filter((k) => k.rankChange != null && k.rankChange > 0).slice(0, 20);
-          const risingLine = rising.length ? '<div style="margin-top:4px; font-size:12px;"><span style="color:#94a3b8;">어제 순위 오른 검색어:</span> ' + rising.map((k) => esc(k.keyword) + '<span style="color:#22c55e;">↑' + k.rankChange + '</span>').join(' · ') + '</div>' : '';
+          const rising = r.topicKeywords.filter((k) => allowedTopics.includes(k.topic) && k.rankChange != null && k.rankChange > 0).slice(0, 20);
+          const risingLine = rising.length ? '<div style="margin-top:4px; font-size:12px;"><span style="color:#94a3b8;">기준일 순위 오른 검색어:</span> ' + rising.map((k) => esc(k.keyword) + '<span style="color:#22c55e;">↑' + k.rankChange + '</span>').join(' · ') + '</div>' : '';
           // 판 크기는 네이버가 주는 상대 지수 — 가장 큰 주제가 100(실측: 맛집 100 · 자동차 31). 절대 조회수가 아니다.
           const biggest = r.categoryComparison.slice().sort((a, b) => b.value - a.value)[0];
-          html += section('2. 내 유입 주제', '내 어제·지난주 유입(어드바이저 d1) 옆에 그 주제 전체 판 크기 지수' + (biggest ? '(' + esc(biggest.topic) + '=100 기준)' : '') + '.',
-            (r.topicsDay.length ? table(th('주제') + th('어제 유입', true) + th('지난주', true) + th('판 크기 지수', true), topicRows) : '<div style="color:#64748b; margin-top:6px;">' + (r.missing.indexOf('d1RanksDay') >= 0 ? '주제 창구를 못 받았어요' : '어제 주제별 유입이 없어요') + '.</div>') + kwLine + risingLine);
+          html += section('2. 내 유입 주제', '내 기준일·지난주 유입(어드바이저 d1) 옆에 그 주제 전체 판 크기 지수' + (biggest ? '(' + esc(biggest.topic) + '=100 기준)' : '') + '.',
+            (r.topicsDay.length ? table(th('주제') + th('기준일 유입', true) + th('지난주', true) + th('판 크기 지수', true), topicRows) : '<div style="color:#64748b; margin-top:6px;">' + (r.missing.indexOf('d1RanksDay') >= 0 ? '주제 창구를 못 받았어요' : '이날 주제별 유입이 없어요') + '.</div>') + kwLine + risingLine);
 
-          // 3) 오늘 홈판 탄 글(전체) — 제목 목록 + 낱말 빈도(두 글자 이상, 단순 셈). 임의 분류 없음.
-          const titles = r.homefeedTitles;
-          const freq = new Map();
-          titles.forEach((t) => String(t.title || '').split(/[\s,.!?~()\[\]'"·…]+/).forEach((w) => { if (w.length >= 2) freq.set(w, (freq.get(w) || 0) + 1); }));
-          const topWords = [...freq.entries()].filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).slice(0, 15);
-          const wordLine = topWords.length ? '<div style="margin-top:6px; font-size:12px;"><span style="color:#94a3b8;">두 번 이상 나온 낱말:</span> ' + topWords.map(([w, n]) => esc(w) + '<span style="color:#64748b;">×' + n + '</span>').join(' · ') + '</div>' : '';
-          const titleRows = titles.map((t) => '<tr>' + td(t.url ? '<a href="' + esc(t.url) + '" target="_blank" style="color:#e2e8f0; text-decoration:none;">' + esc(t.title) + '</a>' : esc(t.title)) + '</tr>').join('');
-          const wr = r.weeklyRecommendation;
-          const wrLine = wr && wr.titles.length ? '<div style="margin-top:6px; font-size:12px;"><span style="color:#94a3b8;">주간 추천(' + esc(wr.category) + '):</span> ' + wr.titles.slice(0, 5).map((t) => esc(t)).join(' · ') + '</div>' : '';
-          html += section('3. ' + r.day + ' 홈판 탄 글(전체 블로그)', '네이버가 어드바이저에 싣는 그날 홈판 유입 상위 글 제목 그대로(main-inflow-content-ranks).',
-            (titles.length ? table(th('제목'), titleRows) : '<div style="color:#64748b; margin-top:6px;">' + (r.missing.indexOf('mainInflowContentRanks') >= 0 ? '창구를 못 받았어요' : '이날 목록이 비어 있어요') + '.</div>') + wordLine + wrLine);
+          // 전체 블로그 참고 목록은 개인 블로그 실적 화면에 섞어 표시하지 않는다.
 
           if (r.missing.length) html += '<div style="margin-top:10px; font-size:11.5px; color:#64748b;">못 받은 창구 ' + r.missing.length + ': ' + esc(r.missing.slice(0, 8).join(', ')) + (r.missing.length > 8 ? ' …' : '') + '</div>';
           body.innerHTML = html;
@@ -12182,9 +12182,23 @@
         window.__advisorDailyView = null;
         window.__advisorTodayPlan = null;
         window.__mbBusy = {};
+        window.__mbViewVersion = 0;
         const mbEsc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const mbFlat = (v) => String(v || '').replace(/\s+/g, '').toLowerCase();
         const mbDay = (iso) => { const ms = Date.parse(iso || ''); if (!Number.isFinite(ms)) return ''; const d = new Date(ms + 9 * 3600 * 1000); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); };
+        function mbDailyState() {
+          const view = window.__advisorDailyView;
+          const daily = view?.latest && mbFlat(view.latest.channelId) === mbFlat(window.__myBlogRecord?.blogId) ? view.latest : null;
+          const targetDay = new Date(Date.now() + 9 * 3600000 - 86400000).toISOString().slice(0, 10);
+          return { view, daily, stale: !daily || daily.day !== targetDay, targetDay };
+        }
+        window.openSelectedMyBlog = async function openSelectedMyBlog(logNo) {
+          const id = window.__myBlogRecord?.blogId;
+          if (!/^[a-z0-9_-]{2,100}$/i.test(id || '')) return;
+          const url = 'https://blog.naver.com/' + encodeURIComponent(id) + (/^\d{1,30}$/.test(String(logNo || '')) ? '/' + logNo : '');
+          try { await window.electronAPI.openExternal(url); }
+          catch { if (typeof showToast === 'function') showToast('브라우저로 열지 못했습니다.', 'error'); }
+        };
 
         /** 내 주제 낱말 — 내 글 전체 제목에서 센 상위 낱말(topicProfile). 없으면 빈 목록. */
         window.myBlogTopicWords = function myBlogTopicWords() {
@@ -12202,23 +12216,30 @@
           const box = document.getElementById('mbSteps');
           if (!box) return;
           const rec = window.__myBlogRecord;
-          const daily = window.__advisorDailyView && window.__advisorDailyView.latest;
+          const { daily, stale, targetDay, view } = mbDailyState();
           const plan = window.__advisorTodayPlan;
           const busy = window.__mbBusy || {};
           const steps = [
             ['measure', '① 내 크기 · 주제', rec ? mbDay(rec.measuredAt) + ' 잼' : '아직'],
             ['pick', '② 오늘 쓸 한 편', dpView && dpView.result && dpView.result.builtAt ? mbDay(dpView.result.builtAt) + ' 고름' : '아직'],
-            ['daily', '③ 홈판 유입 실측', daily ? daily.day.slice(5).replace('-', '/') + ' 통계' : '로그인 필요'],
+            ['daily', '③ 홈판 유입 실측', daily ? daily.day.slice(5).replace('-', '/') + (stale ? ' 과거 · 갱신 필요' : daily.missing?.length ? ' 일부 미측정' : ' 통계') : '수집 필요'],
             ['today', '④ 오늘 쓸 글 10', plan ? mbDay(plan.builtAt) + ' 만듦' : '아직'],
           ];
           box.innerHTML = steps.map(([id, label, state]) => {
             const on = busy[id];
-            const done = !on && !/아직|필요/.test(state);
+            const warning = /과거|미측정/.test(state);
+            const done = !on && !/아직|필요|미측정/.test(state);
             return '<span style="display:inline-flex; gap:6px; align-items:center; padding:4px 10px; border-radius:999px; font-size:11.5px; border:1px solid '
-              + (on ? 'rgba(251,191,36,0.6)' : done ? 'rgba(34,197,94,0.35)' : 'rgba(255,255,255,0.12)') + '; background:'
-              + (on ? 'rgba(251,191,36,0.12)' : done ? 'rgba(34,197,94,0.08)' : 'transparent') + '; color:' + (on ? '#fde68a' : done ? '#bbf7d0' : '#94a3b8') + ';">'
+              + (on || warning ? 'rgba(251,191,36,0.6)' : done ? 'rgba(34,197,94,0.35)' : 'rgba(255,255,255,0.12)') + '; background:'
+              + (on || warning ? 'rgba(251,191,36,0.12)' : done ? 'rgba(34,197,94,0.08)' : 'transparent') + '; color:' + (on || warning ? '#fde68a' : done ? '#bbf7d0' : '#94a3b8') + ';">'
               + '<b style="font-weight:700;">' + label + '</b><span>' + (on ? '도는 중…' : mbEsc(state)) + '</span></span>';
           }).join('') + mbAccountWarning(rec, daily, plan);
+          if (rec && stale) box.innerHTML += '<div style="flex-basis:100%; margin-top:5px; padding:9px 12px; border:1px solid #926d27; border-radius:8px; color:#fde68a; background:#2b2415; font-size:12px;">'
+            + '<b>' + mbEsc(rec.blogId) + '</b> · ' + (daily ? '마지막 통계는 ' + mbEsc(daily.day) + '입니다. ' : '저장된 홈판 통계가 없습니다. ')
+            + '최신 수집 대상은 ' + targetDay + '입니다(통계는 전날 기준). '
+            + mbEsc(view?.running ? '선택한 블로그 통계를 수집 중입니다.' : view?.state?.lastSkip?.reason || '선택한 블로그의 로그인 상태를 확인하고 수집합니다.')
+            + ' <button onclick="openNaverAdvisor()" style="margin-left:6px; background:#24344a; border:1px solid #94a3b8; border-radius:5px; color:#f8fafc; cursor:pointer;">이 블로그 로그인</button>'
+            + ' <button onclick="runAdvisorDailyNow()" style="background:#fbbf24; border:0; border-radius:5px; color:#1c1917; cursor:pointer;">지금 통계 수집</button></div>';
         };
         /*
          * 계정이 다르면 한 몸이 아니다(2026-10-06 실측) — 내 크기는 leader_145(스포츠)로 쟀는데 홈판 실측 · 오늘 쓸 글 10 은
@@ -12261,37 +12282,52 @@
           const box = document.getElementById('mbPosts');
           const rec = window.__myBlogRecord;
           if (!box) return;
-          const list = (rec && rec.recentTitles) || [];
-          if (!list.length) { box.innerHTML = ''; return; }
-          const rawDaily = window.__advisorDailyView && window.__advisorDailyView.latest;
-          const daily = rawDaily && mbFlat(rawDaily.channelId) === mbFlat(rec?.blogId) ? rawDaily : null;
-          const byTitle = new Map(((daily && daily.posts) || []).map((p) => [mbFlat(p.title), p]));
+          const list = ((rec && rec.recentTitles) || []).filter((p) => mbFlat(p.blogId) === mbFlat(rec?.blogId));
+          if (!list.length) { box.textContent = rec ? rec.postsRefreshError || '선택한 블로그에서 확인된 최근 글이 없습니다.' : ''; return; }
+          const state = mbDailyState();
+          const daily = !state.stale ? state.daily : null;
+          const byId = new Map(((daily && daily.posts) || []).map((p) => {
+            const raw = String(p.contentId || '');
+            if (/^\d{1,30}$/.test(raw)) return [raw, p];
+            try {
+              const url = new URL(raw);
+              const parts = url.pathname.split('/').filter(Boolean);
+              const owner = url.searchParams.get('blogId') || parts[0];
+              const id = url.searchParams.get('logNo') || parts[1];
+              if (/^(m\.)?blog\.naver\.com$/.test(url.hostname) && mbFlat(owner) === mbFlat(rec.blogId) && /^\d{1,30}$/.test(id || '')) return [id, p];
+            } catch {}
+            return ['', null];
+          }).filter(([id]) => id));
           const rows = list.map((p) => {
-            const hit = byTitle.get(mbFlat(p.title));
+            const hit = byId.get(String(p.logNo));
             const hf = hit && hit.homefeed;
             const tag = hit
               ? '<span style="color:#94a3b8;">조회 ' + mbEsc(hit.views) + '</span>' + (hf ? (hf.count > 0 ? ' · <b style="color:#fbbf24;">홈판 ' + hf.count + '</b>' : ' · 홈판 0') : ' · 홈판 미측정')
               : '';
             return '<div style="display:flex; gap:10px; padding:5px 0; border-top:1px solid rgba(255,255,255,0.06);">'
-              + '<span style="color:#64748b; min-width:44px; font-variant-numeric:tabular-nums;">' + mbEsc(String(p.publishedOn || '').slice(5).replace('-', '/')) + '</span>'
-              + '<span style="flex:1; color:#e2e8f0;">' + mbEsc(p.title) + '</span>'
+              + '<span style="color:#94a3b8; min-width:44px; font-variant-numeric:tabular-nums;">' + mbEsc(p.publishedOn ? p.publishedOn.slice(5).replace('-', '/') : '날짜 미확인') + '</span>'
+              + '<button data-log-no="' + mbEsc(p.logNo) + '" onclick="openSelectedMyBlog(this.dataset.logNo)" style="flex:1; min-width:0; padding:0; text-align:left; background:none; border:0; font:inherit; color:#e2e8f0; cursor:pointer;">' + mbEsc(p.title) + ' ↗</button>'
               + '<span style="font-size:12px; white-space:nowrap;">' + tag + '</span></div>';
           }).join('');
           const total = rec.postsAvailable || list.length;
-          box.innerHTML = '<details style="margin-top:10px;" open><summary style="cursor:pointer; font-size:13px; font-weight:700; color:#ffffff;">📝 내 글 · 최근 ' + list.length + '편'
-            + '<span style="font-weight:400; color:#64748b; font-size:11.5px;"> (전체 ' + Number(total).toLocaleString('ko-KR') + '편 중' + (daily ? ' · 조회 · 홈판은 ' + mbEsc(daily.day) + ' 어드바이저 실측' : ' · 네이버 로그인하면 글마다 홈판 유입이 붙어요') + ')</span></summary>'
+          box.innerHTML = '<details style="margin-top:10px;" open><summary style="cursor:pointer; font-size:13px; font-weight:700; color:#ffffff;">📝 ' + mbEsc(rec.blogId) + '의 글 · 최근 ' + list.length + '편'
+            + '<span style="font-weight:400; color:#94a3b8; font-size:11.5px;"> (전체 ' + Number(total).toLocaleString('ko-KR') + '편 중 · 목록 확인 ' + mbEsc(mbDay(rec.postsListedAt || rec.measuredAt)) + (daily ? ' · 조회·홈판 통계 기준 ' + mbEsc(daily.day) : ' · 최신 홈판 통계 수집 필요') + ')</span></summary>'
+            + (rec.postsRefreshError ? '<div style="color:#fbbf24;">갱신 실패 · 이전에 확인한 목록: ' + mbEsc(rec.postsRefreshError) + '</div>' : '')
             + '<div style="margin-top:6px; font-size:12.5px;">' + rows + '</div></details>';
         };
 
         window.refreshMyBlogSelector = async function refreshMyBlogSelector() {
+          const version = window.__mbViewVersion;
           const res = await window.electronAPI.invoke('blog-class-list');
-          if (!res?.success) return;
+          if (!res?.success || version !== window.__mbViewVersion) return;
           const select = document.getElementById('dpBlogSelect');
           const blogs = res.blogs || [];
           if (select) {
-            select.innerHTML = blogs.length ? blogs.map((b) => '<option value="' + mbEsc(b.blogId) + '">' + mbEsc(b.blogId) + ' · ' + mbEsc(mbDay(b.measuredAt)) + ' 분석</option>').join('') : '<option value="">저장된 블로그가 없습니다</option>';
+            select.innerHTML = blogs.length ? blogs.map((b) => '<option value="' + mbEsc(b.blogId) + '">' + mbEsc((b.topic === '스타·연예인' ? '스타·연예' : b.topic) || '분야 미확인') + ' · ' + mbEsc(b.blogId) + '</option>').join('') : '<option value="">저장된 블로그가 없습니다</option>';
             select.value = window.__myBlogRecord?.blogId || res.selectedId || '';
           }
+          const open = document.getElementById('dpBlogOpen');
+          if (open) open.disabled = !window.__myBlogRecord?.blogId;
           const input = document.getElementById('dpBlogInput');
           if (input) {
             input.style.display = blogs.length ? 'none' : '';
@@ -12308,6 +12344,8 @@
 
         window.selectMyBlog = async function selectMyBlog(blogId) {
           if (!blogId || Object.values(window.__mbBusy || {}).some(Boolean)) return;
+          window.__mbViewVersion += 1;
+          document.getElementById('dpBlogOpen').disabled = true;
           window.mbSetBusy('select', true);
           const progress = document.getElementById('dpBlogProgress');
           if (progress) progress.textContent = '저장된 블로그 결과를 불러오는 중…';
@@ -12317,7 +12355,7 @@
           window.__advisorDailyView = null;
           window.__advisorTodayPlan = null;
           dpView = { result: null, envelope: null, blogState: null };
-          ['dpBlogResult', 'mbPosts', 'advisorDailyBody', 'advisorTodayBody', 'advisorDailyMeta', 'advisorTodayMeta'].forEach((id) => {
+          ['dpBlogResult', 'mbPosts', 'advisorDailyBody', 'advisorTodayBody', 'advisorDailyMeta', 'advisorTodayMeta', 'dpAutoStatus', 'naverSessionState'].forEach((id) => {
             const el = document.getElementById(id); if (el) el.innerHTML = '';
           });
           window.renderDailyPick();
@@ -12341,13 +12379,15 @@
             window.renderDailyPick();
             await Promise.all([window.refreshAdvisorDaily(), window.refreshAdvisorToday()]);
             if (progress) progress.textContent = String(error?.message || error);
-          } finally { window.mbSetBusy('select', false); }
+          } finally { window.mbSetBusy('select', false); void window.refreshDailyPickAuto(); }
         };
 
         /** 내 블로그 판 전부 다시 그리기 — 저장된 기록을 읽어 카드 · 내 글 · 진행 줄 · 배지(window.__blogBand)를 채운다. */
         window.refreshMyBlogHub = async function refreshMyBlogHub() {
+          const version = window.__mbViewVersion;
           try {
             const saved = await window.electronAPI.invoke('blog-class-get');
+            if (version !== window.__mbViewVersion) return;
             window.__myBlogRecord = (saved && saved.success && saved.record) || null;
           } catch { window.__myBlogRecord = null; }
           const box = document.getElementById('dpBlogResult');
@@ -12380,7 +12420,7 @@
             const input = document.getElementById('dpBlogInput');
             if (id && input && !input.value) input.value = 'blog.naver.com/' + id;
           } catch { /* 없으면 빈 칸으로 둔다 */ }
-          if (!window.__dpUiPoll) window.__dpUiPoll = setInterval(() => { void window.refreshDailyPickAuto(); }, 10000);
+          if (!window.__dpUiPoll) window.__dpUiPoll = setInterval(() => { void window.refreshDailyPickAuto(); if (!window.__mbBusy?.select) void window.refreshAdvisorDaily(); }, 10000);
           void window.refreshDailyPickAuto();
         };
 

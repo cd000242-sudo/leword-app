@@ -14,6 +14,7 @@ import * as path from 'path';
 import {
   extractBlogId,
   fetchBlogSnapshot,
+  fetchPostListPage,
   probeInfluencer,
   summarizeActivity,
   sweepPosts,
@@ -26,7 +27,7 @@ import { EnvironmentManager } from '../../utils/environment-manager';
 import { measureMyRanks } from './blog-class-rank';
 import { buildEnvelope, buildNearBand, type BlogEnvelope, type WonRow } from '../../utils/blog-class/envelope';
 import { buildTopicProfile, type TopicProfile } from '../../utils/blog-class/topic-profile';
-import { blogKey, listBlogProfiles, saveBlogValue } from '../../utils/blog-class/profile-store';
+import { blogKey, listBlogProfiles, readBlogValue, saveBlogValue } from '../../utils/blog-class/profile-store';
 
 export const BLOG_CLASS_PROGRESS_CHANNEL = 'blog-class-progress';
 
@@ -51,6 +52,10 @@ export interface BlogClassRecord {
   sampledPosts: number;
   /** 2단계(제목 → 검색어 → 순위)가 쓰는 원료. 화면은 안 쓴다. */
   posts: BlogPostRow[];
+  recentPosts?: BlogPostRow[];
+  postsListedAt?: string;
+  recentPostTotal?: number | null;
+  postsRefreshError?: string;
   /**
    * 내 블로그가 실제로 써 온 이야기 — 글 **전체** 제목에서 센 낱말(2026-09-16).
    * 사장님 "글들을 전부 분석하고 파악해서 지금 내가쓰면 이기는 키워드를 분석해서 알려줘야되는거아니니".
@@ -244,13 +249,38 @@ export async function measureBlogClass(
 }
 
 /** 화면이 보는 값 — 글 목록은 빼고 준다(렌더러로 200개를 넘길 이유가 없다). */
-function forRenderer(record: BlogClassRecord | null) {
+export function forRenderer(record: BlogClassRecord | null) {
   if (!record) return null;
-  const { posts, ...light } = record;
+  const { posts, recentPosts, ...light } = record;
   // band — 30위 안에 붙어 본 검색량 범위. 화면의 '내 크기' 배지·거르개가 이 값으로 견준다(2026-09-15).
   // recentTitles — '내 블로그' 화면의 내 글 목록(2026-10-06 사장님 "내 크기를 재면 한 몸처럼"). 최근 15편만.
-  const recentTitles = (posts || []).slice(0, 15).map((post) => ({ title: post.title, publishedOn: post.publishedOn, logNo: post.logNo }));
-  return { ...light, postsAvailable: posts?.length ?? 0, postsMissing: !Array.isArray(posts), band: buildNearBand(light.wonRows || []), recentTitles };
+  const recentTitles = (recentPosts || posts || []).filter((p) => blogKey(p.blogId) === blogKey(record.blogId)).slice(0, 15)
+    .map((post) => ({ blogId: record.blogId, title: post.title, publishedOn: post.publishedOn, logNo: post.logNo,
+      url: `https://blog.naver.com/${encodeURIComponent(record.blogId)}/${encodeURIComponent(post.logNo)}` }));
+  return { ...light, postsAvailable: record.recentPostTotal ?? posts?.length ?? 0, postsMissing: !Array.isArray(posts), band: buildNearBand(light.wonRows || []), recentTitles };
+}
+
+const recentRequests = new Map<string, Promise<BlogClassRecord>>();
+/** Refresh the public list independently of expensive rank measurement, with verified ownership. */
+export async function refreshRecentBlogPosts(record: BlogClassRecord, fetchImpl: FetchLike = nodeFetch): Promise<BlogClassRecord> {
+  const id = blogKey(record.blogId)!;
+  if (record.recentPosts && record.recentPosts.every((p) => blogKey(p.blogId) === id)
+    && Date.now() - Date.parse(record.postsListedAt || '') < 60_000) return record;
+  if (recentRequests.has(id)) return recentRequests.get(id)!;
+  const task = (async () => {
+    try {
+      const page = await fetchPostListPage(id, 1, fetchImpl);
+      if (!page.ok) throw new Error(page.message || '글 목록을 새로 받지 못했습니다.');
+      const current = readBlogValue<BlogClassRecord>(DIR(), id) || record;
+      const next = { ...current, recentPosts: page.posts, recentPostTotal: page.totalCount, postsListedAt: new Date().toISOString(), postsRefreshError: undefined };
+      saveBlogValue(DIR(), id, next);
+      // A slow response for A must not reselect A after the user switches to B.
+      if (blogKey(readLatest()?.blogId) === id) fs.writeFileSync(LATEST(), JSON.stringify(next, null, 2), 'utf8');
+      return next;
+    } catch (error: any) { return { ...record, postsRefreshError: error?.message || '글 목록 갱신 실패' }; }
+  })();
+  recentRequests.set(id, task);
+  try { return await task; } finally { recentRequests.delete(id); }
 }
 
 /** 사이트 '내 블로그' 탭(브리지)이 읽는 마지막 기록 — 화면용 판 그대로(2026-09-30). */
@@ -268,7 +298,8 @@ export function setupBlogClassHandlers(): void {
     ipcMain.handle('blog-class-list', async () => ({
       success: true,
       selectedId: readLatest()?.blogId || null,
-      blogs: listBlogProfiles(DIR()).map((r) => ({ blogId: r.blogId, measuredAt: r.measuredAt })),
+      blogs: listBlogProfiles(DIR()).map((r) => ({ blogId: r.blogId, measuredAt: r.measuredAt,
+        topic: r.snapshot?.declaredTopic || r.topicProfile?.declaredTopic || null, blogName: r.snapshot?.blogName || null })),
     }));
   }
   if (!ipcMain.listenerCount('blog-class-select')) {
@@ -284,7 +315,8 @@ export function setupBlogClassHandlers(): void {
   }
   if (!ipcMain.listenerCount('blog-class-get')) {
     ipcMain.handle('blog-class-get', async () => {
-      const record = readLatest();
+      const saved = readLatest();
+      const record = saved ? await refreshRecentBlogPosts(saved) : null;
       return { success: true, record: forRenderer(record) };
     });
   }

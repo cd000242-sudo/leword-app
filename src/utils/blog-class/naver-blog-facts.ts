@@ -36,6 +36,7 @@ export interface BlogSnapshot {
 
 /** 글 한 편. 본문은 안 읽는다 — 목록이 주는 것까지만. */
 export interface BlogPostRow {
+  blogId?: string;
   logNo: string;
   title: string;
   /** YYYY-MM-DD. 목록이 날짜 대신 시각만 주면(오늘 글) 오늘 날짜로 읽는다. */
@@ -49,6 +50,7 @@ export interface BlogPostRow {
 }
 
 export interface PostListPage {
+  blogId?: string | null;
   posts: BlogPostRow[];
   totalCount: number | null;
   countPerPage: number | null;
@@ -154,12 +156,15 @@ export function parsePostDate(addDate: string, nowMs: number = Date.now()): stri
     const [, y, m, d] = ymd;
     return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
-  if (/^\d{1,2}:\d{2}$/.test(addDate.trim())) return isoDay(nowMs);
+  const relative = addDate.trim().match(/^(\d+)\s*(분|시간|일)\s*전$/);
+  if (relative) return isoDay(nowMs - Number(relative[1]) * ({ 분: 60_000, 시간: 3_600_000, 일: 86_400_000 }[relative[2]]));
+  if (/^(방금 전|방금|오늘|\d{1,2}:\d{2})$/.test(addDate.trim())) return isoDay(nowMs);
+  if (addDate.trim() === '어제') return isoDay(nowMs - 86_400_000);
   return null;
 }
 
 function isoDay(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
+  return new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
 }
 
 /**
@@ -188,7 +193,9 @@ export function parsePostListPage(body: string, nowMs: number = Date.now()): Pos
     return { posts: [], totalCount: null, countPerPage: null, blogNo: null, ok: false, message: null };
   }
   const list: any[] = parsed.postList;
+  const blogId = typeof parsed?.blog?.blogId === 'string' ? parsed.blog.blogId.toLowerCase() : null;
   const posts: BlogPostRow[] = list.map((item) => ({
+    ...(blogId ? { blogId } : {}),
     logNo: String(item?.logNo ?? ''),
     title: decodePostTitle(String(item?.title ?? '')),
     publishedOn: parsePostDate(String(item?.addDate ?? ''), nowMs),
@@ -199,6 +206,7 @@ export function parsePostListPage(body: string, nowMs: number = Date.now()): Pos
     blocked: Number(item?.isPostBlocked ?? 0) === 1 || Number(item?.isBlockTmpForced ?? 0) === 1,
   })).filter((post) => post.logNo !== '');
   return {
+    blogId,
     posts,
     totalCount: toCount(parsed?.totalCount),
     countPerPage: toCount(parsed?.countPerPage),
@@ -282,9 +290,13 @@ export async function fetchPostListPage(
 ): Promise<PostListPage> {
   const url = `https://blog.naver.com/PostTitleListAsync.naver?blogId=${encodeURIComponent(blogId)}`
     + `&currentPage=${page}&countPerPage=30&categoryNo=0&parentCategoryNo=0&viewdate=&listType=top`;
-  const res = await fetchImpl(url, { headers: { 'User-Agent': DESKTOP_UA, Referer: `https://blog.naver.com/${blogId}` } });
+  const res = await fetchImpl(url, { signal: AbortSignal.timeout(15_000), headers: { 'User-Agent': DESKTOP_UA, Referer: `https://blog.naver.com/${blogId}` } });
   if (!res.ok) return { posts: [], totalCount: null, countPerPage: null, blogNo: null, ok: false, message: null };
-  return parsePostListPage(await res.text(), nowMs);
+  const result = parsePostListPage(await res.text(), nowMs);
+  if (result.ok && result.blogId !== blogId.toLowerCase()) {
+    return { ...result, posts: [], ok: false, message: '선택한 블로그의 글 목록인지 확인하지 못했습니다.' };
+  }
+  return result;
 }
 
 export interface PostSweepOptions {

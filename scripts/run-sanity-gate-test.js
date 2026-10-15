@@ -295,6 +295,7 @@ for (const testFile of testFiles) {
  * 그래서 vitest 를 한 번 불러 같은 게이트 안에서 막는다.
  */
 const VITEST_SUITES = [
+    'src/utils/__tests__/blog-recent-ownership.test.ts',
     // 블로그별 로그인·추천 격리와 5분 갱신, 개인 실적 및 애드센스 근거(2.49.167)
     'src/utils/__tests__/blog-profile-store.test.ts',
     'src/utils/__tests__/naver-blog-accounts.test.ts',

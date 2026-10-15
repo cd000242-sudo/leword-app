@@ -5,6 +5,7 @@ import {
   decodePostTitle,
   extractBlogId,
   fetchBlogSnapshot,
+  fetchPostListPage,
   parseBlogSnapshot,
   parsePostDate,
   parsePostListPage,
@@ -59,6 +60,22 @@ describe('블로그 사실 — m.blog 화면', () => {
 });
 
 describe('블로그 사실 — 글 목록', () => {
+  it('relative dates cross midnight in Korea instead of leaving fresh posts undated', () => {
+    const now = Date.parse('2026-10-15T02:00:00Z');
+    expect(parsePostDate('17시간 전', now)).toBe('2026-10-14');
+    expect(parsePostDate('5분 전', now)).toBe('2026-10-15');
+    expect(parsePostDate('2일 전', now)).toBe('2026-10-13');
+    expect(parsePostDate('00:30', Date.parse('2026-10-14T15:30:00Z'))).toBe('2026-10-15');
+  });
+
+  it('does not accept a response for another blog or an unknown owner', async () => {
+    for (const blog of [{ blogId: 'other' }, {}]) {
+      const fetchImpl: FetchLike = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ blog, postList: [{ logNo: '1', title: 'foreign' }] }) });
+      const page = await fetchPostListPage('blogpeople', 1, fetchImpl);
+      expect(page.ok).toBe(false);
+      expect(page.posts).toEqual([]);
+    }
+  });
   it('pagingHtml 의 잘못된 이스케이프 때문에 통째로 실패하지 않는다', () => {
     // 응답 안 pagingHtml 은 class=\'…\' 처럼 JSON 이 아닌 이스케이프를 담는다. 날것 그대로면 JSON.parse 가 죽는다.
     expect(() => JSON.parse(POSTLIST_BODY)).toThrow();
@@ -210,7 +227,7 @@ describe('창구를 실제로 실행한다', () => {
   it('개설일은 마지막 페이지에서 가져온다', async () => {
     const oldBody = JSON.stringify({
       postList: [{ logNo: '1', title: '%EC%B2%AB%EA%B8%80', addDate: '2010. 3. 24.', searchYn: 'true' }],
-      totalCount: '1336', countPerPage: '30', blog: { blogNo: '46400079' },
+      totalCount: '1336', countPerPage: '30', blog: { blogId: 'blogpeople', blogNo: '46400079' },
     });
     const calls: string[] = [];
     const fetchImpl: FetchLike = async (url) => {

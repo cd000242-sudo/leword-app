@@ -24,6 +24,7 @@ import { advisorFetch, naverSessionStatus, connectedNaverBlogs } from './naver-s
 import { advisorBlogIds } from '../../utils/naver-blog-accounts';
 import { collectAutopsyHistory, readAutopsyHistory } from './advisor-autopsy';
 import { blogKey, readBlogValue, saveBlogValue } from '../../utils/blog-class/profile-store';
+import { advisorFreshness } from '../../utils/advisor/freshness';
 
 /** 워커 실측 월 검색량(키 없이 — 워커가 사장님 검색광고 키로 잰다). 응답 키는 띄어쓰기 없는 꼴. 100개 상한. */
 const KEYWORD_WORKER = 'https://leword-keyword-api.leword.workers.dev/';
@@ -142,6 +143,7 @@ function pickPostIds(results: Record<string, AdvisorProbeResult>): string[] {
 }
 
 let running = false;
+let runningBlogId: string | null = null;
 
 /** 수집이 끝난 직후 이어서 할 일(D 판 '오늘 쓸 글' 조립). 여기서 today 를 import 하면 순환이라 밖에서 건다. */
 let afterCollect: ((record: AdvisorDailyRecord) => void | Promise<void>) | null = null;
@@ -168,10 +170,10 @@ export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: {
     return { success: false, skipped: true, reason: why };
   };
   running = true;
+  runningBlogId = blogKey(options.blogId);
   try {
-    writeState({ ...state, attemptDay: day, attempts: attempts + 1 }, options.blogId);
     const session = await naverSessionStatus(options.blogId);
-    if (!session.loggedIn) return skip('네이버 로그인 전');
+    if (!session.loggedIn) return skip('선택한 블로그 계정의 네이버 로그인이 필요합니다.');
     const channels = await advisorFetch('/accounts/channels', {}, options.blogId);
     const requested = blogKey(options.blogId);
     const channelId = channels.status === 200 ? (requested ? advisorBlogIds(channels.body).find((id) => id === requested) || null : pickBlogChannelId(channels.body)) : null;
@@ -179,6 +181,8 @@ export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: {
     if (options.blogId !== undefined && blogKey(options.blogId) !== blogKey(channelId)) {
       return skip('선택한 블로그 계정으로 네이버에 로그인한 뒤 수집해 주세요.');
     }
+    runningBlogId = blogKey(channelId);
+    writeState({ ...state, attemptDay: day, attempts: attempts + 1 }, options.blogId);
 
     const ctx = { channelId, now };
     const existing = readBlogValue<AdvisorDailyRecord>(DIR(), channelId, 'latest.json', 'channelId');
@@ -227,6 +231,7 @@ export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: {
     return { success: false, error: error?.message || '어드바이저 수집 실패' };
   } finally {
     running = false;
+    runningBlogId = null;
   }
 }
 
@@ -272,12 +277,25 @@ export function readAdvisorDailyView(blogId?: string, includeHistory = false) {
     }
     records = [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
   }
-  const latest = (blogId !== undefined
+  const saved = (blogId !== undefined
     ? readBlogValue<AdvisorDailyRecord>(DIR(), blogId, 'latest.json', 'channelId')
-    : readJson<AdvisorDailyRecord | null>(LATEST(), null)) ?? records[records.length - 1] ?? null;
+    : readJson<AdvisorDailyRecord | null>(LATEST(), null));
+  const latest = [...records, ...(saved ? [saved] : [])].sort((a, b) => b.day.localeCompare(a.day)
+    || String(b.collectedAt).localeCompare(String(a.collectedAt)))[0] || null;
   if (latest && !records.some((r) => r.day === latest.day)) records.push(latest);
   return { latest, pattern: homefeedDayPattern(records), days: records.length, state: readState(blogId), runHour: ADVISOR_DAILY_RUN_HOUR,
+    blogId, freshness: advisorFreshness(latest), running: running && runningBlogId === blogKey(blogId),
     learningRecords: includeHistory ? records : undefined };
+}
+
+/** A stale selected blog gets a collection attempt on opening; login failures back off, never masquerade as current stats. */
+function refreshSelectedDaily(blogId: string): void {
+  if (!blogKey(blogId) || running) return;
+  const view = readAdvisorDailyView(blogId);
+  if (!view.freshness.stale && !view.freshness.incomplete) return;
+  const lastAttempt = Date.parse(view.state.lastSkip?.at || view.state.lastResult?.at || '');
+  if (Number.isFinite(lastAttempt) && Date.now() - lastAttempt < CHECK_EVERY_MS) return;
+  void runAdvisorDaily('scheduled', { blogId, respectDone: true }).catch((error) => console.warn('[ADVISOR-DAILY] 선택 블로그 갱신 실패:', error?.message));
 }
 
 /** 0명 글 부검 재료(사이트 · 화면이 판정한다). */
@@ -287,7 +305,10 @@ export function readAdvisorAutopsyHistory() {
 
 export function setupAdvisorDailyHandlers(): void {
   if (!ipcMain.listenerCount('advisor-daily-view')) {
-    ipcMain.handle('advisor-daily-view', async (_event, payload?: { blogId?: string }) => ({ success: true, ...readAdvisorDailyView(payload?.blogId) }));
+    ipcMain.handle('advisor-daily-view', async (_event, payload?: { blogId?: string }) => {
+      if (payload?.blogId) refreshSelectedDaily(payload.blogId);
+      return { success: true, ...readAdvisorDailyView(payload?.blogId) };
+    });
   }
   if (!ipcMain.listenerCount('advisor-daily-run-now')) {
     ipcMain.handle('advisor-daily-run-now', async (_event, payload?: { blogId?: string }) => runAdvisorDaily('manual', { blogId: payload?.blogId }));
