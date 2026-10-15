@@ -10911,35 +10911,115 @@
          * 네이버 로그인 상태 — 쿠키 두 개(NID_AUT·NID_SES)가 다 있으면 로그인. 그리고 오늘 잡힌 어드바이저 창구 수.
          * 문구는 사실만: 로그인 여부·잡힌 창구 수. "유입 분석 가능" 같은 약속은 실측 뒤에 붙인다.
          */
+        window.cancelNaverLoginFlow = function cancelNaverLoginFlow() {
+          const flow = window.__naverLoginFlow;
+          if (flow?.timer) clearTimeout(flow.timer);
+          window.__naverLoginFlow = null;
+          document.getElementById('naverLoginDialog')?.remove();
+        };
+
+        window.promptNaverLogin = function promptNaverLogin(blogId, force = false) {
+          if (!blogId || blogId !== window.__myBlogRecord?.blogId) return;
+          window.__naverLoginPrompted ||= new Set();
+          if (!force && (window.__naverLoginPrompted.has(blogId) || window.__naverLoginFlow?.blogId === blogId)) return;
+          window.__naverLoginPrompted.add(blogId);
+          window.cancelNaverLoginFlow();
+          const dialog = document.createElement('dialog');
+          dialog.id = 'naverLoginDialog';
+          dialog.setAttribute('aria-labelledby', 'naverLoginHeading');
+          dialog.setAttribute('aria-describedby', 'naverLoginDescription');
+          dialog.style.cssText = 'width:min(440px,calc(100vw - 48px));box-sizing:border-box;padding:26px;border:1px solid #475569;border-radius:18px;background:#111827;color:#f8fafc;box-shadow:0 24px 80px #0009;';
+          dialog.innerHTML = '<h2 id="naverLoginHeading" style="margin:0 0 12px;font-size:21px;">이 블로그의 로그인이 필요해요</h2>'
+            + '<p id="naverLoginAccount" style="font-weight:700;color:#fbbf24;overflow-wrap:anywhere;"></p>'
+            + '<p id="naverLoginDescription" style="font-size:14px;line-height:1.7;color:#cbd5e1;">선택한 블로그의 최신 홈판 유입 통계를 받으려면 해당 네이버 계정으로 로그인해 주세요. 로그인 완료를 확인하면 통계를 자동으로 수집합니다.<br>다른 계정으로 로그인하면 이 블로그와 연결되지 않습니다.</p>'
+            + '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:22px;">'
+            + '<button id="naverLoginLater" style="padding:11px 16px;border-radius:10px;border:1px solid #475569;background:#1e293b;color:#e2e8f0;cursor:pointer;">나중에</button>'
+            + '<button id="naverLoginStart" style="padding:11px 16px;border-radius:10px;border:0;background:#03c75a;color:#052e16;font-weight:800;cursor:pointer;">네이버 로그인</button></div>';
+          document.body.appendChild(dialog);
+          const record = window.__myBlogRecord;
+          dialog.querySelector('#naverLoginAccount').textContent = [record.topic || record.declaredTopic, blogId].filter(Boolean).join(' · ');
+          dialog.querySelector('#naverLoginLater').onclick = () => window.cancelNaverLoginFlow();
+          dialog.querySelector('#naverLoginStart').onclick = () => void window.openNaverAdvisor();
+          dialog.addEventListener('cancel', (event) => { event.preventDefault(); window.cancelNaverLoginFlow(); });
+          dialog.showModal();
+          dialog.querySelector('#naverLoginStart').focus();
+        };
+
+        window.checkNaverLoginCompletion = async function checkNaverLoginCompletion(flow) {
+          const current = () => window.__naverLoginFlow === flow && flow.blogId === window.__myBlogRecord?.blogId && flow.version === (window.__mbViewVersion || 0);
+          if (!current()) return;
+          const el = document.getElementById('naverSessionState');
+          try {
+            const res = await window.electronAPI.invoke('naver-session-status', { blogId: flow.blogId });
+            if (!current()) return;
+            if (!res?.success) throw new Error(res?.error || '연결 확인 중');
+            if (res.status.loggedIn) {
+              window.cancelNaverLoginFlow();
+              if (el) el.textContent = flow.blogId + ' 로그인 확인 완료 · 최신 통계를 수집합니다…';
+              // The backend validates account ownership again immediately before collection.
+              void window.runAdvisorDailyNow();
+              return;
+            }
+            if (!res.status.windowOpen) {
+              window.cancelNaverLoginFlow();
+              if (el) el.textContent = flow.blogId + ' 로그인 미완료 · 로그인 창을 다시 열어 주세요.';
+              return;
+            }
+            if (el) el.textContent = flow.blogId + ' 계정의 로그인을 기다리고 있어요. 다른 계정이면 네이버에서 계정을 전환해 주세요.';
+          } catch {
+            if (!current()) return;
+            if (el) el.textContent = '네이버 연결 확인이 지연되고 있어요. 잠시 후 다시 확인합니다.';
+          }
+          if (Date.now() - flow.startedAt > 10 * 60 * 1000) {
+            window.cancelNaverLoginFlow();
+            if (el) el.textContent = '로그인 확인 대기가 끝났어요. 로그인 후 [지금 통계 수집]을 눌러 주세요.';
+            return;
+          }
+          flow.timer = setTimeout(() => void window.checkNaverLoginCompletion(flow), 3000);
+        };
+
         window.refreshNaverSession = async function refreshNaverSession() {
           const el = document.getElementById('naverSessionState');
           if (!el) return;
           try {
             const blogId = window.__myBlogRecord?.blogId;
+            if (!blogId) return;
+            const version = window.__mbViewVersion || 0;
             const res = await window.electronAPI.invoke('naver-session-status', { blogId });
-            if (blogId !== window.__myBlogRecord?.blogId) return;
+            if (blogId !== window.__myBlogRecord?.blogId || version !== (window.__mbViewVersion || 0)) return;
             if (!res || !res.success) { el.textContent = '네이버 로그인: 상태를 읽지 못했어요'; return; }
             const s = res.status;
             const captured = s.capturedToday > 0 ? ' · 오늘 잡힌 어드바이저 창구 ' + s.endpoints.length + '종(' + s.capturedToday + '건)' : '';
             el.textContent = s.loggedIn
               ? (blogId || '기본 계정') + ' 로그인 연결됨 · 앱 실행 중 매일 통계 자동 수집' + captured + (s.windowOpen ? ' · 창 열림' : '')
               : '네이버 로그인: 안 되어 있어요. [네이버 로그인 창 열기]에서 직접 로그인해 주세요' + captured;
+            if (!s.loggedIn) window.promptNaverLogin(blogId);
           } catch {
             el.textContent = '네이버 로그인: 상태를 읽지 못했어요';
           }
         };
 
         window.openNaverAdvisor = async function openNaverAdvisor() {
+          const blogId = window.__myBlogRecord?.blogId;
+          if (!blogId) return;
+          window.cancelNaverLoginFlow();
+          const flow = { blogId, version: window.__mbViewVersion || 0, startedAt: Date.now() };
+          window.__naverLoginFlow = flow;
           try {
-            const res = await window.electronAPI.invoke('naver-session-open', { blogId: window.__myBlogRecord?.blogId });
-            if (!res || !res.success) showToast((res && res.error) || '로그인 창을 열지 못했어요', 'error');
+            const res = await window.electronAPI.invoke('naver-session-open', { blogId });
+            if (window.__naverLoginFlow !== flow) return;
+            if (!res?.success) throw new Error(res?.error || '로그인 창을 열지 못했어요');
+            void window.checkNaverLoginCompletion(flow);
           } catch (e) {
+            if (window.__naverLoginFlow !== flow) return;
+            window.cancelNaverLoginFlow();
             showToast('로그인 창을 열지 못했어요: ' + (e && e.message ? e.message : e), 'error');
           }
-          setTimeout(refreshNaverSession, 1500);
         };
 
         window.clearNaverSession = async function clearNaverSession() {
+          window.cancelNaverLoginFlow();
+          window.__naverLoginPrompted?.delete(window.__myBlogRecord?.blogId);
           try {
             const res = await window.electronAPI.invoke('naver-session-clear', { blogId: window.__myBlogRecord?.blogId });
             if (!res || !res.success) showToast((res && res.error) || '로그아웃하지 못했어요', 'error');
@@ -10959,7 +11039,7 @@
           if (!meta || !body) return;
           try {
             const blogId = window.__myBlogRecord?.blogId || '';
-            const res = await window.electronAPI.invoke('advisor-daily-view', { blogId });
+            const res = await window.electronAPI.invoke('advisor-daily-view', { blogId, deferRefresh: window.__naverLoginFlow?.blogId === blogId });
             if (blogId !== (window.__myBlogRecord?.blogId || '')) return;
             if (!res || !res.success) { meta.textContent = '판을 읽지 못했어요'; return; }
             if (res.latest && String(res.latest.channelId || '').toLowerCase() !== blogId.toLowerCase()) {
@@ -10977,14 +11057,27 @@
         };
 
         window.runAdvisorDailyNow = async function runAdvisorDailyNow() {
+          const blogId = window.__myBlogRecord?.blogId;
+          if (!blogId || window.__naverCollectionChecking || window.__mbBusy?.daily) return;
+          const version = window.__mbViewVersion || 0;
+          window.__naverCollectionChecking = true;
+          try {
+            const auth = await window.electronAPI.invoke('naver-session-status', { blogId });
+            if (blogId !== window.__myBlogRecord?.blogId || version !== (window.__mbViewVersion || 0)) return;
+            if (!auth?.success) throw new Error(auth?.error || '네이버 연결 상태를 확인하지 못했어요');
+            if (!auth.status.loggedIn) { window.promptNaverLogin(blogId, true); return; }
+          } catch (e) {
+            showToast(e?.message || '네이버 연결 상태를 확인하지 못했어요', 'error'); return;
+          } finally { window.__naverCollectionChecking = false; }
           const btn = document.getElementById('advisorDailyRunBtn');
           if (btn) { btn.disabled = true; btn.textContent = '수집 중…(약 20초)'; }
           if (typeof window.mbSetBusy === 'function') window.mbSetBusy('daily', true);
           let collected = false;
           try {
-            const res = await window.electronAPI.invoke('advisor-daily-run-now', { blogId: window.__myBlogRecord?.blogId || '' });
+            const res = await window.electronAPI.invoke('advisor-daily-run-now', { blogId });
             collected = Boolean(res && res.success);
             if (collected) showToast('홈판 유입 실측을 새로 받았어요 — 이어서 오늘 쓸 글 10 을 다시 만듭니다', 'success');
+            else if (res?.skipped && res.reason === '이미 수집 중') showToast('통계를 수집하고 있어요. 완료되면 화면에 반영됩니다.', 'info');
             else showToast((res && (res.reason || res.error)) || '수집하지 못했어요', 'error');
           } catch (e) {
             showToast('수집하지 못했어요: ' + (e && e.message ? e.message : e), 'error');
@@ -11001,6 +11094,7 @@
           const before = window.__advisorTodayPlan && window.__advisorTodayPlan.builtAt;
           for (let i = 0; i < 18; i += 1) {
             await new Promise((r) => setTimeout(r, 20000));
+            if (blogId !== window.__myBlogRecord?.blogId || version !== (window.__mbViewVersion || 0)) break;
             await refreshAdvisorToday();
             const now = window.__advisorTodayPlan && window.__advisorTodayPlan.builtAt;
             if (now && now !== before && !(window.__mbBusy && window.__mbBusy.today)) break;
@@ -12344,6 +12438,7 @@
 
         window.selectMyBlog = async function selectMyBlog(blogId) {
           if (!blogId || Object.values(window.__mbBusy || {}).some(Boolean)) return;
+          if (typeof window.cancelNaverLoginFlow === 'function') window.cancelNaverLoginFlow();
           window.__mbViewVersion += 1;
           document.getElementById('dpBlogOpen').disabled = true;
           window.mbSetBusy('select', true);

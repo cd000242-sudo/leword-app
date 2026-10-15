@@ -288,14 +288,15 @@ export function readAdvisorDailyView(blogId?: string, includeHistory = false) {
     learningRecords: includeHistory ? records : undefined };
 }
 
-/** A stale selected blog gets a collection attempt on opening; login failures back off, never masquerade as current stats. */
-function refreshSelectedDaily(blogId: string): void {
+/** Check authentication first; opening a view must not create a failed collection before login. */
+async function refreshSelectedDaily(blogId: string): Promise<void> {
   if (!blogKey(blogId) || running) return;
   const view = readAdvisorDailyView(blogId);
   if (!view.freshness.stale && !view.freshness.incomplete) return;
   const lastAttempt = Date.parse(view.state.lastSkip?.at || view.state.lastResult?.at || '');
   if (Number.isFinite(lastAttempt) && Date.now() - lastAttempt < CHECK_EVERY_MS) return;
-  void runAdvisorDaily('scheduled', { blogId, respectDone: true }).catch((error) => console.warn('[ADVISOR-DAILY] 선택 블로그 갱신 실패:', error?.message));
+  if (!(await naverSessionStatus(blogId)).loggedIn) return;
+  await runAdvisorDaily('scheduled', { blogId, respectDone: true });
 }
 
 /** 0명 글 부검 재료(사이트 · 화면이 판정한다). */
@@ -305,8 +306,8 @@ export function readAdvisorAutopsyHistory() {
 
 export function setupAdvisorDailyHandlers(): void {
   if (!ipcMain.listenerCount('advisor-daily-view')) {
-    ipcMain.handle('advisor-daily-view', async (_event, payload?: { blogId?: string }) => {
-      if (payload?.blogId) refreshSelectedDaily(payload.blogId);
+    ipcMain.handle('advisor-daily-view', async (_event, payload?: { blogId?: string; deferRefresh?: boolean }) => {
+      if (payload?.blogId && !payload.deferRefresh) void refreshSelectedDaily(payload.blogId).catch((error) => console.warn('[ADVISOR-DAILY] 선택 블로그 갱신 보류:', error?.message));
       return { success: true, ...readAdvisorDailyView(payload?.blogId) };
     });
   }

@@ -61,17 +61,20 @@ function rememberChannels(ids: string[], partition: string): void {
   fs.writeFileSync(registryFile(), JSON.stringify(registry), 'utf8');
 }
 /** Validate channel ownership; cookie presence alone is not account identity. */
-async function resolveBlogSession(blogId: string): Promise<string | null> {
+async function resolveBlogSession(blogId: string, reportUnavailable = false): Promise<string | null> {
   const id = blogKey(blogId);
   if (!id) return null;
+  let unavailable = false;
   for (const partition of new Set([partitionForBlog(id), blogSessionPartition(id), NAVER_SESSION_PARTITION])) {
     if (!isNaverLoggedIn(await naverCookies(partition))) continue;
     try {
       const response = await advisorFetchInPartition('/accounts/channels', {}, partition);
+      if (![200, 401, 403].includes(response.status)) unavailable = true;
       const ids = response.status === 200 ? advisorBlogIds(response.body) : [];
       if (ids.includes(id)) { rememberChannels(ids, partition); return partition; }
-    } catch { /* Try the next existing session. */ }
+    } catch { unavailable = true; }
   }
+  if (unavailable && reportUnavailable) throw new Error('네이버 연결 상태를 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
   return null;
 }
 export async function connectedNaverBlogs(): Promise<string[]> {
@@ -125,13 +128,14 @@ export interface NaverSessionStatus {
 }
 
 export async function naverSessionStatus(blogId?: string): Promise<NaverSessionStatus> {
-  const resolved = blogId ? await resolveBlogSession(blogId) : NAVER_SESSION_PARTITION;
+  const resolved = blogId ? await resolveBlogSession(blogId, true) : NAVER_SESSION_PARTITION;
   const cookies = resolved ? await naverCookies(resolved) : [];
   const day = today();
   const lines = readProbeLines(day);
   return {
     loggedIn: isNaverLoggedIn(cookies),
-    windowOpen: !!resolved && !!accountWindows.get(resolved) && !accountWindows.get(resolved)!.isDestroyed(),
+    windowOpen: [...new Set([resolved, blogId ? blogSessionPartition(blogId) : NAVER_SESSION_PARTITION])]
+      .some((partition) => !!partition && !!accountWindows.get(partition) && !accountWindows.get(partition)!.isDestroyed()),
     probeFile: probeFile(day),
     capturedToday: lines.length,
     endpoints: summarizeProbeLines(lines),
