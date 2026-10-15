@@ -30,6 +30,7 @@ const NOT_CORE = new Set([
   '꿀팁', '리뷰', '기준', '가이드', '순위', '뜻', '차이', '장단점', '브랜드', '제품', '구매',
   '오는', '가는', '좋은', '많은', '같은', '위한', '대한', '통한', '보는', '쓰는', '입은', '입는', '먹는',
   '사는', '아는', '모든', '다른', '요즘', '이번', '올해', '지금', '우리', '내가', '제일', '가장',
+  '논란', '충격', '공개', '소식', '마지막', '사진', '반전', '고백', '팬들', '결혼', '별세',
 ]);
 
 const compact = (text: string): string => String(text || '').replace(/\s+/g, '').toLowerCase();
@@ -90,7 +91,7 @@ export interface ProfileSource {
 /** 내 크기 재기 기록에서 오늘 쓸 한 편이 쓸 것만 뽑는다. 순위를 잰 기록이 없으면 null. */
 export function buildProfile(record: ProfileSource | null): MyBlogProfile | null {
   const rows = record && Array.isArray(record.wonRows) ? record.wonRows : [];
-  if (rows.length === 0) return null;
+  if (!record || (rows.length === 0 && !record.snapshot?.declaredTopic && !record.topicProfile?.words?.length && !record.topicProfile?.recentWords?.length)) return null;
   const vocabulary: string[] = [];
   // ① 순위를 잰 검색어의 낱말이 먼저다 — 실제로 붙어 본 말이라 근거가 가장 가깝다.
   for (const row of rows) {
@@ -104,7 +105,7 @@ export function buildProfile(record: ProfileSource | null): MyBlogProfile | null
     : [];
   for (const entry of topicWords) {
     const word = String(entry && entry.word ? entry.word : '').trim();
-    if (word.length >= 2 && !vocabulary.includes(word)) vocabulary.push(word);
+    if (word.length >= 2 && !NOT_CORE.has(word) && !TITLE_EDGE_STOPS.has(word) && !vocabulary.includes(word)) vocabulary.push(word);
   }
   const topic = record && record.snapshot && record.snapshot.declaredTopic ? String(record.snapshot.declaredTopic) : null;
   return {
@@ -119,6 +120,23 @@ export function buildProfile(record: ProfileSource | null): MyBlogProfile | null
 export function sharesVocabulary(keyword: string, vocabulary: readonly string[]): boolean {
   const text = compact(keyword);
   return vocabulary.some((word) => word.length >= 2 && text.includes(word));
+}
+
+/** Broad source categories and generic hooks are not proof of a blog's subject. */
+export function fitsBlogTopic(candidate: { keyword: string; topic?: string; topicText?: string }, profile: MyBlogProfile): boolean {
+  const topic = compact(candidate.topic || '');
+  const mine = compact(profile.declaredTopic || '');
+  const text = candidate.keyword + ' ' + (candidate.topicText || '');
+  const overlap = sharesVocabulary(candidate.keyword, profile.vocabulary);
+  if (/스타|연예/.test(mine)) {
+    const personStory = /배우|가수|아이돌|연예인|방송|출연|열애|결별|이혼|컴백|복귀|인터뷰|소감/.test(text);
+    const otherSubject = /자동차|하이브리드|전기차|실연비|유지비|취득세|뮤지컬|공연|전시|티켓|예매|관람/.test(text);
+    if (otherSubject) return overlap && personStory;
+    if (topic && !/스타|연예|문화|방송|드라마|영화|음악|공연/.test(topic)) return false;
+    return overlap || /스타|연예/.test(topic) && !/문화/.test(topic) || personStory;
+  }
+  if (mine && topic && topic === mine) return true;
+  return overlap;
 }
 
 export interface Expansion {

@@ -295,6 +295,15 @@ for (const testFile of testFiles) {
  * 그래서 vitest 를 한 번 불러 같은 게이트 안에서 막는다.
  */
 const VITEST_SUITES = [
+    // 블로그별 로그인·추천 격리와 5분 갱신, 개인 실적 및 애드센스 근거(2.49.167)
+    'src/utils/__tests__/blog-profile-store.test.ts',
+    'src/utils/__tests__/naver-blog-accounts.test.ts',
+    'src/utils/__tests__/naver-account-isolation.test.ts',
+    'src/utils/__tests__/daily-pick-refresh.test.ts',
+    'src/utils/__tests__/my-blog-topic-guard.test.ts',
+    'src/utils/__tests__/performance-evidence.test.ts',
+    'src/utils/__tests__/adsense-keyword-context.test.ts',
+    'src/utils/__tests__/adsense-bench-service.test.ts',
     // 애드센스 고수 벤치마크(2026-10-07) — 검색용 제목 엔진 · 앱 전체판 서비스 · 제목 브리지(홈판 · 애드센스 종류)
     'src/utils/__tests__/adsense-title-engine.test.ts',
     'src/utils/__tests__/adsense-bench-service.test.ts',
@@ -520,6 +529,7 @@ const VITEST_SUITES = [
  * 2026-09-17 까지 이 자리가 없어서, 제휴 로그인 헬퍼 테스트 둘이 저장소에 있으면서도 아무 데서도 안 돌았다.
  */
 const NODE_TEST_FILES = [
+    'scripts/adsense-opportunity.test.cjs',
     // 애드센스 고수 벤치마크(2026-10-07) — 출처 고르기 · 수집 · 실측 · 제목 창고, 홈판 제목 동시 생성
     'scripts/adsense-benchmarks-sources.test.cjs',
     'scripts/adsense-benchmarks.test.cjs',

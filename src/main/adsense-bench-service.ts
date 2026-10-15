@@ -49,3 +49,41 @@ export function withCardTitles<T extends { candidates: any[] }>(board: T, id: st
 export function withCardMetrics<T extends { candidates: any[] }>(board: T, id: string, entry: { query: string; searchVolume: number | null; documentCount: number | null; bid: number | null; at: string }): T {
   return { ...board, candidates: board.candidates.map((c) => (c.id === id ? { ...c, metrics: { query: entry.query, searchVolume: entry.searchVolume, documentCount: entry.documentCount, bid: entry.bid, measuredAt: entry.at } } : c)) };
 }
+
+/** 재수집으로 실측을 잃지 않도록, 동일 소재만 이어 받는다. */
+export function retainBenchMetrics(board: any, previous: any): any {
+  const key = (c: any) => String(c.keyword || '').replace(/\s+/g, '').toLowerCase();
+  const old = new Map<string, any>();
+  for (const c of previous?.candidates || []) {
+    if (!key(c) || !c.metrics?.query) continue;
+    const prior = old.get(key(c));
+    if (!prior || (Date.parse(c.metrics.measuredAt) || 0) > (Date.parse(prior.metrics.measuredAt) || 0)) old.set(key(c), c);
+  }
+  return { ...board, candidates: board.candidates.map((c: any) => {
+    const prior = old.get(key(c));
+    return prior ? { ...c, metrics: { ...prior.metrics }, context: prior.context || null } : c;
+  }) };
+}
+
+/** 한 번에 최대 50개. 실패 카드도 넘겨 다음 소재를 분석하며, 카드마다 저장한다. */
+export async function measureBenchBatch(cards: any[], deps: {
+  now: number;
+  measure: (card: any) => Promise<boolean | void>;
+  progress?: (done: number, total: number) => void;
+}): Promise<{ measured: number; partial: number; failed: number; remaining: number }> {
+  const pending = cards.filter((c) => {
+    const m = c.metrics || {};
+    const age = deps.now - Date.parse(m.measuredAt);
+    const complete = m.query && [m.searchVolume, m.documentCount, m.bid].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0);
+    return !complete || !(age >= -300000 && age < 7 * 86400000);
+  });
+  // 실패한 첫 50개가 다음 실행도 독점하지 않도록, 아직 시도하지 않은 소재부터 진행한다.
+  pending.sort((a, b) => (Date.parse(a.measurementAttemptAt || a.metrics?.measuredAt) || 0) - (Date.parse(b.measurementAttemptAt || b.metrics?.measuredAt) || 0));
+  const targets = pending.slice(0, 50);
+  let measured = 0; let partial = 0; let failed = 0;
+  for (const c of targets) {
+    try { if (await deps.measure(c) === false) partial += 1; else measured += 1; } catch { failed += 1; }
+    deps.progress?.(measured + partial + failed, targets.length);
+  }
+  return { measured, partial, failed, remaining: pending.length - targets.length };
+}

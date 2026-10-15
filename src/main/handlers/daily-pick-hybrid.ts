@@ -21,6 +21,7 @@ const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v)
 
 /** daily-pick.ts Candidate 와 같은 모양(순환 import 를 피하려 여기서 모양만 맞춘다). */
 export interface HybridCandidate {
+  topicText?: string;
   keyword: string;
   source: any;
   topic: string;
@@ -63,7 +64,7 @@ export function fromBenchmark(declaredTopic: string | null): HybridCandidate[] {
     const keyword = headOf(c.keyword || c.title);
     if (keyword.length < 2 || isNotWritable(keyword)) continue;
     out.push({
-      keyword, source: '홈판 벤치마크', topic: declaredTopic || '', searchVolume: null, documentCount: null, facing: null, vacancy: null,
+      keyword, source: '홈판 벤치마크', topic: String(c.topic || c.category || ''), topicText: String(c.title || ''), searchVolume: null, documentCount: null, facing: null, vacancy: null,
       titles: (Array.isArray(c.homeTitles) ? c.homeTitles : []).slice(0, 2).map((t: string) => ({ label: '벤치마크 초안', text: String(t) })),
       related: [], why: `홈판 벤치마크 블로그 ${channels}곳이 같이 다룬 소재 — "${String(c.title || '').slice(0, 60)}"`,
       facts: [], whyNow: whyNowLine({ channels }),

@@ -26,6 +26,7 @@ import { EnvironmentManager } from '../../utils/environment-manager';
 import { measureMyRanks } from './blog-class-rank';
 import { buildEnvelope, buildNearBand, type BlogEnvelope, type WonRow } from '../../utils/blog-class/envelope';
 import { buildTopicProfile, type TopicProfile } from '../../utils/blog-class/topic-profile';
+import { blogKey, listBlogProfiles, saveBlogValue } from '../../utils/blog-class/profile-store';
 
 export const BLOG_CLASS_PROGRESS_CHANNEL = 'blog-class-progress';
 
@@ -37,6 +38,8 @@ const DEFAULT_SAMPLE = 50;
  */
 const PARTIAL_SAVE_MS = 6000;
 const MAX_SAMPLE = 200;
+let measuring = false;
+export const isBlogClassMeasuring = () => measuring;
 
 export interface BlogClassRecord {
   blogId: string;
@@ -79,13 +82,15 @@ function readLatest(): BlogClassRecord | null {
 }
 
 function writeRecord(record: BlogClassRecord): void {
+  listBlogProfiles(DIR()); // Preserve the previously selected blog before replacing latest.
   ensureDir(DIR());
   ensureDir(SNAPSHOT_DIR());
+  saveBlogValue(DIR(), record.blogId, record);
   fs.writeFileSync(LATEST(), JSON.stringify(record, null, 2), 'utf8');
   // 추이용 스냅샷은 글 목록을 뺀 가벼운 판으로 남긴다 — 날마다 쌓여도 폴더가 붓지 않는다.
   const { posts, ...light } = record;
   const day = record.measuredAt.slice(0, 10);
-  fs.writeFileSync(path.join(SNAPSHOT_DIR(), `${day}.json`), JSON.stringify(light, null, 2), 'utf8');
+  fs.writeFileSync(path.join(SNAPSHOT_DIR(), `${day}-${blogKey(record.blogId)}.json`), JSON.stringify(light, null, 2), 'utf8');
 }
 
 /** '9월 10일 05:12' — 화면 근거 문구에 그대로 쓴다. */
@@ -245,7 +250,7 @@ function forRenderer(record: BlogClassRecord | null) {
   // band — 30위 안에 붙어 본 검색량 범위. 화면의 '내 크기' 배지·거르개가 이 값으로 견준다(2026-09-15).
   // recentTitles — '내 블로그' 화면의 내 글 목록(2026-10-06 사장님 "내 크기를 재면 한 몸처럼"). 최근 15편만.
   const recentTitles = (posts || []).slice(0, 15).map((post) => ({ title: post.title, publishedOn: post.publishedOn, logNo: post.logNo }));
-  return { ...light, postsAvailable: posts.length, band: buildNearBand(light.wonRows || []), recentTitles };
+  return { ...light, postsAvailable: posts?.length ?? 0, postsMissing: !Array.isArray(posts), band: buildNearBand(light.wonRows || []), recentTitles };
 }
 
 /** 사이트 '내 블로그' 탭(브리지)이 읽는 마지막 기록 — 화면용 판 그대로(2026-09-30). */
@@ -259,6 +264,24 @@ export function readBlogClassForAssistant() {
 }
 
 export function setupBlogClassHandlers(): void {
+  if (!ipcMain.listenerCount('blog-class-list')) {
+    ipcMain.handle('blog-class-list', async () => ({
+      success: true,
+      selectedId: readLatest()?.blogId || null,
+      blogs: listBlogProfiles(DIR()).map((r) => ({ blogId: r.blogId, measuredAt: r.measuredAt })),
+    }));
+  }
+  if (!ipcMain.listenerCount('blog-class-select')) {
+    ipcMain.handle('blog-class-select', async (_event, payload?: { blogId?: string }) => {
+      if (measuring) return { success: false, error: '분석이 끝난 뒤 블로그를 변경해 주세요.' };
+      const id = blogKey(payload?.blogId);
+      const record = id && listBlogProfiles(DIR()).find((r) => blogKey(r.blogId) === id);
+      if (!record) return { success: false, error: '저장된 블로그를 찾지 못했어요. 먼저 내 크기를 재 주세요.' };
+      saveBlogValue(DIR(), record.blogId, record);
+      fs.writeFileSync(LATEST(), JSON.stringify(record, null, 2), 'utf8');
+      return { success: true, record: forRenderer(record) };
+    });
+  }
   if (!ipcMain.listenerCount('blog-class-get')) {
     ipcMain.handle('blog-class-get', async () => {
       const record = readLatest();
@@ -268,10 +291,12 @@ export function setupBlogClassHandlers(): void {
 
   if (!ipcMain.listenerCount('blog-class-measure')) {
     ipcMain.handle('blog-class-measure', async (event, payload?: { blogUrl?: string; sample?: number; withRanks?: boolean; maxRank?: number }) => {
+      if (measuring) return { success: false, error: '이미 블로그를 분석하고 있어요.' };
       const input = String(payload?.blogUrl || '').trim() || readLatest()?.blogId || '';
       if (!input) {
         return { success: false, error: '내 블로그 주소를 한 번만 넣어 주세요 (예: blog.naver.com/내아이디)' };
       }
+      measuring = true;
       try {
         const record = await measureBlogClass(input, {
           sample: payload?.sample,
@@ -284,6 +309,8 @@ export function setupBlogClassHandlers(): void {
         return { success: true, record: forRenderer(record) };
       } catch (error: any) {
         return { success: false, error: error?.message || '블로그를 읽지 못했어요' };
+      } finally {
+        measuring = false;
       }
     });
   }

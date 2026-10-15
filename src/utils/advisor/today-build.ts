@@ -22,6 +22,7 @@ export const TODAY_KEYWORD_COUNT = 10;
 export const TODAY_SEAT_MEASURE_CAP = 20;
 
 export interface TodayPlanDeps {
+  accepts?: (candidate: TodayKeywordRow) => boolean;
   /** 키워드 → 월간 검색량 실측(없으면 null). 키는 넣어 준 키워드 그대로. */
   searchVolume: (keywords: string[]) => Promise<Map<string, number | null>>;
   /** 키워드 → 자리 실측(못 잰 것은 null). */
@@ -74,7 +75,9 @@ async function attempt<T>(label: string, run: () => Promise<Map<string, T>>, not
 export async function buildTodayPlan(record: AdvisorDailyRecord, pattern: HomefeedDayPattern, deps: TodayPlanDeps, now: Date = new Date()): Promise<TodayPlan> {
   const notes: string[] = [];
   const time = todayTimeFacts(record, pattern);
-  const candidates = todayKeywordCandidates(record);
+  const allCandidates = todayKeywordCandidates(record);
+  const candidates = deps.accepts ? allCandidates.filter(deps.accepts) : allCandidates;
+  if (candidates.length < allCandidates.length) notes.push(`내 블로그 주제와 맞지 않는 후보 ${allCandidates.length - candidates.length}개 제외`);
   const homefeed = selectHomefeedExemplars(record);
   const base = { day: record.day, builtAt: now.toISOString(), channelId: record.channelId, candidatesTotal: candidates.length, time, homefeed, notes };
   if (candidates.length === 0) {

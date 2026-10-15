@@ -20,8 +20,10 @@ import {
   type AdvisorProbeResult,
 } from '../../utils/advisor/daily-summary';
 import { isWatchDue } from '../../utils/seat-watch';
-import { advisorFetch, naverSessionStatus } from './naver-session';
+import { advisorFetch, naverSessionStatus, connectedNaverBlogs } from './naver-session';
+import { advisorBlogIds } from '../../utils/naver-blog-accounts';
 import { collectAutopsyHistory, readAutopsyHistory } from './advisor-autopsy';
+import { blogKey, readBlogValue, saveBlogValue } from '../../utils/blog-class/profile-store';
 
 /** 워커 실측 월 검색량(키 없이 — 워커가 사장님 검색광고 키로 잰다). 응답 키는 띄어쓰기 없는 꼴. 100개 상한. */
 const KEYWORD_WORKER = 'https://leword-keyword-api.leword.workers.dev/';
@@ -68,6 +70,9 @@ const LATEST = () => path.join(DIR(), 'latest.json');
 const STATE = () => path.join(DIR(), 'state.json');
 
 interface DailyState {
+  blogId?: string;
+  attemptDay?: string;
+  attempts?: number;
   lastRunAt: string | null;
   lastResult: { day: string; posts: number; missing: number; at: string } | null;
   lastSkip: { reason: string; at: string } | null;
@@ -86,7 +91,11 @@ function writeJson(file: string, value: unknown): void {
   fs.writeFileSync(file, JSON.stringify(value, null, 2), 'utf8');
 }
 
-const readState = (): DailyState => readJson<DailyState>(STATE(), { lastRunAt: null, lastResult: null, lastSkip: null });
+const readState = (blogId?: string): DailyState => (blogId ? readBlogValue<DailyState>(path.join(DIR(), 'states'), blogId) : readJson<DailyState | null>(STATE(), null)) || { lastRunAt: null, lastResult: null, lastSkip: null };
+function writeState(state: DailyState, blogId?: string): void {
+  if (blogId) saveBlogValue(path.join(DIR(), 'states'), blogId, { ...state, blogId });
+  else writeJson(STATE(), state);
+}
 
 /** 날짜별 기록을 오래된 것부터. 파일명이 통계 날짜라 이름 정렬이 날짜 정렬이다. */
 export function readDailyRecords(): AdvisorDailyRecord[] {
@@ -108,10 +117,10 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function runProbes(specs: readonly AdvisorProbeSpec[], results: Record<string, AdvisorProbeResult>): Promise<void> {
+async function runProbes(specs: readonly AdvisorProbeSpec[], results: Record<string, AdvisorProbeResult>, blogId?: string): Promise<void> {
   for (const spec of specs) {
     try {
-      const { status, body } = await advisorFetch(spec.path);
+      const { status, body } = await advisorFetch(spec.path, {}, blogId);
       results[spec.key] = { status, body };
     } catch (error: any) {
       // 창구 하나가 막혀도 판은 만든다 — missing 에 이름이 남는다.
@@ -135,8 +144,8 @@ function pickPostIds(results: Record<string, AdvisorProbeResult>): string[] {
 let running = false;
 
 /** 수집이 끝난 직후 이어서 할 일(D 판 '오늘 쓸 글' 조립). 여기서 today 를 import 하면 순환이라 밖에서 건다. */
-let afterCollect: ((record: AdvisorDailyRecord) => void) | null = null;
-export function setAdvisorDailyAfterCollect(fn: ((record: AdvisorDailyRecord) => void) | null): void {
+let afterCollect: ((record: AdvisorDailyRecord) => void | Promise<void>) | null = null;
+export function setAdvisorDailyAfterCollect(fn: ((record: AdvisorDailyRecord) => void | Promise<void>) | null): void {
   afterCollect = fn;
 }
 
@@ -146,57 +155,74 @@ export type AdvisorDailyRunResult =
   | { success: false; skipped?: false; error: string };
 
 /** 한 번 돈다. 로그인 없음·이미 오늘 판 있음(respectDone)이면 건너뛴다. */
-export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: { respectDone?: boolean } = {}): Promise<AdvisorDailyRunResult> {
+export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: { respectDone?: boolean; blogId?: string } = {}): Promise<AdvisorDailyRunResult> {
   if (running) return { success: false, skipped: true, reason: '이미 수집 중' };
   const now = new Date();
   const day = yesterday(now);
-  if (options.respectDone && fs.existsSync(path.join(DIR(), `${day}.json`))) return { success: false, skipped: true, reason: `${day} 판이 이미 있음` };
+  const state = readState(options.blogId);
+  const attempts = state.attemptDay === day ? state.attempts || 0 : 0;
+  if (options.respectDone && attempts >= 3) return { success: false, skipped: true, reason: '오늘 자동 수집 재시도 3회 완료 — 수동 수집 가능' };
   const skip = (why: string): AdvisorDailyRunResult => {
-    writeJson(STATE(), { ...readState(), lastSkip: { reason: why, at: now.toISOString() } });
+    writeState({ ...readState(options.blogId), lastSkip: { reason: why, at: now.toISOString() } }, options.blogId);
     console.log(`[ADVISOR-DAILY] ${reason} 건너뜀 — ${why}`);
     return { success: false, skipped: true, reason: why };
   };
   running = true;
   try {
-    const session = await naverSessionStatus();
+    writeState({ ...state, attemptDay: day, attempts: attempts + 1 }, options.blogId);
+    const session = await naverSessionStatus(options.blogId);
     if (!session.loggedIn) return skip('네이버 로그인 전');
-    const channels = await advisorFetch('/accounts/channels');
-    const channelId = channels.status === 200 ? pickBlogChannelId(channels.body) : null;
+    const channels = await advisorFetch('/accounts/channels', {}, options.blogId);
+    const requested = blogKey(options.blogId);
+    const channelId = channels.status === 200 ? (requested ? advisorBlogIds(channels.body).find((id) => id === requested) || null : pickBlogChannelId(channels.body)) : null;
     if (!channelId) return skip(`블로그 채널을 못 읽음(${channels.status})`);
+    if (options.blogId !== undefined && blogKey(options.blogId) !== blogKey(channelId)) {
+      return skip('선택한 블로그 계정으로 네이버에 로그인한 뒤 수집해 주세요.');
+    }
 
     const ctx = { channelId, now };
+    const existing = readBlogValue<AdvisorDailyRecord>(DIR(), channelId, 'latest.json', 'channelId');
+    if (options.respectDone && existing?.day === day && existing.missing.length === 0) {
+      writeState({ ...readState(options.blogId), lastRunAt: now.toISOString() }, options.blogId);
+      return { success: false, skipped: true, reason: `${day} 수집 완료` };
+    }
     const results: Record<string, AdvisorProbeResult> = {};
-    await runProbes(baseProbes(ctx), results);
-    await runProbes(followUpProbes(ctx, { topics: pickTopics(results), postIds: pickPostIds(results) }), results);
+    await runProbes(baseProbes(ctx), results, options.blogId);
+    await runProbes(followUpProbes(ctx, { topics: pickTopics(results), postIds: pickPostIds(results) }), results, options.blogId);
     // 주제별 인기 검색어에 실측 월 검색량(워커 keyword-volumes · 키 없이 · 한 번에) — 실패해도 기록은 저장한다(2026-10-08)
     const record = await attachTopicVolumes(buildDailyRecord({ ...ctx, collectedAt: new Date() }, results), fetchWorkerVolumes);
 
     writeJson(path.join(DIR(), `${record.day}.json`), record);
+    const previous = readJson<AdvisorDailyRecord | null>(LATEST(), null);
+    if (blogKey(previous?.channelId)) saveBlogValue(DIR(), previous!.channelId, previous);
+    saveBlogValue(DIR(), record.channelId, record);
+    saveBlogValue(path.join(DIR(), 'history', record.day), record.channelId, record);
     writeJson(LATEST(), record);
     pruneOld(now);
-    writeJson(STATE(), {
-      ...readState(),
-      lastRunAt: new Date().toISOString(),
+    writeState({
+      ...readState(options.blogId),
+      lastRunAt: record.missing.length ? state.lastRunAt : new Date().toISOString(),
       lastResult: { day: record.day, posts: record.posts.length, missing: record.missing.length, at: new Date().toISOString() },
       lastSkip: null,
-    });
+    }, options.blogId);
     console.log(`[ADVISOR-DAILY] ${reason} 수집 끝 — ${record.day} · 글 ${record.posts.length} · 창구 ${Object.keys(results).length} · 못 받은 ${record.missing.length}`);
     // 0명 글 부검 재료 — 하루 기록은 이미 저장됐으니 여기서 실패해도 그대로 둔다.
     try {
       await collectAutopsyHistory({
         dir: DIR(),
         ctx,
-        records: readDailyRecords(),
-        probe: async (specs) => { const got: Record<string, AdvisorProbeResult> = {}; await runProbes(specs, got); return got; },
+        records: readDailyRecords().filter((r) => blogKey(r.channelId) === blogKey(channelId)),
+        probe: async (specs) => { const got: Record<string, AdvisorProbeResult> = {}; await runProbes(specs, got, options.blogId); return got; },
       });
     } catch (error: any) {
       console.warn('[ADVISOR-AUTOPSY] 부검 재료 수집 실패:', error?.message);
     }
     if (afterCollect) {
-      try { afterCollect(record); } catch (error: any) { console.warn('[ADVISOR-DAILY] 후속 작업 실패:', error?.message); }
+      try { await afterCollect(record); } catch (error: any) { console.warn('[ADVISOR-DAILY] 후속 작업 실패:', error?.message); }
     }
     return { success: true, record };
   } catch (error: any) {
+    writeState({ ...readState(options.blogId), lastSkip: { reason: error?.message || '수집 실패', at: new Date().toISOString() } }, options.blogId);
     console.warn('[ADVISOR-DAILY] 수집 실패:', error?.message);
     return { success: false, error: error?.message || '어드바이저 수집 실패' };
   } finally {
@@ -205,17 +231,22 @@ export async function runAdvisorDaily(reason: 'scheduled' | 'manual', options: {
 }
 
 let timer: NodeJS.Timeout | null = null;
+let scheduling = false;
 
 /** 10분마다 "돌 차례인가"만 본다 — 새벽 차례가 지난 뒤 처음 켜져 있을 때 한 번. */
 export function startAdvisorDailyScheduler(): void {
   if (timer) return;
-  const tick = () => {
+  const tick = async () => {
+    if (scheduling || running) return;
+    scheduling = true;
     try {
-      if (!isWatchDue(readState().lastRunAt, new Date(), ADVISOR_DAILY_RUN_HOUR)) return;
-      void runAdvisorDaily('scheduled', { respectDone: true });
+      for (const blogId of await connectedNaverBlogs()) {
+        if (!isWatchDue(readState(blogId).lastRunAt, new Date(), ADVISOR_DAILY_RUN_HOUR)) continue;
+        await runAdvisorDaily('scheduled', { respectDone: true, blogId });
+      }
     } catch (error: any) {
       console.warn('[ADVISOR-DAILY] 스케줄 확인 실패:', error?.message);
-    }
+    } finally { scheduling = false; }
   };
   timer = setInterval(tick, CHECK_EVERY_MS);
   timer.unref?.();
@@ -227,10 +258,26 @@ export function stopAdvisorDailyScheduler(): void {
 }
 
 /** 화면·브리지가 읽는 판: 최신 기록 + 쌓인 날들로 센 홈판 탄 날 패턴 + 상태. */
-export function readAdvisorDailyView() {
-  const records = readDailyRecords();
-  const latest = readJson<AdvisorDailyRecord | null>(LATEST(), null) ?? records[records.length - 1] ?? null;
-  return { latest, pattern: homefeedDayPattern(records), days: records.length, state: readState(), runHour: ADVISOR_DAILY_RUN_HOUR };
+export function readAdvisorDailyView(blogId?: string, includeHistory = false) {
+  let records = readDailyRecords();
+  if (blogId !== undefined) {
+    const key = blogKey(blogId);
+    records = records.filter((r) => key && blogKey(r.channelId) === key);
+    let days: string[] = [];
+    try { days = fs.readdirSync(path.join(DIR(), 'history')).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().slice(-KEEP_DAYS); } catch { /* first run */ }
+    const byDay = new Map(records.map((r) => [r.day, r]));
+    for (const day of days) {
+      const r = readBlogValue<AdvisorDailyRecord>(path.join(DIR(), 'history', day), blogId, 'latest.json', 'channelId');
+      if (r) byDay.set(r.day, r);
+    }
+    records = [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
+  }
+  const latest = (blogId !== undefined
+    ? readBlogValue<AdvisorDailyRecord>(DIR(), blogId, 'latest.json', 'channelId')
+    : readJson<AdvisorDailyRecord | null>(LATEST(), null)) ?? records[records.length - 1] ?? null;
+  if (latest && !records.some((r) => r.day === latest.day)) records.push(latest);
+  return { latest, pattern: homefeedDayPattern(records), days: records.length, state: readState(blogId), runHour: ADVISOR_DAILY_RUN_HOUR,
+    learningRecords: includeHistory ? records : undefined };
 }
 
 /** 0명 글 부검 재료(사이트 · 화면이 판정한다). */
@@ -240,10 +287,10 @@ export function readAdvisorAutopsyHistory() {
 
 export function setupAdvisorDailyHandlers(): void {
   if (!ipcMain.listenerCount('advisor-daily-view')) {
-    ipcMain.handle('advisor-daily-view', async () => ({ success: true, ...readAdvisorDailyView() }));
+    ipcMain.handle('advisor-daily-view', async (_event, payload?: { blogId?: string }) => ({ success: true, ...readAdvisorDailyView(payload?.blogId) }));
   }
   if (!ipcMain.listenerCount('advisor-daily-run-now')) {
-    ipcMain.handle('advisor-daily-run-now', async () => runAdvisorDaily('manual'));
+    ipcMain.handle('advisor-daily-run-now', async (_event, payload?: { blogId?: string }) => runAdvisorDaily('manual', { blogId: payload?.blogId }));
   }
   console.log('[ADVISOR-DAILY] ✅ 어드바이저 하루 수집 핸들러 등록 완료');
 }

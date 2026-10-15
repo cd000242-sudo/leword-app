@@ -875,7 +875,12 @@
           창구는 자리 실측기와 같은 blog-class-measure 하나다 — 판정이 두 갈래로 갈리면 안 된다.
         -->
         <div id="dpBlogRow" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 2px; padding: 10px 12px; border-radius: 10px; background: rgba(251,191,36,0.07); border: 1px solid rgba(251,191,36,0.22);">
-          <span style="font-size: 12.5px; color: #e2e8f0; font-weight: 600;">내 블로그</span>
+          <label for="dpBlogSelect" style="font-size: 12.5px; color: #e2e8f0; font-weight: 600;">내 블로그</label>
+          <select id="dpBlogSelect" onchange="selectMyBlog(this.value)" aria-label="저장된 내 블로그 선택"
+            style="flex:1; min-width:180px; max-width:100%; background:#0b1220; border:1px solid #fbbf24; border-radius:8px; padding:9px 12px; color:#f8fafc; font:inherit; font-size:13px; color-scheme:dark;">
+            <option value="">저장된 블로그가 없습니다</option>
+          </select>
+          <button id="dpBlogAdd" onclick="addMyBlog()" style="padding:8px 12px; border:1px solid #64748b; border-radius:8px; background:#1e293b; color:#f8fafc; cursor:pointer;">＋ 블로그 추가</button>
           <input id="dpBlogInput" placeholder="blog.naver.com/내아이디" autocomplete="off"
             style="flex: 1; min-width: 200px; background: #0b1220; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; padding: 7px 10px; color: #e2e8f0; font: inherit; font-size: 12.5px;">
           <select id="dpBlogSample" title="글은 전부 읽어 분야를 파악하고, 순위는 최근 이 수만큼만 잽니다. 많이 잴수록 오래 걸립니다."
@@ -897,6 +902,7 @@
         </div>
         <div id="dpStatus" style="font-size: 12.5px; color: #94a3b8; font-variant-numeric: tabular-nums;">불러오는 중…</div>
         <div id="dpProgress" style="font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums;"></div>
+        <div id="dpAutoStatus" style="margin-top:7px; font-size:12px; color:#67e8f9;">자동 추천 · 5분마다 새 후보 확인 · 변경 시 갱신</div>
       </div>
       <div id="dpFunnel" style="display: none; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;"></div>
       <div id="dpBody"></div>
@@ -920,7 +926,7 @@
             <h4 style="margin: 0; font-size: 14.5px; color: #ffffff;">📊 홈판 유입 실측</h4>
             <span id="advisorDailyMeta" style="font-size: 12px; color: #94a3b8;">불러오는 중…</span>
             <span style="flex: 1;"></span>
-            <button id="advisorDailyRunBtn" onclick="runAdvisorDailyNow()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">지금 수집</button>
+            <button id="advisorDailyRunBtn" onclick="runAdvisorDailyNow()" style="padding: 6px 11px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #e2e8f0; font-size: 12.5px; cursor: pointer;">지금 수집·분석</button>
           </div>
           <div id="advisorDailyBody" style="margin-top: 10px; font-size: 13px; color: #cbd5e1;"></div>
         </div>
@@ -1795,7 +1801,7 @@
         <button id="homefeedReloadBtn" onclick="loadHomefeedBoard()"
           style="padding: 10px 16px; background: #1e293b; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; color: #e2e8f0; font-size: 13px; cursor: pointer;">목록 새로고침</button>
         <button id="homefeedCollectBtn" onclick="homefeedCollectNow()"
-          style="padding: 10px 16px; background: #0ea5e9; border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; cursor: pointer;">지금 수집</button>
+          style="padding: 10px 16px; background: #0ea5e9; border: none; border-radius: 8px; color: white; font-size: 13px; font-weight: 600; cursor: pointer;">지금 수집·분석</button>
         <button id="homefeedBatchBtn" onclick="homefeedBatchBriefs()"
           style="padding: 10px 16px; background: #115e59; border: 1px solid #0f766e; border-radius: 8px; color: #ccfbf1; font-size: 13px; cursor: pointer;">후보 최대 3건 작성안 만들기</button>
       </div>
@@ -1840,7 +1846,7 @@
           <span style="font-size: 11px; color: #a16207; border: 1px solid rgba(251,191,36,0.35); border-radius: 5px; padding: 1px 6px;">관리자</span>
           <span style="font-size: 11.5px; color: #64748b;">토스 · 브랜드커넥트 목록을 받고 자리 · 글감을 잰 뒤 사이트에 발행합니다.</span>
           <span style="margin-left: auto; display: flex; gap: 6px;">
-            <button id="affiliateRunBtn" onclick="runAffiliateAdmin(false)" style="padding: 6px 12px; border: 0; border-radius: 7px; font-size: 12px; font-weight: 600; background: #fbbf24; color: #1a1200; cursor: pointer;">지금 수집</button>
+            <button id="affiliateRunBtn" onclick="runAffiliateAdmin(false)" style="padding: 6px 12px; border: 0; border-radius: 7px; font-size: 12px; font-weight: 600; background: #fbbf24; color: #1a1200; cursor: pointer;">지금 수집·분석</button>
             <button id="affiliateLoginBtn" onclick="runAffiliateAdmin(true)" style="padding: 6px 12px; border: 1px solid rgba(251,191,36,0.55); border-radius: 7px; font-size: 12px; font-weight: 600; background: rgba(251,191,36,0.1); color: #fde68a; cursor: pointer;">로그인 창 열고 수집</button>
           </span>
         </div>
@@ -2299,20 +2305,25 @@
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <div style="flex: 1 1 320px;">
               <div style="font-size: 10.5px; letter-spacing: 1.6px; font-weight: 800; color: #FFD700;">ADSENSE BENCHMARK · 앱 전용 전체판</div>
-              <h2 style="margin: 4px 0 6px; font-size: 21px; color: #fff;">애드센스 고수 벤치마크</h2>
-              <p style="margin: 0; font-size: 13px; color: #a8b6cb;">애드센스 고수 블로그 6,412곳(사장님 엑셀 전체)이 최근 7일 안에 쓴 글을 소재별로 모읍니다. 사이트는 786곳 · 1,000장까지, 앱은 엑셀 전체입니다 — 요즘 글을 쓰는 913곳은 매번, 쉬고 있는 곳은 300곳씩 돌아가며 읽습니다(티스토리 차단 예방).</p>
+              <h2 style="margin: 4px 0 6px; font-size: 21px; color: #fff;">고수에게서 찾는 황금키워드</h2>
+              <p style="margin: 0; font-size: 13px; color: #a8b6cb;">고수가 발행한 소재에서 검색 수요·문서 경쟁·광고 입찰가를 비교해 작성할 키워드를 먼저 찾으세요. 원문은 키워드를 고른 뒤 펼쳐 볼 수 있습니다.</p>
             </div>
-            <button type="button" id="adsBenchCollect" onclick="adsBenchCollect()" style="padding: 9px 16px; border-radius: 9px; border: 0; background: linear-gradient(135deg, #FFD700, #FFA500); color: #3b2a00; font-weight: 800; cursor: pointer;">지금 수집</button>
+            <button type="button" id="adsBenchCollect" onclick="adsBenchCollect()" style="padding: 9px 16px; border-radius: 9px; border: 0; background: linear-gradient(135deg, #FFD700, #FFA500); color: #3b2a00; font-weight: 800; cursor: pointer;">지금 수집·분석</button>
           </div>
           <div id="adsBenchMeta" style="margin-top: 10px; font-size: 12.5px; color: #94a3b8;">아직 수집하지 않았습니다 — [지금 수집]을 누르면 10~15분쯤 걸립니다(티스토리는 차단되지 않게 천천히 읽습니다).</div>
         </div>
+        <div style="margin-top: 10px; font-size: 12px; color: #94a3b8;">네이버 월 검색량·블로그 문서수·파워링크 입찰가를 이용한 조사 우선순위입니다. 구글 경쟁도·애드센스 CPC·수익을 뜻하지 않습니다. 고수 발행은 소재 선택의 참고 근거입니다.</div>
         <div id="adsBenchShape" style="margin-top: 12px;"></div>
         <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0;">
-          <button type="button" data-ads-mode="all" onclick="adsBenchSetMode('all')" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,.3); background: #152035; color: #cbd5e1; cursor: pointer;">전체</button>
+          <button type="button" data-ads-mode="all" onclick="adsBenchSetMode('all')" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,.3); background: #152035; color: #cbd5e1; cursor: pointer;">전체 키워드</button>
           <button type="button" data-ads-mode="star" onclick="adsBenchSetMode('star')" style="padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(148,163,184,.3); background: #152035; color: #cbd5e1; cursor: pointer;">★ 고수 3곳 이상</button>
+          <button type="button" data-ads-mode="gold" onclick="adsBenchSetMode('gold')" style="padding: 6px 12px; border-radius: 8px; border: 1px solid #9c7d28; background: #382d12; color: #fcd34d; cursor: pointer;">★ 황금 후보만</button>
+          <select id="adsBenchSort" aria-label="키워드 정렬" onchange="adsBenchRender()" style="padding: 6px 10px; border-radius: 8px; background: #101828; color: #fcd34d;"><option value="gold">황금키워드 우선</option><option value="recent">최근 발행순</option><option value="blogs">고수 발행 수순</option></select>
           <select id="adsBenchCategory" onchange="adsBenchRender()" style="padding: 6px 10px; border-radius: 8px; background: #101828; color: #e2e8f0; border: 1px solid rgba(148,163,184,.3);"><option value="">분야 전체</option></select>
           <input id="adsBenchQuery" type="search" placeholder="키워드·제목 검색" oninput="adsBenchRender()" style="flex: 1 1 200px; padding: 7px 11px; border-radius: 8px; background: #101828; color: #e2e8f0; border: 1px solid rgba(148,163,184,.3);" />
         </div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px;"><button type="button" id="adsBenchMeasureBatch" onclick="adsBenchMeasureBatch()" style="padding: 9px 14px; border: 1px solid #d7ad38; border-radius: 8px; background: #382d12; color: #fde68a; cursor: pointer;">미측정·오래된 키워드 50개 분석</button><button type="button" id="adsBenchContextBatch" onclick="adsBenchContext()" style="padding: 9px 14px; border: 1px solid #3b7999; border-radius: 8px; background: #102b3b; color: #a5e7ff; cursor: pointer;">상위 10개 맥락 분석 · 내 구독 AI</button><span id="adsBenchMeasureStatus" role="status" style="font-size: 12px; color: #94a3b8;">내 검색광고 API 사용 · 최근 7일 실측은 재사용</span></div>
+        <div id="adsBenchContextStatus" role="status" style="margin-bottom: 10px; color: #a5e7ff; font-size: 12px;"></div>
         <div id="adsBenchList" style="display: grid; gap: 12px;"></div>
         <button type="button" id="adsBenchMore" onclick="adsBenchMore()" style="display: none; margin: 14px auto 0; padding: 9px 22px; border-radius: 9px; border: 1px solid #2f6f5a; background: #10241d; color: #a7f3d0; cursor: pointer;">소재 더 보기</button>
       </section>
@@ -2326,28 +2337,52 @@
           function filtered() {
             const cat = (document.getElementById('adsBenchCategory') || {}).value || '';
             const q = String((document.getElementById('adsBenchQuery') || {}).value || '').replace(/\s+/g, '').toLowerCase();
-            return (board && board.candidates || []).filter((c) => (mode !== 'star' || c.recommended) && (!cat || c.category === cat)
-              && (!q || [c.keyword, c.title].concat((c.sources || []).map((s) => s.title)).join(' ').replace(/\s+/g, '').toLowerCase().includes(q)));
+            const items = (board && board.candidates || []).filter((c) => (mode !== 'star' || c.recommended) && (mode !== 'gold' || c.opportunity?.qualified) && (!cat || c.category === cat)
+              && (!q || [c.metrics?.query, c.keyword, c.title].concat((c.sources || []).map((s) => s.title)).join(' ').replace(/\s+/g, '').toLowerCase().includes(q)));
+            const sort = document.getElementById('adsBenchSort')?.value;
+            if (sort === 'recent') items.sort((a, b) => (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0));
+            if (sort === 'blogs') items.sort((a, b) => (b.opportunity?.blogs || 0) - (a.opportunity?.blogs || 0));
+            return items;
           }
-          function cardHtml(c) {
+          function contextHtml(c) {
+            const facts = c.contextFacts || { sources: [], recent24h: 0, blogCount: 0 };
+            const ctx = c.context;
+            const factLine = facts.sources.length ? '표시된 원문 중 최근 7일 ' + facts.sources.length + '편 · 블로그 ' + facts.blogCount + '곳 · 24시간 내 ' + facts.recent24h + '편' : '최근 7일 발행일을 확인할 수 있는 원문이 없습니다';
+            const section = (key, label) => {
+              const part = ctx[key];
+              const source = facts.sources.find((x) => x.id === part?.sourceId);
+              return '<div style="flex: 1 1 220px; min-width: 0;"><b style="color: #a5e7ff; font-size: 12px;">' + label + '</b><p style="margin: 5px 0; color: #dae5f1; font-size: 13px; line-height: 1.65; overflow-wrap: anywhere;">' + esc(part?.text) + '</p>'
+                + (source ? '<button type="button" data-ads-open="' + esc(source.url) + '" title="' + esc(source.title) + '" style="padding: 0; border: 0; background: none; text-align: left; color: #829bb5; font-size: 11px; cursor: pointer; overflow-wrap: anywhere;">근거 ↗ “' + esc(part.quote) + '” · ' + esc(source.name) + ' · ' + esc(day(source.publishedAt)) + '</button>' : '') + '</div>';
+            };
+            return '<div style="margin-top: 12px; padding: 12px 14px; border-radius: 10px; border-left: 3px solid #38bdf8; background: #0d2334;">'
+              + '<div style="font-size: 12px; color: #94b6cb; margin-bottom: 8px;"><b style="color: #67e8f9;">흐름 읽기</b> · 관측: ' + esc(factLine) + '</div>'
+              + (ctx ? '<div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px;">아래는 원문 제목에 근거한 AI 해석입니다. 실제 검색 상승 원인은 미확인입니다.</div><div style="display: flex; flex-wrap: wrap; gap: 16px;">' + section('whyNow', '왜 지금 검토하나') + section('readerIntent', '누가 · 왜 검색하나') + section('angle', '어떤 관점으로 쓰나') + '</div><details style="margin-top: 10px;"><summary style="font-size: 12px; color: #fcd34d; cursor: pointer;">작성 시점 · 먼저 확인할 것</summary><div style="padding-top: 8px;">' + section('nextCheck', '작성 / 보류 판단') + '</div></details>'
+                : '<div style="font-size: 12px; color: #a9b9ca;">' + (facts.sources.length ? '원문에서 부각된 변화와 독자의 다음 행동을 분석하면 여기에 표시합니다. 발행 수만으로 검색 급상승이라고 판단하지 않습니다.' : '발행 근거를 다시 수집한 뒤 흐름을 분석할 수 있습니다.') + '</div>' + (facts.sources.length ? '<button type="button" data-ads-context="' + esc(c.id) + '" style="margin-top: 8px; padding: 5px 9px; border: 1px solid #3b7999; border-radius: 6px; background: transparent; color: #a5e7ff; cursor: pointer;">이 키워드 맥락 분석</button>' : ''))
+              + '</div>';
+          }
+          function cardHtml(c, index) {
             const blogs = new Set((c.sources || []).map((s) => s.id)).size;
             const m = c.metrics || {};
+            const op = c.opportunity || { label: '분석 대기', reasons: [] };
             const titles = Array.isArray(c.titles) ? c.titles : [];
             const head = '<div style="display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; align-items: center;"><span style="padding: 2px 8px; border-radius: 5px; background: #124638; color: #a7f3d0; font-weight: 800;">' + esc(c.grade) + '등급 블로그</span>'
               + (c.recommended ? '<span style="color: #fcd34d; font-weight: 800;">★ 고수 ' + blogs + '곳</span>' : (blogs > 1 ? '<span style="color: #a5b4fc;">고수 ' + blogs + '곳</span>' : ''))
               + '<span style="color: #a5b4fc;">' + esc(c.category) + '</span><span style="margin-left: auto; color: #8296ae;">발행 ' + esc(day(c.publishedAt)) + '</span></div>';
             const metrics = '<div style="display: flex; gap: 6px 14px; flex-wrap: wrap; font-size: 12px; color: #94a3b8; align-items: center;"><b style="color: #e0e7ff;">' + esc(m.query || c.keyword) + '</b>'
-              + '<span>월 검색량 <b style="color: #cbd5e1;">' + num(m.searchVolume) + '</b></span><span>문서수 <b style="color: #cbd5e1;">' + num(m.documentCount) + '</b></span>'
+              + '<span>네이버 월 검색량 <b style="color: #cbd5e1;">' + num(m.searchVolume) + '</b></span><span>블로그 문서수 <b style="color: #cbd5e1;">' + num(m.documentCount) + '</b></span>'
               + '<span>파워링크 3위 입찰가 <b style="color: #cbd5e1;">' + (typeof m.bid === 'number' ? num(m.bid) + '원' : '미측정') + '</b></span>'
               + '<button type="button" data-ads-measure="' + esc(c.id) + '" style="padding: 2px 9px; border-radius: 6px; border: 1px solid #2f6f5a; background: #10241d; color: #a7f3d0; cursor: pointer;">' + (m.query ? '다시 재기' : '검색량 재기') + '</button></div>';
             const sources = '<div style="margin-top: 10px; display: grid; gap: 5px;">' + (c.sources || []).slice(0, 6).map((s) => '<div style="display: flex; gap: 8px; font-size: 12.5px;"><span style="color: #67e8f9; min-width: 18px;">' + esc(s.grade) + '</span><a href="#" data-ads-open="' + esc(s.url) + '" style="flex: 1; color: #e2e8f0; text-decoration: none;">' + esc(s.title) + '</a><span style="color: #8296ae;">' + esc(s.name) + '</span><button type="button" data-ads-outline="' + esc(s.url) + '" style="padding: 2px 8px; border-radius: 6px; border: 1px solid #33415a; background: transparent; color: #9fb3cc; font-size: 11.5px; cursor: pointer;">글 구조 보기</button></div><div data-ads-outline-box="' + esc(s.url) + '" style="display: none; margin: 2px 0 6px 26px; padding: 9px 11px; border: 1px solid #26324a; border-radius: 9px; background: rgba(15,23,42,0.55); font-size: 12px; color: #c7d2e0;"></div>').join('') + '</div>';
             const titleBox = titles.length
               ? '<div style="font-size: 11.5px; color: #a8b6cb; margin-bottom: 4px;">검색용 제목 ' + titles.length + '개</div>' + titles.map((t, ti) => '<div style="display: flex; gap: 8px; font-size: 13px; padding: 3px 0;"><span style="flex: 1; color: #f1f5f9;">' + esc(t) + ((Array.isArray(c.titleEdges) && c.titleEdges[ti]) ? '<span style="display: block; font-size: 11px; color: #fcd34d;">↑ ' + esc(c.titleEdges[ti]) + '</span>' : '') + '</span><button type="button" data-ads-copy="' + esc(t) + '" style="border: 0; background: none; color: #a8b6cb; cursor: pointer;">복사</button></div>').join('')
               : '<button type="button" data-ads-titles="' + esc(c.id) + '" style="padding: 6px 12px; border-radius: 8px; border: 0; background: #67e8f9; color: #0b1220; font-weight: 800; cursor: pointer;"' + (m.query ? '' : ' disabled title="먼저 [검색량 재기]로 대표 검색어를 실측해 주세요"') + '>검색용 제목 20개 만들기 · 내 구독 AI</button>';
-            return '<article style="padding: 16px 18px; border-radius: 13px; border: 1px solid ' + (c.recommended ? '#a98a48' : 'rgba(148,163,184,.22)') + '; background: #121b2c;">'
-              + head + '<h3 style="margin: 8px 0; font-size: 16px; color: #f1f5f9;">' + esc(c.title) + '</h3>' + metrics + sources
+            return '<article style="padding: 16px 18px; border-radius: 13px; border: 1px solid ' + (op.qualified ? '#a98a48' : 'rgba(148,163,184,.22)') + '; background: #121b2c;">'
+              + head + '<h3 style="margin: 8px 0; font-size: 19px; color: #f1f5f9;">' + (index + 1) + '. ' + esc(m.query || c.keyword) + '</h3>'
+              + '<div style="margin-bottom: 8px; color: #fcd34d; font-size: 12px;"><b>' + esc(c.competition?.label || op.label) + '</b>' + (typeof op.score === 'number' ? ' · 조사 우선점수 ' + op.score + '/100' : '') + ' · ' + esc((op.reasons || []).join(' · ')) + '</div>'
+              + metrics + '<div style="margin-top: 5px; color: #8296ae; font-size: 11px;">측정 ' + esc(m.measuredAt ? new Date(m.measuredAt).toLocaleString('ko-KR') : '대기') + '</div>'
+              + contextHtml(c) + '<details style="margin-top: 10px;"><summary style="cursor: pointer; color: #a5b4fc; font-size: 13px;">고수 원문 · 검색용 제목 펼치기</summary>' + sources
               + '<div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(148,163,184,.22);">' + titleBox
-              + '<small data-ads-note="' + esc(c.id) + '" style="display: block; margin-top: 4px; color: #fcd9aa;"></small></div></article>';
+              + '</div></details><small data-ads-note="' + esc(c.id) + '" style="display: block; margin-top: 4px; color: #fcd9aa;"></small></article>';
           }
           window.adsBenchRender = function adsBenchRender() {
             const list = document.getElementById('adsBenchList'); const more = document.getElementById('adsBenchMore');
@@ -2365,8 +2400,7 @@
             const cards = board.candidates || [];
             if (meta) meta.textContent = '수집 ' + new Date(board.generatedAt || board.attemptedAt).toLocaleString('ko-KR') + ' · 출처 ' + board.okCount + '/' + board.sourceCount + '곳 · 최근 ' + board.windowDays + '일 글 ' + Number(board.collectedPostCount || 0).toLocaleString('ko-KR') + '개 · 소재 ' + cards.length.toLocaleString('ko-KR') + '개(★ ' + cards.filter((c) => c.recommended).length + ')'
               + ((board.sources || []).some((s) => s.status === 'skipped') ? ' · 티스토리가 잠시 쉬어 가라고 해서 ' + (board.sources || []).filter((s) => s.status === 'skipped').length.toLocaleString('ko-KR') + '곳은 다음 수집에서 읽습니다' : '');
-            const s = board.trends && board.trends.titleShape;
-            if (shapeBox && s && s.count) shapeBox.innerHTML = '<div style="padding: 12px 14px; border-radius: 10px; background: rgba(167,139,250,.07); font-size: 12.5px; color: #d3def0;"><b style="color: #c4b5fd;">애드센스 고수는 이렇게 썼다 · 제목 ' + s.count.toLocaleString('ko-KR') + '개</b><div style="margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 16px;"><span>길이 중앙값 <b>' + s.lengthMedian + '자</b></span><span>숫자 <b>' + s.numberPct + '%</b></span><span>연도 <b>' + s.yearPct + '%</b></span><span>질문형 <b>' + s.questionPct + '%</b></span><span>괄호 <b>' + s.bracketPct + '%</b></span></div></div>';
+            if (shapeBox) shapeBox.innerHTML = '<div style="padding: 12px 14px; border-radius: 10px; background: rgba(255,215,0,.07); color: #e2e8f0; font-size: 13px;"><b style="color: #fcd34d;">★ 황금 후보 ' + cards.filter((c) => c.opportunity?.qualified).length + '개</b> · 실측 비교 ' + cards.filter((c) => c.opportunity?.score != null).length + '개 · 분석·재측정 대기 ' + cards.filter((c) => c.opportunity?.score == null).length + '개<details style="margin-top: 6px; color: #94a3b8; font-size: 12px;"><summary style="cursor: pointer;">우선순위 기준 보기</summary>최근 7일 실측 · 월 검색 100 이상 · 문서/검색 1배 이하 · 문서수 0 초과 · 입찰가 70원 이상 · 조사 점수 55 이상을 함께 통과해야 황금 후보입니다. 점수 비중: 검색 수요 30 · 문서 경쟁 40 · 광고 입찰가 20 · 고수 발행 10. 상위노출 확률이나 수익 보장 점수가 아닙니다.</details></div>';
             if (sel) {
               const counts = {}; cards.forEach((c) => { counts[c.category] = (counts[c.category] || 0) + 1; });
               const keep = sel.value;
@@ -2378,6 +2412,33 @@
           window.loadAdsenseBench = async function loadAdsenseBench() {
             try { const r = await window.electronAPI.invoke('adsense-bench-load'); if (r && r.board) { board = r.board; paint(); } } catch (e) { /* 판이 없으면 안내문 그대로 */ }
           };
+          window.adsBenchContext = async function adsBenchContext(id) {
+            const btn = document.getElementById('adsBenchContextBatch');
+            const status = document.getElementById('adsBenchContextStatus');
+            if (btn.disabled) return;
+            btn.disabled = true;
+            status.textContent = '원문 근거로 관심의 배경·검색 의도·작성 방향 분석 중… (내 구독 AI 사용, 최대 3분)';
+            try {
+              const r = await window.electronAPI.invoke('adsense-bench-context', id ? { id } : {});
+              status.textContent = r?.success ? '맥락 분석 ' + r.made + '개 반영' + (r.missing ? ' · 근거 부족 또는 재료 변경 ' + r.missing + '개는 보류했습니다' : ' · 이미 분석된 키워드는 재사용합니다') : (r?.error || '맥락 분석을 완료하지 못했습니다');
+              await window.loadAdsenseBench();
+            } catch (e) { status.textContent = '분석 연결을 확인해 주세요. 저장된 발행 근거는 계속 확인할 수 있습니다.'; }
+            finally { btn.disabled = false; }
+          };
+          window.adsBenchMeasureBatch = async function adsBenchMeasureBatch() {
+            const btn = document.getElementById('adsBenchMeasureBatch');
+            const status = document.getElementById('adsBenchMeasureStatus');
+            btn.disabled = true;
+            status.textContent = '분석 준비 중…';
+            const off = window.electronAPI.on?.('adsense-bench-measure-progress', (p) => { status.textContent = '분석 중 ' + p.done + '/' + p.total + ' · 완료 후 순위를 갱신합니다'; });
+            try {
+              const r = await window.electronAPI.invoke('adsense-bench-measure-batch');
+              status.textContent = r?.success ? '측정 완료 ' + r.measured + '개 · 일부 측정 ' + r.partial + '개 · 측정 실패 ' + r.failed + '개 · 다음 분석 대기 ' + r.remaining + '개' : (r?.error || '분석하지 못했습니다');
+              await window.loadAdsenseBench();
+              if (r?.success) await window.adsBenchContext();
+            } catch (e) { status.textContent = '분석 연결이 끊겼습니다. 저장된 결과를 다시 불러와 주세요.'; }
+            finally { if (typeof off === 'function') off(); btn.disabled = false; }
+          };
           window.adsBenchCollect = async function adsBenchCollect() {
             const btn = document.getElementById('adsBenchCollect'); const meta = document.getElementById('adsBenchMeta');
             if (btn) { btn.disabled = true; btn.textContent = '수집 중…'; }
@@ -2386,15 +2447,17 @@
               const r = await window.electronAPI.invoke('adsense-bench-collect');
               if (!r || !r.success) { if (meta) meta.textContent = '수집하지 못했습니다 — ' + ((r && r.error) || '알 수 없는 오류'); return; }
               await window.loadAdsenseBench();
+              await window.adsBenchMeasureBatch();
             } finally {
               if (typeof off === 'function') off();
-              if (btn) { btn.disabled = false; btn.textContent = '지금 수집'; }
+              if (btn) { btn.disabled = false; btn.textContent = '지금 수집·분석'; }
             }
           };
           document.addEventListener('click', async (event) => {
-            const el = event.target && event.target.closest ? event.target.closest('[data-ads-measure],[data-ads-titles],[data-ads-copy],[data-ads-open],[data-ads-outline]') : null;
+            const el = event.target && event.target.closest ? event.target.closest('[data-ads-context],[data-ads-measure],[data-ads-titles],[data-ads-copy],[data-ads-open],[data-ads-outline]') : null;
             if (!el) return;
             event.preventDefault();
+            if (el.hasAttribute('data-ads-context')) { await window.adsBenchContext(el.getAttribute('data-ads-context')); return; }
             if (el.hasAttribute('data-ads-outline')) {
               // 글 구조 보기 — 이 PC IP 가 티스토리에 막혀도 워커(다른 IP)가 읽어 온다(2026-10-07 사장님 "반드시 볼 수 있어야").
               const url = el.getAttribute('data-ads-outline');
@@ -10850,12 +10913,14 @@
           const el = document.getElementById('naverSessionState');
           if (!el) return;
           try {
-            const res = await window.electronAPI.invoke('naver-session-status');
+            const blogId = window.__myBlogRecord?.blogId;
+            const res = await window.electronAPI.invoke('naver-session-status', { blogId });
+            if (blogId !== window.__myBlogRecord?.blogId) return;
             if (!res || !res.success) { el.textContent = '네이버 로그인: 상태를 읽지 못했어요'; return; }
             const s = res.status;
             const captured = s.capturedToday > 0 ? ' · 오늘 잡힌 어드바이저 창구 ' + s.endpoints.length + '종(' + s.capturedToday + '건)' : '';
             el.textContent = s.loggedIn
-              ? '네이버 로그인: 되어 있어요' + captured + (s.windowOpen ? ' · 창 열림' : '')
+              ? (blogId || '기본 계정') + ' 로그인 연결됨 · 앱 실행 중 매일 통계 자동 수집' + captured + (s.windowOpen ? ' · 창 열림' : '')
               : '네이버 로그인: 안 되어 있어요. [네이버 로그인 창 열기]에서 직접 로그인해 주세요' + captured;
           } catch {
             el.textContent = '네이버 로그인: 상태를 읽지 못했어요';
@@ -10864,7 +10929,7 @@
 
         window.openNaverAdvisor = async function openNaverAdvisor() {
           try {
-            const res = await window.electronAPI.invoke('naver-session-open');
+            const res = await window.electronAPI.invoke('naver-session-open', { blogId: window.__myBlogRecord?.blogId });
             if (!res || !res.success) showToast((res && res.error) || '로그인 창을 열지 못했어요', 'error');
           } catch (e) {
             showToast('로그인 창을 열지 못했어요: ' + (e && e.message ? e.message : e), 'error');
@@ -10874,7 +10939,7 @@
 
         window.clearNaverSession = async function clearNaverSession() {
           try {
-            const res = await window.electronAPI.invoke('naver-session-clear');
+            const res = await window.electronAPI.invoke('naver-session-clear', { blogId: window.__myBlogRecord?.blogId });
             if (!res || !res.success) showToast((res && res.error) || '로그아웃하지 못했어요', 'error');
           } catch (e) {
             showToast('로그아웃하지 못했어요: ' + (e && e.message ? e.message : e), 'error');
@@ -10891,11 +10956,14 @@
           const body = document.getElementById('advisorDailyBody');
           if (!meta || !body) return;
           try {
-            const res = await window.electronAPI.invoke('advisor-daily-view');
+            const blogId = window.__myBlogRecord?.blogId || '';
+            const res = await window.electronAPI.invoke('advisor-daily-view', { blogId });
+            if (blogId !== (window.__myBlogRecord?.blogId || '')) return;
             if (!res || !res.success) { meta.textContent = '판을 읽지 못했어요'; return; }
             renderAdvisorDaily(res, meta, body);
             // 한 몸(2026-10-06): 내 글 목록이 이 기록으로 글마다 홈판 유입을 붙인다.
             window.__advisorDailyView = res;
+            if (!res.latest) meta.textContent = '선택한 블로그의 홈판 통계가 없습니다. 해당 블로그 계정으로 네이버 로그인 후 수집해 주세요.';
             if (typeof window.renderMyPosts === 'function') window.renderMyPosts();
             if (typeof window.renderMbSteps === 'function') window.renderMbSteps();
           } catch (e) {
@@ -10909,7 +10977,7 @@
           if (typeof window.mbSetBusy === 'function') window.mbSetBusy('daily', true);
           let collected = false;
           try {
-            const res = await window.electronAPI.invoke('advisor-daily-run-now');
+            const res = await window.electronAPI.invoke('advisor-daily-run-now', { blogId: window.__myBlogRecord?.blogId || '' });
             collected = Boolean(res && res.success);
             if (collected) showToast('홈판 유입 실측을 새로 받았어요 — 이어서 오늘 쓸 글 10 을 다시 만듭니다', 'success');
             else showToast((res && (res.reason || res.error)) || '수집하지 못했어요', 'error');
@@ -11011,11 +11079,14 @@
           const body = document.getElementById('advisorTodayBody');
           if (!meta || !body) return;
           try {
-            const res = await window.electronAPI.invoke('advisor-today-view');
+            const blogId = window.__myBlogRecord?.blogId || '';
+            const res = await window.electronAPI.invoke('advisor-today-view', { blogId });
+            if (blogId !== (window.__myBlogRecord?.blogId || '')) return;
             if (!res || !res.success) { meta.textContent = '판을 읽지 못했어요'; return; }
             window.__advisorTodayPlan = res.plan || null;
             if (typeof window.mbSetBusy === 'function') window.mbSetBusy('today', Boolean(res.running));
             renderAdvisorToday(res.plan, res.running, meta, body);
+            if (!res.plan) meta.textContent = '선택한 블로그의 오늘 쓸 글 10이 아직 없습니다. 해당 계정의 홈판 통계를 먼저 수집해 주세요.';
           } catch (e) {
             meta.textContent = '판을 읽지 못했어요: ' + (e && e.message ? e.message : e);
           }
@@ -11026,7 +11097,7 @@
           if (btn) { btn.disabled = true; btn.textContent = '만드는 중…(몇 분)'; }
           if (typeof window.mbSetBusy === 'function') window.mbSetBusy('today', true);
           try {
-            const res = await window.electronAPI.invoke('advisor-today-run-now');
+            const res = await window.electronAPI.invoke('advisor-today-run-now', { blogId: window.__myBlogRecord?.blogId || '' });
             if (res && res.success) showToast('오늘 쓸 글 판을 새로 만들었어요', 'success');
             else showToast((res && (res.reason || res.error)) || '판을 만들지 못했어요', 'error');
           } catch (e) {
@@ -11995,7 +12066,7 @@
           envLine.innerHTML = state.length > 0
             ? '<div style="font-family: ui-monospace, Consolas, monospace; font-size:9.5px; letter-spacing:.1em; color:#64748b; margin-bottom:4px;">지금 내 블로그</div>'
               + state.map((line) => '<div title="' + dpEsc(line.evidence) + '" style="margin:2px 0; color:#cbd5e1; cursor:help;">' + dpEsc(line.text) + '</div>').join('')
-            : '<span style="color:#f59e0b;">아직 내 블로그를 모릅니다 — 아래에 블로그 주소를 넣고 한 번 재면, 내 블로그가 붙어 본 말에서 오늘 쓸 것을 찾습니다.</span>';
+            : window.__myBlogRecord ? '' : '<span style="color:#f59e0b;">블로그 주소를 추가하고 한 번 분석하면, 다음부터 선택만으로 저장된 결과를 볼 수 있습니다.</span>';
           /*
            * 칸은 늘 자리에 둔다.
            *
@@ -12047,6 +12118,7 @@
         };
 
         window.dpMeasureMyBlog = async function dpMeasureMyBlog() {
+          if (Object.values(window.__mbBusy || {}).some(Boolean)) return;
           const input = document.getElementById('dpBlogInput');
           const btn = document.getElementById('dpBlogBtn');
           const prog = document.getElementById('dpBlogProgress');
@@ -12074,6 +12146,11 @@
             window.renderDailyPick();
             // 한 몸(2026-10-06): 잰 기록을 공유 상태에 두고 카드 · 내 글 · 진행 줄 · 오늘 쓸 글 10 배지를 같이 다시 그린다.
             window.__myBlogRecord = res.record;
+            dpView = { result: null, envelope: res.record?.envelope || null, blogState: null };
+            window.__advisorDailyView = null;
+            window.__advisorTodayPlan = null;
+            await window.refreshMyBlogSelector();
+            window.renderDailyPick();
             const box = document.getElementById('dpBlogResult');
             if (box) box.innerHTML = window.myBlogCardHtml(res.record);
             window.renderMyPosts();
@@ -12155,7 +12232,14 @@
             + '내 크기는 <b>' + mbEsc(rec.blogId) + '</b> 로 쟀는데, 홈판 유입 실측 · 오늘 쓸 글 10 은 네이버 로그인된 <b>' + mbEsc(other) + '</b> 기록이에요. '
             + '같은 블로그로 맞추려면 위 주소를 ' + mbEsc(other) + ' 로 바꿔 [내 크기 재기]를 하거나, 네이버 로그인을 ' + mbEsc(rec.blogId) + ' 계정으로 바꾸세요.</div>';
         }
-        window.mbSetBusy = function mbSetBusy(id, on) { window.__mbBusy = Object.assign({}, window.__mbBusy, { [id]: on }); window.renderMbSteps(); };
+        window.mbSetBusy = function mbSetBusy(id, on) {
+          window.__mbBusy = Object.assign({}, window.__mbBusy, { [id]: on });
+          const busy = Object.values(window.__mbBusy).some(Boolean);
+          ['dpBlogSelect', 'dpBlogAdd', 'dpBlogInput', 'dpBlogBtn', 'dpRunBtn', 'advisorDailyRunBtn', 'advisorTodayRunBtn'].forEach((id) => {
+            const el = document.getElementById(id); if (el) el.disabled = busy;
+          });
+          window.renderMbSteps();
+        };
 
         /** 내 블로그 카드 — 블로그 사실(plain-words 문장 그대로) + 내 크기 상자. 자리 실측기에 있던 카드를 여기로. */
         window.myBlogCardHtml = function myBlogCardHtml(record) {
@@ -12179,7 +12263,8 @@
           if (!box) return;
           const list = (rec && rec.recentTitles) || [];
           if (!list.length) { box.innerHTML = ''; return; }
-          const daily = window.__advisorDailyView && window.__advisorDailyView.latest;
+          const rawDaily = window.__advisorDailyView && window.__advisorDailyView.latest;
+          const daily = rawDaily && mbFlat(rawDaily.channelId) === mbFlat(rec?.blogId) ? rawDaily : null;
           const byTitle = new Map(((daily && daily.posts) || []).map((p) => [mbFlat(p.title), p]));
           const rows = list.map((p) => {
             const hit = byTitle.get(mbFlat(p.title));
@@ -12198,6 +12283,67 @@
             + '<div style="margin-top:6px; font-size:12.5px;">' + rows + '</div></details>';
         };
 
+        window.refreshMyBlogSelector = async function refreshMyBlogSelector() {
+          const res = await window.electronAPI.invoke('blog-class-list');
+          if (!res?.success) return;
+          const select = document.getElementById('dpBlogSelect');
+          const blogs = res.blogs || [];
+          if (select) {
+            select.innerHTML = blogs.length ? blogs.map((b) => '<option value="' + mbEsc(b.blogId) + '">' + mbEsc(b.blogId) + ' · ' + mbEsc(mbDay(b.measuredAt)) + ' 분석</option>').join('') : '<option value="">저장된 블로그가 없습니다</option>';
+            select.value = window.__myBlogRecord?.blogId || res.selectedId || '';
+          }
+          const input = document.getElementById('dpBlogInput');
+          if (input) {
+            input.style.display = blogs.length ? 'none' : '';
+            input.value = window.__myBlogRecord?.blogId ? 'blog.naver.com/' + window.__myBlogRecord.blogId : '';
+          }
+        };
+
+        window.addMyBlog = function addMyBlog() {
+          if (Object.values(window.__mbBusy || {}).some(Boolean)) return;
+          const input = document.getElementById('dpBlogInput');
+          if (input) { input.style.display = ''; input.value = ''; input.focus(); }
+          document.getElementById('dpBlogProgress').textContent = '추가할 블로그 주소를 입력하고 [내 크기 재기]를 누르세요. 기존 블로그 결과는 보관됩니다.';
+        };
+
+        window.selectMyBlog = async function selectMyBlog(blogId) {
+          if (!blogId || Object.values(window.__mbBusy || {}).some(Boolean)) return;
+          window.mbSetBusy('select', true);
+          const progress = document.getElementById('dpBlogProgress');
+          if (progress) progress.textContent = '저장된 블로그 결과를 불러오는 중…';
+          // Clear every dependent panel before awaiting IPC; never leave the previous account below the new selection.
+          window.__myBlogRecord = null;
+          window.__blogBand = null;
+          window.__advisorDailyView = null;
+          window.__advisorTodayPlan = null;
+          dpView = { result: null, envelope: null, blogState: null };
+          ['dpBlogResult', 'mbPosts', 'advisorDailyBody', 'advisorTodayBody', 'advisorDailyMeta', 'advisorTodayMeta'].forEach((id) => {
+            const el = document.getElementById(id); if (el) el.innerHTML = '';
+          });
+          window.renderDailyPick();
+          window.renderMbSteps();
+          try {
+            const res = await window.electronAPI.invoke('blog-class-select', { blogId });
+            if (!res?.success) throw new Error(res?.error || '블로그를 불러오지 못했습니다.');
+            await window.refreshMyBlogHub();
+            const pick = await window.electronAPI.invoke('daily-pick-get');
+            dpView = { result: pick?.result || null, envelope: pick?.envelope || null, blogState: pick?.blogState || null };
+            window.renderDailyPick();
+            await Promise.all([window.refreshAdvisorDaily(), window.refreshAdvisorToday()]);
+            if (typeof window.refreshNaverSession === 'function') void window.refreshNaverSession();
+            if (progress) progress.textContent = res.record?.postsMissing
+              ? '과거 분석 요약을 불러왔습니다. 글 목록과 새 추천을 갱신하려면 [내 크기 재기]를 눌러 주세요.'
+              : blogId + ' 저장된 분석 결과입니다. 최신 결과가 필요하면 [내 크기 재기]를 눌러 주세요.';
+          } catch (error) {
+            await window.refreshMyBlogHub();
+            const pick = await window.electronAPI.invoke('daily-pick-get').catch(() => null);
+            dpView = { result: pick?.result || null, envelope: pick?.envelope || null, blogState: pick?.blogState || null };
+            window.renderDailyPick();
+            await Promise.all([window.refreshAdvisorDaily(), window.refreshAdvisorToday()]);
+            if (progress) progress.textContent = String(error?.message || error);
+          } finally { window.mbSetBusy('select', false); }
+        };
+
         /** 내 블로그 판 전부 다시 그리기 — 저장된 기록을 읽어 카드 · 내 글 · 진행 줄 · 배지(window.__blogBand)를 채운다. */
         window.refreshMyBlogHub = async function refreshMyBlogHub() {
           try {
@@ -12205,7 +12351,9 @@
             window.__myBlogRecord = (saved && saved.success && saved.record) || null;
           } catch { window.__myBlogRecord = null; }
           const box = document.getElementById('dpBlogResult');
-          if (box && window.__myBlogRecord) box.innerHTML = window.myBlogCardHtml(window.__myBlogRecord);
+          window.__blogBand = window.__myBlogRecord?.band || null;
+          if (box) box.innerHTML = window.__myBlogRecord ? window.myBlogCardHtml(window.__myBlogRecord) : '';
+          await window.refreshMyBlogSelector();
           window.renderMyPosts();
           window.renderMbSteps();
           // 기록이 늦게 오면 고르기 판의 옛 '지금 내 블로그' 줄을 지운다(카드가 대신 보인다).
@@ -12214,7 +12362,7 @@
 
         window.loadDailyPick = async function loadDailyPick() {
           // 같은 화면의 다른 판들도 같이 연다 — 앱을 켜자마자 내 크기 배지 · 홈판 실측 · 오늘 쓸 글 10 이 차 있게.
-          void window.refreshMyBlogHub();
+          await window.refreshMyBlogHub();
           if (typeof window.refreshNaverSession === 'function') void window.refreshNaverSession();
           if (typeof window.refreshAdvisorDaily === 'function') void window.refreshAdvisorDaily();
           if (typeof window.refreshAdvisorToday === 'function') void window.refreshAdvisorToday();
@@ -12232,9 +12380,36 @@
             const input = document.getElementById('dpBlogInput');
             if (id && input && !input.value) input.value = 'blog.naver.com/' + id;
           } catch { /* 없으면 빈 칸으로 둔다 */ }
+          if (!window.__dpUiPoll) window.__dpUiPoll = setInterval(() => { void window.refreshDailyPickAuto(); }, 10000);
+          void window.refreshDailyPickAuto();
+        };
+
+        window.refreshDailyPickAuto = async function refreshDailyPickAuto() {
+          if (window.__dpUiPolling || Object.values(window.__mbBusy || {}).some(Boolean)) return;
+          const blogId = window.__myBlogRecord?.blogId;
+          if (!blogId) return;
+          window.__dpUiPolling = true;
+          try {
+            const res = await window.electronAPI.invoke('daily-pick-get');
+            if (!res?.success || window.__myBlogRecord?.blogId !== blogId) return;
+            if (res.result?.blogId && res.result.blogId !== blogId) return;
+            if (res.result?.builtAt !== dpView.result?.builtAt) {
+              dpView = { result: res.result || null, envelope: res.envelope || null, blogState: res.blogState || null };
+              window.renderDailyPick(); window.renderMbSteps();
+            }
+            const el = document.getElementById('dpAutoStatus');
+            const checked = res.refresh?.checkedAt;
+            const clock = checked ? new Date(checked).toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' }) : '아직 확인 전';
+            if (el) el.textContent = blogId + ' · ' + (window.__myBlogRecord?.snapshot?.declaredTopic || '내 글 주제')
+              + ' · 5분마다 후보 확인 · ' + (res.runningBlogId === blogId ? '추천 갱신 중…' : '최근 확인 ' + clock)
+              + (res.refresh?.error ? ' · 갱신 실패: ' + res.refresh.error + ' · 기존 결과 유지' : ' · 새 자료가 없으면 유지, 30분마다 재분석')
+              + (res.refresh?.sourceWarnings?.length ? ' · 일부 후보 자료는 지난 수집본 사용' : '');
+          } catch { /* Keep the last verified result while IPC reconnects. */ }
+          finally { window.__dpUiPolling = false; }
         };
 
         window.runDailyPick = async function runDailyPick() {
+          if (Object.values(window.__mbBusy || {}).some(Boolean)) return;
           const btn = document.getElementById('dpRunBtn');
           const prog = document.getElementById('dpProgress');
           if (!btn) return;

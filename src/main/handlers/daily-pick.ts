@@ -25,9 +25,15 @@
 import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createHash } from 'crypto';
+import { pickCheckDue, pickNeedsRebuild, PICK_CHECK_MS, type PickRefreshState } from '../../utils/daily-pick-refresh';
+import { keywordPerformance, performanceSupported } from '../../utils/blog-class/performance-evidence';
 import { buildNearBand, isWon, judgeRange, type BlogEnvelope, type NearBand, type WonRow } from '../../utils/blog-class/envelope';
+import { readBlogValue, saveBlogValue } from '../../utils/blog-class/profile-store';
+import { extractBlogId } from '../../utils/blog-class/naver-blog-facts';
 import {
   buildProfile,
+  fitsBlogTopic,
   coreWords,
   describeBlogState,
   interleave,
@@ -78,6 +84,7 @@ const flat = (v: unknown) => String(v || '').replace(/\s+/g, '').toLowerCase();
 export type PickSource = '내 블로그' | '오늘의 글감' | '선점 보드' | '추천키워드' | '유튜브' | '실시간 틈새' | '홈판 벤치마크' | '어드바이저 트렌드';
 
 export interface Candidate {
+  topicText?: string;
   keyword: string;
   source: PickSource;
   topic: string;
@@ -239,9 +246,9 @@ export function readBlogRecord(): any | null {
 }
 
 /** 내가 이미 쓴 검색어. 노출 추적이 들고 있는 목록 그대로. */
-export function readWritten(): Set<string> {
+export function readWritten(blogId?: string): Set<string> {
   const tracked = readJson<any[]>(U('exposure-tracking', 'tracked.json'), []);
-  return new Set(tracked.map((t) => flat(t?.keyword)).filter(Boolean));
+  return new Set(tracked.filter((t) => !blogId || extractBlogId(t?.postUrl || '')?.toLowerCase() === blogId.toLowerCase()).map((t) => flat(t?.keyword)).filter(Boolean));
 }
 
 export interface Gated {
@@ -285,7 +292,7 @@ export function gateWithStats(candidates: readonly Candidate[], profile: MyBlogP
     }
     const fromMyBlog = c.source === '내 블로그';
     const sameTopic = Boolean(profile && profile.declaredTopic && c.topic === profile.declaredTopic);
-    if (profile && !fromMyBlog && !sameTopic && !sharesVocabulary(c.keyword, profile.vocabulary)) {
+    if (profile && !fitsBlogTopic(c, profile)) {
       offTopic += 1;
       continue;
     }
@@ -586,6 +593,8 @@ async function withDocumentCounts(targets: readonly Gated[], say: (message: stri
 /* ────────────────────────────── 한 회차 ────────────────────────────── */
 
 export interface DailyPickResult {
+  topicGuardVersion?: number;
+  blogId?: string | null;
   builtAt: string;
   /** 봉투 기록(화면의 봉투 상자가 쓴다). 거르는 기준은 band 다. */
   envelope: BlogEnvelope | null;
@@ -613,17 +622,18 @@ let running = false;
 
 export async function runDailyPick(
   onProgress?: (p: { done: number; total: number; keyword: string; message: string }) => void,
+  selectedRecord?: any,
 ): Promise<DailyPickResult> {
   const started = Date.now();
   const say = (message: string, done = 0, total = 0, keyword = '') => {
     if (!onProgress) return;
     try { onProgress({ done, total, keyword, message }); } catch { /* 듣는 쪽 사정 */ }
   };
-  const record = readBlogRecord();
+  const record = selectedRecord === undefined ? readBlogRecord() : selectedRecord;
   const rows: WonRow[] = record && Array.isArray(record.wonRows) ? record.wonRows : [];
   const profile = buildProfile(record);
   const band = profile ? profile.band : null;
-  const written = readWritten();
+  const written = readWritten(record?.blogId);
 
   let myBlog: { candidates: Candidate[]; seeds: number } = { candidates: [], seeds: 0 };
   let myBlogNote: string | null = null;
@@ -642,7 +652,7 @@ export async function runDailyPick(
   const extra = [
     ...myBlog.candidates,
     ...(fromBenchmark(profile ? profile.declaredTopic : null) as Candidate[]),
-    ...(fromAdvisorTrend(readTodayPlan) as Candidate[]),
+    ...(fromAdvisorTrend(() => readTodayPlan(record?.blogId || '')) as Candidate[]),
   ];
   // 이모지 섞인 말('🎬 영화')과 검색량 모르는 틈새 · 유튜브 말은 뺀다 — 어휘 겹침만으로 연예 블로그에 'kaist dorm'이 섰다(실주행).
   const writable = (c: Candidate) => !isNotWritable(c.keyword) && !/[^\p{L}\p{N}\s·&+\-]/u.test(c.keyword)
@@ -654,8 +664,8 @@ export async function runDailyPick(
     const deps = await realMyBlogDeps();
     // 머리말은 판마다 번갈아(벤치마크 · 어드바이저 · 내 블로그). 앞 둘은 이미 내 분야 말이라 관문 전 후보에서 쓴다.
     const lanes = [
-      candidates.filter((c) => c.source === '홈판 벤치마크'),
-      candidates.filter((c) => c.source === '어드바이저 트렌드'),
+      stats.gated.map((g) => g.candidate).filter((c) => c.source === '홈판 벤치마크'),
+      stats.gated.map((g) => g.candidate).filter((c) => c.source === '어드바이저 트렌드'),
       stats.gated.map((g) => g.candidate).filter((c) => c.source === '내 블로그'),
     ];
     const heads: Candidate[] = [];
@@ -667,10 +677,17 @@ export async function runDailyPick(
     }, (message) => say(message), 10)) as Candidate[];
     say('각도마다 상위 글이 다뤘는지 미리 세는 중'); angles = (await rankAnglesByCoverage(angles)) as Candidate[];
   } catch { angles = []; }
-  const angleGated: Gated[] = angles.map((c) => ({ candidate: c, fitReason: judgeRange({ searchVolume: c.searchVolume, topic: c.topic }, band).reason, myTopic: true }));
+  const angleGated = gateWithStats(angles, profile, written).gated;
   const seenKw = new Set<string>();
   const merged = [...angleGated, ...stats.gated].filter((g) => { const k = flat(g.candidate.keyword); if (seenKw.has(k)) return false; seenKw.add(k); return true; });
-  const targets = await withDocumentCounts(merged.slice(0, MEASURE_CAP), (message) => say(message));
+  const { readAdvisorDailyView } = await import('./advisor-daily');
+  const history = record?.blogId ? readAdvisorDailyView(record.blogId, true).learningRecords || [] : [];
+  const supported = merged.map((g, index) => ({ g, index, evidence: record?.blogId ? keywordPerformance(g.candidate.keyword, record.blogId, history) : null }));
+  supported.sort((a, b) => Number(performanceSupported(b.evidence)) - Number(performanceSupported(a.evidence)) || a.index - b.index);
+  const ordered = supported.map(({ g, evidence }) => evidence ? { ...g, candidate: { ...g.candidate,
+    why: g.candidate.why + ` · 최근 14일 내 관련 글 ${evidence.articles}편 중 ${evidence.withHomefeed}편에서 홈판 유입 확인(${evidence.homefeedVisits}회)`
+      + (evidence.articles < 3 ? ' · 표본 부족, 참고만' : ' · 관측 기록이며 노출 확률은 아님') } } : g);
+  const targets = await withDocumentCounts(ordered.slice(0, MEASURE_CAP), (message) => say(message));
 
   const picks: Picked[] = [];
   const rejected: DailyPickResult['rejected'] = [];
@@ -722,6 +739,8 @@ export async function runDailyPick(
     }
   }
   const result: DailyPickResult = {
+    topicGuardVersion: 2,
+    blogId: record?.blogId || null,
     builtAt: new Date().toISOString(),
     titleNote,
     envelope: (record && record.envelope) || null,
@@ -739,13 +758,15 @@ export async function runDailyPick(
   };
   try {
     fs.mkdirSync(U('daily-pick'), { recursive: true });
+    if (result.blogId) saveBlogValue(U('daily-pick'), result.blogId, result);
     fs.writeFileSync(U('daily-pick', 'latest.json'), JSON.stringify(result, null, 1), 'utf8');
   } catch { /* 저장 못 해도 이번 결과는 준다 */ }
   return result;
 }
 
 /** 사이트가 발행한 판 두 개를 받아 둔다 — 앱이 아직 안 만든 판의 후보도 쓴다. */
-async function pullPublished(): Promise<void> {
+async function pullPublished(): Promise<string[]> {
+  const failed: string[] = [];
   const targets: Array<[string, string]> = [
     ['today-picks.json', 'https://leaderspro.kr/data/today-picks.json'],
     ['youtube-gap.json', 'https://leaderspro.kr/data/youtube-gap.json'],
@@ -756,10 +777,11 @@ async function pullPublished(): Promise<void> {
   for (const [name, url] of targets) {
     try {
       const res = await (globalThis as any).fetch(`${url}?t=${Date.now()}`, { signal: AbortSignal.timeout(20000) });
-      if (!res.ok) continue;
+      if (!res.ok) { failed.push(name); continue; }
       fs.writeFileSync(U('daily-pick', name), JSON.stringify(await res.json()), 'utf8');
-    } catch { /* 못 받으면 지난번 것으로 간다 */ }
+    } catch { failed.push(name); }
   }
+  return failed;
 }
 
 export function setupDailyPickHandlers(): void {
@@ -770,7 +792,10 @@ export function setupDailyPickHandlers(): void {
       return {
         success: true,
         running,
-        result: readJson<DailyPickResult | null>(U('daily-pick', 'latest.json'), null),
+        runningBlogId,
+        refresh: record?.blogId ? readBlogValue<PickRefreshState>(U('daily-pick', 'refresh'), record.blogId) : null,
+        intervalMs: PICK_CHECK_MS,
+        result: validSavedPick(record?.blogId),
         envelope: (record && record.envelope) || null,
         band,
         blogState: describeBlogState(record, band),
@@ -780,21 +805,65 @@ export function setupDailyPickHandlers(): void {
 
   if (!ipcMain.listenerCount('daily-pick-run')) {
     ipcMain.handle('daily-pick-run', async (event) => {
-      if (running) return { success: false, error: '이미 고르는 중입니다.' };
-      running = true;
-      try {
-        await pullPublished();
-        const result = await runDailyPick((p) => {
+      return refreshSelectedPick(true, (p) => {
           try { event.sender.send(DAILY_PICK_PROGRESS_CHANNEL, p); } catch { /* 창이 닫혔을 수 있다 */ }
-        });
-        return { success: true, result };
-      } catch (error: any) {
-        return { success: false, error: error?.message || '고르지 못했습니다' };
-      } finally {
-        running = false;
-      }
+      });
     });
   }
 
   console.log('[DAILY-PICK] ✅ 오늘 쓸 한 편 핸들러 등록 완료');
+}
+
+let runningBlogId: string | null = null;
+let refreshTimer: NodeJS.Timeout | null = null;
+let initialRefreshTimer: NodeJS.Timeout | null = null;
+function validSavedPick(blogId?: string): DailyPickResult | null {
+  const saved = blogId ? readBlogValue<DailyPickResult>(U('daily-pick'), blogId) : null;
+  return saved?.topicGuardVersion === 2 ? saved : null;
+}
+async function refreshSelectedPick(force: boolean, progress?: Parameters<typeof runDailyPick>[0]): Promise<any> {
+  if (running) return { success: false, error: '이미 추천을 갱신하고 있습니다.' };
+  const { isBlogClassMeasuring } = await import('./blog-class');
+  if (isBlogClassMeasuring()) return { success: false, error: '블로그 분석이 끝난 뒤 추천을 갱신합니다.' };
+  const record = readBlogRecord();
+  if (!record?.blogId || !buildProfile(record)) return { success: false, error: '내 블로그를 먼저 분석해 주세요.' };
+  const previous = readBlogValue<PickRefreshState>(U('daily-pick', 'refresh'), record.blogId);
+  if (!force && !pickCheckDue(previous, Date.now())) return { success: true, result: validSavedPick(record.blogId) };
+  // Recheck after the asynchronous import so manual and scheduled requests cannot overlap.
+  if (running) return { success: false, error: '이미 추천을 갱신하고 있습니다.' };
+  running = true;
+  runningBlogId = record.blogId;
+  const state: PickRefreshState = { ...previous, blogId: record.blogId, checkedAt: new Date().toISOString(), error: null };
+  try {
+    state.sourceWarnings = await pullPublished();
+    if (state.sourceWarnings.length === 3 && !force) throw new Error('새 후보 자료를 받지 못했습니다');
+    const { readTodayPlan } = await import('./advisor-today');
+    const fingerprint = createHash('sha256').update(JSON.stringify([record, gatherCandidates(),
+      readJson(U('daily-pick', 'homefeed-benchmarks.json'), null), readTodayPlan(record.blogId), [...readWritten(record.blogId)]] )).digest('hex');
+    const saved = validSavedPick(record.blogId);
+    if (!force && !pickNeedsRebuild(previous, fingerprint, !!saved, Date.now())) {
+      saveBlogValue(U('daily-pick', 'refresh'), record.blogId, state);
+      return { success: true, result: saved, unchanged: true };
+    }
+    const result = await runDailyPick(progress, record);
+    saveBlogValue(U('daily-pick', 'refresh'), record.blogId, { ...state, fingerprint, generatedAt: result.builtAt });
+    return { success: true, result };
+  } catch (error: any) {
+    state.error = error?.message || '추천 갱신에 실패했습니다.';
+    saveBlogValue(U('daily-pick', 'refresh'), record.blogId, state);
+    return { success: false, error: state.error };
+  } finally { running = false; runningBlogId = null; }
+}
+export function startDailyPickScheduler(): void {
+  if (refreshTimer) return;
+  const tick = () => { void refreshSelectedPick(false).catch((error) => console.warn('[DAILY-PICK] 자동 갱신 실패:', error?.message)); };
+  refreshTimer = setInterval(tick, 30_000);
+  refreshTimer.unref?.();
+  initialRefreshTimer = setTimeout(tick, 30_000);
+  initialRefreshTimer.unref?.();
+}
+export function stopDailyPickScheduler(): void {
+  if (refreshTimer) clearInterval(refreshTimer);
+  if (initialRefreshTimer) clearTimeout(initialRefreshTimer);
+  refreshTimer = null; initialRefreshTimer = null;
 }

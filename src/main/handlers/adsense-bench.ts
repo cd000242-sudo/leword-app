@@ -11,7 +11,9 @@
 import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import { collectAdsenseBench, selectAppRound, withCardMetrics, withCardTitles } from '../adsense-bench-service';
+import { collectAdsenseBench, selectAppRound, withCardMetrics, withCardTitles, retainBenchMetrics, measureBenchBatch } from '../adsense-bench-service';
+import { currentContext, generateContexts } from '../../utils/adsense-keyword-context';
+import { readBriefProvider } from '../topic-brief-preferences';
 
 const scriptsDir = () => path.join(app.getAppPath(), 'scripts');
 const storeFile = () => path.join(app.getPath('userData'), 'adsense-bench', 'latest.json');
@@ -25,7 +27,14 @@ function writeCursor(idleCursor: number): void {
 }
 
 function readBoard(): any | null {
-  try { return JSON.parse(fs.readFileSync(storeFile(), 'utf8')); } catch { return null; }
+  try {
+    const board = JSON.parse(fs.readFileSync(storeFile(), 'utf8'));
+    const { rankOpportunities } = require(path.join(scriptsDir(), 'adsense-benchmarks-core.cjs'));
+    return { ...board, candidates: rankOpportunities(board.candidates).map((c: any) => {
+      const { material, context } = currentContext(c);
+      return { ...c, contextFacts: material, context };
+    }) };
+  } catch { return null; }
 }
 function writeBoard(board: unknown): void {
   const file = storeFile();
@@ -46,14 +55,61 @@ async function searchAdConfig() {
 }
 
 let collecting = false;
+let measuring = false;
+let contextualizing = false;
+
+async function measureCard(card: any) {
+  const { searchAd, openApi } = await searchAdConfig();
+  if (!searchAd.accessLicense || !searchAd.secretKey || !searchAd.customerId) throw new Error('설정 · 키에서 네이버 검색광고 키와 고객 ID를 확인해 주세요');
+  const measure = require(path.join(scriptsDir(), 'adsense-benchmarks-measure.cjs'));
+  const { getNaverSearchAdKeywordVolume, getNaverSearchAdBidPairs } = await import('../../utils/naver-searchad-api');
+  const { getNaverBlogDocumentCount } = await import('../../utils/naver-blog-api');
+  const { bidKey } = await import('../../utils/money-keywords');
+  const candidates: string[] = measure.candidatesOf(card);
+  const volumes = new Map<string, number | null>();
+  for (const row of await getNaverSearchAdKeywordVolume(searchAd, candidates)) volumes.set(String(row.keyword).replace(/\s+/g, ''), row.totalSearchVolume);
+  const picked = measure.pickQuery(candidates, volumes);
+  if (!picked) throw new Error('이 소재 낱말로는 실측 검색량이 잡히지 않았습니다');
+  let documentCount: number | null = null;
+  try { documentCount = await getNaverBlogDocumentCount(picked.query, openApi.clientId ? { config: openApi } as any : {}); } catch { documentCount = null; }
+  let bid: number | null = null;
+  try { const pair = (await getNaverSearchAdBidPairs(searchAd, [picked.query])).get(bidKey(picked.query)); bid = pair ? (pair.mobile ?? pair.pc ?? null) : null; } catch { bid = null; }
+  const entry = { query: picked.query, searchVolume: picked.searchVolume, documentCount, bid, at: new Date().toISOString() };
+  writeBoard(withCardMetrics(readBoard(), card.id, entry));
+  return entry;
+}
 
 export function setupAdsenseBenchHandlers(): void {
   if (ipcMain.listenerCount('adsense-bench-load')) return;
 
   ipcMain.handle('adsense-bench-load', async () => ({ success: true, board: readBoard() }));
 
+  ipcMain.handle('adsense-bench-context', async (_event, payload?: { id?: string }) => {
+    if (contextualizing || collecting || measuring) return { success: false, error: '수집·분석 중입니다. 끝난 뒤 다시 실행해 주세요' };
+    contextualizing = true;
+    try {
+      const board = readBoard();
+      const cards = (board?.candidates || []).filter((c: any) => c.contextFacts?.sources?.length && !c.context && (!payload?.id || c.id === payload.id)).slice(0, 10);
+      if (!cards.length) return { success: true, made: 0, missing: 0 };
+      const { rows } = await generateContexts(cards, readBriefProvider(app.getPath('userData')));
+      const latest = readBoard();
+      if (!latest) throw new Error('판을 다시 불러와 주세요');
+      const contexts = new Map(rows.map((r) => [r.id, r.context]));
+      // 실행 중 소재나 실측이 바뀌었으면 이전 재료의 해석을 덮어쓰지 않는다.
+      let made = 0;
+      writeBoard({ ...latest, candidates: latest.candidates.map((c: any) => {
+        const context = contexts.get(c.id);
+        if (!context || c.contextFacts.fingerprint !== context.fingerprint) return c;
+        made += 1; return { ...c, context };
+      }) });
+      return { success: true, made, missing: cards.length - made };
+    } catch {
+      return { success: false, error: '원문에 근거한 해석을 만들지 못했습니다. AI 연결을 확인해 주세요. 확인된 발행 근거는 계속 표시됩니다.' };
+    } finally { contextualizing = false; }
+  });
+
   ipcMain.handle('adsense-bench-collect', async (event) => {
-    if (collecting) return { success: false, error: '이미 수집 중입니다 — 끝난 뒤 다시 눌러 주세요' };
+    if (collecting || measuring) return { success: false, error: '이미 수집 중입니다 — 끝난 뒤 다시 눌러 주세요' };
     collecting = true;
     try {
       const runner = require(path.join(scriptsDir(), 'adsense-benchmarks.cjs'));
@@ -65,7 +121,7 @@ export function setupAdsenseBenchHandlers(): void {
         loadSources: () => round.sources,
         collectAll: runner.collectAll,
         buildBoard: core.buildBoard,
-        save: (board) => writeBoard({ ...board, scope: 'adsense-benchmark-app' }),
+        save: (board) => writeBoard({ ...retainBenchMetrics(board, readBoard()), scope: 'adsense-benchmark-app' }),
         now: () => new Date().toISOString(),
         concurrency: 24,
         onProgress: (done, total) => {
@@ -83,31 +139,44 @@ export function setupAdsenseBenchHandlers(): void {
   });
 
   ipcMain.handle('adsense-bench-measure', async (_event, payload?: { id?: string }) => {
+    if (collecting || measuring) return { success: false, error: '수집·분석 중입니다. 끝난 뒤 다시 실행해 주세요' };
     const board = readBoard();
     const card = board?.candidates?.find((c: any) => c.id === payload?.id);
     if (!card) return { success: false, error: '소재를 찾지 못했습니다 — 판을 다시 수집해 주세요' };
     try {
-      const { searchAd, openApi } = await searchAdConfig();
-      if (!searchAd.accessLicense || !searchAd.secretKey) return { success: false, error: '설정 · 키에 네이버 검색광고 키를 넣으면 잽니다' };
-      const measure = require(path.join(scriptsDir(), 'adsense-benchmarks-measure.cjs'));
-      const { getNaverSearchAdKeywordVolume, getNaverSearchAdBidPairs } = await import('../../utils/naver-searchad-api');
-      const { getNaverBlogDocumentCount } = await import('../../utils/naver-blog-api');
-      const { bidKey } = await import('../../utils/money-keywords');
-      const candidates: string[] = measure.candidatesOf(card);
-      const volumes = new Map<string, number | null>();
-      for (const row of await getNaverSearchAdKeywordVolume(searchAd, candidates)) volumes.set(String(row.keyword).replace(/\s+/g, ''), row.totalSearchVolume);
-      const picked = measure.pickQuery(candidates, volumes);
-      if (!picked) return { success: false, error: '이 소재 낱말로는 실측 검색량이 잡히지 않았습니다(검색어를 지어내지 않습니다)' };
-      let documentCount: number | null = null;
-      try { documentCount = await getNaverBlogDocumentCount(picked.query, openApi.clientId ? { config: openApi } as any : {}); } catch { documentCount = null; }
-      let bid: number | null = null;
-      try { const pair = (await getNaverSearchAdBidPairs(searchAd, [picked.query])).get(bidKey(picked.query)); bid = pair ? (pair.mobile ?? pair.pc ?? null) : null; } catch { bid = null; }
-      const entry = { query: picked.query, searchVolume: picked.searchVolume, documentCount, bid, at: new Date().toISOString() };
-      writeBoard(withCardMetrics(readBoard() || board, card.id, entry));
+      measuring = true;
+      const entry = await measureCard(card);
       return { success: true, metrics: entry };
     } catch (error: any) {
       return { success: false, error: String(error?.message || error).slice(0, 200) };
-    }
+    } finally { measuring = false; }
+  });
+
+  ipcMain.handle('adsense-bench-measure-batch', async (event) => {
+    if (collecting || measuring) return { success: false, error: '수집·분석 중입니다. 끝난 뒤 다시 실행해 주세요' };
+    measuring = true;
+    try {
+      const board = readBoard();
+      if (!board?.candidates?.length) return { success: false, error: '먼저 소재를 수집해 주세요' };
+      const { searchAd } = await searchAdConfig();
+      if (!searchAd.accessLicense || !searchAd.secretKey || !searchAd.customerId) return { success: false, error: '설정 · 키에서 네이버 검색광고 키와 고객 ID를 확인해 주세요' };
+      const result = await measureBenchBatch(board.candidates, {
+        now: Date.now(),
+        measure: async (card) => {
+          try {
+            const m = await measureCard(card);
+            return [m.searchVolume, m.documentCount, m.bid].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0);
+          } finally {
+            const latest = readBoard();
+            if (latest) writeBoard({ ...latest, candidates: latest.candidates.map((c: any) => c.id === card.id ? { ...c, measurementAttemptAt: new Date().toISOString() } : c) });
+          }
+        },
+        progress: (done, total) => { if (!event.sender.isDestroyed()) event.sender.send('adsense-bench-measure-progress', { done, total }); },
+      });
+      return { success: true, ...result };
+    } catch (error: any) {
+      return { success: false, error: String(error?.message || error).slice(0, 200) };
+    } finally { measuring = false; }
   });
 
   /*

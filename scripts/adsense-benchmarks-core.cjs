@@ -346,4 +346,58 @@ function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = 
   };
 }
 
-module.exports = { categoryOf, isOffSeasonTitle, PLAIN_HEADERS, buildAllowlist, assertFeedUrl, postLink, fetchFeed, parseFeed, topicTokens, sameTopic, groupPosts, titleShape, buildBoard, MAX_CARDS, WINDOW_DAYS };
+/** 네이버 실측을 이용한 조사 우선순위. 구글 순위 확률 · 애드센스 CPC/수익 추정치가 아니다. */
+function opportunityOf(card, now = new Date().toISOString()) {
+  const m = card.metrics || {};
+  const valid = (n) => typeof n === 'number' && Number.isFinite(n) && n >= 0;
+  const age = Date.parse(now) - Date.parse(m.measuredAt);
+  const fresh = Number.isFinite(age) && age >= -300000 && age < 7 * DAY;
+  const blogs = new Set((card.sources || []).map((s) => s.id).filter(Boolean)).size;
+  const ratio = valid(m.searchVolume) && m.searchVolume > 0 && valid(m.documentCount) ? m.documentCount / m.searchVolume : null;
+  const complete = Boolean(m.query) && fresh && valid(m.searchVolume) && valid(m.documentCount) && valid(m.bid);
+  // 문서 0건은 API의 검색 실패일 수 있으므로 황금 후보로 올리지 않는다.
+  const score = complete ? Math.round(
+    30 * Math.min(1, Math.log10(1 + m.searchVolume) / 4)
+    + (m.documentCount > 0 && ratio !== null ? 40 / (1 + ratio) : 0)
+    + 20 * Math.min(1, Math.log10(1 + m.bid) / Math.log10(5001))
+    + 10 * Math.min(1, blogs / 5)
+  ) : null;
+  const qualified = complete && m.searchVolume >= 100 && m.documentCount > 0 && ratio <= 1 && m.bid >= 70 && score >= 55;
+  const stale = Boolean(m.query) && !fresh;
+  const state = qualified ? 'candidate' : complete ? 'measured' : stale ? 'stale' : m.query ? 'partial' : 'unmeasured';
+  const labels = { candidate: '★ 황금키워드 후보', measured: '실측 비교', partial: '추가 실측 필요', unmeasured: '분석 대기', stale: '재측정 필요' };
+  const reasons = [];
+  if (fresh && valid(m.searchVolume)) reasons.push(`네이버 월 검색 ${m.searchVolume.toLocaleString('ko-KR')}`);
+  if (fresh && ratio !== null) reasons.push(`블로그 문서/검색 ${ratio.toFixed(2)}배${m.documentCount === 0 ? ' · 0건 재확인' : ''}`);
+  if (fresh && valid(m.bid)) reasons.push(`광고 입찰가 ${m.bid.toLocaleString('ko-KR')}원`);
+  if (blogs) reasons.push(`고수 ${blogs}곳 발행 확인`);
+  if (stale) reasons.push('측정일이 없거나 7일이 지나 재확인이 필요합니다');
+  return { state, label: labels[state], qualified, score, ratio, blogs, reasons };
+}
+
+/** 정렬의 첫 기준은 수요 대비 문서 경쟁. 사이트 adsenseBenchmarkModel과 동일 규칙. */
+function adsenseCompetition(card, nowMs = Date.now()) {
+  const m = card?.metrics || {};
+  const positive = (n) => typeof n === 'number' && Number.isFinite(n) && n > 0;
+  const ratio = positive(m.searchVolume) && positive(m.documentCount) ? m.documentCount / m.searchVolume : null;
+  const age = nowMs - Date.parse(m.measuredAt);
+  if (!String(m.query || '').trim() || !Number.isFinite(age)) return { tier: 4, ratio, label: '실측 확인 필요' };
+  if (age < 0 || age >= 7 * 86400000) return { tier: 5, ratio, label: '재측정 필요' };
+  if (ratio === null) return { tier: 4, ratio, label: m.documentCount === 0 ? '문서 0건 재확인' : '실측 확인 필요' };
+  if (ratio > 5) return { tier: 3, ratio, label: '문서 경쟁 높음' };
+  if (m.searchVolume < 100) return { tier: 2, ratio, label: '검색 수요 적음' };
+  return ratio <= 1 ? { tier: 0, ratio, label: '낮은 문서 경쟁' } : { tier: 1, ratio, label: '문서 경쟁 비교' };
+}
+
+function rankOpportunities(cards, now = new Date().toISOString()) {
+  return (cards || []).map((c) => ({ ...c, opportunity: opportunityOf(c, now), competition: adsenseCompetition(c, Date.parse(now)) }))
+    .sort((a, b) => a.competition.tier - b.competition.tier
+      || (a.competition.ratio ?? Infinity) - (b.competition.ratio ?? Infinity)
+      || (b.metrics?.searchVolume || 0) - (a.metrics?.searchVolume || 0)
+      || (b.opportunity.score ?? -1) - (a.opportunity.score ?? -1)
+      || b.opportunity.blogs - a.opportunity.blogs
+      || (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0)
+      || String(a.id).localeCompare(String(b.id)));
+}
+
+module.exports = { adsenseCompetition, opportunityOf, rankOpportunities, categoryOf, isOffSeasonTitle, PLAIN_HEADERS, buildAllowlist, assertFeedUrl, postLink, fetchFeed, parseFeed, topicTokens, sameTopic, groupPosts, titleShape, buildBoard, MAX_CARDS, WINDOW_DAYS };

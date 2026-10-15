@@ -18,6 +18,8 @@ import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { blogKey, readJsonFile } from '../../utils/blog-class/profile-store';
+import { advisorBlogIds, blogSessionPartition } from '../../utils/naver-blog-accounts';
 import {
   ADVISOR_API_PREFIX,
   ADVISOR_HOME_URL,
@@ -41,6 +43,47 @@ const DIR = () => path.join(app.getPath('userData'), 'naver-session');
 const probeFile = (day: string) => path.join(DIR(), `probe-${day}.jsonl`);
 
 let advisorWindow: BrowserWindow | null = null;
+const accountWindows = new Map<string, BrowserWindow>();
+const registryFile = () => path.join(DIR(), 'accounts.json');
+function accountRegistry(): Record<string, string> { return readJsonFile<Record<string, string>>(registryFile()) || {}; }
+function partitionForBlog(blogId?: string): string {
+  if (!blogId) return NAVER_SESSION_PARTITION;
+  const id = blogKey(blogId);
+  if (!id) throw new Error('블로그 아이디를 확인해 주세요.');
+  const saved = accountRegistry()[id];
+  return saved === NAVER_SESSION_PARTITION || /^persist:naver-blog-[a-z0-9_-]+$/.test(saved || '') ? saved : blogSessionPartition(id);
+}
+function rememberChannels(ids: string[], partition: string): void {
+  if (!ids.length) return;
+  ensureDir();
+  const registry = accountRegistry();
+  for (const id of ids) registry[id] = partition;
+  fs.writeFileSync(registryFile(), JSON.stringify(registry), 'utf8');
+}
+/** Validate channel ownership; cookie presence alone is not account identity. */
+async function resolveBlogSession(blogId: string): Promise<string | null> {
+  const id = blogKey(blogId);
+  if (!id) return null;
+  for (const partition of new Set([partitionForBlog(id), blogSessionPartition(id), NAVER_SESSION_PARTITION])) {
+    if (!isNaverLoggedIn(await naverCookies(partition))) continue;
+    try {
+      const response = await advisorFetchInPartition('/accounts/channels', {}, partition);
+      const ids = response.status === 200 ? advisorBlogIds(response.body) : [];
+      if (ids.includes(id)) { rememberChannels(ids, partition); return partition; }
+    } catch { /* Try the next existing session. */ }
+  }
+  return null;
+}
+export async function connectedNaverBlogs(): Promise<string[]> {
+  // Discover the pre-existing login without copying cookies into another account.
+  try {
+    if (isNaverLoggedIn(await naverCookies())) {
+      const response = await advisorFetchInPartition('/accounts/channels', {}, NAVER_SESSION_PARTITION);
+      if (response.status === 200) rememberChannels(advisorBlogIds(response.body), NAVER_SESSION_PARTITION);
+    }
+  } catch { /* Saved profiles can still be checked independently. */ }
+  return Object.keys(accountRegistry()).filter((id) => !!blogKey(id));
+}
 
 function ensureDir(): void {
   try { fs.mkdirSync(DIR(), { recursive: true }); } catch { /* 이미 있으면 그만 */ }
@@ -69,8 +112,8 @@ function appendProbeLine(line: ProbeLine): void {
   fs.appendFileSync(probeFile(today()), JSON.stringify(line) + '\n', 'utf8');
 }
 
-async function naverCookies() {
-  return session.fromPartition(NAVER_SESSION_PARTITION).cookies.get({ domain: '.naver.com' });
+async function naverCookies(partition = NAVER_SESSION_PARTITION) {
+  return session.fromPartition(partition).cookies.get({ domain: '.naver.com' });
 }
 
 export interface NaverSessionStatus {
@@ -81,13 +124,14 @@ export interface NaverSessionStatus {
   endpoints: ReturnType<typeof summarizeProbeLines>;
 }
 
-export async function naverSessionStatus(): Promise<NaverSessionStatus> {
-  const cookies = await naverCookies();
+export async function naverSessionStatus(blogId?: string): Promise<NaverSessionStatus> {
+  const resolved = blogId ? await resolveBlogSession(blogId) : NAVER_SESSION_PARTITION;
+  const cookies = resolved ? await naverCookies(resolved) : [];
   const day = today();
   const lines = readProbeLines(day);
   return {
     loggedIn: isNaverLoggedIn(cookies),
-    windowOpen: !!advisorWindow && !advisorWindow.isDestroyed(),
+    windowOpen: !!resolved && !!accountWindows.get(resolved) && !accountWindows.get(resolved)!.isDestroyed(),
     probeFile: probeFile(day),
     capturedToday: lines.length,
     endpoints: summarizeProbeLines(lines),
@@ -164,27 +208,35 @@ function attachProbe(win: BrowserWindow): void {
 }
 
 /** 보이는 창을 하나만 띄운다. 이미 열려 있으면 앞으로 가져온다. */
-export function openAdvisorWindow(): void {
-  if (advisorWindow && !advisorWindow.isDestroyed()) {
-    advisorWindow.focus();
+export async function openAdvisorWindow(blogId?: string): Promise<void> {
+  const partition = blogId ? (await resolveBlogSession(blogId)) || blogSessionPartition(blogId) : NAVER_SESSION_PARTITION;
+  const existing = accountWindows.get(partition);
+  if (existing && !existing.isDestroyed()) {
+    existing.focus();
     return;
   }
-  const ses = session.fromPartition(NAVER_SESSION_PARTITION);
+  const ses = session.fromPartition(partition);
   ses.setUserAgent(browserLikeUserAgent(app.userAgentFallback));
   const win = new BrowserWindow({
     width: 1240,
     height: 900,
-    title: '네이버 로그인 · 크리에이터 어드바이저 (LEWORD 실측)',
+    title: `네이버 로그인 · ${blogId || '기본 계정'} · 크리에이터 어드바이저`,
     autoHideMenuBar: true,
     webPreferences: {
-      partition: NAVER_SESSION_PARTITION,
+      partition,
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
     },
   });
   advisorWindow = win;
-  win.on('closed', () => { advisorWindow = null; });
+  accountWindows.set(partition, win);
+  win.on('closed', () => {
+    if (advisorWindow === win) advisorWindow = null;
+    accountWindows.delete(partition);
+    if (blogId) void resolveBlogSession(blogId).catch(() => undefined);
+  });
+  win.webContents.on('did-finish-load', () => { if (blogId) void resolveBlogSession(blogId).catch(() => undefined); });
   attachProbe(win);
   win.loadURL(ADVISOR_HOME_URL).catch((error: any) => {
     console.warn('[NAVER-SESSION] 어드바이저 화면을 열지 못했다:', error?.message);
@@ -195,8 +247,11 @@ export function openAdvisorWindow(): void {
  * 로그인 세션(쿠키)으로 어드바이저 `/api/v6` 창구를 직접 부른다 — 창을 띄우지 않는다.
  * 0단계 실측용이자 1단계 수집기의 바탕. 응답은 문자열 그대로(해석은 부르는 쪽).
  */
-export async function advisorFetch(pathAndQuery: string, extraHeaders: Record<string, string> = {}): Promise<{ status: number; body: string; signed: boolean }> {
-  const ses = session.fromPartition(NAVER_SESSION_PARTITION);
+export async function advisorFetch(pathAndQuery: string, extraHeaders: Record<string, string> = {}, blogId?: string): Promise<{ status: number; body: string; signed: boolean }> {
+  return advisorFetchInPartition(pathAndQuery, extraHeaders, partitionForBlog(blogId));
+}
+async function advisorFetchInPartition(pathAndQuery: string, extraHeaders: Record<string, string>, partition: string): Promise<{ status: number; body: string; signed: boolean }> {
+  const ses = session.fromPartition(partition);
   ses.setUserAgent(browserLikeUserAgent(app.userAgentFallback));
   // 화면은 요청마다 instanceId(세션당 UUID) 를 붙이고, 계정 창구가 그 요청에 서명 비밀을 심는다 — 같은 값을 계속 쓴다.
   // Referer 는 화면 주소여야 한다 — 루트 `/` 면 서명이 맞아도 403이고, 내 채널 창구(integrated-analysis·inflow-analysis·
@@ -235,25 +290,27 @@ async function advisorSecret(ses: Electron.Session): Promise<string | null> {
   return advisorSecretFromCookie(cookies[0]?.value);
 }
 
-export async function clearNaverSession(): Promise<void> {
-  if (advisorWindow && !advisorWindow.isDestroyed()) advisorWindow.close();
-  await session.fromPartition(NAVER_SESSION_PARTITION).clearStorageData();
+export async function clearNaverSession(blogId?: string): Promise<void> {
+  const partition = partitionForBlog(blogId);
+  const win = accountWindows.get(partition);
+  if (win && !win.isDestroyed()) win.close();
+  await session.fromPartition(partition).clearStorageData();
 }
 
 export function setupNaverSessionHandlers(): void {
   if (!ipcMain.listenerCount('naver-session-status')) {
-    ipcMain.handle('naver-session-status', async () => {
+    ipcMain.handle('naver-session-status', async (_event, payload?: { blogId?: string }) => {
       try {
-        return { success: true, status: await naverSessionStatus() };
+        return { success: true, status: await naverSessionStatus(payload?.blogId) };
       } catch (error: any) {
         return { success: false, error: error?.message || '로그인 상태를 읽지 못했어요' };
       }
     });
   }
   if (!ipcMain.listenerCount('naver-session-open')) {
-    ipcMain.handle('naver-session-open', async () => {
+    ipcMain.handle('naver-session-open', async (_event, payload?: { blogId?: string }) => {
       try {
-        openAdvisorWindow();
+        await openAdvisorWindow(payload?.blogId);
         return { success: true };
       } catch (error: any) {
         return { success: false, error: error?.message || '로그인 창을 열지 못했어요' };
@@ -261,9 +318,9 @@ export function setupNaverSessionHandlers(): void {
     });
   }
   if (!ipcMain.listenerCount('naver-session-clear')) {
-    ipcMain.handle('naver-session-clear', async () => {
+    ipcMain.handle('naver-session-clear', async (_event, payload?: { blogId?: string }) => {
       try {
-        await clearNaverSession();
+        await clearNaverSession(payload?.blogId);
         return { success: true };
       } catch (error: any) {
         return { success: false, error: error?.message || '로그아웃하지 못했어요' };

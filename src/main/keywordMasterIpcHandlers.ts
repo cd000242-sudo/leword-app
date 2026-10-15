@@ -27,7 +27,7 @@ import { registerHomefeedHandlers } from './handlers/homefeed-handlers';
 import { setupTopicBriefsLocalHandlers, startTopicBriefsScheduler, stopTopicBriefsScheduler } from './handlers/topic-briefs-local';
 import { setupPreemptionBoardHandlers } from './handlers/preemption-board';
 import { setupGoldenLocalHandlers, startGoldenLocalScheduler, stopGoldenLocalScheduler } from './handlers/golden-local';
-import { setupDailyPickHandlers } from './handlers/daily-pick';
+import { setupDailyPickHandlers, startDailyPickScheduler, stopDailyPickScheduler } from './handlers/daily-pick';
 import { setupPostPlanHandlers, startPostPlanScheduler } from './handlers/post-plan';
 import { setupAdsenseBenchHandlers } from './handlers/adsense-bench';
 import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handlers/realtime-niche';
@@ -106,6 +106,7 @@ function stopBackgroundWorkers(): void {
 
 /** 앱을 닫을 때 내 판 타이머도 같이 멈춘다 — 성능 모드와는 무관하다. */
 export function stopMyLaneSchedulers(): void {
+  stopDailyPickScheduler();
   stopSeatWatchScheduler();
   stopAdvisorDailyScheduler();
   stopRealtimeNicheScheduler();
@@ -223,6 +224,7 @@ export function setupKeywordMasterHandlers() {
   startGoldenLocalScheduler();
   // 오늘 쓸 한 편(앱 전용, 2026-09-11) — 여섯 판 600여 후보를 봉투·자리로 걸러 셋으로.
   setupDailyPickHandlers();
+  startDailyPickScheduler();
   // 글 한 편 유입 설계실(앱 전용, 2026-10-06) — 키워드 하나로 이길 수 있나 · 제목 · 사람들이 물은 것 · 돈.
   setupPostPlanHandlers();
   setupAdsenseBenchHandlers();

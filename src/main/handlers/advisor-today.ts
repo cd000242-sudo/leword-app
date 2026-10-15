@@ -10,6 +10,8 @@
 import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import { blogKey, readBlogValue, saveBlogValue } from '../../utils/blog-class/profile-store';
+import { buildProfile, fitsBlogTopic } from '../../utils/blog-class/my-blog-lane';
 import { buildTodayPlan, type TodayPlan, type TodayPlanDeps } from '../../utils/advisor/today-build';
 import type { AdvisorDailyRecord } from '../../utils/advisor/daily-summary';
 import type { TodaySeat } from '../../utils/advisor/today-plan';
@@ -33,11 +35,23 @@ function readPlan(): TodayPlan | null {
 }
 
 /** 마지막으로 만든 판 — 사이트 동기화 브리지가 읽는다. 없으면 null. */
-export function readTodayPlan(): TodayPlan | null {
-  return readPlan();
+export function readTodayPlan(blogId?: string): TodayPlan | null {
+  const latest = readPlan();
+  if (blogId === undefined) return latest;
+  const saved = readBlogValue<TodayPlan>(path.join(path.dirname(FILE()), 'plans'), blogId, 'latest.json', 'channelId')
+    ?? (blogKey(blogId) && blogKey(latest?.channelId) === blogKey(blogId) ? latest : null);
+  const profile = buildProfile(readBlogValue<any>(path.join(app.getPath('userData'), 'blog-class'), blogId));
+  if (!saved || !profile) return saved;
+  const keywords = saved.keywords.filter((k) => fitsBlogTopic(k, profile));
+  const keys = new Set(keywords.map((k) => k.keyword));
+  return { ...saved, keywords, titles: saved.titles.status === 'ok' ? { ...saved.titles, items: saved.titles.items.filter((i) => keys.has(i.keyword)) } : saved.titles };
 }
 
 function writePlan(plan: TodayPlan): void {
+  const dir = path.join(path.dirname(FILE()), 'plans');
+  const previous = readPlan();
+  if (blogKey(previous?.channelId)) saveBlogValue(dir, previous!.channelId, previous);
+  saveBlogValue(dir, plan.channelId, plan);
   fs.mkdirSync(path.dirname(FILE()), { recursive: true });
   fs.writeFileSync(FILE(), JSON.stringify(plan, null, 2), 'utf8');
 }
@@ -110,13 +124,15 @@ export type AdvisorTodayRunResult =
 /** 최신 하루 기록으로 판을 만든다. 기록이 없으면 건너뛴다(먼저 수집). */
 export async function runAdvisorToday(record?: AdvisorDailyRecord): Promise<AdvisorTodayRunResult> {
   if (running) return { success: false, skipped: true, reason: '이미 만드는 중' };
-  const view = readAdvisorDailyView();
+  const view = readAdvisorDailyView(record?.channelId);
   const base = record ?? view.latest;
   if (!base) return { success: false, skipped: true, reason: '하루 기록이 아직 없음 — 먼저 수집' };
   running = true;
   const t0 = Date.now();
   try {
-    const plan = await buildTodayPlan(base, view.pattern, realDeps());
+    const profile = buildProfile(readBlogValue<any>(path.join(app.getPath('userData'), 'blog-class'), base.channelId));
+    const deps = realDeps();
+    const plan = await buildTodayPlan(base, view.pattern, { ...deps, accepts: profile ? (row) => fitsBlogTopic(row, profile) : undefined });
     writePlan(plan);
     const titleCount = plan.titles.status === 'ok' ? plan.titles.items.reduce((n, item) => n + item.titles.length, 0) : 0;
     console.log(`[ADVISOR-TODAY] 판 완성 — ${plan.day} 바탕 · 후보 ${plan.candidatesTotal} · 검색량 ${plan.measured.searchVolume} · 자리 ${plan.measured.seat} · 제목 ${titleCount} · ${Math.round((Date.now() - t0) / 1000)}초${plan.notes.length ? ` · ${plan.notes.join(' / ')}` : ''}`);
@@ -130,12 +146,23 @@ export async function runAdvisorToday(record?: AdvisorDailyRecord): Promise<Advi
 }
 
 export function setupAdvisorTodayHandlers(): void {
-  setAdvisorDailyAfterCollect((record) => { void runAdvisorToday(record); });
+  setAdvisorDailyAfterCollect(async (record) => { await runAdvisorToday(record); });
   if (!ipcMain.listenerCount('advisor-today-view')) {
-    ipcMain.handle('advisor-today-view', async () => ({ success: true, plan: readPlan(), running }));
+    ipcMain.handle('advisor-today-view', async (_event, payload?: { blogId?: string }) => {
+      const id = payload?.blogId;
+      const plan = readTodayPlan(id);
+      return { success: true, plan, running };
+    });
   }
   if (!ipcMain.listenerCount('advisor-today-run-now')) {
-    ipcMain.handle('advisor-today-run-now', async () => runAdvisorToday());
+    ipcMain.handle('advisor-today-run-now', async (_event, payload?: { blogId?: string }) => {
+      if (payload?.blogId !== undefined) {
+        const record = readAdvisorDailyView(payload.blogId).latest;
+        if (!record) return { success: false, reason: '선택한 블로그의 홈판 통계를 먼저 수집해 주세요.' };
+        return runAdvisorToday(record);
+      }
+      return runAdvisorToday();
+    });
   }
   console.log('[ADVISOR-TODAY] ✅ 오늘 쓸 글 판 핸들러 등록 완료');
 }

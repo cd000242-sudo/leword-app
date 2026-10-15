@@ -3,9 +3,37 @@
  * 사이트 판은 786곳 · 1,000장 상한, 앱은 엑셀 6,412곳 전부 · 카드 상한 없음 — 사장님 PC 에서 돈다.
  */
 import { describe, expect, it } from 'vitest';
-import { collectAdsenseBench, selectAppRound, withCardTitles, withCardMetrics } from '../../main/adsense-bench-service';
+import { collectAdsenseBench, selectAppRound, withCardTitles, withCardMetrics, retainBenchMetrics, measureBenchBatch } from '../../main/adsense-bench-service';
 
 const board = (n: number) => ({ schemaVersion: 1, candidates: Array.from({ length: n }, (_, i) => ({ id: 'c' + i, keyword: 'k' + i, titles: [] as string[], metrics: { searchVolume: null, documentCount: null, bid: null } })) });
+
+describe('황금 후보 일괄 분석', () => {
+  const now = Date.parse('2026-10-15T03:00:00Z');
+  it('최대 50개, 최근 완전 실측은 건너뛰며 실패·부분 실측을 구분한다', async () => {
+    const cards: any[] = board(53).candidates;
+    cards[0].metrics = { query: 'x', measuredAt: new Date(now).toISOString(), searchVolume: 300, documentCount: 500, bid: 100 };
+    const seen: string[] = []; const progress: number[] = [];
+    const result = await measureBenchBatch(cards, { now, measure: async (c) => { seen.push(c.id); if (c.id === 'c1') throw new Error('network'); return c.id !== 'c2'; }, progress: (done) => progress.push(done) });
+    expect(seen.length).toBe(50);
+    expect(seen).not.toContain('c0');
+    expect(result).toEqual({ measured: 48, partial: 1, failed: 1, remaining: 2 });
+    expect(progress[progress.length - 1]).toBe(50);
+  });
+  it('한번 실패한 소재가 미시도 소재의 다음 분석을 막지 않는다', async () => {
+    const cards = board(51).candidates.map((c, i) => ({ ...c, measurementAttemptAt: i < 50 ? new Date(now).toISOString() : undefined }));
+    const seen: string[] = [];
+    await measureBenchBatch(cards, { now, measure: async (c) => { seen.push(c.id); } });
+    expect(seen[0]).toBe('c50');
+  });
+  it('재수집한 같은 소재에만 실측을 보존한다', () => {
+    const previous = withCardMetrics(board(1), 'c0', { query: 'k0', searchVolume: 500, documentCount: 100, bid: 200, at: new Date(now).toISOString() });
+    const fresh = board(2); fresh.candidates[0].id = 'new-id';
+    const out = retainBenchMetrics(fresh, previous);
+    expect(out.candidates[0].metrics.query).toBe('k0');
+    expect(out.candidates[1].metrics.searchVolume).toBeNull();
+    expect(fresh.candidates[0].metrics.searchVolume).toBeNull();
+  });
+});
 
 describe('앱 애드센스 벤치마크 서비스', () => {
   it('전체 출처를 모아 카드 상한 없이(무한) 판을 만들고 저장한다 · 진행을 알린다', async () => {
