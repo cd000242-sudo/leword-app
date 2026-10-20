@@ -69,9 +69,9 @@ jobs:
           node scripts/adsense-benchmarks-measure.cjs
           --board site/spa/public/data/adsense-benchmarks.json
           --cache site/data/adsense-measure-cache.json
-          --max 60
+          --max 110
       # 지금 쓰면 트래픽이 오나(2026-10-20) — 대표 검색어의 데이터랩 주별 실측으로 판정(지금 오르는 중 · 곧 시즌 · 꾸준함 · 식는 중 · 피크 지남).
-      # 데이터랩 하루 한도 때문에 회차당 25(하루 8회=200, 다른 작업과 1,000 한도 공유) · 3일 기억. 실패해도 판은 그대로 나간다.
+      # 데이터랩 하루 한도 때문에 회차당 검색어 200 = 데이터랩 40호출(5개씩 묶음, 하루 8회=320호출 — 다른 작업과 1,000 한도 공유) · 3일 기억. 실패해도 판은 그대로 나간다.
       - name: Judge demand now
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
@@ -82,7 +82,7 @@ jobs:
           node scripts/adsense-benchmarks-trend.cjs
           --board site/spa/public/data/adsense-benchmarks.json
           --cache site/data/adsense-trend-cache.json
-          --max 25
+          --max 200
       # 회차당 20장(사장님 결정 2026-10-07: 홈판 40 → 20, 줄인 만큼 애드센스 20). 실측 대표 검색어가 있는 카드만.
       - name: 소재별 검색용 제목 20개 생성·부착
         env:

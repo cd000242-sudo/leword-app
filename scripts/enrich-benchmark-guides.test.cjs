@@ -5,7 +5,7 @@
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { cardsForGuides, pruneStore, pickGuideTargets, generateGuides, mergeStore, coverage, suggestionsFor, MISS_RETRY_MS, GRACE_MS } = require('./enrich-benchmark-guides.js');
+const { cardsForGuides, pruneStore, pickGuideTargets, generateGuides, mergeStore, coverage, suggestionsFor, kinQuestionsFor, MISS_RETRY_MS, GRACE_MS } = require('./enrich-benchmark-guides.js');
 
 const now = Date.parse('2026-10-10T09:00:00.000Z');
 const iso = (ms) => new Date(ms).toISOString();
@@ -101,4 +101,29 @@ test('자동완성을 물을 말 — 애드센스 판은 대표 검색어(metric
   const cards = cardsForGuides({ candidates: [card('a', { keyword: '근로장려금 기한 받습니다', metrics: { query: '근로장려금 기한후신청' } }), card('b')] });
   assert.equal(cards[0].suggestQuery, '근로장려금 기한후신청');
   assert.equal(cards[1].suggestQuery, '키워드 b');
+});
+
+// 2026-10-20 사장님 "지식인에서 문제점을 보고 그걸 해결해 주는 글" — 애드센스 안내는 지식인 질문을 재료로 넣고, 질문 3개(링크)를 안내와 함께 저장한다.
+test('enrich 가 붙인 지식인 질문이 AI 재료로 가고, 저장 칸 kinQuestions 로 남는다', async () => {
+  const seen = [];
+  const cards = [{ id: 'a', keyword: '기초연금 모의계산', urls: ['u1'], suggestQuery: '기초연금 모의계산' }];
+  const enrich = async () => ({ kinQuestions: [{ title: '모의계산 처음 할 때', summary: '재산', views: 10 }], kinStore: [{ title: '모의계산 처음 할 때', link: 'https://kin.naver.com/qna/detail.naver?docId=1', views: 10 }] });
+  const result = await generateGuides(cards, {
+    batchSize: 3, concurrency: 1, budgetMs: 60000, rules: 'r', suggest: async () => [], enrich,
+    guidesFor: async (batch) => { seen.push(...batch); return { provider: 'p', results: [{ id: 'a', guide: { direction: 'd', searchTargets: [], mustInclude: ['x', 'y'], mustAvoid: [], checkBefore: [] } }] }; },
+  });
+  assert.equal(seen[0].kinQuestions[0].title, '모의계산 처음 할 때');
+  assert.equal(result.made[0].kinQuestions[0].link, 'https://kin.naver.com/qna/detail.naver?docId=1');
+});
+
+test('kinQuestionsFor — 워커 지식인 검색에서 질문 5개(재료) · 3개(저장, 링크 포함)', async () => {
+  const fake = async (url, init) => {
+    assert.deepEqual(JSON.parse(init.body), { action: 'kin-search', query: '기초연금 모의계산', limit: '5' });
+    return { json: async () => ({ ok: true, questions: Array.from({ length: 6 }, (_, i) => ({ title: `질문${i}`, link: `https://kin.naver.com/qna/detail.naver?docId=${i}`, summary: `요약${i}`, views: 100 - i, answers: 1, askedAt: '2026.10.01' })) }) };
+  };
+  const got = await kinQuestionsFor('기초연금 모의계산', fake);
+  assert.equal(got.kinQuestions.length, 5);
+  assert.equal(got.kinStore.length, 3);
+  assert.equal(got.kinStore[0].link, 'https://kin.naver.com/qna/detail.naver?docId=0');
+  assert.deepEqual(await kinQuestionsFor('x', async () => { throw new Error('down'); }), {});
 });

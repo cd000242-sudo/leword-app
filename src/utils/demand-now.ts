@@ -136,3 +136,43 @@ export async function fetchWeeklyDemand(
     return [];
   }
 }
+
+/**
+ * 데이터랩 한 번에 최대 5개(2026-10-20 사장님 "모든 키워드에 그래프") — 같은 호출 수로 5배를 잰다.
+ * 묶어 물으면 다섯 말 전체의 최고값이 100 이 되지만, 말마다 시계열의 모양(오르내림 비율)은 그대로라 판정에 쓸 수 있다.
+ * 실패하면 빈 Map — 추이를 지어내지 않는다.
+ */
+export async function fetchWeeklyDemandBatch(
+  keywords: string[],
+  config: DemandNowConfig,
+  fetchImpl: typeof fetch = ((url: any, init: any) => naverApiFetch(String(url), init)) as typeof fetch,
+  today: Date = new Date(),
+): Promise<Map<string, WeeklyPoint[]>> {
+  const list = [...new Set((keywords || []).map((k) => String(k || '').trim()).filter(Boolean))];
+  if (list.length > 5) throw new Error('데이터랩은 한 번에 5개까지입니다');
+  const out = new Map<string, WeeklyPoint[]>();
+  if (!list.length) return out;
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  try {
+    const response = await fetchImpl('https://openapi.naver.com/v1/datalab/search', {
+      method: 'POST',
+      headers: { 'X-Naver-Client-Id': config.clientId, 'X-Naver-Client-Secret': config.clientSecret, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        startDate: iso(new Date(today.getTime() - 400 * DAY_MS)),
+        endDate: iso(today),
+        timeUnit: 'week',
+        keywordGroups: list.map((k) => ({ groupName: k, keywords: [k] })),
+      }),
+    });
+    if (!response.ok) return out;
+    const payload = await response.json() as { results?: Array<{ title?: string; data?: Array<{ period?: string; ratio?: number }> }> };
+    (payload.results || []).forEach((result, i) => {
+      const name = String(result.title || list[i] || '');
+      const points = (result.data || []).map((p) => ({ period: String(p.period || ''), ratio: Number(p.ratio) })).filter((p) => p.period && Number.isFinite(p.ratio));
+      if (name && points.length) out.set(name, points);
+    });
+    return out;
+  } catch {
+    return out;
+  }
+}

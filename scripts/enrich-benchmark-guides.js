@@ -131,11 +131,34 @@ async function suggestionsFor(keyword, fetchAc = naverAutocomplete) {
   return out;
 }
 
+const KEYWORD_WORKER = 'https://leword-keyword-api.leword.workers.dev/';
+
+/**
+ * 지식인에서 이 소재로 실제로 묻는 질문(2026-10-20 사장님 "지식인에서 문제점을 보고 그걸 해결해 주는 글") — 워커 kin-search(조회수 순, 전문가 답변 붙은 건 뒤).
+ * kinQuestions = AI 재료 5개(제목 · 요약 · 조회수), kinStore = 화면에 보일 3개(링크 포함). 실패하면 빈 객체 — 지어내지 않는다.
+ */
+async function kinQuestionsFor(query, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl(KEYWORD_WORKER, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'kin-search', query, limit: '5' }), signal: AbortSignal.timeout(60_000) });
+    const data = await res.json();
+    const list = (data && data.ok && Array.isArray(data.questions) ? data.questions : [])
+      .filter((q) => q && typeof q.title === 'string' && typeof q.link === 'string' && /^https:\/\/kin\.naver\.com\//.test(q.link));
+    if (!list.length) return {};
+    const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+    return {
+      kinQuestions: list.slice(0, 5).map((q) => ({ title: clean(q.title, 120), summary: clean(q.summary, 160), views: num(q.views) })),
+      kinStore: list.slice(0, 3).map((q) => ({ title: clean(q.title, 120), link: q.link, views: num(q.views), answers: num(q.answers), askedAt: clean(q.askedAt, 20) })),
+    };
+  } catch {
+    return {};
+  }
+}
+
 /**
  * 카드를 배치로 나눠 동시에 짓는다. 자동완성은 배치마다 그 자리에서 붙인다(1,000장을 미리 다 받으면 그것만 몇 분).
  * 시간 상한이 지나면 새 배치를 시작하지 않는다. 배치가 터지면(시간 초과 등) 그 카드는 기록 없이 다음 회차로.
  */
-async function generateGuides(cards, { batchSize, concurrency, budgetMs, guidesFor, suggest = suggestionsFor, now = Date.now, rules, log = () => {} }) {
+async function generateGuides(cards, { batchSize, concurrency, budgetMs, guidesFor, suggest = suggestionsFor, enrich = null, now = Date.now, rules, log = () => {} }) {
   const startedAt = now();
   const stamp = iso(startedAt);
   const batches = [];
@@ -147,12 +170,13 @@ async function generateGuides(cards, { batchSize, concurrency, budgetMs, guidesF
       if (now() - startedAt >= budgetMs) { skipped = batches.length - next; next = batches.length; return; }
       const batch = batches[next++];
       try {
-        const withSuggestions = await Promise.all(batch.map(async (c) => ({ ...c, searchSuggestions: await suggest(c.suggestQuery || c.keyword) })));
-        const result = await guidesFor(withSuggestions);
+        // enrich(애드센스): 지식인 질문 — AI 재료(kinQuestions)와 화면에 보일 질문(kinStore, 링크 포함)
+        const withSuggestions = await Promise.all(batch.map(async (c) => ({ ...c, searchSuggestions: await suggest(c.suggestQuery || c.keyword), ...(enrich ? await enrich(c) : {}) })));
+        const result = await guidesFor(withSuggestions.map(({ kinStore, ...rest }) => rest));
         provider = result.provider || provider;
         for (const row of result.results) {
-          const c = batch.find((x) => x.id === row.id);
-          if (c) made.push({ id: c.id, urls: c.urls, guide: row.guide, at: stamp, rules, provider: result.provider });
+          const c = withSuggestions.find((x) => x.id === row.id);
+          if (c) made.push({ id: c.id, urls: c.urls, guide: row.guide, at: stamp, rules, provider: result.provider, ...(c.kinStore ? { kinQuestions: c.kinStore } : {}) });
         }
         for (const c of batch) if (!result.results.some((r) => r.id === c.id)) missed.push(c.id);
       } catch (error) {
@@ -200,16 +224,17 @@ async function main() {
   if (flag('no-ai')) console.log('AI 생성 건너뜀(--no-ai) · 창고 정리만 한다.');
   else {
     require('ts-node/register/transpile-only');
-    const { guidesForCards, GUIDE_BATCH, GUIDE_RULES, GUIDE_MODEL } = require('../src/utils/homefeed/writing-guide');
-    rules = GUIDE_RULES; model = GUIDE_MODEL;
+    const { guidesForCards, GUIDE_BATCH, GUIDE_RULES, ADSENSE_GUIDE_RULES, GUIDE_MODEL } = require('../src/utils/homefeed/writing-guide');
+    // --mode=adsense: 애드센스 고수 벤치마크(2026-10-13) — 검색 유입 · 광고 수익 기준 지시문, 2026-10-20 지식인 문제 해결 · 행동 제목(규칙 따로)
+    const mode = arg('mode') === 'adsense' ? 'adsense' : 'homefeed';
+    rules = mode === 'adsense' ? ADSENSE_GUIDE_RULES : GUIDE_RULES; model = GUIDE_MODEL;
     const max = Math.max(0, Number(arg('max')) || 1000);
     const concurrency = Math.max(1, Number(arg('concurrency')) || 6);
     const budgetMs = Math.max(0, Number(arg('budget-min')) || 40) * 60_000;
-    const targets = pickGuideTargets(cards, store, GUIDE_RULES, max);
+    const targets = pickGuideTargets(cards, store, rules, max);
     console.log(`안내 대상 ${targets.length}장 (판 카드 ${cards.length} · 창고 ${store.guides.length} · 통과 못 함 대기 ${store.misses.length}) · ${GUIDE_MODEL} · 배치 ${GUIDE_BATCH} · 동시 ${concurrency}`);
-    // --mode=adsense: 애드센스 고수 벤치마크(2026-10-13) — 검색 유입 · 광고 수익 기준 지시문
-    const mode = arg('mode') === 'adsense' ? 'adsense' : 'homefeed';
-    const result = await generateGuides(targets, { batchSize: GUIDE_BATCH, concurrency, budgetMs, guidesFor: (batch) => guidesForCards(batch, undefined, mode), rules: GUIDE_RULES, log: console.log });
+    const enrich = mode === 'adsense' ? (c) => kinQuestionsFor(c.suggestQuery || c.keyword) : null;
+    const result = await generateGuides(targets, { batchSize: GUIDE_BATCH, concurrency, budgetMs, guidesFor: (batch) => guidesForCards(batch, undefined, mode), enrich, rules, log: console.log });
     store = mergeStore(store, result, nowMs);
     console.log(`새 안내 ${result.made.length}장 · 통과 못 함 ${result.missed.length}장${result.skipped ? ` · 시간 상한으로 배치 ${result.skipped}개는 다음 회차로` : ''}`);
     if (targets.length > 0 && result.made.length === 0) console.log('::warning::이번 회차 새 안내 0건 — 구독 CLI 상태를 확인하세요.');
@@ -219,7 +244,7 @@ async function main() {
   console.log(`판 카드 ${total}장 중 안내 ${covered}장 → ${storePath}`);
 }
 
-module.exports = { cardsForGuides, pruneStore, pickGuideTargets, generateGuides, mergeStore, coverage, suggestionsFor, MISS_RETRY_MS, GRACE_MS };
+module.exports = { cardsForGuides, pruneStore, pickGuideTargets, generateGuides, mergeStore, coverage, suggestionsFor, kinQuestionsFor, MISS_RETRY_MS, GRACE_MS };
 
 if (require.main === module) {
   main().catch((error) => { console.error('작성 안내 창고 실패:', error); process.exit(1); });

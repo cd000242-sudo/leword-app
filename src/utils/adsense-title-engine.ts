@@ -11,6 +11,8 @@ import { requireJsonArray } from './agent-cli/replyValidators';
 import { runWithAnyAgent } from './agent-cli/runAny';
 import { HYPE_WORDS_RE } from './homefeed/lexicon';
 import { compactKey, jaccard, numberCore, numberTokens, titleTokens } from './homefeed/text';
+// 행동어(2026-10-20 사장님 "행동을 유발하는 키워드를 같이 엮어서 제목에") — 작성 안내의 행동 제목과 같은 목록
+import { hasActionBeyond } from './homefeed/writing-guide';
 
 export const ADSENSE_TITLE_COUNT = 20;
 export const ADSENSE_TITLE_ASK = 30;
@@ -151,6 +153,8 @@ export function checkAdsenseTitle(title: string, card: AdsenseTitleCard): string
   const hype = value.match(new RegExp(HYPE_WORDS_RE.source, 'gu')) || [];
   if (hype.some((word) => !material.some((line) => line.includes(word))) || EXTRA_HYPE.test(value)) reasons.push('HYPE_WORD');
   if (FAKE_EXPERIENCE.test(value)) reasons.push('FAKE_EXPERIENCE');
+  // 검색어 낱말(띄어 쓴 꼴 · 붙인 꼴)을 뺀 나머지에 행동어가 있어야 한다 — '모의계산'의 '계산'만으로는 통과 못 한다
+  if (!hasActionBeyond(value, [card.query, ...String(card.keyword || '').split(/\s+/)])) reasons.push('NO_ACTION');
   const allowed = new Set(material.flatMap((line) => numberTokens(line).map(numberCore)).filter(Boolean));
   if (numberTokens(value).some((token) => numberCore(token) && !allowed.has(numberCore(token)))) reasons.push('UNSUPPORTED_NUMBER');
   const tokens = titleTokens(value);
@@ -173,6 +177,7 @@ export function buildAdsenseTitlePrompt(cards: AdsenseTitleCard[]): string {
     '- 개편 · 달라진 점 · 인상 같은 변경 주장은 고수 제목이 변경을 말했을 때만 쓴다. 근거 없는 변경 주장은 거짓이다.',
     `- 길이 ${ADSENSE_TITLE_MIN_CHARS}~${ADSENSE_TITLE_MAX_CHARS}자. 애드센스 고수 제목의 가운데 길이는 36자다.`,
     '- 검색자가 찾는 답을 제목이 약속한다(무엇을 알 수 있는지 분명히). 낚시 · 답 숨김 금지.',
+    '- 제목마다 검색자가 바로 할 행동을 부르는 말을 하나 이상 넣는다(신청 · 조회 · 계산 · 확인 · 하는 법 · 받는 법 · 비교 · 해지 · 환급 · 발급 등). 없으면 버려진다.',
     '- 숫자(금액 · 날짜 · 비율 · 횟수)는 아래 고수 제목에 있는 것만 쓴다. 없는 숫자를 지어내지 않는다.',
     '- 과장어(충격 · 대박 · 무조건 · 100% · 모르면 손해) 금지. 직접 해 봤다는 체험 지어내기 금지.',
     '- 고수 제목을 베끼지 않는다 — 사실만 가져오고 문장은 새로 짓는다.',

@@ -83,3 +83,24 @@ describe('fetchWeeklyDemand', () => {
     expect(failed).toEqual([]);
   });
 });
+
+// 2026-10-20 사장님 "모든 키워드에 그래프를" — 데이터랩은 한 번에 5묶음까지 받는다. 같은 호출 수로 5배를 잰다.
+import { fetchWeeklyDemandBatch } from '../demand-now';
+describe('fetchWeeklyDemandBatch', () => {
+  it('5개씩 한 번에 묻고 키워드별 시계열로 돌려준다(모양은 그대로 — 묶음 최대값 기준 상대값일 뿐)', async () => {
+    const sent: any[] = [];
+    const got = await fetchWeeklyDemandBatch(['김장', '연말정산'], { clientId: 'id', clientSecret: 'sec' }, (async (_u: string, init: any) => {
+      const body = JSON.parse(init.body); sent.push(body);
+      return { ok: true, json: async () => ({ results: body.keywordGroups.map((g: any, i: number) => ({ title: g.groupName, data: [{ period: '2026-10-05', ratio: 10 * (i + 1) }] })) }) };
+    }) as any, new Date('2026-10-20T00:00:00Z'));
+    expect(sent).toHaveLength(1);
+    expect(sent[0].keywordGroups).toEqual([{ groupName: '김장', keywords: ['김장'] }, { groupName: '연말정산', keywords: ['연말정산'] }]);
+    expect(got.get('김장')).toEqual([{ period: '2026-10-05', ratio: 10 }]);
+    expect(got.get('연말정산')).toEqual([{ period: '2026-10-05', ratio: 20 }]);
+  });
+  it('5개를 넘기면 거절하고, 실패하면 빈 Map', async () => {
+    await expect(fetchWeeklyDemandBatch(['a', 'b', 'c', 'd', 'e', 'f'], { clientId: 'i', clientSecret: 's' })).rejects.toThrow();
+    const failed = await fetchWeeklyDemandBatch(['a'], { clientId: 'i', clientSecret: 's' }, (async () => ({ ok: false, status: 429 })) as any);
+    expect(failed.size).toBe(0);
+  });
+});

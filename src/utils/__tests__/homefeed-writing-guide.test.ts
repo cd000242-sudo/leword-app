@@ -93,3 +93,43 @@ describe('애드센스 작성 안내 지시문', () => {
     expect(asked).toMatch(/애드센스/);
   });
 });
+
+// 2026-10-20 사장님 "상황을 해결해 주거나 지식인에서 문제점을 보고 그걸 해결해 주는 글 · 행동을 유발하는 키워드를 같이 엮어서 제목에".
+describe('애드센스 안내 — 지식인 문제 해결 · 행동 제목', () => {
+  const ads: GuideCard = {
+    id: 'ads-1', keyword: '기초연금 모의계산', category: '정부지원금·복지', title: '기초연금 기준 3가지, 나이·소득인정액·제외 대상 확인하기', summary: '',
+    sourceTitles: ['기초연금 모의계산 방법 복지로', '기초연금 소득인정액 계산법'], relatedKeywords: [],
+    searchSuggestions: ['기초연금 모의계산 사이트', '기초연금 모의계산기', '기초연금 수급자격 조회'],
+    kinQuestions: [{ title: '기초연금 모의계산 처음 할 때 어떤 정보부터 넣나요', summary: '재산 금액을 어디까지 넣는지 모르겠어요', views: 1200 }, { title: '전세 보증금도 기초연금 소득인정액에 들어가나요', summary: '', views: 800 }],
+  };
+
+  it('지시문에 지식인 질문(조회수)과 해결 · 행동 제목 지시가 들어간다', () => {
+    const prompt = buildGuidePrompt([ads], 'adsense');
+    expect(prompt).toContain('지식인에서 실제로 묻는 것');
+    expect(prompt).toContain('기초연금 모의계산 처음 할 때 어떤 정보부터 넣나요 (조회 1,200)');
+    expect(prompt).toContain('solves');
+    expect(prompt).toContain('actionTitles');
+  });
+
+  it('행동 제목은 행동을 부르는 말과 소재 낱말이 있어야 남고, 해결 항목도 소재 낱말이 있어야 남는다', () => {
+    const guide = validateGuide(ads, {
+      direction: '기초연금 모의계산에서 재산 금액 입력을 헷갈리는 문제를 풀어 준다. 복지로 입력 항목 순서대로 정리한다.',
+      searchTargets: ['기초연금 모의계산기'],
+      mustInclude: ['기초연금 소득인정액 계산 순서', '전세 보증금 반영 여부'],
+      mustAvoid: [], checkBefore: [],
+      solves: ['모의계산 재산 입력 헷갈림 → 기초연금 항목별 입력 예시', '정확한 정보를 담는다'],
+      actionTitles: ['기초연금 모의계산 하는 법, 재산·전세 보증금 입력 순서 정리', '기초연금 이야기 총정리', '오늘 날씨 확인하는 법'],
+    });
+    expect(guide?.actionTitles).toEqual(['기초연금 모의계산 하는 법, 재산·전세 보증금 입력 순서 정리']);
+    expect(guide?.solves).toEqual(['모의계산 재산 입력 헷갈림 → 기초연금 항목별 입력 예시']);
+  });
+
+  it('재료에 없는 숫자를 넣은 행동 제목은 버린다', () => {
+    const guide = validateGuide(ads, {
+      direction: '기초연금 모의계산에서 재산 금액 입력을 헷갈리는 문제를 풀어 준다.',
+      mustInclude: ['기초연금 소득인정액 계산 순서', '전세 보증금 반영 여부'],
+      actionTitles: ['기초연금 모의계산 신청 전 확인할 7가지', '기초연금 모의계산 조회 방법, 소득인정액 넣는 순서'],
+    });
+    expect(guide?.actionTitles).toEqual(['기초연금 모의계산 조회 방법, 소득인정액 넣는 순서']);
+  });
+});

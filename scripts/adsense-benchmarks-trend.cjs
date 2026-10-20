@@ -4,7 +4,7 @@
  *
  * 사장님: "검색량 문서량도 중요하지만 현재 글을 쓰면 트래픽을 몰고 올 수 있냐 없냐가 중요해요. 그래프로 확인을 하지만 그걸 확인해서 알려줘야."
  * 판정은 src/utils/demand-now.ts — 데이터랩 주별 13개월 실측 비율(지금 오르는 중 · 곧 시즌 · 꾸준함 · 식는 중 · 피크 지남).
- * 데이터랩 하루 한도 때문에 회차당 상한(기본 40) · 판정은 3일 기억. 경쟁 낮은 소재부터 잰다. 못 잰 카드는 비워 둔다(지어내지 않음).
+ * 데이터랩 하루 한도 때문에 회차당 상한(검색어 수, 5개씩 묶어 한 호출) · 판정은 3일 기억(모름은 하루). 경쟁 낮은 소재부터 잰다. 못 잰 카드는 비워 둔다(지어내지 않음).
  *
  * 사용: node scripts/adsense-benchmarks-trend.cjs --board <adsense-benchmarks.json> --cache <adsense-trend-cache.json> [--max 40]
  */
@@ -66,12 +66,17 @@ async function main(argv = process.argv.slice(2)) {
   let made = 0;
   if (measure.length) {
     require('ts-node/register/transpile-only');
-    const { fetchWeeklyDemand, readDemandNow } = require('../src/utils/demand-now');
-    for (const q of measure) {
-      const points = await fetchWeeklyDemand(q, config);
-      if (points.length) {
-        cache[q] = { at, demand: readDemandNow(points, todayKst) };
-        made += 1;
+    const { fetchWeeklyDemandBatch, readDemandNow } = require('../src/utils/demand-now');
+    // 데이터랩은 한 번에 5개 — 같은 호출 수로 5배(2026-10-20 실측: 묶어 물어도 판정 · 변화율이 따로 물은 것과 같다).
+    for (let i = 0; i < measure.length; i += 5) {
+      const chunk = measure.slice(i, i + 5);
+      const series = await fetchWeeklyDemandBatch(chunk, config);
+      for (const q of chunk) {
+        const points = series.get(q) || [];
+        if (points.length) {
+          cache[q] = { at, demand: readDemandNow(points, todayKst) };
+          made += 1;
+        }
       }
       await new Promise((resolve) => setTimeout(resolve, 150));
     }
