@@ -35,6 +35,8 @@ const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const KST = 9 * 3_600_000;
 const kstYmd = (ms) => new Date(ms + KST).toISOString().slice(0, 10);
 const WORKER = 'https://leword-keyword-api.leword.workers.dev/';
+// 워커는 라이선스 없는 검색량 요청을 IP 하루 50회로 묶는다(2026-10-20) — CI 는 서버 키로 통과한다.
+const workerHeaders = () => ({ 'Content-Type': 'application/json', ...(process.env.LEWORD_WORKER_SERVER_KEY ? { 'x-leword-server': process.env.LEWORD_WORKER_SERVER_KEY } : {}) });
 
 function atomicWrite(file, value) {
   const resolved = path.resolve(file); fs.mkdirSync(path.dirname(resolved), { recursive: true });
@@ -125,7 +127,7 @@ async function workerVolumes(keywords) {
   const ask = async (list, size) => {
     for (let i = 0; i < list.length; i += size) {
       try {
-        const res = await fetch(WORKER, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'keyword-volumes', keywords: list.slice(i, i + size).join('\n') }), signal: AbortSignal.timeout(60_000) });
+        const res = await fetch(WORKER, { method: 'POST', headers: workerHeaders(), body: JSON.stringify({ action: 'keyword-volumes', keywords: list.slice(i, i + size).join('\n') }), signal: AbortSignal.timeout(60_000) });
         const data = await res.json().catch(() => null);
         if (res.ok && data && data.ok && data.volumes) Object.assign(got, data.volumes);
       } catch { /* 못 잰 말은 null */ }

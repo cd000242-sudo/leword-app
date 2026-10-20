@@ -25,6 +25,7 @@ import { advisorBlogIds } from '../../utils/naver-blog-accounts';
 import { collectAutopsyHistory, readAutopsyHistory } from './advisor-autopsy';
 import { blogKey, readBlogValue, saveBlogValue } from '../../utils/blog-class/profile-store';
 import { advisorFreshness } from '../../utils/advisor/freshness';
+import { workerLicenseCode } from '../worker-license';
 
 /** 워커 실측 월 검색량(키 없이 — 워커가 사장님 검색광고 키로 잰다). 응답 키는 띄어쓰기 없는 꼴. 100개 상한. */
 const KEYWORD_WORKER = 'https://leword-keyword-api.leword.workers.dev/';
@@ -32,7 +33,7 @@ async function askWorkerVolumes(keywords: string[]): Promise<Record<string, numb
   const res = await fetch(KEYWORD_WORKER, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'keyword-volumes', keywords: keywords.join(String.fromCharCode(10)) }),
+    body: JSON.stringify({ action: 'keyword-volumes', licenseCode: workerLicenseCode(), keywords: keywords.join(String.fromCharCode(10)) }),
     signal: AbortSignal.timeout(60_000),
   });
   const data: any = await res.json().catch(() => null);

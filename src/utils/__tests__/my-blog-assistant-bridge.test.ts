@@ -43,7 +43,7 @@ describe('LEWORD 비서 브리지', () => {
     const old = createWebBridge({ appVersion: 'test', getAgentStatuses: async () => [], forgeInsights: async () => null, myBlog: base } as any);
     await new Promise<void>((resolve) => old.listen(0, '127.0.0.1', resolve));
     try {
-      const res = await fetch(`http://127.0.0.1:${(old.address() as AddressInfo).port}/v1/bridge/my-blog/assistant`, { method: 'POST', body: '{}' });
+      const res = await fetch(`http://127.0.0.1:${(old.address() as AddressInfo).port}/v1/bridge/my-blog/assistant`, { method: 'POST', headers: { Origin: 'https://leaderspro.kr' }, body: '{}' });
       expect(res.status).toBe(404);
     } finally {
       await new Promise<void>((resolve) => old.close(() => resolve()));

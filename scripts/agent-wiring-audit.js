@@ -42,7 +42,9 @@ async function ask(pathname, options, timeoutMs) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(BRIDGE + pathname, { ...options, signal: controller.signal });
+    // 브리지는 출처 없는 실행(POST)을 막는다(2026-10-20) — 사이트와 같은 출처를 붙여 부른다.
+    const headers = { Origin: 'https://leaderspro.kr', ...((options && options.headers) || {}) };
+    const response = await fetch(BRIDGE + pathname, { ...options, headers, signal: controller.signal });
     const body = await response.json().catch(() => null);
     return { status: response.status, body };
   } catch (error) {

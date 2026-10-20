@@ -216,6 +216,14 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
       json(res, 403, { ok: false, error: '허용되지 않은 출처입니다.' });
       return;
     }
+    /*
+     * 실행(POST)은 출처가 있어야 한다(2026-10-20 보안 점검). 브라우저는 다른 사이트에서 보내는 POST 에 늘 출처를 붙인다 —
+     * 출처가 없으면 브라우저 밖 프로그램이다. 상태 확인 같은 GET 은 그대로 둔다. 내부 점검 스크립트는 사이트 출처를 붙여 부른다.
+     */
+    if (!origin && req.method === 'POST') {
+      json(res, 403, { ok: false, error: '출처가 없는 실행 요청은 받지 않습니다.' });
+      return;
+    }
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
@@ -359,6 +367,8 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
        * 브라우저 저장소에 넣고 계정 동기화(keySync)로 다른 기기까지 옮긴다.
        */
       if (deps.apiKeys && req.method === 'POST' && req.url === '/v1/bridge/api-keys') {
+        // 저장된 키를 돌려주는 통로라 사이트 출처만(2026-10-20) — 크롬 확장은 형식만 맞으면 아무 확장이나 통과하기 때문이다.
+        if (!ALLOWED_ORIGINS.has(origin)) { json(res, 403, { ok: false, error: '사이트에서만 쓸 수 있습니다.' }); return; }
         json(res, 200, { ok: true, result: await deps.apiKeys() });
         return;
       }

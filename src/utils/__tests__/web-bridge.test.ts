@@ -12,6 +12,7 @@ import { createWebBridge } from '../../main/web-bridge';
 const savedBodies: unknown[] = [];
 const deps = {
   apiKeysSave: async (body: unknown) => { savedBodies.push(body); return { ok: true, saved: 1 }; },
+  apiKeys: async () => ({ openApiId: 'stored-id' }),
   appVersion: 'test-1.0.0',
   getAgentStatuses: async () => [{ provider: 'claude', installed: true, loggedIn: true, available: true, detail: '' }],
   forgeInsights: async (keyword: string, options?: { loose?: boolean }) => ({
@@ -113,7 +114,7 @@ describe('추론 경로 — 키워드 하나, 고정 템플릿만', () => {
         });
         expect(res.status).toBe(200);
         expect((await res.json()).result).toEqual({ url: 'https://example.com/post', provider: '', keys: { openApiId: 'test' } });
-        const bad = await fetch(`${base}/v1/bridge/radar-analyze`, { method: 'POST', body: JSON.stringify({ url: 'file:///etc/passwd' }) });
+        const bad = await fetch(`${base}/v1/bridge/radar-analyze`, { method: 'POST', headers: { Origin: 'https://leaderspro.kr' }, body: JSON.stringify({ url: 'file:///etc/passwd' }) });
         expect(bad.status).toBe(400);
     });
     it('키워드를 받아 인사이트를 돌려준다', async () => {
@@ -131,13 +132,13 @@ describe('추론 경로 — 키워드 하나, 고정 템플릿만', () => {
     it('빈 키워드·60자 초과는 400', async () => {
         const bad = await fetch(`${base}/v1/bridge/ai-subs`, {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' },
             body: JSON.stringify({ keyword: '' }),
         });
         expect(bad.status).toBe(400);
         const long = await fetch(`${base}/v1/bridge/ai-subs`, {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
+            headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' },
             body: JSON.stringify({ keyword: '가'.repeat(61) }),
         });
         expect(long.status).toBe(400);
@@ -174,5 +175,24 @@ describe('키 저장 통로 — 사이트(leaderspro.kr)만 앱 설정에 쓴다
     it('깨진 본문은 400', async () => {
         const res = await fetch(`${base}/v1/bridge/api-keys-save`, { method: 'POST', headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' }, body: '{oops' });
         expect(res.status).toBe(400);
+    });
+});
+
+// 2026-10-20 보안 점검 — 출처 없는 POST 는 통과했고, 아무 크롬 확장이나 저장된 API 키를 읽을 수 있었다.
+describe('실행 · 키 읽기 통로 조임', () => {
+    it('출처 없는 POST 는 막는다(브라우저는 늘 출처를 붙인다 — 없으면 브라우저 밖 프로그램이다)', async () => {
+        const res = await fetch(`${base}/v1/bridge/radar-analyze`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://blog.naver.com/a/1' }) });
+        expect(res.status).toBe(403);
+    });
+    it('출처 없는 GET 상태 확인은 그대로 된다', async () => {
+        const res = await fetch(`${base}/v1/bridge/status`);
+        expect(res.status).toBe(200);
+    });
+    it('저장된 API 키 읽기는 사이트 출처만 — 크롬 확장은 못 읽는다', async () => {
+        const site = await fetch(`${base}/v1/bridge/api-keys`, { method: 'POST', headers: { Origin: 'https://leaderspro.kr' } });
+        expect(site.status).toBe(200);
+        expect((await site.json()).result.openApiId).toBe('stored-id');
+        const ext = await fetch(`${base}/v1/bridge/api-keys`, { method: 'POST', headers: { Origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop' } });
+        expect(ext.status).toBe(403);
     });
 });
