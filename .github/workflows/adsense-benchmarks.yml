@@ -39,7 +39,7 @@ jobs:
           done
           exit 1
       - name: Test adsense benchmark rules
-        run: node --test scripts/adsense-benchmarks.test.cjs scripts/adsense-benchmarks-sources.test.cjs scripts/adsense-benchmarks-measure.test.cjs scripts/enrich-adsense-titles.test.cjs
+        run: node --test scripts/adsense-benchmarks.test.cjs scripts/adsense-benchmarks-sources.test.cjs scripts/adsense-benchmarks-measure.test.cjs scripts/adsense-benchmarks-trend.test.cjs scripts/enrich-adsense-titles.test.cjs
       # 소재 1개당 구글 · 다음 검색용 제목 20개는 구독 CLI 가 짓는다(홈판 벤치마크 제목과 같은 구조).
       - name: 구독 CLI 폴백 준비
         uses: ./.github/actions/setup-subscription-agents
@@ -70,6 +70,19 @@ jobs:
           --board site/spa/public/data/adsense-benchmarks.json
           --cache site/data/adsense-measure-cache.json
           --max 60
+      # 지금 쓰면 트래픽이 오나(2026-10-20) — 대표 검색어의 데이터랩 주별 실측으로 판정(지금 오르는 중 · 곧 시즌 · 꾸준함 · 식는 중 · 피크 지남).
+      # 데이터랩 하루 한도 때문에 회차당 25(하루 8회=200, 다른 작업과 1,000 한도 공유) · 3일 기억. 실패해도 판은 그대로 나간다.
+      - name: Judge demand now
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+        run: >-
+          node scripts/adsense-benchmarks-trend.cjs
+          --board site/spa/public/data/adsense-benchmarks.json
+          --cache site/data/adsense-trend-cache.json
+          --max 25
       # 회차당 20장(사장님 결정 2026-10-07: 홈판 40 → 20, 줄인 만큼 애드센스 20). 실측 대표 검색어가 있는 카드만.
       - name: 소재별 검색용 제목 20개 생성·부착
         env:
@@ -88,6 +101,7 @@ jobs:
           git config user.email 'bot@leaderspro.kr'
           git add spa/public/data/adsense-benchmarks.json
           [ -f data/adsense-measure-cache.json ] && git add data/adsense-measure-cache.json
+          [ -f data/adsense-trend-cache.json ] && git add data/adsense-trend-cache.json
           [ -f spa/public/data/adsense-benchmark-titles.json ] && git add spa/public/data/adsense-benchmark-titles.json
           if git diff --cached --quiet; then
             echo 'No adsense benchmark changes.'

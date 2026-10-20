@@ -321,6 +321,9 @@ function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = 
     .sort((a, b) => Number(b.recommended) - Number(a.recommended) || b.priority - a.priority || (Date.parse(b.publishedAt) || 0) - (Date.parse(a.publishedAt) || 0) || a.id.localeCompare(b.id))
     .slice(0, maxCards);
   const meta = new Map((sources || []).map((s) => [s.id, s]));
+  // 플랫폼(티스토리 · 워드프레스 · 블로그스팟)은 출처 목록 기준으로 싣는다(2026-10-20) — 주소로 판별하면 티스토리 개인 도메인을 잘못 센다.
+  const platformOf = (id) => String((meta.get(id) && meta.get(id).platform) || '');
+  const placed = candidates.map((card) => ({ ...card, sources: card.sources.map((s) => ({ ...s, platform: platformOf(s.id) })) }));
   const byCategory = new Map();
   for (const p of posts) {
     const c = byCategory.get(p.category) || { category: p.category, posts: 0, blogs: new Set() };
@@ -336,9 +339,9 @@ function buildBoard(results, sources, now, { maxCards = MAX_CARDS, windowDays = 
     sourceCount: results.length,
     okCount: results.filter((r) => r.status === 'ok').length,
     collectedPostCount: posts.length,
-    sources: results.map((r) => ({ id: r.id, name: meta.get(r.id)?.name || r.id, category: meta.get(r.id)?.category || '', grade: meta.get(r.id)?.grade || '', status: r.status, postCount: r.posts ? r.posts.length : 0, ...(r.error ? { error: String(r.error).slice(0, 80) } : {}) })),
+    sources: results.map((r) => ({ id: r.id, name: meta.get(r.id)?.name || r.id, category: meta.get(r.id)?.category || '', grade: meta.get(r.id)?.grade || '', platform: platformOf(r.id), status: r.status, postCount: r.posts ? r.posts.length : 0, ...(r.error ? { error: String(r.error).slice(0, 80) } : {}) })),
     offSeasonDropped: allCards.length - inSeason.length,
-    candidates,
+    candidates: placed,
     trends: {
       categories: [...byCategory.values()].map((c) => ({ category: c.category, posts: c.posts, blogs: c.blogs.size })).sort((a, b) => b.posts - a.posts),
       titleShape: titleShape(posts),
