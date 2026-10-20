@@ -47,10 +47,11 @@ function collectItems(sources) {
         add('seasonal', { query: t.keyword, title: clean(t.angle, 200), category: clean(t.category, 40), suggestions: (t.suggestions || []).map((s) => clean(s, 80)).filter(Boolean).slice(0, 10), sourceTitles: [] });
       }
     }
-    if (kind === 'issue') {
-      // 실검 틈새 판(2026-10-20 사장님 "실시간검색어 틈새키워드도 마찬가지로") — 추천 행 + 관찰 행. 이유 문장 · 하위 키워드가 재료.
+    if (kind === 'issue' || kind === 'golden') {
+      // 실검 틈새 판(2026-10-20 "실시간검색어 틈새키워드도 마찬가지로") · 리더남 황금키워드(선점 보드, 2026-10-21 "황금키워드에도 마찬가지")
+      // — 행 + (틈새) 관찰 행. 이유 문장 · 하위 키워드가 재료. 측정은 판에 이미 있다.
       for (const r of [...(Array.isArray(json.rows) ? json.rows : []), ...(Array.isArray(json.observations) ? json.observations : [])]) {
-        add('issue', {
+        add(kind, {
           query: r.keyword, title: clean((r.whySearch && r.whySearch.text) || r.issue, 200), category: clean(r.topic, 40),
           suggestions: (Array.isArray(r.subKeywords) ? r.subKeywords : []).map((k) => clean(typeof k === 'string' ? k : k && k.keyword, 80)).filter(Boolean).slice(0, 10),
           sourceTitles: [],
@@ -110,7 +111,7 @@ async function main() {
   const storePath = arg('store');
   if (!storePath) throw new Error('--store=<keyword-enrich.json> 이 필요합니다.');
   // 틈새를 먼저 — 실시간 키워드라 판정이 가장 빨리 낡는다
-  const sources = [['issue', arg('issue') ? readJson(arg('issue')) : null], ['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null]];
+  const sources = [['issue', arg('issue') ? readJson(arg('issue')) : null], ['golden', arg('golden') ? readJson(arg('golden')) : null], ['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null]];
   const items = collectItems(sources);
   const nowMs = Date.now();
   const at = new Date(nowMs).toISOString();

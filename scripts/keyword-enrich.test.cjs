@@ -53,3 +53,10 @@ test('틈새 판에서 추천 · 관찰 키워드를 뽑는다 — 이유 문장
   const plan = ke.planEnrich(items, { entries: {} }, NOW, { trendMax: 9, measureMax: 9, guideMax: 9, rules: 'r' });
   assert.deepEqual(plan.measure, [], '틈새는 판에 실측이 있다');
 });
+
+test('황금 판(선점 보드) 키워드도 뽑는다 — 이유 문장 · 하위 키워드를 재료로, 측정은 판에 있어 안 함', () => {
+  const golden = { rows: [{ keyword: '카니발 하이브리드', topic: '자동차', whySearch: { text: '신형 대기 판단' }, subKeywords: [{ keyword: '카니발 하이브리드 연비' }] }] };
+  const items = ke.collectItems([['golden', golden]]);
+  assert.deepEqual(items.map((i) => [i.query, i.title, i.suggestions.join(',')]), [['카니발 하이브리드', '신형 대기 판단', '카니발 하이브리드 연비']]);
+  assert.deepEqual(ke.planEnrich(items, { entries: {} }, NOW, { trendMax: 9, measureMax: 9, guideMax: 9, rules: 'r' }).measure, []);
+});
