@@ -1,0 +1,93 @@
+name: 검색어 덧붙이기 (시즌 키워드 · 오늘의 글감)
+
+# 2026-10-20 사장님 "시즌키워드도 오늘의 글감도 마찬가지" — 애드센스 벤치마크에 넣은 것을 두 판에도.
+# 대표 검색어마다 그래프(데이터랩 주별 · 5개 묶음) · 지식인 질문 · 이 글이 해결할 문제 · 행동 키워드 제목 · (시즌) 검색량 · 문서수를
+# 자기 파일(spa/public/data/keyword-enrich.json)에만 쌓는다. 두 판의 원래 생산은 건드리지 않고, 사이트가 검색어로 찾아 붙인다.
+# 오늘의 글감 회차가 끝날 때마다 이어서 돌고, 하루 한 번 예약으로도 돈다. 데이터랩은 회차당 최대 60호출(검색어 300).
+
+on:
+  workflow_run:
+    workflows: ['오늘의 글감 (하루 3회차)']
+    types: [completed]
+  schedule:
+    - cron: '40 15 * * *'
+  workflow_dispatch:
+    inputs:
+      guide_max:
+        description: '이번 실행에서 새로 안내를 지을 검색어 수 상한'
+        default: '150'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keyword-enrich
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # --ignore-scripts 금지: 엔진(agent-cli)이 electron 을 import 한다.
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
+      - name: Test keyword enrich rules
+        run: node --test scripts/keyword-enrich.test.cjs scripts/enrich-benchmark-guides.test.cjs
+      - name: 구독 CLI 폴백 준비
+        uses: ./.github/actions/setup-subscription-agents
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+      - name: 검색어 덧붙이기
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          LEWORD_WORKER_SERVER_KEY: ${{ secrets.LEWORD_WORKER_SERVER_KEY }}
+        run: >-
+          node scripts/keyword-enrich.cjs
+          --seasonal=site/spa/public/data/seasonal-keywords.json
+          --briefs=site/spa/public/data/topic-briefs.json
+          --store=site/spa/public/data/keyword-enrich.json
+          --trend-max=300
+          --measure-max=120
+          --guide-max=${{ inputs.guide_max || '150' }}
+          --concurrency=4
+          --budget-min=35
+      - name: Publish only the enrich store
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/keyword-enrich.json
+          if git diff --cached --quiet; then
+            echo 'No enrich changes.'
+            exit 0
+          fi
+          git commit -m "chore(enrich): refresh keyword enrich store"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+              echo '::error::Concurrent enrich change requires review.'
+              exit 1
+            fi
+            sleep 10
+          done
+          echo '::error::Enrich publication failed.'
+          exit 1

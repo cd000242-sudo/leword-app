@@ -133,3 +133,14 @@ describe('애드센스 안내 — 지식인 문제 해결 · 행동 제목', () 
     expect(guide?.actionTitles).toEqual(['기초연금 모의계산 조회 방법, 소득인정액 넣는 순서']);
   });
 });
+
+// 2026-10-20 사장님 "시즌키워드도 오늘의 글감도 마찬가지" — 판 종류와 무관한 '검색어' 모드(애드센스 지시문은 고수 블로그 전제라 쓰지 않는다).
+describe('keyword 모드', () => {
+  const kw: GuideCard = { id: 'k1', keyword: '연말정산 간소화', category: '세금·경제', title: '자료 조회 시점과 누락 자료 제출 절차', summary: '', sourceTitles: [], relatedKeywords: [], searchSuggestions: ['연말정산 간소화 자료 조회'], kinQuestions: [{ title: '연말정산 간소화 자료가 안 보여요', views: 300 }] };
+  it('고수 블로그 전제 없이 지식인 문제 해결 · 행동 제목을 묻는다', () => {
+    const prompt = buildGuidePrompt([kw], 'keyword');
+    expect(prompt).not.toContain('애드센스 고수');
+    expect(prompt).toContain('지식인에서 실제로 묻는 것');
+    expect(prompt).toContain('actionTitles');
+  });
+});
