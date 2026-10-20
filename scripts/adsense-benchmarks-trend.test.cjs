@@ -27,3 +27,11 @@ test('3일 지난 판정은 버리고, 판에는 살아 있는 판정만 붙인�
   assert.deepEqual(Object.keys(pruned), ['김장']);
   assert.equal(cards[0].demand, undefined, '원본 카드는 건드리지 않는다');
 });
+
+test('추이 모름은 하루만 기억한다 — 새로 생긴 말은 금방 판정이 달라진다', () => {
+  const cards = [card('a', '아이폰듀오', 9000, 300)];
+  const cache = { '아이폰듀오': { at: '2026-10-19T02:00:00Z', demand: { verdict: 'unknown' } } };
+  assert.deepEqual(trend.planTrend(cards, cache, NOW, 40).measure, ['아이폰듀오']);
+  const recent = { '아이폰듀오': { at: '2026-10-20T01:00:00Z', demand: { verdict: 'unknown' } } };
+  assert.deepEqual(trend.planTrend(cards, recent, NOW, 40).measure, []);
+});

@@ -15,7 +15,9 @@ const path = require('path');
 const TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 const queryOf = (card) => String((card && card.metrics && card.metrics.query) || '').trim();
-const fresh = (entry, nowMs) => Boolean(entry && Number.isFinite(Date.parse(entry.at)) && nowMs - Date.parse(entry.at) < TTL_MS && entry.demand);
+// 추이 모름은 하루만 — 새로 생긴 말은 금방 판정이 달라진다(2026-10-20 실측: 아이폰듀오 · 태풍 기록 1~14주).
+const UNKNOWN_TTL_MS = 24 * 60 * 60 * 1000;
+const fresh = (entry, nowMs) => Boolean(entry && entry.demand && Number.isFinite(Date.parse(entry.at)) && nowMs - Date.parse(entry.at) < (entry.demand.verdict === 'unknown' ? UNKNOWN_TTL_MS : TTL_MS));
 const competition = (card) => {
   const m = (card && card.metrics) || {};
   return Number(m.searchVolume) > 0 && Number.isFinite(Number(m.documentCount)) ? Number(m.documentCount) / Number(m.searchVolume) : Infinity;

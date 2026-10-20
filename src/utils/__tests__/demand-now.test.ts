@@ -42,9 +42,22 @@ describe('readDemandNow', () => {
     expect(readDemandNow(weeks(56, (i) => (i >= 51 ? 50 : 80)), TODAY).verdict).toBe('cooling');
   });
 
-  it('큰 변화가 없으면 꾸준함, 시계열이 짧으면 모름', () => {
+  it('큰 변화가 없으면 꾸준함', () => {
     expect(readDemandNow(weeks(56, () => 50), TODAY).verdict).toBe('steady');
-    expect(readDemandNow(weeks(10, () => 50), TODAY).verdict).toBe('unknown');
+  });
+
+  // 2026-10-20 실측: 아이폰듀오 · 할리스개인정보유출 · 태풍처럼 최근에 처음 생긴 말은 데이터랩 기록이 1~14주뿐이었다.
+  it('기록이 최근 몇 주부터 시작된 말은 새로 뜬 말, 이미 최고치의 40% 아래로 꺼졌으면 피크 지남', () => {
+    const startNew = (n: number, fn: (i: number) => number) => weeks(56, (i) => (i >= 56 - n ? fn(i - (56 - n)) : NaN)).filter((p) => Number.isFinite(p.ratio));
+    const fresh = readDemandNow(startNew(6, (i) => 20 + i * 10), TODAY);
+    expect(fresh.verdict).toBe('new');
+    expect(fresh.fact).toBe('5주 전부터 검색이 잡히기 시작한 새 키워드입니다');
+    expect(readDemandNow(startNew(8, (i) => (i === 1 ? 100 : 5)), TODAY).verdict).toBe('past-peak');
+  });
+
+  it('기록이 듬성듬성하고 오래전부터면 모름', () => {
+    const sparse = weeks(56, (i) => (i % 9 === 0 ? 30 : NaN)).filter((p) => Number.isFinite(p.ratio));
+    expect(readDemandNow(sparse, TODAY).verdict).toBe('unknown');
   });
 
   it('그래프용 최근 26주 실측 비율을 싣는다(덜 찬 주 제외)', () => {

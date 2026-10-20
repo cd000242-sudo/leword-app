@@ -9,7 +9,7 @@
 import { naverApiFetch } from './naver-api-hub';
 
 export interface WeeklyPoint { period: string; ratio: number }
-export type DemandNowVerdict = 'rising' | 'season-soon' | 'steady' | 'cooling' | 'past-peak' | 'unknown';
+export type DemandNowVerdict = 'new' | 'rising' | 'season-soon' | 'steady' | 'cooling' | 'past-peak' | 'unknown';
 export interface DemandNow {
   verdict: DemandNowVerdict;
   label: string;
@@ -27,6 +27,7 @@ export interface DemandNow {
 export interface DemandNowConfig { clientId: string; clientSecret: string }
 
 export const DEMAND_NOW_LABEL: Record<DemandNowVerdict, string> = {
+  new: '새로 뜬 말',
   rising: '지금 오르는 중',
   'season-soon': '곧 시즌',
   steady: '꾸준함',
@@ -40,6 +41,8 @@ const RISE_PCT = 30;
 const FALL_PCT = -30;
 const PAST_PEAK_SHARE = 0.4;
 const MIN_WEEKS = 30;
+/** 기록이 이 주 수 안에서 시작됐으면 '새로 뜬 말'(데이터랩은 검색이 없던 주를 비운다 — 2026-10-20 실측 아이폰듀오 · 태풍 1~14주). */
+const NEW_WINDOW_WEEKS = 30;
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const pct = (now: number, before: number) => (before > 0 ? Math.round((now / before - 1) * 100) : null);
@@ -60,6 +63,8 @@ export function readDemandNow(points: WeeklyPoint[], todayIso: string): DemandNo
   const asOf = weeks.length ? weeks[weeks.length - 1].period.slice(0, 10) : null;
   const base = { series, asOf };
   if (r.length < MIN_WEEKS) {
+    const fresh = readNewKeyword(weeks, r, todayIso);
+    if (fresh) return { ...fresh, recentChangePct: null, lastYearNextPct: null, ...base };
     return { verdict: 'unknown', label: DEMAND_NOW_LABEL.unknown, fact: '검색 추이가 짧아 판단하지 않았습니다', recentChangePct: null, lastYearNextPct: null, ...base };
   }
   const n = r.length;
@@ -77,6 +82,7 @@ export function readDemandNow(points: WeeklyPoint[], todayIso: string): DemandNo
   else if (recentChangePct !== null && recentChangePct <= FALL_PCT) verdict = last4 <= peak * PAST_PEAK_SHARE ? 'past-peak' : 'cooling';
 
   const facts: Record<DemandNowVerdict, string> = {
+    new: '',
     rising: `최근 4주 검색 관심이 직전 8주보다 ${recentChangePct}% 높습니다`,
     'season-soon': `작년 이맘때 다음 4주 동안 검색 관심이 ${lastYearNextPct}% 올랐습니다`,
     cooling: `최근 4주 검색 관심이 직전 8주보다 ${Math.abs(recentChangePct ?? 0)}% 낮습니다`,
@@ -85,6 +91,21 @@ export function readDemandNow(points: WeeklyPoint[], todayIso: string): DemandNo
     unknown: '',
   };
   return { verdict, label: DEMAND_NOW_LABEL[verdict], fact: facts[verdict], recentChangePct, lastYearNextPct, ...base };
+}
+
+/** 최근에 처음 잡힌 말 — 새로 뜬 말, 이미 최고치의 40% 아래로 꺼졌으면 피크 지남. 듬성듬성 오래된 기록이면 null. */
+function readNewKeyword(weeks: WeeklyPoint[], r: number[], todayIso: string): Pick<DemandNow, 'verdict' | 'label' | 'fact'> | null {
+  if (!r.length) return null;
+  const first = Date.parse(`${weeks[0].period.slice(0, 10)}T00:00:00Z`);
+  const today = Date.parse(`${todayIso.slice(0, 10)}T00:00:00Z`);
+  const since = Math.floor((today - first) / (7 * DAY_MS));
+  if (!Number.isFinite(since) || since > NEW_WINDOW_WEEKS || r.length < Math.ceil((since + 1) * 0.5)) return null;
+  const peak = Math.max(...r);
+  if (r.length >= 3 && r[r.length - 1] < peak * PAST_PEAK_SHARE) {
+    const share = peak > 0 ? Math.round((avg(r.slice(-Math.min(4, r.length))) / peak) * 100) : 0;
+    return { verdict: 'past-peak', label: DEMAND_NOW_LABEL['past-peak'], fact: `${since}주 전 처음 잡힌 뒤 최근 검색 관심이 최고치의 ${share}% 수준입니다` };
+  }
+  return { verdict: 'new', label: DEMAND_NOW_LABEL.new, fact: `${since}주 전부터 검색이 잡히기 시작한 새 키워드입니다` };
 }
 
 /** 데이터랩 주 단위 약 13개월. 실패하면 빈 배열 — 추이를 지어내지 않는다. */
