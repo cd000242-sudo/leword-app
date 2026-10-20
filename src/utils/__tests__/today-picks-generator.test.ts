@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vm from 'vm';
+import { isGoldenSss } from '../grade';
 
 const rounds = require('../../../scripts/today-picks-rounds');
 const source = fs.readFileSync(path.resolve(__dirname, '../../../scripts/today-picks.js'), 'utf8');
@@ -33,6 +34,8 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
     if (id.includes('today-picks-selection')) return require('../../../scripts/today-picks-selection');
     if (id.includes('today-picks-expand')) return require('../../../scripts/today-picks-expand');
     if (id.includes('today-picks-inventory')) return require('../../../scripts/today-picks-inventory');
+    if (id.includes('today-picks-related')) return require('../../../scripts/today-picks-related');
+    if (id === '../src/utils/grade') return { isGoldenSss };
     if (id.includes('seed-db')) return { topicOfSeed: () => '경제' };
     if (id.includes('naver-blog-topics')) return { NAVER_BLOG_TOPICS: [{ label: '경제' }] };
     if (id.includes('preemption-supply-guards')) return { judgeAnswerCardKeyword: () => ({}), judgeEphemeralKeyword: () => ({}), listedNamesFromSeeds: () => new Set(), isListedName: () => false };

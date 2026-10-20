@@ -37,6 +37,9 @@ const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
 const { getNaverSearchAdBidPairs, getNaverSearchAdKeywordSuggestions } = require('../src/utils/naver-searchad-api');
 const { expansionSeeds, relatedCandidates } = require('./today-picks-expand');
 const { inventoryFromJson, inventoryToJson, inventoryGoldenRows, remember } = require('./today-picks-inventory');
+// 행마다 연관 황금 · 초황금 표시(2026-10-20 사장님 "드롭다운 펼치면 연관 황금키워드도 · 초황금이면 초황금이라고").
+const { attachRelated, markUltra } = require('./today-picks-related');
+const { isGoldenSss } = require('../src/utils/grade');
 const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-keywords');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { roundAt, cachedMeasurement, canPublish, describeChanges } = require('./today-picks-rounds');
@@ -319,7 +322,10 @@ async function main() {
     }
     const priced = (row) => ({ ...row, money: moneyBidOf(bids.get(bidKey(row.keyword))) });
     // 황금 안에서는 돈 되는 순(입찰가 구간 → 입찰가 → 황금비). 못 잰 것끼리는 예전처럼 황금비 순이다.
-    const rows = selectRows(shown.map(priced),history,keep,minRatio,orderGoldenByMoney);
+    const selected = selectRows(shown.map(priced),history,keep,minRatio,orderGoldenByMoney);
+    // 연관 황금 재료 = 이번 회차에 잰 황금 + 14일 재고 황금(그 주제) — 추가 호출 없음. 판에 실린 말은 연관에서 뺀다.
+    const relatedPool = [...golden, ...inventoryGoldenRows(inventory, t, minRatio, Date.parse(startedAt)).map((r) => ({ ...r, ratio: Math.round((r.searchVolume / r.documentCount) * 100) / 100 }))];
+    const rows = attachRelated(markUltra(selected, isGoldenSss), relatedPool, { minRatio, limit: 5, isUltra: isGoldenSss });
     const goldenCount=rows.filter(row=>row.ratio>=minRatio).length;
     result.topics.push({ topic: t, candidates: cand.length, measured: golden.length + others.length, golden: goldenCount, priorGolden, expandedGolden: expanded, targetCount:keep, shortfall:keep-rows.length, rows });
     const repeated = rows.filter((r) => r.freshness.status === 'repeated').length;
