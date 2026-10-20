@@ -1,13 +1,13 @@
-name: 검색어 덧붙이기 (시즌 키워드 · 오늘의 글감)
+name: 검색어 덧붙이기 (시즌 키워드 · 오늘의 글감 · 실검 틈새)
 
 # 2026-10-20 사장님 "시즌키워드도 오늘의 글감도 마찬가지" — 애드센스 벤치마크에 넣은 것을 두 판에도.
 # 대표 검색어마다 그래프(데이터랩 주별 · 5개 묶음) · 지식인 질문 · 이 글이 해결할 문제 · 행동 키워드 제목 · (시즌) 검색량 · 문서수를
 # 자기 파일(spa/public/data/keyword-enrich.json)에만 쌓는다. 두 판의 원래 생산은 건드리지 않고, 사이트가 검색어로 찾아 붙인다.
-# 오늘의 글감 회차가 끝날 때마다 이어서 돌고, 하루 한 번 예약으로도 돈다. 데이터랩은 회차당 최대 60호출(검색어 300).
+# 오늘의 글감 회차가 끝날 때마다 이어서 돌고, 하루 한 번 예약으로도 돈다. 데이터랩은 회차당 최대 40호출(검색어 200) — 글감 · 틈새 회차마다 돌아 하루 최대 7회 280호출, 애드센스 320호출과 1,000 한도를 나눈다.
 
 on:
   workflow_run:
-    workflows: ['오늘의 글감 (하루 3회차)']
+    workflows: ['오늘의 글감 (하루 3회차)', '실검 틈새 보드 발굴 (하루 3회)']
     types: [completed]
   schedule:
     - cron: '40 15 * * *'
@@ -62,10 +62,11 @@ jobs:
           LEWORD_WORKER_SERVER_KEY: ${{ secrets.LEWORD_WORKER_SERVER_KEY }}
         run: >-
           node scripts/keyword-enrich.cjs
+          --issue=site/spa/public/data/issue-niche-board.json
           --seasonal=site/spa/public/data/seasonal-keywords.json
           --briefs=site/spa/public/data/topic-briefs.json
           --store=site/spa/public/data/keyword-enrich.json
-          --trend-max=300
+          --trend-max=200
           --measure-max=120
           --guide-max=${{ inputs.guide_max || '150' }}
           --concurrency=4

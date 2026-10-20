@@ -39,3 +39,17 @@ test('판에서 사라지고 7일 지난 검색어는 정리하고, 새 값은 �
   assert.equal(merged.entries.live.demand.verdict, 'steady');
   assert.equal(store.entries.live.demand, undefined, '원본은 그대로');
 });
+
+// 2026-10-20 사장님 "실시간검색어 틈새키워드도 마찬가지로" — 틈새 판의 추천 행 · 관찰 행 키워드도 잰다(측정은 판에 이미 있어 안 함).
+test('틈새 판에서 추천 · 관찰 키워드를 뽑는다 — 이유 문장 · 하위 키워드를 재료로', () => {
+  const issue = {
+    rows: [{ keyword: '엘리스그룹 공모주', issue: '엘리스그룹', topic: '엘리스그룹', whySearch: { text: '코스닥 상장 첫날 급락' }, subKeywords: [{ keyword: '엘리스그룹 상장일', searchVolume: 7780 }] }],
+    observations: [{ keyword: '태풍 경로', issue: '태풍', topic: '날씨', whySearch: { text: '' }, subKeywords: [] }],
+  };
+  const items = ke.collectItems([['issue', issue]]);
+  assert.deepEqual(items.map((i) => i.query), ['엘리스그룹 공모주', '태풍 경로']);
+  assert.equal(items[0].title, '코스닥 상장 첫날 급락');
+  assert.deepEqual(items[0].suggestions, ['엘리스그룹 상장일']);
+  const plan = ke.planEnrich(items, { entries: {} }, NOW, { trendMax: 9, measureMax: 9, guideMax: 9, rules: 'r' });
+  assert.deepEqual(plan.measure, [], '틈새는 판에 실측이 있다');
+});

@@ -10,7 +10,7 @@
  *   solves · actionTitles  이 글이 해결할 문제 · 행동 키워드 제목 — 구독 AI(Sonnet, 작성 안내 'keyword' 모드), 7일 기억
  * 판에서 사라지고 7일 지난 검색어는 정리한다. 못 잰 것은 비워 둔다(지어내지 않음).
  *
- * 사용: node scripts/keyword-enrich.cjs --seasonal=<seasonal-keywords.json> --briefs=<topic-briefs.json> --store=<keyword-enrich.json>
+ * 사용: node scripts/keyword-enrich.cjs [--issue=<issue-niche-board.json>] --seasonal=<seasonal-keywords.json> --briefs=<topic-briefs.json> --store=<keyword-enrich.json>
  *        [--trend-max=300] [--measure-max=120] [--guide-max=150] [--concurrency=4] [--budget-min=35] [--no-ai]
  */
 'use strict';
@@ -45,6 +45,16 @@ function collectItems(sources) {
     if (kind === 'seasonal') {
       for (const t of Array.isArray(json.topics) ? json.topics : []) {
         add('seasonal', { query: t.keyword, title: clean(t.angle, 200), category: clean(t.category, 40), suggestions: (t.suggestions || []).map((s) => clean(s, 80)).filter(Boolean).slice(0, 10), sourceTitles: [] });
+      }
+    }
+    if (kind === 'issue') {
+      // 실검 틈새 판(2026-10-20 사장님 "실시간검색어 틈새키워드도 마찬가지로") — 추천 행 + 관찰 행. 이유 문장 · 하위 키워드가 재료.
+      for (const r of [...(Array.isArray(json.rows) ? json.rows : []), ...(Array.isArray(json.observations) ? json.observations : [])]) {
+        add('issue', {
+          query: r.keyword, title: clean((r.whySearch && r.whySearch.text) || r.issue, 200), category: clean(r.topic, 40),
+          suggestions: (Array.isArray(r.subKeywords) ? r.subKeywords : []).map((k) => clean(typeof k === 'string' ? k : k && k.keyword, 80)).filter(Boolean).slice(0, 10),
+          sourceTitles: [],
+        });
       }
     }
     if (kind === 'briefs') {
@@ -99,7 +109,8 @@ async function worker(body, serverKey) {
 async function main() {
   const storePath = arg('store');
   if (!storePath) throw new Error('--store=<keyword-enrich.json> 이 필요합니다.');
-  const sources = [['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null]];
+  // 틈새를 먼저 — 실시간 키워드라 판정이 가장 빨리 낡는다
+  const sources = [['issue', arg('issue') ? readJson(arg('issue')) : null], ['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null]];
   const items = collectItems(sources);
   const nowMs = Date.now();
   const at = new Date(nowMs).toISOString();
