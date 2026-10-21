@@ -96,3 +96,19 @@ test('데이터랩 기록이 없던 검색어는 이틀 동안 다시 재지 않
   const later = { entries: { dead: { demandMissAt: new Date(NOW - 3 * DAY).toISOString() } } };
   assert.deepEqual(ke.planEnrich(items, later, NOW, { trendMax: 9, measureMax: 0, guideMax: 0, rules: 'r' }).trend, ['dead', 'alive']);
 });
+
+// 2026-10-22 — CI 데이터랩 키 한도 소진(그래프 0/200) → 워커 키(datalab-weekly, 서버 키 전용)로 먼저 묻는다.
+test('워커 경유 데이터랩 — 데이터랩 요청 본문을 워커 창구로 옮기고 결과를 그대로 돌려준다', async () => {
+  const sent = [];
+  const saved = global.fetch;
+  global.fetch = async (url, init) => { sent.push({ url, init }); return { json: async () => ({ ok: true, results: [{ title: '김장', data: [{ period: '2026-10-05', ratio: 50 }] }] }) }; };
+  try {
+    const f = ke.workerDatalabFetch('srv');
+    const res = await f('https://openapi.naver.com/v1/datalab/search', { body: JSON.stringify({ startDate: '2025-09-15', endDate: '2026-10-22', timeUnit: 'week', keywordGroups: [{ groupName: '김장', keywords: ['김장'] }] }) });
+    assert.equal(res.ok, true);
+    assert.equal((await res.json()).results[0].title, '김장');
+    const body = JSON.parse(sent[0].init.body);
+    assert.deepEqual([body.action, body.keywords, body.startDate], ['datalab-weekly', ['김장'], '2025-09-15']);
+    assert.equal(sent[0].init.headers['x-leword-server'], 'srv');
+  } finally { global.fetch = saved; }
+});

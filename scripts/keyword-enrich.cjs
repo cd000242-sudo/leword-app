@@ -136,6 +136,22 @@ async function worker(body, serverKey) {
   return res.json();
 }
 
+/**
+ * 워커 경유 데이터랩(2026-10-22) — CI 데이터랩 키는 황금 재검증 · 틈새 · 애드센스와 하루 한도를 같이 써서 오전에 바닥났다(그래프 0/200).
+ * 워커 키(별도 한도, datalab-weekly 는 서버 키 전용)로 먼저 묻는다. fetchWeeklyDemandBatch 의 fetchImpl 자리에 끼운다.
+ */
+function workerDatalabFetch(serverKey) {
+  return async (_url, init) => {
+    const body = JSON.parse(String((init && init.body) || '{}'));
+    let data = null;
+    try {
+      data = await worker({ action: 'datalab-weekly', keywords: (body.keywordGroups || []).map((g) => g.groupName), startDate: body.startDate, endDate: body.endDate }, serverKey);
+    } catch { data = null; }
+    const ok = Boolean(data && data.ok);
+    return { ok, status: ok ? 200 : 502, json: async () => ({ results: (data && data.results) || [] }) };
+  };
+}
+
 async function main() {
   const storePath = arg('store');
   if (!storePath) throw new Error('--store=<keyword-enrich.json> 이 필요합니다.');
@@ -157,11 +173,14 @@ async function main() {
   console.log(`검색어 ${items.length}개 · 이번 회차 그래프 ${plan.trend.length} · 측정 ${plan.measure.length} · 안내 ${plan.guide.length}`);
 
   // 1) 그래프 — 데이터랩 5개 묶음
+  const serverKey = process.env.LEWORD_WORKER_SERVER_KEY || '';
   const datalab = { clientId: process.env.NAVER_CLIENT_ID || '', clientSecret: process.env.NAVER_CLIENT_SECRET || '' };
   let judged = 0;
   for (let i = 0; i < plan.trend.length; i += 5) {
     const chunk = plan.trend.slice(i, i + 5);
-    const series = await fetchWeeklyDemandBatch(chunk, datalab);
+    // 워커 키 먼저, 안 되면 CI 키
+    let series = serverKey ? await fetchWeeklyDemandBatch(chunk, datalab, workerDatalabFetch(serverKey)) : new Map();
+    if (!series.size) series = await fetchWeeklyDemandBatch(chunk, datalab);
     for (const q of chunk) {
       const points = series.get(q) || [];
       if (points.length) { store = patchEntry(store, q, { demand: readDemandNow(points, todayKst), demandAt: at, demandMissAt: null }); judged += 1; }
@@ -171,7 +190,6 @@ async function main() {
   }
 
   // 2) 시즌 검색어 측정 — 워커(서버 키) 검색량 · 문서수
-  const serverKey = process.env.LEWORD_WORKER_SERVER_KEY || '';
   let measured = 0;
   const compact = (s) => String(s || '').replace(/\s+/g, '').toUpperCase();
   for (let i = 0; i < plan.measure.length; i += 10) {
@@ -228,4 +246,4 @@ if (require.main === module) {
   main().catch((error) => { console.error('검색어 덧붙이기 실패:', error); process.exit(1); });
 }
 
-module.exports = { collectItems, planEnrich, pruneEntries, patchEntry, homefeedQuery };
+module.exports = { collectItems, planEnrich, pruneEntries, patchEntry, homefeedQuery, workerDatalabFetch };
