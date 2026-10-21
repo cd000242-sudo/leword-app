@@ -20,6 +20,8 @@ const path = require('path');
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TREND_TTL_MS = 3 * DAY_MS;
 const UNKNOWN_TTL_MS = DAY_MS;
+// 데이터랩에 기록이 없던 검색어(새 말 · 긴 조각)는 이틀 기억 — 안 그러면 회차마다 같은 빈 검색어가 줄 맨 앞을 차지한다(2026-10-22 실측 0/200).
+const MISS_TTL_MS = 2 * DAY_MS;
 const MEASURE_TTL_MS = 7 * DAY_MS;
 const GUIDE_TTL_MS = 7 * DAY_MS;
 const KEEP_MS = 7 * DAY_MS;
@@ -30,8 +32,26 @@ const age = (iso, nowMs) => { const t = Date.parse(String(iso || '')); return Nu
 const arg = (name, fallback = '') => { const f = process.argv.find((a) => a.startsWith(`--${name}=`)); return f ? f.slice(name.length + 3) : fallback; };
 const readJson = (file) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
 
+/**
+ * 홈판 카드의 검색어 — 카드 keyword 는 기사 제목 조각이라 데이터랩에 기록이 없다(2026-10-22 실측).
+ * 작성 안내의 노릴 검색어(네이버 자동완성) 첫 번째만 쓴다 — 안내는 카드 id, 없으면 원문 주소로 짝짓는다(회차마다 id 가 바뀐다).
+ * 연관 키워드는 'A2O' · '날짜도' 같은 낱말 조각이라 쓰지 않는다(실측). 없으면 ''(재지 않음 — 지어내지 않음).
+ * 사이트(HomefeedBenchmarkCard)는 안내가 합쳐진 card.searchTargets[0] 으로 같은 검색어를 찾는다.
+ */
+function homefeedQuery(card, targetsByKey) {
+  const keys = [card && card.id, ...((card && Array.isArray(card.sources)) ? card.sources.map((s) => s && s.url) : [])].filter(Boolean);
+  const found = keys.map((k) => targetsByKey && targetsByKey.get(k)).find((t) => Array.isArray(t) && t.length);
+  const targets = found || (Array.isArray(card && card.searchTargets) ? card.searchTargets : []);
+  return clean(targets[0] || '', 60);
+}
+
 /** 판 → 검색어 항목. 같은 검색어는 하나로 모으고 어느 판에서 왔는지(kinds) 남긴다. */
-function collectItems(sources) {
+function collectItems(sources, { homefeedGuides = null } = {}) {
+  const targetsById = new Map();
+  for (const g of (homefeedGuides && Array.isArray(homefeedGuides.guides) ? homefeedGuides.guides : [])) {
+    if (!g || !g.guide || !Array.isArray(g.guide.searchTargets) || !g.guide.searchTargets.length) continue;
+    for (const key of [g.id, ...(Array.isArray(g.urls) ? g.urls : [])]) if (typeof key === 'string' && key && !targetsById.has(key)) targetsById.set(key, g.guide.searchTargets);
+  }
   const byQuery = new Map();
   const add = (kind, row) => {
     const query = clean(row.query, 60);
@@ -64,7 +84,7 @@ function collectItems(sources) {
       const cards = (Array.isArray(json.candidates) ? json.candidates : [])
         .filter((c) => c && (c.recommended === true || c.status === 'review-now'))
         .slice(0, 300);
-      for (const c of cards) add('homefeed', { query: c.keyword, title: clean(c.title, 200), category: clean(c.category, 40), suggestions: [], sourceTitles: [], noGuide: true });
+      for (const c of cards) add('homefeed', { query: homefeedQuery(c, targetsById), title: clean(c.title, 200), category: clean(c.category, 40), suggestions: [], sourceTitles: [], noGuide: true });
     }
     if (kind === 'briefs') {
       const all = [...(Array.isArray(json.briefs) ? json.briefs : []), ...(Array.isArray(json.rounds) ? json.rounds.flatMap((r) => (Array.isArray(r && r.briefs) ? r.briefs : [])) : [])];
@@ -87,7 +107,8 @@ function planEnrich(items, store, nowMs, { trendMax, measureMax, guideMax, rules
   for (const item of items) {
     const e = entries[item.query] || {};
     const trendTtl = e.demand && e.demand.verdict === 'unknown' ? UNKNOWN_TTL_MS : TREND_TTL_MS;
-    if (!(e.demand && age(e.demandAt, nowMs) < trendTtl) && trend.length < trendMax) trend.push(item.query);
+    const missed = age(e.demandMissAt, nowMs) < MISS_TTL_MS;
+    if (!(e.demand && age(e.demandAt, nowMs) < trendTtl) && !missed && trend.length < trendMax) trend.push(item.query);
     if (item.kinds.includes('seasonal') && !(e.measure && age(e.measureAt, nowMs) < MEASURE_TTL_MS) && measure.length < measureMax) measure.push(item.query);
     if (!item.noGuide && !(e.rules === rules && age(e.guideAt, nowMs) < GUIDE_TTL_MS) && guide.length < guideMax) guide.push(item);
   }
@@ -98,7 +119,7 @@ function planEnrich(items, store, nowMs, { trendMax, measureMax, guideMax, rules
 function pruneEntries(store, liveQueries, nowMs) {
   const entries = {};
   for (const [q, e] of Object.entries((store && store.entries) || {})) {
-    const latest = Math.min(...['demandAt', 'measureAt', 'guideAt'].map((k) => age(e && e[k], nowMs)));
+    const latest = Math.min(...['demandAt', 'demandMissAt', 'measureAt', 'guideAt'].map((k) => age(e && e[k], nowMs)));
     if (liveQueries.has(q) || latest < KEEP_MS) entries[q] = e;
   }
   return { ...(store || {}), entries };
@@ -120,7 +141,7 @@ async function main() {
   if (!storePath) throw new Error('--store=<keyword-enrich.json> 이 필요합니다.');
   // 틈새를 먼저 — 실시간 키워드라 판정이 가장 빨리 낡는다
   const sources = [['issue', arg('issue') ? readJson(arg('issue')) : null], ['golden', arg('golden') ? readJson(arg('golden')) : null], ['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null], ['homefeed', arg('homefeed') ? readJson(arg('homefeed')) : null]];
-  const items = collectItems(sources);
+  const items = collectItems(sources, { homefeedGuides: arg('homefeed-guides') ? readJson(arg('homefeed-guides')) : null });
   const nowMs = Date.now();
   const at = new Date(nowMs).toISOString();
   const todayKst = new Date(nowMs + 9 * 3600000).toISOString().slice(0, 10);
@@ -143,7 +164,8 @@ async function main() {
     const series = await fetchWeeklyDemandBatch(chunk, datalab);
     for (const q of chunk) {
       const points = series.get(q) || [];
-      if (points.length) { store = patchEntry(store, q, { demand: readDemandNow(points, todayKst), demandAt: at }); judged += 1; }
+      if (points.length) { store = patchEntry(store, q, { demand: readDemandNow(points, todayKst), demandAt: at, demandMissAt: null }); judged += 1; }
+      else if (series.size > 0) store = patchEntry(store, q, { demandMissAt: at }); // 같은 묶음의 다른 말은 받았다 = 이 말은 기록이 없다(호출 실패와 구분)
     }
     await new Promise((r) => setTimeout(r, 150));
   }
@@ -206,4 +228,4 @@ if (require.main === module) {
   main().catch((error) => { console.error('검색어 덧붙이기 실패:', error); process.exit(1); });
 }
 
-module.exports = { collectItems, planEnrich, pruneEntries, patchEntry };
+module.exports = { collectItems, planEnrich, pruneEntries, patchEntry, homefeedQuery };

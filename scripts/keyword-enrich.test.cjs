@@ -64,9 +64,9 @@ test('황금 판(선점 보드) 키워드도 뽑는다 — 이유 문장 · 하�
 // 2026-10-22 사장님 "리더남 홈판 추천에는 그래프가 안 나오네요" — 홈판 판 키워드는 그래프만(작성 안내 · 제목은 홈판 판에 이미 있다).
 test('홈판 판은 추천 · 지금 검토 카드만 최대 300개, 그래프만 잰다(안내 · 측정 없음)', () => {
   const homefeed = { candidates: [
-    { keyword: '김민수 국가대표', status: 'review-now', recommended: true },
-    { keyword: '오래된 소재', status: 'stale', recommended: false },
-    { keyword: '확인 필요 소재', status: 'verify', recommended: false },
+    { id: 'h1', keyword: '김민수 국가대표 데뷔전 조각', status: 'review-now', recommended: true, searchTargets: ['김민수 국가대표'] },
+    { id: 'h2', keyword: '오래된 소재', status: 'stale', recommended: false },
+    { id: 'h3', keyword: '확인 필요 소재', status: 'verify', recommended: false },
   ] };
   const items = ke.collectItems([['homefeed', homefeed]]);
   assert.deepEqual(items.map((i) => i.query), ['김민수 국가대표']);
@@ -74,4 +74,25 @@ test('홈판 판은 추천 · 지금 검토 카드만 최대 300개, 그래프�
   assert.deepEqual(plan.trend, ['김민수 국가대표']);
   assert.deepEqual(plan.guide, []);
   assert.deepEqual(plan.measure, []);
+});
+
+// 2026-10-22 실측: 홈판 카드 키워드는 기사 제목 조각("날짜도 정했는데 바쁘대요 박세미 결혼식")이라 데이터랩 기록이 없다 → 그래프 0.
+test('홈판은 실제 검색어로 잰다 — 작성 안내의 노릴 검색어(자동완성) 첫 번째(카드 id · 원문 주소로 짝짓기), 없으면 뺀다', () => {
+  const homefeed = { candidates: [
+    { id: 'h1', keyword: '날짜도 정했는데 바쁘대요 박세미 결혼식', status: 'review-now', relatedKeywords: ['박세미 결혼'] },
+    { id: 'h2', keyword: '주소로 짝짓는 소재 조각', status: 'review-now', relatedKeywords: ['두루미'], sources: [{ url: 'https://blog.naver.com/x/2' }] },
+    { id: 'h3', keyword: '아무 재료 없는 조각', status: 'review-now' },
+  ] };
+  const guides = { guides: [{ id: 'h1', guide: { searchTargets: ['박세미 결혼식 날짜'] } }, { id: 'old-id', urls: ['https://blog.naver.com/x/2'], guide: { searchTargets: ['두루미 라이브 방송'] } }] };
+  const items = ke.collectItems([['homefeed', homefeed]], { homefeedGuides: guides });
+  assert.deepEqual(items.map((i) => i.query), ['박세미 결혼식 날짜', '두루미 라이브 방송'], '연관 키워드 낱말 조각은 쓰지 않는다');
+  assert.equal(ke.homefeedQuery(homefeed.candidates[0], new Map([['h1', ['박세미 결혼식 날짜']]])), '박세미 결혼식 날짜');
+});
+
+test('데이터랩 기록이 없던 검색어는 이틀 동안 다시 재지 않는다 — 같은 빈 검색어가 회차마다 줄 맨 앞을 차지하지 않게', () => {
+  const items = [{ query: 'dead', kinds: ['briefs'] }, { query: 'alive', kinds: ['briefs'] }];
+  const store = { entries: { dead: { demandMissAt: new Date(NOW - DAY).toISOString() } } };
+  assert.deepEqual(ke.planEnrich(items, store, NOW, { trendMax: 9, measureMax: 0, guideMax: 0, rules: 'r' }).trend, ['alive']);
+  const later = { entries: { dead: { demandMissAt: new Date(NOW - 3 * DAY).toISOString() } } };
+  assert.deepEqual(ke.planEnrich(items, later, NOW, { trendMax: 9, measureMax: 0, guideMax: 0, rules: 'r' }).trend, ['dead', 'alive']);
 });
