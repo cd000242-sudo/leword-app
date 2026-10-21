@@ -58,6 +58,14 @@ function collectItems(sources) {
         });
       }
     }
+    if (kind === 'homefeed') {
+      // 리더남 홈판 추천(2026-10-22 "그래프가 안 나오네요") — 그래프만. 작성 안내 · 제목은 홈판 판에 이미 있다(noGuide).
+      // 카드가 하루 수백 장이라 데이터랩 한도를 지키려고 추천 · 지금 검토 카드만, 최대 300개.
+      const cards = (Array.isArray(json.candidates) ? json.candidates : [])
+        .filter((c) => c && (c.recommended === true || c.status === 'review-now'))
+        .slice(0, 300);
+      for (const c of cards) add('homefeed', { query: c.keyword, title: clean(c.title, 200), category: clean(c.category, 40), suggestions: [], sourceTitles: [], noGuide: true });
+    }
     if (kind === 'briefs') {
       const all = [...(Array.isArray(json.briefs) ? json.briefs : []), ...(Array.isArray(json.rounds) ? json.rounds.flatMap((r) => (Array.isArray(r && r.briefs) ? r.briefs : [])) : [])];
       for (const b of all) {
@@ -81,7 +89,7 @@ function planEnrich(items, store, nowMs, { trendMax, measureMax, guideMax, rules
     const trendTtl = e.demand && e.demand.verdict === 'unknown' ? UNKNOWN_TTL_MS : TREND_TTL_MS;
     if (!(e.demand && age(e.demandAt, nowMs) < trendTtl) && trend.length < trendMax) trend.push(item.query);
     if (item.kinds.includes('seasonal') && !(e.measure && age(e.measureAt, nowMs) < MEASURE_TTL_MS) && measure.length < measureMax) measure.push(item.query);
-    if (!(e.rules === rules && age(e.guideAt, nowMs) < GUIDE_TTL_MS) && guide.length < guideMax) guide.push(item);
+    if (!item.noGuide && !(e.rules === rules && age(e.guideAt, nowMs) < GUIDE_TTL_MS) && guide.length < guideMax) guide.push(item);
   }
   return { trend, measure, guide };
 }
@@ -111,7 +119,7 @@ async function main() {
   const storePath = arg('store');
   if (!storePath) throw new Error('--store=<keyword-enrich.json> 이 필요합니다.');
   // 틈새를 먼저 — 실시간 키워드라 판정이 가장 빨리 낡는다
-  const sources = [['issue', arg('issue') ? readJson(arg('issue')) : null], ['golden', arg('golden') ? readJson(arg('golden')) : null], ['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null]];
+  const sources = [['issue', arg('issue') ? readJson(arg('issue')) : null], ['golden', arg('golden') ? readJson(arg('golden')) : null], ['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null], ['homefeed', arg('homefeed') ? readJson(arg('homefeed')) : null]];
   const items = collectItems(sources);
   const nowMs = Date.now();
   const at = new Date(nowMs).toISOString();

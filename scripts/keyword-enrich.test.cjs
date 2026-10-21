@@ -60,3 +60,18 @@ test('황금 판(선점 보드) 키워드도 뽑는다 — 이유 문장 · 하�
   assert.deepEqual(items.map((i) => [i.query, i.title, i.suggestions.join(',')]), [['카니발 하이브리드', '신형 대기 판단', '카니발 하이브리드 연비']]);
   assert.deepEqual(ke.planEnrich(items, { entries: {} }, NOW, { trendMax: 9, measureMax: 9, guideMax: 9, rules: 'r' }).measure, []);
 });
+
+// 2026-10-22 사장님 "리더남 홈판 추천에는 그래프가 안 나오네요" — 홈판 판 키워드는 그래프만(작성 안내 · 제목은 홈판 판에 이미 있다).
+test('홈판 판은 추천 · 지금 검토 카드만 최대 300개, 그래프만 잰다(안내 · 측정 없음)', () => {
+  const homefeed = { candidates: [
+    { keyword: '김민수 국가대표', status: 'review-now', recommended: true },
+    { keyword: '오래된 소재', status: 'stale', recommended: false },
+    { keyword: '확인 필요 소재', status: 'verify', recommended: false },
+  ] };
+  const items = ke.collectItems([['homefeed', homefeed]]);
+  assert.deepEqual(items.map((i) => i.query), ['김민수 국가대표']);
+  const plan = ke.planEnrich(items, { entries: {} }, NOW, { trendMax: 9, measureMax: 9, guideMax: 9, rules: 'r' });
+  assert.deepEqual(plan.trend, ['김민수 국가대표']);
+  assert.deepEqual(plan.guide, []);
+  assert.deepEqual(plan.measure, []);
+});
