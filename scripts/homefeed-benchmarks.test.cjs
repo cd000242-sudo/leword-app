@@ -266,3 +266,20 @@ test('카드에 고정 작성 안내를 찍지 않는다 — 작성 전 확인�
   }
   assert.ok(cards.some((c) => c.verificationNeeded.includes('상업적 관계와 홍보성 주장 확인')), '협찬 카드 경고는 남는다');
 });
+
+// 2026-10-22 사장님 "벤치마킹 블로그를 접속하는 법을 모르는 것 같다 · 이미지도 같이 볼 수 있게" — 원문 대표 이미지(썸네일)를 싣는다.
+test('RSS 본문의 첫 이미지를 원문 썸네일로 싣는다 — 네이버 이미지 서버 https 주소만', () => {
+  const xml = `<?xml version="1.0"?><rss><channel><title>블로그</title>
+    <item><title>글1</title><link>https://blog.naver.com/a/1</link><pubDate>Wed, 21 Oct 2026 10:00:00 +0900</pubDate><description>&lt;img src="https://blogthumb.pstatic.net/abc/30.jpg?type=s3"&gt; 본문</description></item>
+    <item><title>글2</title><link>https://blog.naver.com/a/2</link><pubDate>Wed, 21 Oct 2026 10:00:00 +0900</pubDate><description>&lt;img src="http://evil.example/x.jpg"&gt; 본문</description></item>
+  </channel></rss>`;
+  const { posts } = core.parseRss(xml, { id: 'a', platform: 'naver-blog' }, '2026-10-21T03:00:00.000Z');
+  assert.equal(posts[0].image, 'https://blogthumb.pstatic.net/abc/30.jpg?type=s3');
+  assert.equal(posts[1].image, undefined, '다른 서버 · http 주소는 싣지 않는다');
+});
+
+test('유튜브 썸네일도 원문 이미지로 싣는다', () => {
+  const xml = '<feed xmlns:media="x"><title>채널</title><entry><title>영상</title><link href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"/><published>2026-10-21T01:00:00Z</published><media:group><media:description>설명</media:description><media:thumbnail url="https://i2.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"/></media:group></entry></feed>';
+  const r = core.parseYoutube(xml, { id: 'y', platform: 'youtube' }, '2026-10-21T03:00:00.000Z');
+  assert.equal(r.posts[0].image, 'https://i2.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+});

@@ -59,17 +59,25 @@ function serialize(value) { return JSON.stringify(value, null, 2).replace(/</g, 
 function validDate(value, now) { if (!value) return null; const ms = Date.parse(value); return Number.isFinite(ms) && ms <= Date.parse(now) + 300000 ? new Date(ms).toISOString() : null; }
 function count(value) { const text = String(value || '').replace(/,/g, '').trim(); return /^\d+$/.test(text) ? Number(text) : null; }
 function basePost(source, capturedAt, data) { return { sourceId: source.id, platform: source.platform, name: plainText(source.name || source.id, 70), topic: source.topic || null, eventAt: null, capturedAt, metrics: { views: null, likes: null, comments: null }, ...data }; }
+/**
+ * 원문 대표 이미지(2026-10-22 사장님 "이미지도 같이 볼 수 있게") — 화면은 리퍼러 없이 불러온다(네이버는 다른 사이트 리퍼러면 403, 실측).
+ * 네이버 이미지 서버 · 유튜브 썸네일의 https 주소만 받는다 — 다른 서버 주소는 버린다.
+ */
+const IMAGE_HOST = /^https:\/\/([a-z0-9-]+\.)*(pstatic\.net|ytimg\.com)\//i;
+function safeImage(value) { const url = String(value || '').trim(); return IMAGE_HOST.test(url) && url.length <= 600 ? url : null; }
+function firstImage(html) { const m = /<img[^>]+src=["']([^"']+)["']/i.exec(String(html || '')); return m ? safeImage(m[1].replace(/&amp;/g, '&')) : null; }
 function parseRss(xml, source, capturedAt) {
   const $ = cheerio.load(xml, { xmlMode: true }); const name = plainText($('channel > title').first().text(), 70) || source.id;
   const posts = $('item').toArray().slice(0, 20).map(el => { const e = $(el); const url = safeLink(e.find('link').first().text()); if (!url || !['blog.naver.com', 'm.blog.naver.com'].includes(new URL(url).hostname)) return null;
-    return basePost({ ...source, name }, capturedAt, { title: plainText(e.find('title').first().text(), 160), url, publishedAt: validDate(e.find('pubDate').text(), capturedAt), summary: plainText(e.find('description').text(), 300) });
+    const image = firstImage(e.find('description').text());
+    return basePost({ ...source, name }, capturedAt, { title: plainText(e.find('title').first().text(), 160), url, publishedAt: validDate(e.find('pubDate').text(), capturedAt), summary: plainText(e.find('description').text(), 300), ...(image ? { image } : {}) });
   }).filter(p => p?.title);
   return { name, posts };
 }
 function parseYoutube(xml, source, capturedAt) {
   const $ = cheerio.load(xml, { xmlMode: true }); const name = plainText($('feed > title').first().text(), 70) || source.id;
   const posts = $('entry').toArray().slice(0, 15).map(el => { const e = $(el); const url = safeLink(e.find('link').attr('href')); if (!url) return null;
-    return basePost({ ...source, name }, capturedAt, { title: plainText(e.find('title').first().text(),160), url, publishedAt: validDate(e.find('published').text(), capturedAt), summary: plainText(e.find('media\\:description').text(),300), metrics: { views: count(e.find('media\\:statistics').attr('views')), likes: null, comments: null } });
+    return basePost({ ...source, name }, capturedAt, { title: plainText(e.find('title').first().text(),160), url, publishedAt: validDate(e.find('published').text(), capturedAt), summary: plainText(e.find('media\\:description').text(),300), ...(safeImage(e.find('media\\:thumbnail').attr('url')) ? { image: safeImage(e.find('media\\:thumbnail').attr('url')) } : {}), metrics: { views: count(e.find('media\\:statistics').attr('views')), likes: null, comments: null } });
   }).filter(p => p?.title); return { name, posts };
 }
 function parseCommunity(html, source, capturedAt) {
@@ -284,7 +292,7 @@ function buildCandidates(posts, now, previousPosts = []) {
       verificationNeeded: [...(flags.includes('sensitive-claim')?['당사자·공식 자료 확인 전 인물 관련 의혹 제외']:[]), ...(flags.includes('sponsored')?['상업적 관계와 홍보성 주장 확인']:[])],
       imageGuide: { url: lead.url, instruction: `${lead.name} 원문에서 이미지의 원출처를 먼저 확인하세요. 원본 게시물의 제목·게시일·관련 장면을 확인한 뒤 사용 조건에 맞게 캡처하고 출처를 남기세요. 벤치마크 사진 자체의 재사용 허용 여부는 미확인입니다.` },
       metrics: { searchVolume: null, documentCount: null, rankingPossibility:'unmeasured', reactionGrowth: growth }, homefeedExposure:'unverified',
-      sources: sorted.slice(0,5).map(p=>({ id:p.sourceId, platform:p.platform, name:p.name, title:p.title, url:p.url, publishedAt:p.publishedAt, summary:plainText(p.summary,140), metrics:p.metrics, ...(p.reactionCount!=null?{reactionCount:p.reactionCount,reactionLabel:p.reactionLabel}:{}), ...(p.metricNote?{metricNote:p.metricNote}:{}), ...(growthOf.get(p.url)?{growth:growthOf.get(p.url)}:{}), discoveryOnly:true })), flags,
+      sources: sorted.slice(0,5).map(p=>({ id:p.sourceId, platform:p.platform, name:p.name, title:p.title, url:p.url, publishedAt:p.publishedAt, summary:plainText(p.summary,140), metrics:p.metrics, ...(safeImage(p.image)?{image:p.image}:{}), ...(p.reactionCount!=null?{reactionCount:p.reactionCount,reactionLabel:p.reactionLabel}:{}), ...(p.metricNote?{metricNote:p.metricNote}:{}), ...(growthOf.get(p.url)?{growth:growthOf.get(p.url)}:{}), discoveryOnly:true })), flags,
     };
   })
     // 30장 상한을 없앴다 — 최근 48시간 소재는 전부 싣는다(사장님 2026-09-30). 발행일을 모르는 것은 이번 수집에서 본 것이라 남긴다.
