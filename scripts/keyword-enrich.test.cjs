@@ -112,3 +112,16 @@ test('워커 경유 데이터랩 — 데이터랩 요청 본문을 워커 창구
     assert.equal(sent[0].init.headers['x-leword-server'], 'srv');
   } finally { global.fetch = saved; }
 });
+
+// 2026-10-22 실측: 다섯 개가 모두 기록 없는 묶음은 결과가 통째로 비어 '호출 실패'와 구분이 안 돼 기억되지 않았다 → 회차마다 같은 묶음이 줄 맨 앞(2~3/200).
+test('워커가 정상 응답하면 기록이 빈 검색어도 "없음"으로 구분한다(호출 실패면 null)', async () => {
+  const saved = global.fetch;
+  try {
+    global.fetch = async () => ({ json: async () => ({ ok: true, results: [{ title: '김장', data: [{ period: '2026-10-05', ratio: 50 }] }, { title: '빈말', data: [] }] }) });
+    const got = await ke.workerWeekly(['김장', '빈말'], 'srv', new Date('2026-10-22T00:00:00Z'));
+    assert.equal(got.get('김장').length, 1);
+    assert.equal(got.has('빈말'), false);
+    global.fetch = async () => ({ json: async () => ({ ok: false, error: 'datalab', status: 429 }) });
+    assert.equal(await ke.workerWeekly(['김장'], 'srv', new Date('2026-10-22T00:00:00Z')), null);
+  } finally { global.fetch = saved; }
+});

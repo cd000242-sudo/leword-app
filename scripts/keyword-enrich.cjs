@@ -152,6 +152,25 @@ function workerDatalabFetch(serverKey) {
   };
 }
 
+/**
+ * 워커로 주별 시계열을 묻는다 — 정상 응답이면 Map(기록 있는 검색어만), 호출 실패면 null.
+ * 정상 응답인데 Map 에 없는 검색어 = 데이터랩 기록 없음(이틀 기억). 다섯 개가 모두 빈 묶음도 이렇게 구분된다(2026-10-22).
+ */
+async function workerWeekly(keywords, serverKey, today = new Date()) {
+  const iso = (d) => d.toISOString().slice(0, 10);
+  let data = null;
+  try {
+    data = await worker({ action: 'datalab-weekly', keywords, startDate: iso(new Date(today.getTime() - 400 * DAY_MS)), endDate: iso(today) }, serverKey);
+  } catch { data = null; }
+  if (!data || !data.ok) return null;
+  const out = new Map();
+  for (const r of Array.isArray(data.results) ? data.results : []) {
+    const points = (Array.isArray(r && r.data) ? r.data : []).map((p) => ({ period: String(p.period || ''), ratio: Number(p.ratio) })).filter((p) => p.period && Number.isFinite(p.ratio));
+    if (r && r.title && points.length) out.set(String(r.title), points);
+  }
+  return out;
+}
+
 async function main() {
   const storePath = arg('store');
   if (!storePath) throw new Error('--store=<keyword-enrich.json> 이 필요합니다.');
@@ -178,13 +197,14 @@ async function main() {
   let judged = 0;
   for (let i = 0; i < plan.trend.length; i += 5) {
     const chunk = plan.trend.slice(i, i + 5);
-    // 워커 키 먼저, 안 되면 CI 키
-    let series = serverKey ? await fetchWeeklyDemandBatch(chunk, datalab, workerDatalabFetch(serverKey)) : new Map();
-    if (!series.size) series = await fetchWeeklyDemandBatch(chunk, datalab);
+    // 워커 키 먼저(정상 응답이면 빈 기록도 '없음'으로 구분), 호출이 실패하면 CI 키
+    let series = serverKey ? await workerWeekly(chunk, serverKey) : null;
+    let answered = series !== null;
+    if (!answered) { const m = await fetchWeeklyDemandBatch(chunk, datalab); series = m; answered = m.size > 0; }
     for (const q of chunk) {
       const points = series.get(q) || [];
       if (points.length) { store = patchEntry(store, q, { demand: readDemandNow(points, todayKst), demandAt: at, demandMissAt: null }); judged += 1; }
-      else if (series.size > 0) store = patchEntry(store, q, { demandMissAt: at }); // 같은 묶음의 다른 말은 받았다 = 이 말은 기록이 없다(호출 실패와 구분)
+      else if (answered) store = patchEntry(store, q, { demandMissAt: at }); // 응답은 받았는데 이 말만 비었다 = 기록 없음(호출 실패와 구분)
     }
     await new Promise((r) => setTimeout(r, 150));
   }
@@ -246,4 +266,4 @@ if (require.main === module) {
   main().catch((error) => { console.error('검색어 덧붙이기 실패:', error); process.exit(1); });
 }
 
-module.exports = { collectItems, planEnrich, pruneEntries, patchEntry, homefeedQuery, workerDatalabFetch };
+module.exports = { collectItems, planEnrich, pruneEntries, patchEntry, homefeedQuery, workerDatalabFetch, workerWeekly };
