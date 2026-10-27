@@ -313,3 +313,28 @@ test('판이 홈판 상위 이력을 싣는다 — 화면 실시간 판이 같�
   assert.deepEqual(core.buildPayload(results, now, null, [], new Map([['b', 3]])).homefeedTopBlogs, { b: 3 });
   assert.equal(core.buildPayload(results, now, null, []).homefeedTopBlogs, undefined);
 });
+/*
+ * 비평 5번(2026-10-27): 일반인 출연자 논란 · 일반인 사건은 추천하지 않고, 같은 소재 추천은 3장까지.
+ * 사이트 spa/src/lib/homefeedLive.mjs 가 같은 사례를 잠근다.
+ */
+test('일반인 출연자 논란 · 일반인 사건은 추천하지 않는다 — 데이트 공개 · 비유("살인 태클")는 그대로', () => {
+  const card = (a, b) => { const r = core.buildCandidates([other('a', a), other('b', b)], now); assert.equal(r.length, 1, `${a} / ${b}`); return r[0]; };
+  const feud = card('나는솔로 31기 상철 불화설 다시 나온 이유', '31기 상철 불화설 진짜일까 나는솔로');
+  assert.equal(feud.recommended, false);
+  assert.ok(feud.flags.includes('private-person'));
+  assert.match(feud.why.join(' '), /일반인/);
+  assert.equal(card('강서구 동거녀 살인 사건 전말', '강서구 동거녀 살인 사건 실체').recommended, false);
+  assert.equal(card('나는솔로 32기 옥순 광수 낙엽길 데이트 공개', '32기 옥순 광수 낙엽길 데이트 나는솔로').recommended, true);
+  assert.equal(card('황문기 김진수 살인 태클 시즌아웃', '김진수 살인 태클 황문기 시즌아웃 수술').recommended, true);
+});
+test('같은 소재 추천은 3장까지 — 넷째부터 추천에서 빠지고 판에는 남는다', () => {
+  const words = [['사과', '포도', '수박', '참외'], ['기차', '버스', '택시', '지하철'], ['연필', '지우개', '공책', '가위'], ['바다', '하늘', '구름', '바람']];
+  const posts = words.flatMap((w, i) => [other(`p${i}`, `100일의 거짓말 ${w.join(' ')}`), other(`q${i}`, `${w.join(' ')} 100일의 거짓말 이야기`)]);
+  const result = core.buildCandidates(posts, now);
+  assert.equal(result.length, 4);
+  assert.equal(result.filter((c) => c.recommended).length, 3);
+  const dropped = result.find((c) => !c.recommended);
+  assert.match(dropped.why.join(' '), /같은 소재 추천이 이미 3장/);
+  assert.equal(dropped.status, 'verify');
+  assert.equal(result.at(-1), dropped, '빠진 카드는 추천 뒤로 선다');
+});

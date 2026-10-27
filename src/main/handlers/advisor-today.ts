@@ -25,7 +25,8 @@ import {
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { collectIssueContexts, resolveSearchAdConfigFromEnv } from '../../utils/issue-context';
 import { exactSearchAdTotal, getNaverSearchAdKeywordVolume } from '../../utils/naver-searchad-api';
-import { readAdvisorDailyView, setAdvisorDailyAfterCollect } from './advisor-daily';
+import { readAdvisorDailyView, readDailyRecords, setAdvisorDailyAfterCollect } from './advisor-daily';
+import { publishHomefeedTopBlogs } from '../homefeed-top-blogs-publisher';
 import { measureKeywords } from './seat-measure';
 
 const FILE = () => path.join(app.getPath('userData'), 'advisor-daily', 'today-plan.json');
@@ -146,7 +147,11 @@ export async function runAdvisorToday(record?: AdvisorDailyRecord): Promise<Advi
 }
 
 export function setupAdvisorTodayHandlers(): void {
-  setAdvisorDailyAfterCollect(async (record) => { await runAdvisorToday(record); });
+  setAdvisorDailyAfterCollect(async (record) => {
+    // 홈판 상위 이력을 판 수집(CI)에 넘긴다(2026-10-27) — 사장님 PC 에서만 올라가고, 실패해도 오늘 쓸 글 판은 그대로 돈다.
+    void publishHomefeedTopBlogs(readDailyRecords()).then((r) => console.log(`[ADVISOR-TODAY] 홈판 상위 이력 발행: ${r.status} (${r.reason})`));
+    await runAdvisorToday(record);
+  });
   if (!ipcMain.listenerCount('advisor-today-view')) {
     ipcMain.handle('advisor-today-view', async (_event, payload?: { blogId?: string }) => {
       const id = payload?.blogId;

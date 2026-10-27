@@ -62,7 +62,7 @@ test('황금 판(선점 보드) 키워드도 뽑는다 — 이유 문장 · 하�
 });
 
 // 2026-10-22 사장님 "리더남 홈판 추천에는 그래프가 안 나오네요" — 홈판 판 키워드는 그래프만(작성 안내 · 제목은 홈판 판에 이미 있다).
-test('홈판 판은 추천 · 지금 검토 카드만 최대 300개, 그래프만 잰다(안내 · 측정 없음)', () => {
+test('홈판 판은 추천 · 지금 검토 카드만 최대 300개, 그래프와 검색량을 잰다(안내 없음)', () => {
   const homefeed = { candidates: [
     { id: 'h1', keyword: '김민수 국가대표 데뷔전 조각', status: 'review-now', recommended: true, searchTargets: ['김민수 국가대표'] },
     { id: 'h2', keyword: '오래된 소재', status: 'stale', recommended: false },
@@ -73,7 +73,8 @@ test('홈판 판은 추천 · 지금 검토 카드만 최대 300개, 그래프�
   const plan = ke.planEnrich(items, { entries: {} }, NOW, { trendMax: 9, measureMax: 9, guideMax: 9, rules: 'r' });
   assert.deepEqual(plan.trend, ['김민수 국가대표']);
   assert.deepEqual(plan.guide, []);
-  assert.deepEqual(plan.measure, []);
+  // 2026-10-27 비평 3번 — 카드 키워드 줄에 노릴 검색어의 월 검색량 · 블로그 문서를 싣는다.
+  assert.deepEqual(plan.measure, ['김민수 국가대표']);
 });
 
 // 2026-10-22 실측: 홈판 카드 키워드는 기사 제목 조각("날짜도 정했는데 바쁘대요 박세미 결혼식")이라 데이터랩 기록이 없다 → 그래프 0.

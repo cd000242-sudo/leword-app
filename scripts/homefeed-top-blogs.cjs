@@ -25,7 +25,8 @@ function topBlogsFromDailies(dailies) {
       ...(Array.isArray(daily.homefeedWeek) ? daily.homefeedWeek : []),
     ];
     for (const r of rows) {
-      const url = String((r && r.url) || '').replace(/^http:\/\//, 'https://').replace(/[?#].*$/, '');
+      // 같은 글이 대소문자 · 모바일 주소로 따로 세지지 않게(블로그 아이디는 대소문자를 가리지 않는다).
+      const url = String((r && r.url) || '').replace(/^http:\/\//, 'https://').replace(/^https:\/\/m\.blog/, 'https://blog').replace(/[?#].*$/, '').toLowerCase();
       const day = String((r && r.day) || '');
       if (!blogOf(url) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
       const prev = firstDay.get(url);

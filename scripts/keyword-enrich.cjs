@@ -5,7 +5,7 @@
  * 애드센스 벤치마크에 넣은 것을 두 판에도 준다. 두 판의 원래 생산(사이트 build-seasonal-keywords · 앱 topic-briefs)은 건드리지 않고,
  * 대표 검색어마다 덧붙일 것을 **자기 파일(keyword-enrich.json)에만** 쌓는다 — 사이트가 검색어로 찾아 붙인다.
  *   demand        데이터랩 주별 실측 판정 · 26주 선(src/utils/demand-now.ts, 5개 묶음) — 3일 기억(추이 모름은 하루)
- *   measure       월 검색량 · 블로그 문서수(시즌 검색어만 — 글감은 이미 실측이 있다) — 워커 서버 키로, 7일 기억
+ *   measure       월 검색량 · 블로그 문서수(시즌 검색어 · 홈판 추천 카드 — 글감은 이미 실측이 있다) — 워커 서버 키로, 7일 기억
  *   kinQuestions  지식인에서 실제로 묻는 질문 3개(링크 · 조회수) — 워커 kin-search
  *   solves · actionTitles  이 글이 해결할 문제 · 행동 키워드 제목 — 구독 AI(Sonnet, 작성 안내 'keyword' 모드), 7일 기억
  * 판에서 사라지고 7일 지난 검색어는 정리한다. 못 잰 것은 비워 둔다(지어내지 않음).
@@ -109,7 +109,8 @@ function planEnrich(items, store, nowMs, { trendMax, measureMax, guideMax, rules
     const trendTtl = e.demand && e.demand.verdict === 'unknown' ? UNKNOWN_TTL_MS : TREND_TTL_MS;
     const missed = age(e.demandMissAt, nowMs) < MISS_TTL_MS;
     if (!(e.demand && age(e.demandAt, nowMs) < trendTtl) && !missed && trend.length < trendMax) trend.push(item.query);
-    if (item.kinds.includes('seasonal') && !(e.measure && age(e.measureAt, nowMs) < MEASURE_TTL_MS) && measure.length < measureMax) measure.push(item.query);
+    // 홈판 추천 카드도 잰다(2026-10-27 비평 3번) — 카드 키워드 줄이 '노릴 검색어 · 월 검색량 · 블로그 문서'를 실측으로 보여 준다. 시즌 검색어가 앞 순서다.
+    if ((item.kinds.includes('seasonal') || item.kinds.includes('homefeed')) && !(e.measure && age(e.measureAt, nowMs) < MEASURE_TTL_MS) && measure.length < measureMax) measure.push(item.query);
     if (!item.noGuide && !(e.rules === rules && age(e.guideAt, nowMs) < GUIDE_TTL_MS) && guide.length < guideMax) guide.push(item);
   }
   return { trend, measure, guide };
