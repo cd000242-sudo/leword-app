@@ -114,3 +114,14 @@ test('제목 짓기 — 0개 통과 카드는 missed 로 돌려주고, 지은 �
   assert.deepEqual(out.made.map((e) => [e.id, e.urls]), [['a', ['https://u/a']]]);
   assert.deepEqual(out.missed, ['b']);
 });
+
+/*
+ * 2026-10-22~26 구독 CLI 주간 한도 소진으로 새 제목이 4일간 0건이었는데 작업은 '성공'으로 끝나 아무도 몰랐다
+ * (제목 있는 카드 742 → 4). 회차 요약을 남기고, 워크플로 마지막 단계가 0건이면 빨간불로 끝낸다.
+ */
+test('회차 요약 — 요청했는데 0건이면 stalled', () => {
+  const { runSummary } = require('./enrich-benchmark-titles.js');
+  assert.deepEqual(runSummary({ asked: 12, made: 0 }), { asked: 12, made: 0, stalled: true });
+  assert.deepEqual(runSummary({ asked: 12, made: 3 }), { asked: 12, made: 3, stalled: false });
+  assert.deepEqual(runSummary({ asked: 0, made: 0 }), { asked: 0, made: 0, stalled: false });
+});

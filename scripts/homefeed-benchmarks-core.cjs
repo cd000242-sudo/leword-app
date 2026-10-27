@@ -242,7 +242,15 @@ function groupPosts(posts) {
   }
   return groups;
 }
-function buildCandidates(posts, now, previousPosts = []) {
+/*
+ * 홈판 상위 이력(2026-10-27 실측) — 어드바이저 홈판 상위 381편 × 판 원문 28,574편 대조에서 가장 강한 신호.
+ * 블로그별 상위 횟수(data/homefeed-top-blogs.json)를 받아, 추천은 "출처 블로그 상위 이력 1회+ 또는 공감 10+" 를 더 요구한다.
+ * 이력이 비어 있으면(파일 없음) 예전 규칙 그대로다.
+ */
+const blogIdOf = (url) => (/blog\.naver\.com\/([A-Za-z0-9_-]+)/.exec(String(url || '')) || [])[1]?.toLowerCase() || null;
+function buildCandidates(posts, now, previousPosts = [], topBlogs = new Map()) {
+  const measured = topBlogs instanceof Map && topBlogs.size > 0;
+  const topsOf = (p) => (measured ? topBlogs.get(blogIdOf(p.url)) || 0 : 0);
   const groups = groupPosts(posts);
   // 이전 관측은 주소로 찾는다(같은 주소가 여럿이면 먼저 것 — 예전 find 와 같다).
   const prevByUrl = new Map(); for (const prev of previousPosts) if (prev && prev.url && !prevByUrl.has(prev.url)) prevByUrl.set(prev.url, prev);
@@ -264,19 +272,23 @@ function buildCandidates(posts, now, previousPosts = []) {
      * 제목이 똑같이 퍼 나른 것(possible-syndication)은 여전히 독립 근거가 아니라 막힌다.
      */
     const channels = new Set(sorted.map(p=>p.sourceId)).size;
-    const recommended = age <= 2 && !flags.some(f=>['sponsored','sensitive-claim','recycled-material','possible-syndication'].includes(f)) && Boolean(lead.summary) && (channels>=2 || (platforms.size>=2 && reaction) || positiveGrowth);
+    const histTops = [...new Map(sorted.map(p=>[blogIdOf(p.url), topsOf(p)])).values()].reduce((s,n)=>s+n,0);
+    const maxLikes = Math.max(0, ...sorted.map(p=>Number(p.metrics?.likes)).filter(Number.isFinite));
+    const proven = !measured || histTops >= 1 || maxLikes >= 10;
+    const recommended = age <= 2 && !flags.some(f=>['sponsored','sensitive-claim','recycled-material','possible-syndication'].includes(f)) && Boolean(lead.summary) && (channels>=2 || (platforms.size>=2 && reaction) || positiveGrowth) && proven;
     const keyword = tokens(lead.title).slice(0,5).join(' ').slice(0,55) || lead.title.slice(0,55);
     const why = [lead.publishedAt ? `벤치마크 발행 ${lead.publishedAt.slice(0,10)} · 사건 발생일은 별도 확인` : '발행일을 확인하지 못해 최신 사건으로 판단하지 않았습니다.'];
     if (sorted.length>1) why.push(`${new Set(sorted.map(p=>p.sourceId)).size}개 채널에서 관련 제목 발견 · 독립 사실 확인과는 다릅니다.`);
     if (reaction) why.push('공개 반응이 있는 소재 · 플랫폼별 지표는 원문별로 표시합니다.');
     if (positiveGrowth) why.push('같은 게시물의 공개 반응이 이전 수집보다 늘었습니다. 채널 평소 대비 성과는 미확인입니다.');
+    if (histTops > 0) why.push(`출처 블로그가 최근 홈판 상위 ${histTops}회(어드바이저 실측) — 홈판에 자주 뜨는 블로그의 소재입니다.`);
     if (flags.includes('sponsored')) why.push('제품 제공·협찬 고지 감지: 자연 유행 근거에서 제외');
     if (stale) why.push('과거 자료 또는 발행 7일 경과: 새 사실 확보 전 작성 우선순위를 낮춥니다.');
     const summary = lead.summary ? plainText(lead.summary,140) : '제목과 공개 목록만 확인했습니다. 사건 내용은 원문 확인 후 작성하세요.';
     return {
       id: crypto.createHash('sha256').update(lead.url).digest('hex').slice(0,16), keyword, title: lead.title, category: category(lead.title, sorted.map(p=>p.topic), lead.summary),
       status: stale?'stale':recommended?'review-now':'verify', recommended,
-      priority: Math.max(0, (age<=1?30:age<=2?24:age<=7?12:0) + (lead.summary?10:0) + Math.min(24,(channels-1)*8) + (platforms.size>=2?15:0) + (reaction?10:0) + (positiveGrowth?10:0) - (flags.includes('sponsored')?25:0) - (stale?30:0) - (flags.includes('sensitive-claim')?20:0)),
+      priority: Math.max(0, (age<=1?30:age<=2?24:age<=7?12:0) + (lead.summary?10:0) + Math.min(24,(channels-1)*8) + (platforms.size>=2?15:0) + (reaction?10:0) + (positiveGrowth?10:0) - (flags.includes('sponsored')?25:0) - (stale?30:0) - (flags.includes('sensitive-claim')?20:0) + (measured ? Math.min(30, histTops*10) + (maxLikes>=10?10:0) : 0)),
       publishedAt: lead.publishedAt, eventAt: null, capturedAt: lead.capturedAt,
       freshnessLabel: stale?'시점 재검토':recommended?'원문 재확인 후 우선 검토':'원출처 확인 필요', why, summary,
       summaryAttribution: lead.summary?`${lead.name} 공개 요약 발췌 · 사실 확인 전`:'공개 제목에서 발견 · 본문 미확인',
@@ -292,7 +304,7 @@ function buildCandidates(posts, now, previousPosts = []) {
       verificationNeeded: [...(flags.includes('sensitive-claim')?['당사자·공식 자료 확인 전 인물 관련 의혹 제외']:[]), ...(flags.includes('sponsored')?['상업적 관계와 홍보성 주장 확인']:[])],
       imageGuide: { url: lead.url, instruction: `${lead.name} 원문에서 이미지의 원출처를 먼저 확인하세요. 원본 게시물의 제목·게시일·관련 장면을 확인한 뒤 사용 조건에 맞게 캡처하고 출처를 남기세요. 벤치마크 사진 자체의 재사용 허용 여부는 미확인입니다.` },
       metrics: { searchVolume: null, documentCount: null, rankingPossibility:'unmeasured', reactionGrowth: growth }, homefeedExposure:'unverified',
-      sources: sorted.slice(0,5).map(p=>({ id:p.sourceId, platform:p.platform, name:p.name, title:p.title, url:p.url, publishedAt:p.publishedAt, summary:plainText(p.summary,140), metrics:p.metrics, ...(safeImage(p.image)?{image:p.image}:{}), ...(p.reactionCount!=null?{reactionCount:p.reactionCount,reactionLabel:p.reactionLabel}:{}), ...(p.metricNote?{metricNote:p.metricNote}:{}), ...(growthOf.get(p.url)?{growth:growthOf.get(p.url)}:{}), discoveryOnly:true })), flags,
+      sources: sorted.slice(0,5).map(p=>({ id:p.sourceId, platform:p.platform, name:p.name, title:p.title, url:p.url, publishedAt:p.publishedAt, summary:plainText(p.summary,140), metrics:p.metrics, ...(safeImage(p.image)?{image:p.image}:{}), ...(p.reactionCount!=null?{reactionCount:p.reactionCount,reactionLabel:p.reactionLabel}:{}), ...(p.metricNote?{metricNote:p.metricNote}:{}), ...(growthOf.get(p.url)?{growth:growthOf.get(p.url)}:{}), ...(topsOf(p)?{homefeedTops:topsOf(p)}:{}), discoveryOnly:true })), flags,
     };
   })
     // 30장 상한을 없앴다 — 최근 48시간 소재는 전부 싣는다(사장님 2026-09-30). 발행일을 모르는 것은 이번 수집에서 본 것이라 남긴다.
@@ -301,14 +313,14 @@ function buildCandidates(posts, now, previousPosts = []) {
     // 48시간 카드는 출처 786곳이면 5천 장을 넘는다(판 17MB). 추천이 앞에 서 있으니 앞에서 MAX_CARDS 장 — 추천은 전부 들어간다.
     .slice(0, MAX_CARDS);
 }
-function buildPayload(results, now, previous, previousPosts=[]) {
+function buildPayload(results, now, previous, previousPosts=[], topBlogs=new Map()) {
   const posts = results.flatMap(r=>r.status==='ok'?r.posts:[]);
   const sources = results.map(({ posts: list, ...r })=>({ ...r, postCount:list.length }));
   const base = { schemaVersion:1, scope:'leadernam-benchmark', attemptedAt:now, sourceCount:sources.length, sources };
   if (!posts.length && previous?.schemaVersion===1 && Array.isArray(previous.candidates)) return { ...previous, ...base, status:'stale', reason:'이번 수집에서 유효한 게시물을 확보하지 못해 마지막 성공 결과를 유지합니다.' };
-  const candidates = buildCandidates(posts,now,previousPosts);
+  const candidates = buildCandidates(posts,now,previousPosts,topBlogs);
   // 홈판 흐름 요약(2026-10-06) — 오늘 자주 뜨는 분야 · 여러 채널이 다룬 소재 · 고수 제목 모양. 사이트 · 앱이 그대로 그린다.
   const { buildTrends } = require('./homefeed-benchmarks-trends.cjs');
-  return { ...base, generatedAt:posts.length?now:null, status:posts.length?(sources.every(s=>s.status==='ok')?'fresh':'partial'):'stale', collectedPostCount:posts.length, candidates, trends:buildTrends(posts,candidates,now,category) };
+  return { ...base, generatedAt:posts.length?now:null, status:posts.length?(sources.every(s=>s.status==='ok')?'fresh':'partial'):'stale', collectedPostCount:posts.length, candidates, trends:buildTrends(posts,candidates,now,category), ...(topBlogs instanceof Map && topBlogs.size ? { homefeedTopBlogs:Object.fromEntries(topBlogs) } : {}) };
 }
 module.exports = { category, assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, likeContentsId, parseLikes, buildCandidates, buildPayload };

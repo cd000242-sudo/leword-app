@@ -283,3 +283,33 @@ test('유튜브 썸네일도 원문 이미지로 싣는다', () => {
   const r = core.parseYoutube(xml, { id: 'y', platform: 'youtube' }, '2026-10-21T03:00:00.000Z');
   assert.equal(r.posts[0].image, 'https://i2.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
 });
+
+/*
+ * 2026-10-27 실측 추천 규칙 — 25일치 어드바이저 홈판 상위 × 판 28개 대조.
+ * 출처 블로그의 상위 이력(3회+ 카드 적중 4.2% vs 이력 0 카드 0.3%)이나 공감 10+ 가 있어야 추천.
+ * "지금 추천 + (이력 1+ 또는 공감 10+)" → 추천 69%→33%, 적중률 1.06%→1.94%, 실제로 뜬 카드의 79% 유지.
+ * 이력 파일이 없으면(빈 Map) 예전 규칙 그대로 — CI 가 파일을 못 읽어도 판이 비지 않는다.
+ */
+test('이력 파일이 있으면 상위 이력 블로그 소재나 공감 10+ 만 추천한다', () => {
+  // 그룹으로 묶이는 한 쌍은 위 '카드는 1,000장까지' 테스트의 x1 · x2 와 같다.
+  const pair = (likes) => [other('a', '디올과 원영의 만남 🎀', { metrics: { views: null, likes, comments: null } }), other('b', '🎀 디올원영 어떤데?')];
+  assert.equal(core.buildCandidates(pair(null), now)[0].recommended, true, '이력 파일 없음 → 예전 규칙');
+  assert.equal(core.buildCandidates(pair(null), now, [], new Map([['zzz', 3]]))[0].recommended, false, '이력도 공감도 없음 → 추천 아님');
+  const hist = core.buildCandidates(pair(null), now, [], new Map([['b', 3]]))[0];
+  assert.equal(hist.recommended, true, '출처 블로그가 상위 이력 3회');
+  assert.equal(hist.sources.find((s) => s.url.includes('/b/')).homefeedTops, 3);
+  assert.match(hist.why.join(' '), /홈판 상위 3회/);
+  assert.equal(core.buildCandidates(pair(12), now, [], new Map([['zzz', 3]]))[0].recommended, true, '공감 10+');
+});
+test('상위 이력이 많은 소재가 우선순위에서 앞선다', () => {
+  const a = other('a', '디올과 원영의 만남 🎀');
+  const b = other('b', '🎀 디올원영 어떤데?');
+  const p1 = core.buildCandidates([a, b], now, [], new Map([['b', 1]]))[0].priority;
+  const p3 = core.buildCandidates([a, b], now, [], new Map([['b', 3]]))[0].priority;
+  assert.ok(p3 > p1);
+});
+test('판이 홈판 상위 이력을 싣는다 — 화면 실시간 판이 같은 추천 규칙을 쓰게', () => {
+  const results = [{ id: 'a', status: 'ok', posts: [other('a', '디올과 원영의 만남 🎀'), other('b', '🎀 디올원영 어떤데?')] }];
+  assert.deepEqual(core.buildPayload(results, now, null, [], new Map([['b', 3]])).homefeedTopBlogs, { b: 3 });
+  assert.equal(core.buildPayload(results, now, null, []).homefeedTopBlogs, undefined);
+});
