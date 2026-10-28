@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -7,11 +7,14 @@ import { publicBoard, writeSuccessfulBoard } from '../../main/board-cache';
 const now = Date.parse('2026-09-28T04:00:00Z');
 const stamp = new Date(now).toISOString();
 const dirs: string[] = [];
-afterEach(() => dirs.splice(0).forEach(dir => fs.rmSync(dir, { recursive: true, force: true })));
+afterEach(() => { vi.useRealTimers(); dirs.splice(0).forEach(dir => fs.rmSync(dir, { recursive: true, force: true })); });
 const brief = { title: '지원금 신청 조건 확인', coreKeyword: '지원금 신청', timing: 'NOW', field: '정책', facts: [{ id: 'f1', title: '지원금 신청', snippet: '조건 확인', body: '비공개 기사 전체', apiKey: 'SECRET', link: 'https://news.naver.com/article/1', publishedAt: stamp }], factIds: ['f1'] };
 
 describe('public board projection and successful snapshot', () => {
   it('preserves same-query split search counts and strips private response data', () => {
+    // 근거 유효기간 검사는 실제 시계를 읽는다 — 고정 픽스처(09-28)가 달력에 썩지 않게 시계를 now 에 맞춘다(2026-10-29).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
     const evidence = {source:'naver-searchad',keyword:'지원금 신청',measuredAt:stamp,pc:100,mobile:null,pcUnder10:false,mobileUnder10:true,totalMin:100,totalMax:109,status:'range',accessToken:'SECRET'};
     const board:any = publicBoard('topic-briefs',{builtAt:stamp,briefs:[{...brief,searchVolume:999,searchVolumeUnder10:true,searchVolumeEvidence:evidence}]},now);
     expect(board.briefs[0]).toMatchObject({searchVolume:null,searchVolumeUnder10:false,searchVolumeEvidence:{totalMin:100,totalMax:109,pc:100,mobile:null}});

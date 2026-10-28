@@ -22,6 +22,8 @@ import * as path from 'path';
 import { StringDecoder } from 'string_decoder';
 import { readBriefProvider } from '../topic-brief-preferences';
 import { isAffiliatePublishingEnabled, publishAffiliateSnapshot } from '../affiliate-publisher';
+import { loadSessionCookies } from '../affiliate-session-store';
+import { injectSessionCookies } from '../affiliate-cookie-inject';
 import {
   AFFILIATE_SCRIPT_FILES,
   AFFILIATE_STAGE_LABEL,
@@ -181,6 +183,26 @@ function affiliateBrowserEnv(): Record<string, string> {
   return env;
 }
 
+/**
+ * 크롬 확장이 보낸 쿠키를 수집기와 같은 프로필·같은 크롬에 넣는다(수집 직전).
+ * 쿠키가 없거나 실패해도 기존 동작 그대로 — 회차를 막지 않는다. 쿠키 값은 로그에 안 남긴다.
+ */
+async function injectSavedSession(): Promise<void> {
+  try {
+    const cookies = loadSessionCookies();
+    if (cookies.length === 0) return;
+    const env = affiliateBrowserEnv();
+    const profileDir = env.LEWORD_AFFILIATE_PROFILE_DIR || path.join(DIR(), 'tmp', 'affiliate-profile');
+    fs.mkdirSync(profileDir, { recursive: true });
+    say('크롬 로그인 세션을 수집 프로필에 옮기는 중…');
+    const result = await injectSessionCookies({ profileDir, chromePath: env.LEWORD_AFFILIATE_CHROME, cookies });
+    if (result.error) console.warn('[제휴 자동] 세션 주입 실패:', result.error);
+    else console.log(`[제휴 자동] 세션 쿠키 ${result.injected}개 주입`);
+  } catch (error: any) {
+    console.warn('[제휴 자동] 세션 주입 실패:', String(error?.message || error).slice(0, 120));
+  }
+}
+
 function readSnapshot(file: string): any {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; }
 }
@@ -241,6 +263,7 @@ export async function runAffiliateCycle(reason: RunReason, options: { login?: bo
     const plan = buildAffiliatePlan({ workDir, siteRepo: null });
     await seedPublishedSnapshot(plan.snapshotFile);
     const startedAt = Date.now();
+    if (!login) await injectSavedSession();
     say(login ? '로그인 창을 엽니다 — 창에서 토스 · 브랜드커넥트에 로그인하면 이어서 받습니다' : '제휴 상품 받는 중…');
     const collect = await runStage(
       { ...plan.stages[0], args: [...plan.stages[0].args, login ? '--autoLogin' : '--headless'] },
@@ -282,7 +305,7 @@ export async function runAffiliateCycle(reason: RunReason, options: { login?: bo
     writeState({ lastRun: run });
 
     if (outcome.needsLogin && JSON.stringify(previous?.needsLogin) !== JSON.stringify(outcome.sites)) {
-      notify('제휴 로그인이 필요합니다', `${outcome.sites.join(' · ')} 목록을 못 받았습니다. 제휴 전용 수집 브라우저에서 다시 로그인해야 합니다.`);
+      notify('제휴 로그인이 필요합니다', `${outcome.sites.join(' · ')} 목록을 못 받았습니다. 크롬에서 네이버·토스에 로그인돼 있고 LEWORD 세션 연결 확장이 켜져 있으면 자동으로 이어집니다. 그래도 안 되면 제휴 전용 수집 브라우저에서 다시 로그인해 주세요.`);
     }
     return run;
   } finally {

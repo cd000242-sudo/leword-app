@@ -68,6 +68,7 @@ jobs:
           --briefs=site/spa/public/data/topic-briefs.json
           --homefeed=site/spa/public/data/homefeed-benchmarks.json
           --homefeed-guides=site/spa/public/data/homefeed-benchmark-guides.json
+          --affiliate=site/spa/public/data/affiliate-campaigns.json
           --store=site/spa/public/data/keyword-enrich.json
           --trend-max=200
           --measure-max=120

@@ -17,6 +17,7 @@ import { createHomefeedHostDeps } from './homefeed/host';
 import { createBoardBridgeDeps } from './board-bridge-host';
 import { createBenchmarkTitleBridgeDeps } from './benchmark-title-bridge';
 import { createMyBlogBridgeDeps } from './my-blog-bridge-host';
+import { saveSessionCookies } from './affiliate-session-store';
 import { kinAnswerViaAgent, radarEvaluateViaAgent } from './inflow-agents';
 
 const WORKER_REPO = 'cd000242-sudo/leword-app';
@@ -58,6 +59,7 @@ export function startWebBridgeHost(): void {
       boards: createBoardBridgeDeps(),
       benchmarkTitles: createBenchmarkTitleBridgeDeps(),
       myBlog: createMyBlogBridgeDeps(),
+      affiliateSession: saveSessionCookies,
       appVersion: app.getVersion(),
       getAgentStatuses: async () => {
         const providers = ['claude', 'codex', 'gemini', 'grok'] as const;

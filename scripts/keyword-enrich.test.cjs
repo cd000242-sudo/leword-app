@@ -126,3 +126,22 @@ test('워커가 정상 응답하면 기록이 빈 검색어도 "없음"으로 �
     assert.equal(await ke.workerWeekly(['김장'], 'srv', new Date('2026-10-22T00:00:00Z')), null);
   } finally { global.fetch = saved; }
 });
+
+// 2026-10-29 사장님 "제휴 황금키워드도 … 그래프와 같이 보면서 지금 어떻게 쓰면 되는지" — 제휴 판(affiliate-campaigns.json)은 그래프만.
+test('제휴 판은 월 100 이상으로 잰 검색어(니즈 · 상품명 · 근거)만, 그래프만 잰다(안내 · 측정 없음)', () => {
+  const affiliate = { sites: {
+    toss: { items: [
+      { name: '슈리오 스니커즈', needKeyword: '슈리오 스니커즈', needVolume: 3570, keyword: '슈리오', searchVolume: 40 },
+      { name: '콩튀', keyword: '당연구소 콩튀', searchVolume: 30 },
+    ] },
+    brandconnect: { items: [
+      { name: '쿠쿠 음식물처리기', keyword: '쿠쿠 음식물처리기', searchVolume: 48740, keywordEvidence: [{ query: '음식물처리기 추천', monthlySearches: 5200 }, { query: '없는말', monthlySearches: 10 }] },
+    ] },
+  } };
+  const items = ke.collectItems([['affiliate', affiliate]]);
+  assert.deepEqual(items.map((i) => i.query).sort(), ['쿠쿠 음식물처리기', '슈리오 스니커즈', '음식물처리기 추천'].sort());
+  assert.ok(items.every((i) => i.noGuide && i.kinds.includes('affiliate')));
+  const plan = ke.planEnrich(items, { entries: {} }, NOW, { trendMax: 9, measureMax: 9, guideMax: 9, rules: 'r' });
+  assert.equal(plan.trend.length, 3);
+  assert.deepEqual([plan.measure, plan.guide], [[], []]);
+});

@@ -86,6 +86,18 @@ function collectItems(sources, { homefeedGuides = null } = {}) {
         .slice(0, 300);
       for (const c of cards) add('homefeed', { query: homefeedQuery(c, targetsById), title: clean(c.title, 200), category: clean(c.category, 40), suggestions: [], sourceTitles: [], noGuide: true });
     }
+    if (kind === 'affiliate') {
+      // 제휴 황금키워드(2026-10-29 "그래프와 같이 보면서 지금 어떻게 쓰면 되는지") — 그래프만. 제목은 제휴 판에 이미 있다(noGuide).
+      // 월 100 이상으로 잰 검색어만 — 사이트가 황금비로 줄 세우는 그 하한이다. 니즈 · 상품명 · 근거 검색어 중 무엇이든 사이트가 고른 말과 맞게.
+      const sites = json.sites && typeof json.sites === 'object' ? Object.values(json.sites) : [];
+      for (const item of sites.flatMap((s) => (s && Array.isArray(s.items) ? s.items : []))) {
+        const pairs = [[item.needKeyword, item.needVolume], [item.keyword, item.searchVolume],
+          ...(Array.isArray(item.keywordEvidence) ? item.keywordEvidence.map((e) => [e && e.query, e && e.monthlySearches]) : [])];
+        for (const [query, volume] of pairs) {
+          if (typeof volume === 'number' && volume >= 100) add('affiliate', { query, title: clean(item.name, 200), category: '', suggestions: [], sourceTitles: [], noGuide: true });
+        }
+      }
+    }
     if (kind === 'briefs') {
       const all = [...(Array.isArray(json.briefs) ? json.briefs : []), ...(Array.isArray(json.rounds) ? json.rounds.flatMap((r) => (Array.isArray(r && r.briefs) ? r.briefs : [])) : [])];
       for (const b of all) {
@@ -176,7 +188,7 @@ async function main() {
   const storePath = arg('store');
   if (!storePath) throw new Error('--store=<keyword-enrich.json> 이 필요합니다.');
   // 틈새를 먼저 — 실시간 키워드라 판정이 가장 빨리 낡는다
-  const sources = [['issue', arg('issue') ? readJson(arg('issue')) : null], ['golden', arg('golden') ? readJson(arg('golden')) : null], ['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null], ['homefeed', arg('homefeed') ? readJson(arg('homefeed')) : null]];
+  const sources = [['issue', arg('issue') ? readJson(arg('issue')) : null], ['golden', arg('golden') ? readJson(arg('golden')) : null], ['seasonal', arg('seasonal') ? readJson(arg('seasonal')) : null], ['briefs', arg('briefs') ? readJson(arg('briefs')) : null], ['homefeed', arg('homefeed') ? readJson(arg('homefeed')) : null], ['affiliate', arg('affiliate') ? readJson(arg('affiliate')) : null]];
   const items = collectItems(sources, { homefeedGuides: arg('homefeed-guides') ? readJson(arg('homefeed-guides')) : null });
   const nowMs = Date.now();
   const at = new Date(nowMs).toISOString();

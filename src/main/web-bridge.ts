@@ -177,15 +177,23 @@ export interface WebBridgeDeps {
     status: () => Promise<unknown>;
     dispatchTest: () => Promise<unknown>;
   };
+  /**
+   * 크롬 확장(LEWORD 세션 연결)이 보낸 네이버·토스 쿠키 저장 — 쓰기 전용(2026-10-29).
+   * 쿠키를 돌려주는 GET 은 없다. 검증·저장은 deps 가 한다(응답에 쿠키 값 없음).
+   */
+  affiliateSession?: (body: unknown) => Promise<unknown>;
 }
 
-function readBody(req: http.IncomingMessage): Promise<string> {
+/** 제휴 세션 쿠키 — 네이버·토스 쿠키가 수백 개일 수 있어 따로 넉넉히 둔다(그래도 작은 상한). */
+const MAX_AFFILIATE_SESSION_BYTES = 262144;
+
+function readBody(req: http.IncomingMessage, maxBytes: number = MAX_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > maxBytes) {
         reject(new Error('본문이 너무 큽니다.'));
         req.destroy();
         return;
@@ -242,6 +250,21 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
     }
 
     try {
+      /*
+       * 제휴 세션 쿠키 수신 — 크롬 확장 출처(chrome-extension://)만. 사이트 출처도 거절한다:
+       * 로그인 쿠키를 쓰는 통로라 방문한 웹페이지가 부리면 안 된다. 본문 상한 256KB.
+       */
+      if (deps.affiliateSession && req.method === 'POST' && req.url === '/affiliate-session') {
+        if (!EXTENSION_ORIGIN.test(origin)) { json(res, 403, { ok: false, error: '크롬 확장에서만 보낼 수 있습니다.' }); return; }
+        let parsed: unknown;
+        try { parsed = JSON.parse((await readBody(req, MAX_AFFILIATE_SESSION_BYTES)) || ''); } catch { json(res, 400, { ok: false, error: '본문이 올바르지 않습니다.' }); return; }
+        try {
+          json(res, 200, { ok: true, result: await deps.affiliateSession(parsed) });
+        } catch (error: unknown) {
+          json(res, 400, { ok: false, error: (error instanceof Error ? error.message : '저장하지 못했습니다.').slice(0, 100) });
+        }
+        return;
+      }
       if (deps.boards && await handleBoardRoute(req, res, deps.boards, { readBody, json, siteOriginAllowed: (value) => ALLOWED_ORIGINS.has(value) })) return;
       if (deps.myBlog && await handleMyBlogRoute(req, res, deps.myBlog, { json, siteOriginAllowed: (value) => ALLOWED_ORIGINS.has(value) })) return;
       if (deps.benchmarkTitles && await handleBenchmarkTitleRoute(req, res, deps.benchmarkTitles, { readBody, json, siteOriginAllowed: (value) => ALLOWED_ORIGINS.has(value) })) return;
