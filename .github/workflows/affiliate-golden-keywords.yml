@@ -23,7 +23,7 @@ jobs:
     env:
       LEWORD_SEARCHAD_SOFT_CEILING: '200'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,7 +60,7 @@ jobs:
           --out=site/spa/public/data/affiliate-golden-keywords.json
           --golden-lib=site/spa/src/lib/affiliateGolden.mjs
           --seeds-per-category=5
-          --measure-per-category=50
+          --measure-per-category=150
       - name: Publish only the golden keywords file
         working-directory: site
         run: |
