@@ -1,0 +1,84 @@
+name: 제휴 카테고리별 황금 검색어 (하루 1회)
+
+# 2026-10-29 사장님 "제휴 황금키워드도 카테고리별로 있을 거 아냐, 그걸 분류해서 황금키워드를 찾아줘야지".
+# 제휴 상품 280개의 상품명 검색어로는 황금(문서수 ÷ 월검색량 < 1.0)이 4개뿐이라, 카테고리 대표어(상품 종류 명사)의 연관어를 넓게 잰다.
+# 사이트의 affiliateCategory 로 상품을 가르고, 카테고리마다 씨앗 5개 → 검색광고 연관어(월 100↑) 상위 50개 → 블로그 문서수 → 황금만 최대 30개.
+# 사이트에는 affiliate-golden-keywords.json 한 파일만 싣는다. 앱의 06시(KST) 제휴 수집 뒤인 07:30(KST)에 돈다.
+# 검색광고: 씨앗당 1요청 — 카테고리 13개 × 5 = 최대 65회. 잡 상한 200, 계정 쿼터 합은 searchad-ceiling-per-job.test 가 잠근다.
+
+on:
+  schedule:
+    - cron: '30 22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: affiliate-golden-keywords
+  cancel-in-progress: false
+
+jobs:
+  golden:
+    env:
+      LEWORD_SEARCHAD_SOFT_CEILING: '200'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: npm ci (행업 방어)
+        run: |
+          for i in 1 2 3; do
+            timeout 600 npm ci && exit 0
+            echo "npm ci 실패 또는 10분 초과 — 재시도 $i/3"
+          done
+          exit 1
+      - name: Test affiliate golden keyword rules
+        run: node --test scripts/affiliate-golden-keywords.test.cjs
+      - name: Checkout website
+        uses: actions/checkout@v4
+        with:
+          repository: cd000242-sudo/naver
+          ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
+          path: site
+      - name: 카테고리별 황금 검색어 재기
+        env:
+          NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
+          NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
+          NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
+          NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+        run: >-
+          node scripts/affiliate-golden-keywords.cjs
+          --campaigns=site/spa/public/data/affiliate-campaigns.json
+          --out=site/spa/public/data/affiliate-golden-keywords.json
+          --golden-lib=site/spa/src/lib/affiliateGolden.mjs
+          --seeds-per-category=5
+          --measure-per-category=50
+      - name: Publish only the golden keywords file
+        working-directory: site
+        run: |
+          git config user.name 'leword-bot'
+          git config user.email 'bot@leaderspro.kr'
+          git add spa/public/data/affiliate-golden-keywords.json
+          if git diff --cached --quiet; then
+            echo 'No golden keyword changes.'
+            exit 0
+          fi
+          git commit -m "chore(affiliate): refresh category golden keywords"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then
+              echo '::error::Concurrent golden keyword change requires review.'
+              exit 1
+            fi
+            sleep 10
+          done
+          echo '::error::Golden keyword publication failed.'
+          exit 1

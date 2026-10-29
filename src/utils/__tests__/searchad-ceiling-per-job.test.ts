@@ -36,6 +36,7 @@ const ROUNDS_PER_DAY: Record<string, number> = {
   'today-picks.yml': 3,
   'agent-worker.yml': 1,       // 수동 재보강 — 하루 한 번으로 본다
   'adsense-benchmarks.yml': 16, // 애드센스 벤치마크 실측(2026-10-07) — 3시간 틱 두 개, 최악 16회
+  'affiliate-golden-keywords.yml': 1, // 제휴 카테고리별 황금 검색어(2026-10-29) — 하루 1회, 씨앗당 1요청 최대 65회
 };
 
 /** 키를 받지만 날마다 계정을 두드리지 않는 워크플로(이유를 적는다). */
