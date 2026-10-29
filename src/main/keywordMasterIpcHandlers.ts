@@ -34,6 +34,7 @@ import { setupRealtimeNicheHandlers, stopRealtimeNicheScheduler } from './handle
 import { startHomefeedScheduler, stopHomefeedScheduler } from './homefeed/scheduler';
 import { setupAffiliateLocalHandlers, startAffiliateScheduler, stopAffiliateScheduler } from './handlers/affiliate-local';
 import { startShortentsCollector, stopShortentsCollector } from './shortents/collector';
+import { startShortentsUpcomingCollector, stopShortentsUpcomingCollector } from './shortents/upcoming-collector';
 import { setupTrendImportHandlers } from './handlers/trend-import';
 import { startCiWatchdog, stopCiWatchdog, setupCiWatchdogHandlers } from './handlers/ci-watchdog';
 import { setupSiteBoardHandlers } from './handlers/site-board';
@@ -114,6 +115,7 @@ export function stopMyLaneSchedulers(): void {
   stopHomefeedScheduler();
   stopAffiliateScheduler();
   stopShortentsCollector();
+  stopShortentsUpcomingCollector();
   stopTopicBriefsScheduler();
   stopGoldenLocalScheduler();
   /*
@@ -244,6 +246,8 @@ export function setupKeywordMasterHandlers() {
   startAffiliateScheduler();
   // 숏텐츠 급상승(앱 전용, 2026-10-29) — 네이버 NOW 숏텐츠를 30분마다 받아 쌓고 가장 빠르게 뜨는 키워드를 사이트 공개 파일로 올린다.
   startShortentsCollector();
+  // 곧 뜰 숏텐츠 후보(앱 전용, 2026-10-30) — 10분마다 급상승어를 뉴스로 재서 숏텐츠에 뜨기 전 후보와 적중 장부를 올린다.
+  startShortentsUpcomingCollector();
   // 트렌드 CSV 들이기(앱 전용, 2026-09-10) — 크리에이터 어드바이저 유입 검색어를 재서 빈자리를 고른다.
   setupTrendImportHandlers();
   // 회차 감시견(2026-09-10, 2026-09-12 에 보드 넷으로 확대) —
