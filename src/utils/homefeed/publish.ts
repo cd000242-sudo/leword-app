@@ -12,6 +12,8 @@
  * 이 파일은 순수 함수만 둔다(파일 쓰기 · 커밋 없음). 기존 보드 발행기와 같은 규칙이다.
  */
 import * as path from 'path';
+import { normalizeSpeedScoreboard } from './speed';
+import type { HomefeedSpeedScoreboard } from './types';
 
 export const HOMEFEED_PUBLIC_SCHEMA = 'homefeed-public-v1';
 
@@ -31,6 +33,8 @@ export interface HomefeedBridgeLike {
   counts?: unknown;
   stories?: unknown;
   publicDetails?: Record<string, unknown>;
+  /** 7일 속도 성적표(2026-11-02) — 구버전 앱 응답에는 없다. */
+  speedScoreboard?: unknown;
 }
 
 export interface HomefeedPublicPayload {
@@ -44,6 +48,8 @@ export interface HomefeedPublicPayload {
   counts: { status: Record<string, number>; window: Record<string, number> };
   stories: unknown[];
   publicDetails: Record<string, unknown>;
+  /** Additive v1 필드: 구버전 사이트는 모르는 키로 무시한다. 검사를 못 통과하면 null. */
+  speedScoreboard: HomefeedSpeedScoreboard | null;
 }
 
 function isoOrNull(value: unknown): string | null {
@@ -86,12 +92,14 @@ export function buildHomefeedPublicPayload(
     stories: stories.map(publicSummary),
     publicDetails: Object.fromEntries(Object.entries(bridge.publicDetails ?? {}).filter(([id]) => stories.some((row: any) => row?.id === id))
       .map(([id, detail]) => [id, publicDetail(detail)])),
+    speedScoreboard: normalizeSpeedScoreboard(bridge.speedScoreboard),
   };
 }
 
 /** 명시된 공개 필드만 복사한다. 생성/편집 서비스의 개인 결과를 통째로 발행하지 않는다. */
 const SUMMARY_KEYS = ['id', 'issueKey', 'keyword', 'category', 'capturedAt', 'window', 'status', 'anchor', 'delta', 'deltaReason',
-  'signals', 'tensions', 'funGap', 'alternativeAngles', 'payoffCount', 'noSearchPassed', 'tellable', 'firstCard', 'visualStrategy', 'thumbnail', 'risks'] as const;
+  'signals', 'tensions', 'funGap', 'alternativeAngles', 'payoffCount', 'noSearchPassed', 'tellable', 'firstCard', 'visualStrategy', 'thumbnail', 'risks',
+  'newsBuckets', 'lead'] as const;
 function publicSummary(value: unknown): Record<string, unknown> {
   const row = value && typeof value === 'object' ? value as Record<string, any> : {};
   const editorial = row.editorial?.public === true ? { ...row.editorial, selection: null, error: null } : undefined;

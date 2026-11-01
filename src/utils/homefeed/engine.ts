@@ -109,6 +109,9 @@ export function buildStory(
       title: sample.title, url: sample.url, press: sample.press, publishedAt: sample.publishedAt, image: sample.image, origin: sample.origin,
       description: sample.description, originalUrl: sample.originalUrl,
     })),
+    // 속도 실측(2026-11-02): 옛 스냅샷에는 없다 → null(화면 '미측정').
+    newsBuckets: issue.newsBuckets ?? null,
+    lead: issue.lead ?? null,
   };
 }
 
