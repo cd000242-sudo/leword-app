@@ -87,3 +87,15 @@ describe('상위호환 채점', () => {
     expect(prompt).toMatch(/같은 뜻/);
   });
 });
+
+// 2026-10-20 사장님 "행동을 유발하는 키워드를 같이 엮어서 제목에 넣어야".
+describe('행동어 필수', () => {
+  const base = { id: 'x', query: '기초연금모의계산', keyword: '기초연금 모의계산', category: '정부지원금·복지', sourceTitles: ['기초연금 모의계산 방법 복지로 정리'] };
+  it('신청 · 조회 · 계산 · 확인 · 하는 법 같은 행동어가 없으면 NO_ACTION', () => {
+    expect(checkAdsenseTitle('기초연금 모의계산 소득인정액 기준과 재산 입력 항목 정리', base)).toContain('NO_ACTION');
+    expect(checkAdsenseTitle('기초연금 모의계산 하는 법, 소득인정액 기준과 재산 입력 순서', base)).not.toContain('NO_ACTION');
+  });
+  it('지시문에 행동어 규칙이 있다', () => {
+    expect(buildAdsenseTitlePrompt([base])).toContain('행동을 부르는 말');
+  });
+});

@@ -5555,6 +5555,114 @@
       "url": "https://blog.naver.com/abybb",
       "feedUrl": "https://rss.blog.naver.com/abybb.xml",
       "topic": "원예·재배"
+    },
+    {
+      "id": "twodays0509",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/twodays0509",
+      "feedUrl": "https://rss.blog.naver.com/twodays0509.xml"
+    },
+    {
+      "id": "sudden4082",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/sudden4082",
+      "feedUrl": "https://rss.blog.naver.com/sudden4082.xml"
+    },
+    {
+      "id": "gguu1029",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/gguu1029",
+      "feedUrl": "https://rss.blog.naver.com/gguu1029.xml"
+    },
+    {
+      "id": "house_soso_",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/house_soso_",
+      "feedUrl": "https://rss.blog.naver.com/house_soso_.xml"
+    },
+    {
+      "id": "lunavi259",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/lunavi259",
+      "feedUrl": "https://rss.blog.naver.com/lunavi259.xml"
+    },
+    {
+      "id": "marriage1121",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/marriage1121",
+      "feedUrl": "https://rss.blog.naver.com/marriage1121.xml"
+    },
+    {
+      "id": "chokolatte80",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/chokolatte80",
+      "feedUrl": "https://rss.blog.naver.com/chokolatte80.xml"
+    },
+    {
+      "id": "loonshots88",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/loonshots88",
+      "feedUrl": "https://rss.blog.naver.com/loonshots88.xml"
+    },
+    {
+      "id": "sportsbrief",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/sportsbrief",
+      "feedUrl": "https://rss.blog.naver.com/sportsbrief.xml"
+    },
+    {
+      "id": "dbsrud1207",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/dbsrud1207",
+      "feedUrl": "https://rss.blog.naver.com/dbsrud1207.xml"
+    },
+    {
+      "id": "hwanhy1013",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/hwanhy1013",
+      "feedUrl": "https://rss.blog.naver.com/hwanhy1013.xml"
+    },
+    {
+      "id": "tamsatube",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/tamsatube",
+      "feedUrl": "https://rss.blog.naver.com/tamsatube.xml"
+    },
+    {
+      "id": "galtokki_1",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/galtokki_1",
+      "feedUrl": "https://rss.blog.naver.com/galtokki_1.xml"
+    },
+    {
+      "id": "profittc",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/profittc",
+      "feedUrl": "https://rss.blog.naver.com/profittc.xml"
+    },
+    {
+      "id": "cryistal2",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/cryistal2",
+      "feedUrl": "https://rss.blog.naver.com/cryistal2.xml"
+    },
+    {
+      "id": "boksilrabbit",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/boksilrabbit",
+      "feedUrl": "https://rss.blog.naver.com/boksilrabbit.xml"
+    },
+    {
+      "id": "u_bit",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/u_bit",
+      "feedUrl": "https://rss.blog.naver.com/u_bit.xml"
+    },
+    {
+      "id": "variousssul",
+      "platform": "naver-blog",
+      "url": "https://blog.naver.com/variousssul",
+      "feedUrl": "https://rss.blog.naver.com/variousssul.xml"
     }
   ]
 }

@@ -8,6 +8,7 @@ import { AgentCliError } from '../../utils/agent-cli/types';
 import { latestEntry, summarizeCalibration } from '../../utils/homefeed/calibration';
 import { applyPromptRefine, buildPromptRefinePrompt, buildStoryReviewPrompt, parseStoryReview } from '../../utils/homefeed/ai-materials';
 import { normalizeHomefeedSettings } from '../../utils/homefeed/settings';
+import { computeSpeedScoreboard } from '../../utils/homefeed/speed';
 import {
   buildTitlePrompt, buildTitleVisualPairs, classifyTitle, parseTitleCandidates, pickTopStops, titleCheckContextOf, titleMaterialsOf,
 } from '../../utils/homefeed/titles';
@@ -46,6 +47,11 @@ function tally(values: readonly string[]): Record<string, number> {
   return values.reduce<Record<string, number>>((acc, value) => ({ ...acc, [value]: (acc[value] ?? 0) + 1 }), {});
 }
 
+/** 7일 속도 성적표 — 저장된 장부(처음 본 시각 + 뉴스 표본 기록)와 설정의 수집 주기로 센다. 저장소만 읽는다. */
+export function speedScoreboardOf(store: HomefeedStore, nowMs: number) {
+  return computeSpeedScoreboard(store.readSignalState().entries, nowMs, { resolutionMinutes: store.readSettings().snapshotIntervalMinutes });
+}
+
 export function storySummary(story: HomefeedStory, assets: HomefeedAssets, publicMode = false) {
   const editorial = editorialView(story, assets, publicMode);
   const angle = editorial.brief?.angles.find((row) => row.id === editorial.brief.recommendedAngleId);
@@ -76,6 +82,9 @@ export function storySummary(story: HomefeedStory, assets: HomefeedAssets, publi
       heroImageUrl: story.thumbnail.heroImage.kind === 'real' ? story.thumbnail.heroImage.imageUrl : null,
     },
     risks: story.risks,
+    // 속도 실측(2026-11-02): 옛 계산본에는 없어 null 로 나간다.
+    newsBuckets: story.newsBuckets ?? null,
+    lead: story.lead ?? null,
     progress: publicMode ? { titles: false, selected: false, drafts: 0, images: 0 } : { titles: Boolean(assets.titles), selected: Boolean(assets.editorialSelection || assets.selection), drafts: assets.drafts.length, images: assets.images.length },
   };
 }
@@ -129,6 +138,7 @@ export function createHomefeedService(deps: HomefeedServiceDeps): HomefeedBridge
           window: tally(file.stories.map((story) => story.window.state)),
         },
         stories: file.stories.map((story) => storySummary(story, deps.store.readAssets(story.issueKey))),
+        speedScoreboard: speedScoreboardOf(deps.store, deps.now()),
       };
     },
 

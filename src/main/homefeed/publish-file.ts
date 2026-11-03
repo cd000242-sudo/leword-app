@@ -15,7 +15,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { EnvironmentManager } from '../../utils/environment-manager';
 import { buildHomefeedPublicPayload, resolveSiteDataDir, HOMEFEED_PUBLIC_FILE } from '../../utils/homefeed/publish';
-import { storySummary } from './service';
+import { speedScoreboardOf, storySummary } from './service';
 import type { HomefeedStore } from './store';
 import { publicStoryDetail } from './public-detail';
 
@@ -67,6 +67,7 @@ export function publishHomefeedPublicFile(store: HomefeedStore): { written: stri
       },
       stories: file.stories.map((story) => storySummary(story, store.readAssets(story.issueKey), true)),
       publicDetails: Object.fromEntries(file.stories.map((story) => [story.id, publicStoryDetail(story, store.readAssets(story.issueKey))])),
+      speedScoreboard: speedScoreboardOf(store, Date.now()),
     }, null, { nowMs: Date.now() });
 
     if (!payload) {

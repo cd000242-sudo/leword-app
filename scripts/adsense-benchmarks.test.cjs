@@ -201,3 +201,13 @@ test('블로그 안내 페이지(개인정보처리방침 · 이용약관 · /pa
   const board = core.buildBoard(['a', 'b'].map((id) => ({ id, status: 'ok', posts: all.filter((p) => p.sourceId === id) })), SOURCES, NOW);
   assert.deepEqual(board.candidates.map((c) => c.title), ['개인회생 신청 자격과 원금 최대 90% 면책 조건']);
 });
+
+// 2026-10-20 사장님 "워드프레스랑 티스토리, 블로그스팟 구분해주세요 — 각각 성격이 다릅니다. 워드프레스 먼저".
+// 플랫폼은 출처 목록(엑셀 '플랫폼' 열)에 있다 — 주소로 판별하면 티스토리 개인 도메인을 워드프레스로 잘못 센다.
+test('카드 출처와 판 출처에 플랫폼을 싣는다(출처 목록 기준)', () => {
+  const posts = [post('a', '청년도약계좌 중도해지 조건', 'https://a.tistory.com/1'), post('c', '청년도약계좌 중도해지 불이익', 'https://www.c.com/3')];
+  const board = core.buildBoard([{ id: 'a', status: 'ok', posts: [posts[0]] }, { id: 'c', status: 'ok', posts: [posts[1]] }], SOURCES, NOW);
+  const card = board.candidates.find((c) => c.title.includes('청년도약계좌'));
+  assert.deepEqual(card.sources.map((s) => [s.id, s.platform]).sort(), [['a', 'tistory'], ['c', 'wordpress']]);
+  assert.equal(board.sources.find((s) => s.id === 'c').platform, 'wordpress');
+});

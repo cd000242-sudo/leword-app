@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { checkPlanResult, draftAnswer, runInflow, runPostPlan, startResult, type InflowDeps, type PostPlanDeps, type ResultDeps } from '../post-plan-service';
 import { planSyncView, relatedForTitles, upsertPlan, type PostPlan } from '../../utils/post-plan/post-plan-model';
+import { workerLicenseCode } from '../worker-license';
 
 export const POST_PLAN_PROGRESS_CHANNEL = 'post-plan-progress';
 const WORKER = 'https://leword-keyword-api.leword.workers.dev/';
@@ -139,7 +140,7 @@ export async function createPostPlanDeps(): Promise<PostPlanDeps> {
       const data = await fetchJson(WORKER, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'keyword-expansions', keyword }),
+        body: JSON.stringify({ action: 'keyword-expansions', keyword, licenseCode: workerLicenseCode() }),
       }, 60_000);
       if (!data?.ok) throw new Error(String(data?.message || '검색 확장 실패'));
       return Array.isArray(data.items) ? data.items : [];

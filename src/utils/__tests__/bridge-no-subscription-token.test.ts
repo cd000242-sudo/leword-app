@@ -38,9 +38,11 @@ describe('브리지는 구독 토큰을 넘기지 않는다', () => {
     expect(res.status).toBe(404);
   });
 
-  it('Origin 없는 로컬 요청에도 404', async () => {
+  it('Origin 없는 로컬 요청은 403(2026-10-20 출처 없는 실행 차단), 사이트 출처여도 404', async () => {
     const res = await fetch(`${base}/v1/bridge/claude-credentials`, { method: 'POST' });
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    const site = await fetch(`${base}/v1/bridge/claude-credentials`, { method: 'POST', headers: { Origin: 'https://leaderspro.kr' } });
+    expect(site.status).toBe(404);
   });
 
   it('앱 코드가 클로드 자격 파일을 읽어 넘기는 길을 다시 만들지 않는다', () => {

@@ -119,6 +119,12 @@ function openTitleCards(cards, kept, misses, nowMs) {
     .sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)) || (b.priority || 0) - (a.priority || 0));
 }
 
+/** 회차 요약 — 요청했는데 새 제목 0건이면 stalled(구독 한도 소진 등). 워크플로가 이걸 보고 빨간불로 끝낸다. */
+function runSummary({ asked, made }) {
+  const a = Number(asked) || 0; const m = Number(made) || 0;
+  return { asked: a, made: m, stalled: a > 0 && m === 0 };
+}
+
 /** 탈락 이유를 세어 한 줄로 — "20 (NO_ANCHOR 14, ARTICLE_COPY 3)". 규칙이 너무 조이는지 CI 로그에서 바로 보인다. */
 function reasonSummary(rejected) {
   const counts = rejected.flatMap((r) => r.reasons).reduce((acc, reason) => ({ ...acc, [reason]: (acc[reason] || 0) + 1 }), {});
@@ -224,9 +230,11 @@ async function main() {
   console.log(`\n제목 창고 ${entries.length}장 (새로 ${made.length}/${asked}장) → ${storePath}`);
   console.log(`판 부착: 카드 ${board.candidates.length}장 중 제목 있는 카드 ${attached}장`);
   if (asked > 0 && made.length === 0) console.log('::warning::이번 회차 새 제목 0건 — 구독 CLI 상태를 확인하세요. 판은 창고 제목으로 나갑니다.');
+  const summaryPath = arg('summary');
+  if (summaryPath) { fs.mkdirSync(path.dirname(path.resolve(summaryPath)), { recursive: true }); fs.writeFileSync(summaryPath, JSON.stringify(runSummary({ asked, made: made.length })) + '\n', 'utf8'); }
 }
 
-module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, pruneEntries, openTitleCards, TITLE_RULES, TITLE_TTL_MS, GRACE_MS, MISS_RETRY_MS };
+module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, pruneEntries, openTitleCards, runSummary, TITLE_RULES, TITLE_TTL_MS, GRACE_MS, MISS_RETRY_MS };
 
 if (require.main === module) {
   main().catch((error) => { console.error('벤치마크 제목 창고 실패:', error); process.exit(1); });

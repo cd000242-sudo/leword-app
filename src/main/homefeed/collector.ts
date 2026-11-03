@@ -12,6 +12,8 @@ import {
   HOMEFEED_RANK_SOURCES,
   HOMEFEED_SCHEMA,
   type HomefeedIssueSnapshot,
+  type HomefeedNewsBuckets,
+  type HomefeedNewsObservation,
   type HomefeedRankSource,
   type HomefeedSample,
   type HomefeedSnapshot,
@@ -23,6 +25,9 @@ import type { HomefeedSettings } from '../../utils/homefeed/settings';
 import { classifyHomefeedCategory } from '../../utils/homefeed/category';
 import { EVENT_FACT_RE, TENSION_RULES } from '../../utils/homefeed/lexicon';
 import { recordSnapshotInLedger, resolveIssueKey } from '../../utils/homefeed/ledger';
+import {
+  HOMEFEED_NEWS_MEASURE_LIMIT, bucketNewsTimes, earliestNewsAt, isNewsSampleCapped, leadFromEntry,
+} from '../../utils/homefeed/speed';
 import { compactKey, isRelevantSample, sameIssueKeyword } from '../../utils/homefeed/text';
 import type { HomefeedStore } from './store';
 
@@ -114,6 +119,18 @@ function pickIssueCandidates(lists: Partial<Record<HomefeedRankSource, RankedKey
     .sort((a, b) => (b.hooks - a.hooks) || (a.item.rank - b.item.rank) || (a.order - b.order))
     .slice(0, limit)
     .map((row) => row.item);
+}
+
+/**
+ * 속도 실측(2026-11-02) — 뉴스 검색 결과(최대 100건)에서 기사 시각 막대와 이번 회차 관측을 뽑는다.
+ * 검색어와 어절이 겹치는 기사만 센다(다른 이슈 기사가 막대 · 첫 기사 시각에 새지 않게). 시각은 읽을 수 있는 것만 쓴다.
+ */
+function measureNews(keyword: string, result: HomefeedNewsResult, endAtMs: number, limit: number): { buckets: HomefeedNewsBuckets; observation: HomefeedNewsObservation } {
+  const times = result.items.filter((row) => isRelevantSample(keyword, row.title)).map((row) => row.publishedAt);
+  return {
+    buckets: bucketNewsTimes(times, endAtMs),
+    observation: { earliestAt: earliestNewsAt(times), capped: isNewsSampleCapped({ total: result.total, returned: result.items.length, limit }) },
+  };
 }
 
 function mergeSamples(news: HomefeedSample[], board: HomefeedSample[], max: number): HomefeedSample[] {
@@ -219,6 +236,9 @@ export async function collectHomefeedSnapshot(
   const state = store.readSignalState();
   const taken = new Set<string>();
   const issues: HomefeedIssueSnapshot[] = [];
+  const newsObservations: Record<string, HomefeedNewsObservation> = {};
+  // 뉴스 검색은 호출 횟수 그대로 한 번에 100건까지 받는다 — 막대와 '첫 기사 시각'을 재려면 표본이 넓어야 한다. 기존 표본은 앞의 newsSampleSize 건만 쓴다.
+  const newsDisplay = Math.max(settings.newsSampleSize, HOMEFEED_NEWS_MEASURE_LIMIT);
   let droppedSamples = 0;
 
   for (const item of keywords) {
@@ -236,15 +256,20 @@ export async function collectHomefeedSnapshot(
 
     let newsTotal: number | null = null;
     let newsSamples: HomefeedSample[] = [];
+    let newsBuckets: HomefeedNewsBuckets | null = null;
     if (!newsSkipped) {
       news.attempted += 1;
       try {
-        const result = await deps.fetchNews(item.keyword, settings.newsSampleSize);
+        const result = await deps.fetchNews(item.keyword, newsDisplay);
         newsTotal = result.total;
         // 검색어와 어절이 겹치지 않는 기사는 버린다 — 다른 이슈 기사가 각도 · 재미 근거로 새는 걸 막는다.
-        const kept = result.items.filter((row) => isRelevantSample(item.keyword, row.title));
-        droppedSamples += result.items.length - kept.length;
+        const sampled = result.items.slice(0, settings.newsSampleSize);
+        const kept = sampled.filter((row) => isRelevantSample(item.keyword, row.title));
+        droppedSamples += sampled.length - kept.length;
         newsSamples = kept.map((row) => ({ ...row, image: null, origin: 'naver-news' as const }));
+        const measured = measureNews(item.keyword, result, nowMs, newsDisplay);
+        newsBuckets = measured.buckets;
+        newsObservations[issueKey] = measured.observation;
         news.ok += 1;
       } catch (error) {
         news.firstError = news.firstError ?? errorText(error);
@@ -287,6 +312,7 @@ export async function collectHomefeedSnapshot(
       blogDocCount,
       samples,
       boardWhy: boardIssue?.why ?? null,
+      newsBuckets,
     });
   }
 
@@ -294,7 +320,7 @@ export async function collectHomefeedSnapshot(
   runs.push(tallyRun('naver-blog', blog, blogSkipped));
   runs.push({ ...tallyRun('og-image', og, ogSkipped), ...(og.attempted > 0 ? { ok: true } : {}) });
 
-  const snapshot: HomefeedSnapshot = {
+  const draft: HomefeedSnapshot = {
     schemaVersion: HOMEFEED_SCHEMA.snapshot,
     capturedAt,
     collectorVersion: HOMEFEED_COLLECTOR_VERSION,
@@ -305,7 +331,12 @@ export async function collectHomefeedSnapshot(
 
   const previous = store.listSnapshots(nowMs - 6 * 3_600_000).filter((row) => Date.parse(row.capturedAt) < nowMs).pop() ?? null;
   const maxGapMs = (settings.snapshotIntervalMinutes * 2 + 5) * 60_000;
-  const nextState = recordSnapshotInLedger(state, snapshot, previous?.capturedAt ?? null, maxGapMs, settings.retentionDays);
+  const nextState = recordSnapshotInLedger(state, draft, previous?.capturedAt ?? null, maxGapMs, settings.retentionDays, newsObservations);
+  // 앞섬/늦음은 장부(처음 본 시각 + 뉴스 표본 기록)로 판정하므로 장부를 갱신한 뒤에 항목에 붙인다.
+  const snapshot: HomefeedSnapshot = {
+    ...draft,
+    issues: issues.map((row) => ({ ...row, lead: leadFromEntry(nextState.entries[row.issueKey], settings.snapshotIntervalMinutes) })),
+  };
   const newIssueKeys = issues.map((issue) => issue.issueKey).filter((key) => !state.entries[key]);
 
   store.appendSnapshot(snapshot);

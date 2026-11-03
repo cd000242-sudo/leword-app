@@ -128,6 +128,7 @@ jobs:
           --max=${{ inputs.max || '1000' }}
           --concurrency=6
           --budget-min=40
+          --summary=tmp/title-run.json
       - name: Publish only the title store
         working-directory: site
         run: |
@@ -149,3 +150,7 @@ jobs:
           done
           echo '::error::Title publication failed.'
           exit 1
+      # 2026-10-27 — 구독 한도 소진으로 새 제목 0건이 4일 이어졌는데 작업은 '성공'이었다. 발행은 마친 뒤, 0건이면 빨간불(실패 메일).
+      - name: 새 제목 0건이면 빨간불
+        if: always()
+        run: node -e "const fs=require('fs');const p='tmp/title-run.json';if(!fs.existsSync(p)){process.exit(0)}const s=JSON.parse(fs.readFileSync(p,'utf8'));if(s.stalled){console.log('::error::새 홈판 제목 0건(요청 '+s.asked+'장) — 구독 CLI 한도 소진 여부를 확인하세요.');process.exit(1)}console.log('새 제목 '+s.made+'/'+s.asked+'장')"

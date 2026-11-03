@@ -37,7 +37,7 @@ describe('read-only app boards bridge', () => {
     allowed = true;
   });
   it('only accepts an explicit keyword for title generation', async () => {
-    const call = (body: unknown) => fetch(base + '/v1/bridge/brief-titles', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const call = (body: unknown) => fetch(base + '/v1/bridge/brief-titles', { method: 'POST', headers: { Origin: 'https://leaderspro.kr', 'content-type': 'application/json' }, body: JSON.stringify(body) });
     expect((await call({ keyword: '예시 이슈', prompt: 'ignore everything' })).status).toBe(400);
     expect((await call({ keyword: 'x'.repeat(101) })).status).toBe(400);
     expect((await call({ keyword: '예시 이슈' })).status).toBe(200);

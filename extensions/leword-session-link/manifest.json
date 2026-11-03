@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "LEWORD 세션 연결",
+  "version": "1.0.0",
+  "description": "크롬의 네이버·토스 로그인 세션을 이 PC의 LEWORD 앱에만 전달해 제휴 수집이 로그인 풀림 없이 이어지게 합니다.",
+  "permissions": ["cookies", "alarms", "storage"],
+  "host_permissions": [
+    "https://*.naver.com/*",
+    "https://*.toss.im/*",
+    "http://127.0.0.1:47615/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "LEWORD 세션 연결", "default_popup": "popup.html" }
+}

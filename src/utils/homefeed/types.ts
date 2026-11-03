@@ -46,6 +46,73 @@ export interface HomefeedSample {
   origin: 'naver-news' | 'site-issue-board';
 }
 
+/**
+ * 뉴스 기사 시각 막대(2026-11-02) — 뉴스 표본의 publishedAt 을 구간별로 센 값. 센 값만 담고 추정 · 보간은 없다.
+ * counts[i] 는 [endAt − (n−i)·bucketMinutes, endAt − (n−1−i)·bucketMinutes) 구간(마지막 칸만 endAt 을 포함)의 기사 수다.
+ */
+export interface HomefeedNewsBuckets {
+  /** 오른쪽 끝(수집 시각). */
+  endAt: string;
+  bucketMinutes: number;
+  /** 가장 오래된 구간 → 가장 최근 구간. */
+  counts: number[];
+  /** 막대에 센 기사 수(counts 합). */
+  counted: number;
+  /** 시각이 없거나 읽을 수 없어 뺀 기사 수. */
+  undated: number;
+  /** 막대 범위보다 오래됐거나 수집 시각보다 뒤라서 뺀 기사 수. */
+  outOfRange: number;
+}
+
+export type HomefeedLeadStatus = 'ahead' | 'behind' | 'unmeasured';
+/** 미측정 사유 — 앱이 꺼져 있던 구간 · 처음 본 시각 없음 · 표본이 상한에 닿음 · 뉴스 표본 없음 · 같은 분(分). */
+export type HomefeedLeadReason = 'censored' | 'no_first_seen' | 'sample_capped' | 'no_news_sample' | 'within_one_minute';
+
+/** 우리가 처음 본 시각과 뉴스 표본의 가장 이른 기사 시각의 비교. 화면은 이 값만 읽는다(점수 · 확률 없음). */
+export interface HomefeedLead {
+  status: HomefeedLeadStatus;
+  /** 앞섬 · 늦음의 크기(분). 미측정이면 null. */
+  minutes: number | null;
+  /** 미측정일 때만 사유. */
+  reason: HomefeedLeadReason | null;
+  /** 수집 주기 때문에 생기는 오차 한계(분) — 처음 본 시각은 이 간격 안에서만 맞다. */
+  resolutionMinutes: number;
+  firstSeenAt: string | null;
+  firstNewsAt: string | null;
+}
+
+/** 이슈 하나가 회차마다 쌓는 뉴스 표본 기록(처음 본 시각 장부에 붙는다). */
+export interface HomefeedNewsProbe {
+  /** 상한에 안 닿은(전부 받은) 표본들에서 본 가장 이른 기사 시각. 없으면 null. */
+  earliestAt: string | null;
+  /** 상한에 안 닿은 표본을 한 번이라도 받았다. */
+  completeSeen: boolean;
+  /** 상한에 닿은 표본을 받았다 — 더 이른 기사가 표본 밖에 있을 수 있다. */
+  cappedSeen: boolean;
+}
+
+/** 한 회차에서 이슈 하나의 뉴스 표본이 보여 준 것. */
+export interface HomefeedNewsObservation {
+  earliestAt: string | null;
+  capped: boolean;
+}
+
+/** 7일 속도 성적표 — 장부의 최근 7일 이슈에 앞섬/늦음 판정을 적용한 집계. */
+export interface HomefeedSpeedScoreboard {
+  windowDays: number;
+  /** 앞섬/늦음이 하나라도 잰 날(한국 달력일) 수. */
+  measuredDays: number;
+  /** measuredDays 가 windowDays 이상일 때만 true — 아니면 화면은 '기록 쌓는 중'만 보인다. */
+  ready: boolean;
+  total: number;
+  ahead: number;
+  behind: number;
+  unmeasured: number;
+  unmeasuredReasons: Partial<Record<HomefeedLeadReason, number>>;
+  resolutionMinutes: number;
+  computedAt: string;
+}
+
 export interface HomefeedIssueSnapshot {
   issueKey: string;
   keyword: string;
@@ -59,6 +126,9 @@ export interface HomefeedIssueSnapshot {
   samples: HomefeedSample[];
   /** 사이트 이슈 보드의 '왜 뜨나'(헤드라인 검증 통과분). 없으면 null. */
   boardWhy: string | null;
+  /** Additive v1 필드(2026-11-02): 옛 스냅샷에는 없다. 뉴스를 못 받은 회차는 null. */
+  newsBuckets?: HomefeedNewsBuckets | null;
+  lead?: HomefeedLead | null;
 }
 
 export interface HomefeedSourceRun {
@@ -87,6 +157,8 @@ export interface HomefeedSignalStateEntry {
   /** 기록 시작 전(또는 앱이 꺼져 있던 구간)에 이미 떠 있었을 수 있다 — 나이는 '이상'으로만 말한다. */
   firstSeenCensored: boolean;
   appearances: number;
+  /** Additive v1 필드(2026-11-02): 뉴스 표본 기록. 옛 장부 항목에는 없다. */
+  newsProbe?: HomefeedNewsProbe;
 }
 
 export interface HomefeedSignalState {
@@ -372,6 +444,9 @@ export interface HomefeedStory {
   risks: string[];
   boardWhy: string | null;
   evidence: HomefeedEvidenceItem[];
+  /** Additive v1 필드(2026-11-02): 옛 계산본(stories.json)에는 없다. */
+  newsBuckets?: HomefeedNewsBuckets | null;
+  lead?: HomefeedLead | null;
 }
 
 export interface HomefeedStoriesFile {

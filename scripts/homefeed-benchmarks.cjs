@@ -103,7 +103,10 @@ async function main(argv=process.argv.slice(2)) {
     for(const result of batch) console.log(`${result.id}: ${result.status} (${result.posts.length})`);
   }
   results=await withBlogLikes(results,now);
-  let payload=core.buildPayload(results,now,previous,previousState?.observations||[]);
+  // 홈판 상위 이력(2026-10-27 실측 신호) — 없으면 빈 Map 이라 예전 추천 규칙 그대로
+  const topBlogs=require('./homefeed-top-blogs.cjs').readTopBlogs(path.join(__dirname,'..','data','homefeed-top-blogs.json'));
+  console.log(`홈판 상위 이력 블로그 ${topBlogs.size}곳`);
+  let payload=core.buildPayload(results,now,previous,previousState?.observations||[],topBlogs);
   const {applyReviewedEditorial}=require('./homefeed-benchmarks-editorial.cjs');
   payload=applyReviewedEditorial(payload,results.flatMap(r=>r.posts),require('./homefeed-benchmarks-editorial.json'),now);
   atomicWrite(args.output,payload);

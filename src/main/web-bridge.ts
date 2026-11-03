@@ -177,15 +177,23 @@ export interface WebBridgeDeps {
     status: () => Promise<unknown>;
     dispatchTest: () => Promise<unknown>;
   };
+  /**
+   * 크롬 확장(LEWORD 세션 연결)이 보낸 네이버·토스 쿠키 저장 — 쓰기 전용(2026-10-29).
+   * 쿠키를 돌려주는 GET 은 없다. 검증·저장은 deps 가 한다(응답에 쿠키 값 없음).
+   */
+  affiliateSession?: (body: unknown) => Promise<unknown>;
 }
 
-function readBody(req: http.IncomingMessage): Promise<string> {
+/** 제휴 세션 쿠키 — 네이버·토스 쿠키가 수백 개일 수 있어 따로 넉넉히 둔다(그래도 작은 상한). */
+const MAX_AFFILIATE_SESSION_BYTES = 262144;
+
+function readBody(req: http.IncomingMessage, maxBytes: number = MAX_BODY_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > maxBytes) {
         reject(new Error('본문이 너무 큽니다.'));
         req.destroy();
         return;
@@ -216,6 +224,14 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
       json(res, 403, { ok: false, error: '허용되지 않은 출처입니다.' });
       return;
     }
+    /*
+     * 실행(POST)은 출처가 있어야 한다(2026-10-20 보안 점검). 브라우저는 다른 사이트에서 보내는 POST 에 늘 출처를 붙인다 —
+     * 출처가 없으면 브라우저 밖 프로그램이다. 상태 확인 같은 GET 은 그대로 둔다. 내부 점검 스크립트는 사이트 출처를 붙여 부른다.
+     */
+    if (!origin && req.method === 'POST') {
+      json(res, 403, { ok: false, error: '출처가 없는 실행 요청은 받지 않습니다.' });
+      return;
+    }
     if (origin) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Vary', 'Origin');
@@ -234,6 +250,21 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
     }
 
     try {
+      /*
+       * 제휴 세션 쿠키 수신 — 크롬 확장 출처(chrome-extension://)만. 사이트 출처도 거절한다:
+       * 로그인 쿠키를 쓰는 통로라 방문한 웹페이지가 부리면 안 된다. 본문 상한 256KB.
+       */
+      if (deps.affiliateSession && req.method === 'POST' && req.url === '/affiliate-session') {
+        if (!EXTENSION_ORIGIN.test(origin)) { json(res, 403, { ok: false, error: '크롬 확장에서만 보낼 수 있습니다.' }); return; }
+        let parsed: unknown;
+        try { parsed = JSON.parse((await readBody(req, MAX_AFFILIATE_SESSION_BYTES)) || ''); } catch { json(res, 400, { ok: false, error: '본문이 올바르지 않습니다.' }); return; }
+        try {
+          json(res, 200, { ok: true, result: await deps.affiliateSession(parsed) });
+        } catch (error: unknown) {
+          json(res, 400, { ok: false, error: (error instanceof Error ? error.message : '저장하지 못했습니다.').slice(0, 100) });
+        }
+        return;
+      }
       if (deps.boards && await handleBoardRoute(req, res, deps.boards, { readBody, json, siteOriginAllowed: (value) => ALLOWED_ORIGINS.has(value) })) return;
       if (deps.myBlog && await handleMyBlogRoute(req, res, deps.myBlog, { json, siteOriginAllowed: (value) => ALLOWED_ORIGINS.has(value) })) return;
       if (deps.benchmarkTitles && await handleBenchmarkTitleRoute(req, res, deps.benchmarkTitles, { readBody, json, siteOriginAllowed: (value) => ALLOWED_ORIGINS.has(value) })) return;
@@ -359,6 +390,8 @@ export function createWebBridge(deps: WebBridgeDeps): http.Server {
        * 브라우저 저장소에 넣고 계정 동기화(keySync)로 다른 기기까지 옮긴다.
        */
       if (deps.apiKeys && req.method === 'POST' && req.url === '/v1/bridge/api-keys') {
+        // 저장된 키를 돌려주는 통로라 사이트 출처만(2026-10-20) — 크롬 확장은 형식만 맞으면 아무 확장이나 통과하기 때문이다.
+        if (!ALLOWED_ORIGINS.has(origin)) { json(res, 403, { ok: false, error: '사이트에서만 쓸 수 있습니다.' }); return; }
         json(res, 200, { ok: true, result: await deps.apiKeys() });
         return;
       }

@@ -266,3 +266,75 @@ test('카드에 고정 작성 안내를 찍지 않는다 — 작성 전 확인�
   }
   assert.ok(cards.some((c) => c.verificationNeeded.includes('상업적 관계와 홍보성 주장 확인')), '협찬 카드 경고는 남는다');
 });
+
+// 2026-10-22 사장님 "벤치마킹 블로그를 접속하는 법을 모르는 것 같다 · 이미지도 같이 볼 수 있게" — 원문 대표 이미지(썸네일)를 싣는다.
+test('RSS 본문의 첫 이미지를 원문 썸네일로 싣는다 — 네이버 이미지 서버 https 주소만', () => {
+  const xml = `<?xml version="1.0"?><rss><channel><title>블로그</title>
+    <item><title>글1</title><link>https://blog.naver.com/a/1</link><pubDate>Wed, 21 Oct 2026 10:00:00 +0900</pubDate><description>&lt;img src="https://blogthumb.pstatic.net/abc/30.jpg?type=s3"&gt; 본문</description></item>
+    <item><title>글2</title><link>https://blog.naver.com/a/2</link><pubDate>Wed, 21 Oct 2026 10:00:00 +0900</pubDate><description>&lt;img src="http://evil.example/x.jpg"&gt; 본문</description></item>
+  </channel></rss>`;
+  const { posts } = core.parseRss(xml, { id: 'a', platform: 'naver-blog' }, '2026-10-21T03:00:00.000Z');
+  assert.equal(posts[0].image, 'https://blogthumb.pstatic.net/abc/30.jpg?type=s3');
+  assert.equal(posts[1].image, undefined, '다른 서버 · http 주소는 싣지 않는다');
+});
+
+test('유튜브 썸네일도 원문 이미지로 싣는다', () => {
+  const xml = '<feed xmlns:media="x"><title>채널</title><entry><title>영상</title><link href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"/><published>2026-10-21T01:00:00Z</published><media:group><media:description>설명</media:description><media:thumbnail url="https://i2.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"/></media:group></entry></feed>';
+  const r = core.parseYoutube(xml, { id: 'y', platform: 'youtube' }, '2026-10-21T03:00:00.000Z');
+  assert.equal(r.posts[0].image, 'https://i2.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg');
+});
+
+/*
+ * 2026-10-27 실측 추천 규칙 — 25일치 어드바이저 홈판 상위 × 판 28개 대조.
+ * 출처 블로그의 상위 이력(3회+ 카드 적중 4.2% vs 이력 0 카드 0.3%)이나 공감 10+ 가 있어야 추천.
+ * "지금 추천 + (이력 1+ 또는 공감 10+)" → 추천 69%→33%, 적중률 1.06%→1.94%, 실제로 뜬 카드의 79% 유지.
+ * 이력 파일이 없으면(빈 Map) 예전 규칙 그대로 — CI 가 파일을 못 읽어도 판이 비지 않는다.
+ */
+test('이력 파일이 있으면 상위 이력 블로그 소재나 공감 10+ 만 추천한다', () => {
+  // 그룹으로 묶이는 한 쌍은 위 '카드는 1,000장까지' 테스트의 x1 · x2 와 같다.
+  const pair = (likes) => [other('a', '디올과 원영의 만남 🎀', { metrics: { views: null, likes, comments: null } }), other('b', '🎀 디올원영 어떤데?')];
+  assert.equal(core.buildCandidates(pair(null), now)[0].recommended, true, '이력 파일 없음 → 예전 규칙');
+  assert.equal(core.buildCandidates(pair(null), now, [], new Map([['zzz', 3]]))[0].recommended, false, '이력도 공감도 없음 → 추천 아님');
+  const hist = core.buildCandidates(pair(null), now, [], new Map([['b', 3]]))[0];
+  assert.equal(hist.recommended, true, '출처 블로그가 상위 이력 3회');
+  assert.equal(hist.sources.find((s) => s.url.includes('/b/')).homefeedTops, 3);
+  assert.match(hist.why.join(' '), /홈판 상위 3회/);
+  assert.equal(core.buildCandidates(pair(12), now, [], new Map([['zzz', 3]]))[0].recommended, true, '공감 10+');
+});
+test('상위 이력이 많은 소재가 우선순위에서 앞선다', () => {
+  const a = other('a', '디올과 원영의 만남 🎀');
+  const b = other('b', '🎀 디올원영 어떤데?');
+  const p1 = core.buildCandidates([a, b], now, [], new Map([['b', 1]]))[0].priority;
+  const p3 = core.buildCandidates([a, b], now, [], new Map([['b', 3]]))[0].priority;
+  assert.ok(p3 > p1);
+});
+test('판이 홈판 상위 이력을 싣는다 — 화면 실시간 판이 같은 추천 규칙을 쓰게', () => {
+  const results = [{ id: 'a', status: 'ok', posts: [other('a', '디올과 원영의 만남 🎀'), other('b', '🎀 디올원영 어떤데?')] }];
+  assert.deepEqual(core.buildPayload(results, now, null, [], new Map([['b', 3]])).homefeedTopBlogs, { b: 3 });
+  assert.equal(core.buildPayload(results, now, null, []).homefeedTopBlogs, undefined);
+});
+/*
+ * 비평 5번(2026-10-27): 일반인 출연자 논란 · 일반인 사건은 추천하지 않고, 같은 소재 추천은 3장까지.
+ * 사이트 spa/src/lib/homefeedLive.mjs 가 같은 사례를 잠근다.
+ */
+test('일반인 출연자 논란 · 일반인 사건은 추천하지 않는다 — 데이트 공개 · 비유("살인 태클")는 그대로', () => {
+  const card = (a, b) => { const r = core.buildCandidates([other('a', a), other('b', b)], now); assert.equal(r.length, 1, `${a} / ${b}`); return r[0]; };
+  const feud = card('나는솔로 31기 상철 불화설 다시 나온 이유', '31기 상철 불화설 진짜일까 나는솔로');
+  assert.equal(feud.recommended, false);
+  assert.ok(feud.flags.includes('private-person'));
+  assert.match(feud.why.join(' '), /일반인/);
+  assert.equal(card('강서구 동거녀 살인 사건 전말', '강서구 동거녀 살인 사건 실체').recommended, false);
+  assert.equal(card('나는솔로 32기 옥순 광수 낙엽길 데이트 공개', '32기 옥순 광수 낙엽길 데이트 나는솔로').recommended, true);
+  assert.equal(card('황문기 김진수 살인 태클 시즌아웃', '김진수 살인 태클 황문기 시즌아웃 수술').recommended, true);
+});
+test('같은 소재 추천은 3장까지 — 넷째부터 추천에서 빠지고 판에는 남는다', () => {
+  const words = [['사과', '포도', '수박', '참외'], ['기차', '버스', '택시', '지하철'], ['연필', '지우개', '공책', '가위'], ['바다', '하늘', '구름', '바람']];
+  const posts = words.flatMap((w, i) => [other(`p${i}`, `100일의 거짓말 ${w.join(' ')}`), other(`q${i}`, `${w.join(' ')} 100일의 거짓말 이야기`)]);
+  const result = core.buildCandidates(posts, now);
+  assert.equal(result.length, 4);
+  assert.equal(result.filter((c) => c.recommended).length, 3);
+  const dropped = result.find((c) => !c.recommended);
+  assert.match(dropped.why.join(' '), /같은 소재 추천이 이미 3장/);
+  assert.equal(dropped.status, 'verify');
+  assert.equal(result.at(-1), dropped, '빠진 카드는 추천 뒤로 선다');
+});

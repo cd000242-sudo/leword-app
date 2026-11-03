@@ -7,8 +7,15 @@
  * 나이의 한계를 숨기지 않는다: 장부가 비어 있던 첫 회차, 또는 앞 회차와 사이가 벌어진 회차(앱이 꺼져 있던 구간)에
  * 처음 보인 이슈는 그 전에 이미 떠 있었을 수 있다 → firstSeenCensored = true, 화면은 "기록 이후 N분 이상".
  */
-import { HOMEFEED_SCHEMA, type HomefeedSignalState, type HomefeedSignalStateEntry, type HomefeedSnapshot } from './types';
+import {
+  HOMEFEED_SCHEMA,
+  type HomefeedNewsObservation,
+  type HomefeedSignalState,
+  type HomefeedSignalStateEntry,
+  type HomefeedSnapshot,
+} from './types';
 import { compactKey, sameIssueKeyword } from './text';
+import { mergeNewsProbe } from './speed';
 
 const REUSE_WINDOW_MS = 6 * 3_600_000;
 
@@ -33,6 +40,7 @@ export function resolveIssueKey(
 /**
  * 스냅샷 한 장을 장부에 적는다(새 객체를 돌려준다).
  * previousCapturedAt: 이 스냅샷 바로 앞 회차 시각(없으면 null). maxGapMs 보다 벌어졌으면 새로 보인 이슈도 검열(censored)로 둔다.
+ * newsObservations: 이번 회차에 이슈별로 본 뉴스 표본(이슈 키 → 관측). 주면 장부 항목의 newsProbe 에 합친다(속도 실측).
  */
 export function recordSnapshotInLedger(
   state: HomefeedSignalState,
@@ -40,6 +48,7 @@ export function recordSnapshotInLedger(
   previousCapturedAt: string | null,
   maxGapMs: number,
   retentionDays: number,
+  newsObservations: Readonly<Record<string, HomefeedNewsObservation>> = {},
 ): HomefeedSignalState {
   const nowMs = Date.parse(snapshot.capturedAt);
   const ledgerEmpty = Object.keys(state.entries).length === 0;
@@ -53,7 +62,7 @@ export function recordSnapshotInLedger(
   }
   for (const issue of snapshot.issues) {
     const existing = entries[issue.issueKey];
-    entries[issue.issueKey] = existing
+    const seen: HomefeedSignalStateEntry = existing
       ? { ...existing, keyword: issue.keyword, lastSeenAt: snapshot.capturedAt, appearances: existing.appearances + 1 }
       : {
         issueKey: issue.issueKey,
@@ -63,6 +72,8 @@ export function recordSnapshotInLedger(
         firstSeenCensored: gapCensored,
         appearances: 1,
       };
+    const observation = newsObservations[issue.issueKey];
+    entries[issue.issueKey] = observation ? { ...seen, newsProbe: mergeNewsProbe(seen.newsProbe, observation) } : seen;
   }
   return { schemaVersion: HOMEFEED_SCHEMA.signalState, updatedAt: snapshot.capturedAt, entries };
 }
