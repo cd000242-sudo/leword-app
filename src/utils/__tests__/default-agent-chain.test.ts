@@ -67,4 +67,4 @@ it('자동 생성 기능은 개별 CLI를 직접 연결하지 않는다 — 신�
     return !exceptions.has(relative) && /(?:from\s*|(?:require|import)\s*\()\s*['"][^'"]*agent-cli\/(?:claude|codex|gemini|grok)Runner['"]/.test(fs.readFileSync(file, 'utf8'));
   }).map((file) => path.relative(root, file));
   expect(violations).toEqual([]);
-});
+}, 30_000); // walks every src/scripts file — the 5 s default timed out under the full sanity run on the F: work drive
