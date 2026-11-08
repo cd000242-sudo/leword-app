@@ -78,8 +78,14 @@ function unique(rows) {
   return rows.filter(row => {const key=normalizeKeyword(row.keyword);if(!key||seen.has(key))return false;seen.add(key);return true;});
 }
 
-function candidatePools(seeds, history, limit) {
-  const ordered = unique([...seeds].sort((a,b)=>b.searchVolume-a.searchVolume||normalizeKeyword(a.keyword).localeCompare(normalizeKeyword(b.keyword))));
+// Default candidate order: larger search volume first, ties by name. The picks job passes the rising-seed
+// ordering (today-picks-rising.js) instead; this stays the order for everything outside its season group.
+const byVolume = (a,b)=>b.searchVolume-a.searchVolume||normalizeKeyword(a.keyword).localeCompare(normalizeKeyword(b.keyword));
+// Default order of measured non-golden rows: rows flagged seasonPeakMonth first, then higher golden ratio.
+const bySeasonFlagThenRatio = (a,b)=>Number(!!b.seasonPeakMonth)-Number(!!a.seasonPeakMonth)||b.ratio-a.ratio;
+
+function candidatePools(seeds, history, limit, order = byVolume) {
+  const ordered = unique([...seeds].sort(order));
   return {
     fresh:ordered.filter(row=>!history.has(normalizeKeyword(row.keyword))).slice(0,limit),
     repeated:ordered.filter(row=>history.has(normalizeKeyword(row.keyword))).sort((a,b)=>history.get(normalizeKeyword(a.keyword)).localeCompare(history.get(normalizeKeyword(b.keyword)))||b.searchVolume-a.searchVolume).slice(0,limit),
@@ -89,11 +95,11 @@ function candidatePools(seeds, history, limit) {
 // 황금(비율 minRatio+)은 7일 이력과 무관하게 맨 앞이다 — 어제 찾은 황금을 다양성 규칙이 버리던 것을 고쳤다
 // (사장님 2026-09-29 "황금키워드 비중이 좀 많으면"). 재추천 표시(freshness)는 그대로 남긴다.
 // 일반 후보만 신규 우선이고, 신규가 모자랄 때만 오래전에 추천한 순으로 채운다.
-function selectRows(rows, history, keep, minRatio = 1, orderGolden = rows => [...rows].sort((a,b)=>b.ratio-a.ratio)) {
+function selectRows(rows, history, keep, minRatio = 1, orderGolden = rows => [...rows].sort((a,b)=>b.ratio-a.ratio), orderOthers = bySeasonFlagThenRatio) {
   const candidates = unique(rows);
   const golden = orderGolden(candidates.filter(row=>row.ratio>=minRatio));
   const rest = candidates.filter(row=>row.ratio<minRatio);
-  const others = rest.filter(row=>!history.has(normalizeKeyword(row.keyword))).sort((a,b)=>Number(!!b.seasonPeakMonth)-Number(!!a.seasonPeakMonth)||b.ratio-a.ratio);
+  const others = rest.filter(row=>!history.has(normalizeKeyword(row.keyword))).sort(orderOthers);
   const repeated = rest.filter(row=>history.has(normalizeKeyword(row.keyword))).sort((a,b)=>history.get(normalizeKeyword(a.keyword)).localeCompare(history.get(normalizeKeyword(b.keyword)))||b.ratio-a.ratio);
   return [...golden,...others,...repeated].slice(0,keep).map(row=>{
     const lastShownAt=history.get(normalizeKeyword(row.keyword));

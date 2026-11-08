@@ -8,6 +8,8 @@
  * 황금을 창고 후보보다 먼저 재서 날마다 황금이 쌓이게 한다(사장님 2026-09-29 "황금 비중"). 일반 후보만
  * 최근 7일 미추천을 우선한다. 그래도 30개가 안 차면 나머지는 버리지 않고 실측 황금비 순으로 채운다.
  * 계절 씨앗(month:M) 중 이번 달·다음 달 피크인 것은 seasonPeakMonth 로 표시한다 — '트래픽 몰릴 예정'.
+ * 후보를 줄 세우는 순서(2026-11-08)는 따로다 — 피크가 다음 달·두 달 뒤인 시즌 씨앗을 먼저, 그 안에서는 최근 12일
+ * 검색량 오름세(--volumeHistory 의 이력)가 큰 순. 이력이 없으면 오름세 0 이라 검색량 큰 순으로 떨어진다(today-picks-rising.js).
  * 자리(SERP)는 재지 않는다 — 그건 선점 회차가 브라이트데이터로 잰다. 그래서 파일에 그렇게 적는다.
  * 카드 답 검색어(날씨·프로필·시세)와 유통기한 짧은 말은 보드와 같은 가드로 뺀다.
  *
@@ -18,6 +20,7 @@
  *   node scripts/today-picks.js --perTopic=120 --minRatio=1
  *   node scripts/today-picks.js --resume=이전결과.json --perTopic=800   # 같은 회차의 검증된 신규 황금 30개가 찬 주제는 재사용한다
  *   node scripts/today-picks.js --carry=직전판.json --goldenBoard=preemption-board.json   # 직전 판·선점 보드 황금을 먼저 잰다
+ *   node scripts/today-picks.js --volumeHistory=data/seed-volume-history.json            # 시즌 씨앗의 12일 오름세 이력(없어도 된다)
  */
 require('ts-node/register/transpile-only');
 require('./load-project-env').loadProjectEnv();
@@ -44,22 +47,10 @@ const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-k
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { roundAt, cachedMeasurement, canPublish, describeChanges } = require('./today-picks-rounds');
 const { WINDOW_DAYS, normalizeKeyword, recentHistory, updateHistory, candidatePools, selectRows, priorGoldenRows, completeRound, blockedKeywords, archivedGoldenRows } = require('./today-picks-selection');
+const { upcomingMonths, seasonPeak, createRanker } = require('./today-picks-rising');
+const { parseHistory } = require('./today-picks-volume-history');
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
-
-/** KST 기준 이번 달·다음 달 — 계절 씨앗(month:M)의 '트래픽 몰릴 예정' 판정 창. */
-function upcomingMonths(now = new Date()) {
-  const kst = new Date(now.getTime() + 9 * 3600 * 1000);
-  const m = kst.getUTCMonth() + 1;
-  return [m, (m % 12) + 1];
-}
-
-function seasonPeak(seed, months) {
-  const match = /^month:(\d{1,2})$/.exec(String(seed.source || ''));
-  if (!match) return null;
-  const m = Number(match[1]);
-  return months.includes(m) ? m : null;
-}
 
 async function main() {
   const warehousePath = path.resolve(arg('warehouse') || path.join(__dirname, '..', 'data', 'seed-db.json'));
@@ -178,6 +169,16 @@ async function main() {
     process.exit(2);
   }
 
+  /*
+   * --volumeHistory: 시즌 씨앗의 검색량 이력(seed-volume-history-update.js 가 쌓는다). 없거나 깨졌으면 빈 이력 — 오름세 0 으로
+   * 시즌 앞 씨앗도 검색량 큰 순이 된다(첫 실행·이력 없음에도 멈추지 않는다).
+   */
+  const volumeHistoryPath = arg('volumeHistory') ? path.resolve(arg('volumeHistory')) : '';
+  let volumeHistory = null;
+  try { volumeHistory = volumeHistoryPath && fs.existsSync(volumeHistoryPath) ? parseHistory(JSON.parse(fs.readFileSync(volumeHistoryPath, 'utf8'))) : null; } catch { volumeHistory = null; }
+  const ranker = createRanker({ seeds: db.seeds, history: volumeHistory, now: new Date(startedAt) });
+  console.log(`정렬 — 시즌 앞(${ranker.months.join('·')}월 피크) 씨앗 ${ranker.groupSize.toLocaleString('ko-KR')}개 먼저 · 그 안은 12일 오름세 큰 순(오름세 잰 것 ${ranker.movingCount.toLocaleString('ko-KR')}개, 이력 ${volumeHistory ? volumeHistory.entries.size.toLocaleString('ko-KR') : 0}개)`);
+
   const topics = NAVER_BLOG_TOPICS.map((t) => t.label);
   const byTopic = new Map(topics.map((t) => [t, []]));
   // 종목 이름만 친 말('삼성전자' · 'SK하이닉스')은 주가 카드가 답한다 — 창고의 '○○주가' 씨앗이 이름을 알려 준다.
@@ -255,7 +256,7 @@ async function main() {
     currentTopic = t;
     const prev = resumedTopics.get(t);
     if (resumed?.selectionVersion === 2 && resumed?.round?.id === round.id && prev && (prev.golden || 0) >= keep && prev.rows.length === keep && prev.rows.every(row => !history.has(flat(row.keyword)) && isOpen(row.keyword) && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt}))) {
-      result.topics.push({...prev,rows:selectRows(prev.rows,history,keep,minRatio,orderGoldenByMoney),targetCount:keep,shortfall:0});
+      result.topics.push({...prev,rows:selectRows(prev.rows,history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder),targetCount:keep,shortfall:0});
       console.log(`  ${t.padEnd(8)} 이전 결과 재사용 — 황금 ${prev.golden} 이미 찼다`);
       continue;
     }
@@ -274,7 +275,7 @@ async function main() {
     }
     const priorGolden = golden.length;
     // 2) 창고 후보 — 신규를 먼저 측정한다. 부족할 때만 별도 예산 안에서 과거 추천을 오래된 순으로 잰다.
-    const pools = candidatePools(byTopic.get(t).filter((c) => isOpen(c.keyword)), history, perTopic);
+    const pools = candidatePools(byTopic.get(t).filter((c) => isOpen(c.keyword)), history, perTopic, ranker.poolOrder);
     const cand = pools.fresh.concat(pools.repeated).filter((c) => !measuredKeys.has(flat(c.keyword)));
     for (const c of cand) {
       // 신규가 충분하면 반복 후보는 재지 않는다. 황금이 목표만큼 차면 조기 종료한다.
@@ -311,9 +312,9 @@ async function main() {
         if (!cached) await sleep(gapMs);
       }
     }
-    // 시즌 앞(피크 임박) 비황금을 먼저, 그다음 황금비 순
-    others.sort((a, b) => (Number(!!b.seasonPeakMonth) - Number(!!a.seasonPeakMonth)) || (b.ratio - a.ratio));
-    const shown = selectRows([...golden,...others],history,keep,minRatio);
+    // 시즌 앞(피크가 다음 달·두 달 뒤) 비황금을 오름세 큰 순으로 먼저, 그다음 황금비 순
+    others.sort(ranker.rowOrder);
+    const shown = selectRows([...golden,...others],history,keep,minRatio,undefined,ranker.rowOrder);
     let bids = new Map();
     if (canBid && shown.length > 0) {
       try { bids = await getNaverSearchAdBidPairs(searchAd, shown.map((row) => row.keyword)); } catch (error) {
@@ -322,7 +323,7 @@ async function main() {
     }
     const priced = (row) => ({ ...row, money: moneyBidOf(bids.get(bidKey(row.keyword))) });
     // 황금 안에서는 돈 되는 순(입찰가 구간 → 입찰가 → 황금비). 못 잰 것끼리는 예전처럼 황금비 순이다.
-    const selected = selectRows(shown.map(priced),history,keep,minRatio,orderGoldenByMoney);
+    const selected = selectRows(shown.map(priced),history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder);
     // 연관 황금 재료 = 이번 회차에 잰 황금 + 14일 재고 황금(그 주제) — 추가 호출 없음. 판에 실린 말은 연관에서 뺀다.
     const relatedPool = [...golden, ...inventoryGoldenRows(inventory, t, minRatio, Date.parse(startedAt)).map((r) => ({ ...r, ratio: Math.round((r.searchVolume / r.documentCount) * 100) / 100 }))];
     const rows = attachRelated(markUltra(selected, isGoldenSss), relatedPool, { minRatio, limit: 5, isUltra: isGoldenSss });

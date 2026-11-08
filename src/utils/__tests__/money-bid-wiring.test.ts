@@ -52,7 +52,8 @@ describe('오늘의 추천키워드', () => {
     const script = read('scripts/today-picks.js');
     expect(script).toContain('listedNamesFromSeeds(');
     expect(script).toContain('getNaverSearchAdBidPairs');
-    expect(script).toMatch(/selectRows\(shown\.map\(priced\),history,keep,minRatio,orderGoldenByMoney\)/);
+    // 2026-11-08: 여섯 번째 인자(ranker.rowOrder)는 채움 행 정렬 — 황금을 돈 되는 순으로 세우는 배선은 그대로
+    expect(script).toMatch(/selectRows\(shown\.map\(priced\),history,keep,minRatio,orderGoldenByMoney[,)]/);
   });
 
   it('워크플로가 뽑기 단계에 검색광고 키를 넘기고, 주제당 30개를 남긴다', () => {

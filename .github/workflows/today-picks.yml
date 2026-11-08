@@ -131,6 +131,28 @@ jobs:
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
         run: node scripts/build-seed-db.js --maxAgeDays=1
 
+      # 시즌 씨앗의 검색량 이력(2026-11-08) — '최근 12일 오름세' 정렬의 재료. 창고는 현재 값만 갖고 있어서 날마다 한 점씩 쌓는다.
+      # 황금 재고처럼 캐시로 이어 간다(커밋 안 함 — 이 잡은 이 레포에 쓰기 권한이 없고, 체크아웃의 data/seed-db.json 이 캐시본으로 바뀌어 있다).
+      # 캐시를 잃으면 레포에 커밋된 data/seed-volume-history.json(git 이력으로 만든 첫 이력)에서 다시 시작한다.
+      # 이력이 없거나 깨져도 오름세 0 — 정렬이 검색량 큰 순으로 떨어질 뿐 회차는 멈추지 않는다.
+      - name: 검색량 이력 복원
+        uses: actions/cache/restore@v4
+        with:
+          path: data/seed-volume-history.json
+          key: today-picks-volume-history-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: today-picks-volume-history-
+
+      - name: 검색량 이력 갱신
+        continue-on-error: true
+        run: node scripts/seed-volume-history-update.js
+
+      - name: 검색량 이력 저장
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/seed-volume-history.json
+          key: today-picks-volume-history-${{ github.run_id }}-${{ github.run_attempt }}
+
       # 황금 비중(2026-09-29): 직전 판 황금(--carry)과 선점 보드 황금(--goldenBoard, BD 자리 실측까지 된 96행)을
       # 창고 후보보다 먼저 잰다. 황금은 7일 이력 예외라 날마다 쌓인다. 호출 수는 그대로(황금이 차면 창고는 안 잰다).
       - name: 추천키워드 뽑기 (직전 판·선점 보드 황금 → 창고 → 문서수 실측 → 황금비 · 입찰가)
@@ -145,7 +167,7 @@ jobs:
         # perTopic 120 → 240 · --archive(2026-10-11 사장님 "황금키워드는 하나도 안 보이네" → 그제 황금 다시 + 새 황금 더 찾기)
         # --expandSeeds 연관어 확장: 주제당 씨앗 4 × 32 = 회차당 검색광고 128콜(장부 경유) — 입찰가 64 와 합쳐 상한 550 안
         # (창고 갱신 build-seed-db 는 장부를 거치지 않고 하루 첫 회차에 직접 ~1,870콜 — 상한 표에 안 잡힌다, 2026-10-11 실측)
-        run: node scripts/today-picks.js --out=today-picks.json --perTopic=240 --archive=site/spa/public/data/today-picks-archive --expandSeeds=4 --expandMeasure=60 --inventory=.today-picks-inventory/inventory.json --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
+        run: node scripts/today-picks.js --out=today-picks.json --perTopic=240 --archive=site/spa/public/data/today-picks-archive --expandSeeds=4 --expandMeasure=60 --inventory=.today-picks-inventory/inventory.json --keep=30 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --volumeHistory=data/seed-volume-history.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }}
 
       - name: 다음 회차를 위한 실측·씨앗 캐시 저장
         uses: actions/cache/save@v4

@@ -46,4 +46,17 @@ describe('오늘의 추천키워드 워크플로', () => {
     it('BD 를 태우지 않는다 — 무료 표다', () => {
         expect(/BRIGHTDATA/.test(workflow)).toBe(false);
     });
+
+    // 2026-11-08 정렬 교체 — 시즌 씨앗의 12일 오름세. 이력은 캐시로 이어 가고, 실패해도 회차는 산다.
+    it('검색량 이력을 창고 갱신 뒤·뽑기 앞에서 쌓고 캐시로 이어 간다 — 이 단계가 실패해도 회차는 산다', () => {
+        const update = workflow.indexOf('node scripts/seed-volume-history-update.js');
+        expect(update).toBeGreaterThan(workflow.indexOf('node scripts/build-seed-db.js'));
+        expect(update).toBeLessThan(workflow.indexOf('node scripts/today-picks.js'));
+        const step = workflow.slice(workflow.indexOf('- name: 검색량 이력 갱신'), workflow.indexOf('- name: 검색량 이력 저장'));
+        expect(step).toContain('continue-on-error: true');
+        expect(workflow).toContain('--volumeHistory=data/seed-volume-history.json');
+        // 날짜를 넘어 이어져야 하므로 복원 키는 접두어만(날짜를 넣으면 하루 만에 끊긴다)
+        expect(workflow).toContain('restore-keys: today-picks-volume-history-');
+        expect(workflow).not.toMatch(/restore-keys: today-picks-volume-history-\$\{\{/);
+    });
 });

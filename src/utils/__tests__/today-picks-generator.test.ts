@@ -35,6 +35,8 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
     if (id.includes('today-picks-expand')) return require('../../../scripts/today-picks-expand');
     if (id.includes('today-picks-inventory')) return require('../../../scripts/today-picks-inventory');
     if (id.includes('today-picks-related')) return require('../../../scripts/today-picks-related');
+    if (id.includes('today-picks-rising')) return require('../../../scripts/today-picks-rising');
+    if (id.includes('today-picks-volume-history')) return require('../../../scripts/today-picks-volume-history');
     if (id === '../src/utils/grade') return { isGoldenSss };
     if (id.includes('seed-db')) return { topicOfSeed: () => '경제' };
     if (id.includes('naver-blog-topics')) return { NAVER_BLOG_TOPICS: [{ label: '경제' }] };
@@ -191,5 +193,51 @@ describe('추천 생성과 발행 경계', () => {
     const saved = JSON.parse(h.file('inv/inventory.json'));
     expect(saved.entries['재고황금'].documentCount).toBe(500);
     expect(saved.entries['창고말']).toMatchObject({ documentCount: 500, topic: '경제' });
+  });
+  // 2026-11-08 정렬 교체(사장님 승인) — 피크가 다음 달·두 달 뒤인 시즌 씨앗을 먼저, 그 안에서는 최근 12일 오름세 큰 순
+  describe('정렬: 시즌 앞 씨앗 + 12일 오름세', () => {
+    const kstMonth = new Date(Date.now() + 9 * 3600000).getUTCMonth() + 1;
+    const nextMonth = (kstMonth % 12) + 1;
+    const volumes = require('../../../scripts/today-picks-volume-history');
+    const today = volumes.kstDayNumber(Date.now());
+    const historyFile = JSON.stringify({ version: 1, updatedDay: today - 1, entries: { 많이오름: [[today - 14, 500]], 보합: [[today - 14, 2000]] } });
+    const seeds = [
+      { keyword: '큰일반', searchVolume: 90000, source: 'hint' },
+      { keyword: '이번달피크', searchVolume: 70000, source: `month:${kstMonth}` },
+      { keyword: '보합', searchVolume: 2000, source: `month:${nextMonth}` },
+      { keyword: '많이오름', searchVolume: 1500, source: `month:${nextMonth}` },
+    ];
+    const keywordsOf = (h: { output: () => string }) => JSON.parse(h.output()).topics[0].rows.map((r: any) => r.keyword);
+
+    it('후보 풀 순서 — 풀이 1칸이면 검색량이 작아도 오름세가 큰 시즌 씨앗이 뽑힌다 (이력이 없으면 검색량 큰 쪽)', async () => {
+      const withHistory = harness(100000, {}, null, ['--volumeHistory=history.json', '--perTopic=1'], seeds, '--keep=1', undefined, { 'history.json': historyFile });
+      await withHistory.run();
+      expect(keywordsOf(withHistory)).toEqual(['많이오름']);
+      const noHistory = harness(100000, {}, null, ['--perTopic=1'], seeds, '--keep=1');
+      await noHistory.run();
+      expect(keywordsOf(noHistory)).toEqual(['보합']);
+    });
+    it('채움 행 순서 — 시즌 앞(오름세 큰 순) → 나머지(황금비 순). 이번 달 피크는 앞이 아니지만 표시는 그대로 남는다', async () => {
+      const h = harness(100000, {}, null, ['--volumeHistory=history.json'], seeds, '--keep=4', undefined, { 'history.json': historyFile });
+      await h.run();
+      const rows = JSON.parse(h.output()).topics[0].rows;
+      expect(rows.map((r: any) => r.keyword)).toEqual(['많이오름', '보합', '큰일반', '이번달피크']);
+      expect(rows.find((r: any) => r.keyword === '이번달피크').seasonPeakMonth).toBe(kstMonth);
+      expect(rows.find((r: any) => r.keyword === '많이오름').seasonPeakMonth).toBe(nextMonth);
+    });
+    it('이력 파일이 없거나 깨졌어도 멈추지 않고 시즌 앞 씨앗을 검색량 큰 순으로 먼저 둔다', async () => {
+      for (const extra of [{}, { 'history.json': '{깨짐' }]) {
+        const h = harness(100000, {}, null, ['--volumeHistory=history.json'], seeds, '--keep=4', undefined, extra);
+        await h.run();
+        expect(keywordsOf(h)).toEqual(['보합', '많이오름', '큰일반', '이번달피크']);
+      }
+    });
+    it('황금(비율 1+)은 오름세와 무관하게 앞이고 개수도 그대로다', async () => {
+      const h = harness(1000, {}, null, ['--volumeHistory=history.json'], seeds, '--keep=2', undefined, { 'history.json': historyFile });
+      await h.run();
+      const rows = JSON.parse(h.output()).topics[0].rows;
+      expect(rows).toHaveLength(2);
+      expect(rows.every((r: any) => r.ratio >= 1)).toBe(true);
+    });
   });
 });
