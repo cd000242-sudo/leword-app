@@ -19,6 +19,7 @@ import { getNaverAutocompleteQuick } from '../../utils/naver-autocomplete';
 import { readSerpStructure, trustedSections } from '../../utils/naver-serp-structure';
 import { closeLocalSerpFetch, localSerpFetch, localSerpStats } from '../../utils/local-serp-fetch';
 import { NAVER_TABS } from '../../utils/naver-serp-rank';
+import { collectTrainingSamples } from '../../utils/pro-hunter-v12/training-samples';
 
 interface BlogPost {
   url: string;
@@ -92,6 +93,19 @@ const FILE_RELATED = () => path.join(STORAGE_DIR(), 'related.json');
 const FILE_MEASURED_POSTS = () => path.join(STORAGE_DIR(), 'measured-posts.json');
 
 /** 구획 배치는 하루 한 번만 다시 잰다 — 순위 회차마다 통합검색을 또 받으면 차단만 빨라진다. */
+/** 학습 데이터(고를 때 잰 값 + 그 뒤 실제 순위)를 쌓는 곳. 노출 추적의 30회 제한과 상관없이 전부 남긴다. */
+const TRAINING_DIR = () => path.join(app.getPath('userData'), 'pro-hunter-v12');
+
+/** 노출 추적 목록을 학습 데이터로 옮겨 쌓는다. 실패해도 순위 추적은 그대로 간다. */
+function collectTrainingData(tracked: TrackedKeyword[], when: string): void {
+  try {
+    const r = collectTrainingSamples(TRAINING_DIR(), tracked);
+    console.log(`[TRAINING] ${when}: 학습 표본 ${r.total}건(순위 잰 것 ${r.labeled}) · 새로 ${r.added} · 갱신 ${r.updated} · 제외 ${r.skipped}`);
+  } catch (err: any) {
+    console.warn('[TRAINING] 학습 데이터 쌓기 실패:', err?.message);
+  }
+}
+
 const SERP_SECTIONS_TTL_MS = 24 * 60 * 60 * 1000;
 /** 연관 검색어는 이레에 한 번 — 검색광고 연관어는 천천히 변한다. */
 const RELATED_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -467,6 +481,9 @@ export function addTrackedPost(p: { keyword: string; postUrl: string; postTitle?
 }
 
 export function setupExposureTrackingHandlers(): void {
+  // 앱을 켤 때 이미 쌓인 노출 추적 기록을 학습 데이터로 한 번 옮긴다(30회에서 잘리기 전에).
+  collectTrainingData(readJson<TrackedKeyword[]>(FILE_TRACKED(), []), '시작 시 옮기기');
+
   // 1. RSS URL 저장/조회 — 어떤 형태로 입력해도 자동 RSS URL 변환
   //    v2.42.87: RSS 변경 시 이전 블로그의 tracked/history 자동 클리어 (혼란 방지)
   if (!ipcMain.listenerCount('exposure-set-blog-rss')) {
@@ -730,6 +747,7 @@ export function setupExposureTrackingHandlers(): void {
         await closeLocalSerpFetch();
 
         writeJson(FILE_TRACKED(), tracked);
+        collectTrainingData(tracked, '순위 확인 뒤');
         return {
           success: true,
           checked, exposed, blocked, errored, sectionsMeasured,
