@@ -125,3 +125,36 @@ test('회차 요약 — 요청했는데 0건이면 stalled', () => {
   assert.deepEqual(runSummary({ asked: 12, made: 3 }), { asked: 12, made: 3, stalled: false });
   assert.deepEqual(runSummary({ asked: 0, made: 0 }), { asked: 0, made: 0, stalled: false });
 });
+
+/*
+ * 2026-11-08 사장님 "안내가 제목보다 먼저" — 제목 작업이 매 회차 935장 전체를 요청해(40분 · 동시 6) 구독 주간 한도를 먹었고,
+ * 같은 한도를 쓰는 안내 작업이 0건이 됐다. 제목은 '상위 창 안에서 제목이 없는 카드'만, 회차당 상한까지 짓는다.
+ */
+test('상위 창 — 추천 → 우선순위로 줄 세워 앞 N장만, 0 이하는 제한 없음', () => {
+  const { rankTop } = require('./enrich-benchmark-titles.js');
+  const cards = [{ id: 'low', priority: 1 }, { id: 'rec5', recommended: true, priority: 5 }, { id: 'p50', priority: 50 }, { id: 'rec9', recommended: true, priority: 9 }];
+  assert.deepEqual(rankTop(cards, 3).map((c) => c.id), ['rec9', 'rec5', 'p50']);
+  assert.deepEqual(rankTop(cards, 0).map((c) => c.id), ['rec9', 'rec5', 'p50', 'low']);
+  assert.deepEqual(rankTop(cards, 99).map((c) => c.id), ['rec9', 'rec5', 'p50', 'low']);
+  assert.deepEqual(cards.map((c) => c.id), ['low', 'rec5', 'p50', 'rec9'], '원본 순서는 건드리지 않는다');
+});
+
+test('회차 계획 — 상위 창은 전체 순위 기준이라, 위쪽이 채워지면 아래 카드로 흘러내리지 않고 아무것도 안 짓는다', () => {
+  const { planTitleRound, TITLE_RULES } = require('./enrich-benchmark-titles.js');
+  const nowMs = Date.parse(now);
+  const cards = Array.from({ length: 10 }, (_, i) => ({ id: `r${i + 1}`, urls: [`https://u/${i + 1}`], recommended: i < 6, priority: 100 - i }));
+  const current = (id) => ({ id, urls: [`https://u/${id.slice(1)}`], titles: ['가'], rules: TITLE_RULES });
+  // 상위 6장 중 r1 · r2 에 제목이 있다 → 비어 있는 r3 · r4 만(회차 상한 2). r7 이후(창 밖)는 비어 있어도 안 짓는다.
+  assert.deepEqual(planTitleRound(cards, [current('r1'), current('r2')], [], { top: 6, max: 2, nowMs }).map((c) => c.id), ['r3', 'r4']);
+  assert.deepEqual(planTitleRound(cards, [current('r1'), current('r2')], [], { top: 6, max: 50, nowMs }).map((c) => c.id), ['r3', 'r4', 'r5', 'r6']);
+  assert.deepEqual(planTitleRound(cards, ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'].map(current), [], { top: 6, max: 50, nowMs }), [], '상위 창이 다 채워지면 호출 0');
+});
+
+test('회차 계획 — 12시간 안에 0개 통과한 카드는 쉬고, 창 제한이 없으면(top 0) 옛 동작 그대로 max 만 적용', () => {
+  const { planTitleRound } = require('./enrich-benchmark-titles.js');
+  const nowMs = Date.parse(now);
+  const cards = Array.from({ length: 5 }, (_, i) => ({ id: `r${i + 1}`, urls: [], recommended: false, priority: 10 - i }));
+  const misses = [{ id: 'r1', at: new Date(nowMs - 1000).toISOString() }];
+  assert.deepEqual(planTitleRound(cards, [], misses, { top: 3, max: 10, nowMs }).map((c) => c.id), ['r2', 'r3']);
+  assert.deepEqual(planTitleRound(cards, [], [], { top: 0, max: 4, nowMs }).map((c) => c.id), ['r1', 'r2', 'r3', 'r4']);
+});

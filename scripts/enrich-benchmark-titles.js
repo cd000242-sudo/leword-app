@@ -20,8 +20,14 @@
  * 재료는 카드의 제목·요약·함께 검색되는 말뿐이다. 재료에 없는 숫자, 쉼표 이분법,
  * 콜론·라벨형, 과장어, 기사 제목 베끼기는 엔진(benchmark-title-engine)이 떨어뜨린다.
  *
+ * ## 구독 한도 (2026-11-08)
+ *
+ * 작성 안내 작업(enrich-benchmark-guides.js)과 같은 Claude 구독 주간 한도를 쓴다. 이 작업이 매 회차 935장 전체를 요청해(Opus · 40분 · 동시 6)
+ * 한도를 먹었고 안내는 0건이 됐다. 안내가 제목보다 먼저다 — 제목은 `--top`(상위 창, 추천 → 우선순위 순위 기준) 안에서
+ * 제목이 없는 카드만 `--max`(회차 상한)까지 짓는다. 창 밖 카드는 화면의 [지금 제목 만들기](내 구독)로 받는다. 숫자는 homefeed-guides.yml 에 있다.
+ *
  * 사용:
- *   node scripts/enrich-benchmark-titles.js --board=<homefeed-benchmarks.json> --store=<homefeed-benchmark-titles.json> [--max=8] [--no-ai]
+ *   node scripts/enrich-benchmark-titles.js --board=<homefeed-benchmarks.json> --store=<homefeed-benchmark-titles.json> [--max=8] [--top=300] [--no-ai]
  */
 'use strict';
 
@@ -83,6 +89,20 @@ function pickTitleTargets(cards, kept, max) {
     if (i < missing.length && picked.length < max) picked.push(missing[i]);
   }
   return picked;
+}
+
+/** 화면 위쪽 순서(추천 → 우선순위)로 줄 세워 앞 top 장만. top 이 0 이하면 제한 없음. 원본 배열은 건드리지 않는다. */
+function rankTop(cards, top) {
+  const ranked = [...cards].sort((a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)) || (b.priority || 0) - (a.priority || 0));
+  return top > 0 ? ranked.slice(0, top) : ranked;
+}
+
+/**
+ * 이번 회차에 지을 카드 — 상위 창은 판 전체 순위 기준이다(제목이 없는 카드 중 상위 N장이 아니다).
+ * 그래서 위쪽이 채워지면 아래 카드로 흘러내리지 않고 0장이 된다(호출 0). 그다음 제목 없는 카드 → 회차 상한.
+ */
+function planTitleRound(cards, kept, misses, { top = 0, max, nowMs = Date.now() }) {
+  return pickTitleTargets(openTitleCards(rankTop(cards, top), kept, misses, nowMs), kept, max);
 }
 
 /** 새로 지은 항목이 같은 id 의 옛 항목을 대체한다. */
@@ -170,7 +190,7 @@ async function generateTitles(cards, kept, { batchSize, concurrency, budgetMs, t
   return { made, provider, asked: cards.length, missed };
 }
 
-async function generate(board, kept, misses, max, concurrency, budgetMs) {
+async function generate(board, kept, misses, max, concurrency, budgetMs, top = 0) {
   // ts-node 는 생성 단계에서만 필요하다 — 부착만 할 때는 없어도 돈다.
   require('ts-node/register/transpile-only');
   const { cardsFromBenchmarks, titlesForCards, BENCHMARK_TITLE_BATCH } = require('../src/utils/benchmark-title-engine');
@@ -180,9 +200,9 @@ async function generate(board, kept, misses, max, concurrency, budgetMs) {
     const row = rows.get(c.id) || {};
     return { ...c, urls: [...new Set((row.sources || []).map((src) => String((src && src.url) || '')).filter(Boolean))], recommended: row.recommended === true, priority: Number(row.priority) || 0 };
   });
-  const cards = pickTitleTargets(openTitleCards(withMeta, kept, misses, Date.now()), kept, max);
+  const cards = planTitleRound(withMeta, kept, misses, { top, max, nowMs: Date.now() });
   const outdated = cards.filter((c) => kept.some((e) => e.id === c.id)).length;
-  console.log(`제목 대상 ${cards.length}장 (새 카드 ${cards.length - outdated} · 옛 규칙 다시 짓기 ${outdated} · 창고 유지 ${kept.length}장) · 배치 ${BENCHMARK_TITLE_BATCH} · 동시 ${concurrency}`);
+  console.log(`제목 대상 ${cards.length}장 (새 카드 ${cards.length - outdated} · 옛 규칙 다시 짓기 ${outdated} · 창고 유지 ${kept.length}장) · 상위 창 ${top > 0 ? `${top}장` : '없음'} · 회차 상한 ${max} · 배치 ${BENCHMARK_TITLE_BATCH} · 동시 ${concurrency}`);
   return generateTitles(cards, kept, { batchSize: BENCHMARK_TITLE_BATCH, concurrency, budgetMs, titlesFor: (batch) => titlesForCards(batch) });
 }
 
@@ -190,6 +210,8 @@ async function main() {
   const boardPath = arg('board');
   const storePath = arg('store');
   const max = Number(arg('max')) || 8;
+  // 상위 창(추천 → 우선순위 순위 기준 앞 N장). 0 이면 제한 없음 — 판 수집 작업의 옛 호출은 그대로 돈다.
+  const top = Math.max(0, Number(arg('top')) || 0);
   // 동시 배치 수 · 시간 상한(분). 작업 전체 상한 30분 중 수집이 약 8분이라 제목은 12분까지.
   const concurrency = Math.max(1, Number(arg('concurrency')) || 4);
   const budgetMs = Math.max(0, Number(arg('budget-min')) || 12) * 60_000;
@@ -214,7 +236,7 @@ async function main() {
   let asked = 0;
   if (flag('no-ai') || attachOnly) console.log('AI 생성 건너뜀 · 창고 부착만 한다.');
   else {
-    try { ({ made, provider, asked, missed } = await generate(board, kept, keptMisses, max, concurrency, budgetMs)); }
+    try { ({ made, provider, asked, missed } = await generate(board, kept, keptMisses, max, concurrency, budgetMs, top)); }
     catch (error) { console.log(`!! 생성 단계 실패(부착은 계속): ${String((error && error.message) || error).slice(0, 200)}`); }
   }
 
@@ -234,7 +256,7 @@ async function main() {
   if (summaryPath) { fs.mkdirSync(path.dirname(path.resolve(summaryPath)), { recursive: true }); fs.writeFileSync(summaryPath, JSON.stringify(runSummary({ asked, made: made.length })) + '\n', 'utf8'); }
 }
 
-module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, pruneEntries, openTitleCards, runSummary, TITLE_RULES, TITLE_TTL_MS, GRACE_MS, MISS_RETRY_MS };
+module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, pruneEntries, openTitleCards, rankTop, planTitleRound, runSummary, TITLE_RULES, TITLE_TTL_MS, GRACE_MS, MISS_RETRY_MS };
 
 if (require.main === module) {
   main().catch((error) => { console.error('벤치마크 제목 창고 실패:', error); process.exit(1); });

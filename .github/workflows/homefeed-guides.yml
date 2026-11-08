@@ -1,8 +1,15 @@
 name: 홈판 벤치마크 작성 안내 · 제목
 
 # 2026-10-10 사장님 "전부 다 붙이고 싶다 — 12장만이 아니라, 확인하는 사람이 있거든" · "제목도 전부 채워 달라".
-# 판 수집(홈판 벤치마크 발행)이 끝날 때마다 이어서 돌아, 안내(Sonnet) · 홈판 제목 20개(Opus)가 없는 카드를 전부 짓는다.
-# 두 작업은 나란히 돌고 각자 자기 파일만 쓴다(안내 = guides.json · 제목 = titles.json) — 서로 · 판 수집과 파일이 안 겹친다.
+# 판 수집(홈판 벤치마크 발행)이 끝날 때마다 이어서 돌아, 안내(Sonnet) · 홈판 제목 20개(Opus)가 없는 카드를 짓는다.
+# 두 작업은 각자 자기 파일만 쓴다(안내 = guides.json · 제목 = titles.json) — 서로 · 판 수집과 파일이 안 겹친다.
+#
+# 2026-11-08 사장님 "반드시 들어갈 내용 · 넣지 않을 내용이 있는 카드와 없는 카드가 일관되지 않다" — 안내가 있는 카드가 1,000장 중 33장(3%)이었다.
+# 뿌리: 두 작업이 같은 Claude 구독 주간 한도를 쓰는데, 제목 작업이 매 회차 935장 전체(Opus)를 요청해 한도를 먹었다.
+# 한도 소진은 3주 연속 한도 초기화 뒤 2.3~3.3일 만에 왔고(이번 주 약 69시간), 안내 작업은 rate_limited 로 0건이면서도 '성공'으로 끝났다.
+#   - 안내가 제목보다 먼저: 제목 작업은 안내 작업이 성공한 뒤에만 돈다(needs). 안내가 한도에 닿은 회차에는 제목이 돌지 않는다.
+#   - 제목은 상위 창(--top) 안에서 제목 없는 카드만 회차 상한(--max)까지. 창 밖 카드는 화면의 [지금 제목 만들기](내 구독)로 받는다.
+#   - 안내가 0건이면 빨간불, 중간에 한도가 닿으면 경고(benchmark-run-summary.cjs). 다른 엔진으로 자동 전환하지 않는다(사장님 원칙).
 # 제목은 판 수집이 다음 회차에 판에 붙인다(앱 AI 비서 · 오늘의 추천이 판의 homeTitles 를 읽는다).
 # 회차마다 새 카드 228~501장(실측) — 판 수집 30분 안에서는 못 지어서 따로 뺐다.
 # 결과는 자기 파일(spa/public/data/homefeed-benchmark-guides.json)에만 쓴다. 판 파일을 두 작업이 같이 고치면
@@ -18,6 +25,12 @@ on:
       max:
         description: '이번 실행에서 새로 안내를 지을 카드 수 상한'
         default: '1000'
+      title_max:
+        description: '이번 실행에서 새로 제목을 지을 카드 수 상한(회차당)'
+        default: '40'
+      title_top:
+        description: '제목을 짓는 상위 창(추천 → 우선순위 순위 앞 N장, 0 이면 제한 없음)'
+        default: '300'
 
 permissions:
   contents: read
@@ -47,7 +60,7 @@ jobs:
           done
           exit 1
       - name: Test guide store rules
-        run: node --test scripts/enrich-benchmark-guides.test.cjs
+        run: node --test scripts/enrich-benchmark-guides.test.cjs scripts/homefeed-guides-workflow.test.cjs
       - name: 구독 CLI 폴백 준비
         uses: ./.github/actions/setup-subscription-agents
       - name: Checkout website
@@ -56,6 +69,7 @@ jobs:
           repository: cd000242-sudo/naver
           ssh-key: ${{ secrets.SITE_REPO_SSH_KEY }}
           path: site
+      # 안내가 없는 카드를 화면 위쪽(추천 → 우선순위)부터 채운다. 한도(rate_limited)에 닿으면 남은 배치를 시작하지 않는다.
       - name: 카드별 작성 안내 생성
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -66,6 +80,7 @@ jobs:
           --max=${{ inputs.max || '1000' }}
           --concurrency=6
           --budget-min=40
+          --summary=tmp/guide-run.json
       - name: Publish only the guide store
         working-directory: site
         run: |
@@ -87,10 +102,20 @@ jobs:
           done
           echo '::error::Guide publication failed.'
           exit 1
+      # 2026-11-08 — 구독 한도 소진으로 새 안내 0건이 사흘 이어졌는데 작업은 '성공'이었다(안내 있는 카드 1,000장 중 33장).
+      # 발행은 마친 뒤, 0건이면 빨간불(실패 메일) · 중간에 한도가 닿았으면 경고. 제목 작업(needs)은 이 작업이 성공해야 돈다.
+      - name: 새 안내 0건이면 빨간불
+        if: always()
+        run: node scripts/benchmark-run-summary.cjs tmp/guide-run.json
 
-  # 홈판 후킹형 제목 20개 — 카드 전부(Opus, 사장님 선택: 같은 PC 비교에서 Sonnet 보다 2배 빠름 132초 vs 247초).
-  # 회차마다 새 카드 200~300장 · 카드 2장 배치 ~80초 → 동시 6 이면 20~35분. 처음 940장은 2~3회차에 걸쳐 채운다.
+  # 홈판 후킹형 제목 20개 — 상위 창 안의 카드(Opus, 사장님 선택: 같은 PC 비교에서 Sonnet 보다 2배 빠름 132초 vs 247초).
+  # 2026-11-08: 안내가 먼저다. 안내 작업이 성공한 뒤에만 돌고(needs · success()), 회차당 상한(title_max 40) · 상위 창(title_top 300)을 지킨다.
+  #   근거(git 이력 실측 · 10/26~11/05): 상한 없이 돌 때 회차당 제목 약 260장(40분 상한에 걸림) · 하루 약 4회차 = 하루 약 1,040장(Opus 520호출).
+  #   주간 한도는 3주 연속 2.3~3.3일에 소진 — 안내+제목 합계를 이전 부하의 약 40%(3일/7일) 이하로 줄여야 7일을 버틴다.
+  #   40장 × 4회차 = 하루 160장(Opus 80호출, 옛 부하의 약 15%). 상위 300 = 화면 앞 묶음인 ★ 추천 카드(289장, 29%)가 매시 섞이는 범위.
+  #   창 밖 카드와 상한을 넘은 카드는 화면의 [지금 제목 만들기](내 구독)로 받는다. 안내는 그런 길이 없어 안내가 우선이다.
   titles:
+    needs: guides
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 55
@@ -125,7 +150,8 @@ jobs:
           --board=site/spa/public/data/homefeed-benchmarks.json
           --store=site/spa/public/data/homefeed-benchmark-titles.json
           --store-only
-          --max=${{ inputs.max || '1000' }}
+          --max=${{ inputs.title_max || '40' }}
+          --top=${{ inputs.title_top || '300' }}
           --concurrency=6
           --budget-min=40
           --summary=tmp/title-run.json

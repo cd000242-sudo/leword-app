@@ -18,15 +18,22 @@
  * - 거르개를 통과 못 한 카드는 12시간 동안 다시 묻지 않는다(같은 재료면 같은 답).
  * - 배치가 터진 카드(시간 초과 등)는 기록하지 않는다 — 다음 회차에 다시 묻는다.
  *
+ * ## 구독 한도 (2026-11-08)
+ *
+ * 제목 작업과 같은 Claude 구독 주간 한도를 쓴다. 안내가 제목보다 먼저다: 안내가 없는 카드를 화면 위쪽(추천 → 우선순위)부터 채우고,
+ * 한도(rate_limited)에 닿으면 남은 배치를 시작하지 않는다. 다른 엔진으로 넘어가지 않는다(사장님 원칙: 자동 폴백 금지).
+ * --summary=<파일> 에 회차 요약을 남기면 워크플로 마지막 단계(benchmark-run-summary.cjs)가 0건일 때 빨간불로 끝낸다.
+ *
  * 사용:
  *   node scripts/enrich-benchmark-guides.js --board=<homefeed-benchmarks.json> --store=<homefeed-benchmark-guides.json>
- *     [--max=1000] [--concurrency=6] [--budget-min=40] [--no-ai]
+ *     [--max=1000] [--concurrency=6] [--budget-min=40] [--summary=<run.json>] [--no-ai]
  */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 const { serialize } = require('./homefeed-benchmarks-core.cjs');
+const { isRateLimitError, guideRunSummary } = require('./benchmark-run-summary.cjs');
 
 const GRACE_MS = 24 * 60 * 60 * 1000;
 const MISS_RETRY_MS = 12 * 60 * 60 * 1000;
@@ -164,7 +171,7 @@ async function generateGuides(cards, { batchSize, concurrency, budgetMs, guidesF
   const batches = [];
   for (let i = 0; i < cards.length; i += batchSize) batches.push(cards.slice(i, i + batchSize));
   const made = []; const missed = [];
-  let provider = ''; let next = 0; let skipped = 0;
+  let provider = ''; let next = 0; let skipped = 0; let failed = 0; let rateLimited = false;
   async function worker() {
     while (next < batches.length) {
       if (now() - startedAt >= budgetMs) { skipped = batches.length - next; next = batches.length; return; }
@@ -180,7 +187,13 @@ async function generateGuides(cards, { batchSize, concurrency, budgetMs, guidesF
         }
         for (const c of batch) if (!result.results.some((r) => r.id === c.id)) missed.push(c.id);
       } catch (error) {
+        failed += 1;
         log(`  !! 안내 배치 실패(다음 회차에 다시): ${String((error && error.message) || error).slice(0, 160)}`);
+        // 구독 한도에 닿았으면 나머지 배치도 같은 이유로 실패한다 — 시작하지 않는다(호출 · 자동완성 낭비 방지). 위쪽 카드는 이미 앞 배치에서 지었다.
+        if (isRateLimitError(error)) {
+          rateLimited = true; skipped = batches.length - next; next = batches.length;
+          log(`  · 구독 한도 소진 — 남은 배치 ${skipped}개는 시작하지 않는다(다음 회차에 위쪽 카드부터)`);
+        }
       }
     }
   }
@@ -188,7 +201,7 @@ async function generateGuides(cards, { batchSize, concurrency, budgetMs, guidesF
   const order = new Map(cards.map((c, i) => [c.id, i]));
   made.sort((a, b) => order.get(a.id) - order.get(b.id));
   missed.sort((a, b) => order.get(a) - order.get(b));
-  return { made, missed, provider, skipped };
+  return { made, missed, provider, skipped, failed, rateLimited };
 }
 
 /** 새 안내가 같은 id 의 옛 안내를 대체하고, 새로 지어진 카드의 '통과 못 함' 기록은 지운다. */
@@ -238,6 +251,11 @@ async function main() {
     store = mergeStore(store, result, nowMs);
     console.log(`새 안내 ${result.made.length}장 · 통과 못 함 ${result.missed.length}장${result.skipped ? ` · 시간 상한으로 배치 ${result.skipped}개는 다음 회차로` : ''}`);
     if (targets.length > 0 && result.made.length === 0) console.log('::warning::이번 회차 새 안내 0건 — 구독 CLI 상태를 확인하세요.');
+    const summaryPath = arg('summary');
+    if (summaryPath) {
+      fs.mkdirSync(path.dirname(path.resolve(summaryPath)), { recursive: true });
+      fs.writeFileSync(summaryPath, JSON.stringify(guideRunSummary({ asked: targets.length, made: result.made.length, missed: result.missed.length, failed: result.failed, rateLimited: result.rateLimited, skipped: result.skipped })) + '\n', 'utf8');
+    }
   }
   const { covered, total } = coverage(cards, store);
   atomicWrite(storePath, { schemaVersion: 1, generatedAt: iso(Date.now()), rules: rules || (readJson(storePath) || {}).rules || '', model, guides: store.guides, misses: store.misses });

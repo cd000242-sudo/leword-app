@@ -127,3 +127,101 @@ test('kinQuestionsFor — 워커 지식인 검색에서 질문 5개(재료) · 3
   assert.equal(got.kinStore[0].link, 'https://kin.naver.com/qna/detail.naver?docId=0');
   assert.deepEqual(await kinQuestionsFor('x', async () => { throw new Error('down'); }), {});
 });
+
+/*
+ * 2026-11-08 사장님 "반드시 들어갈 내용 · 넣지 않을 내용이 있는 카드와 없는 카드가 일관되지 않다" — 안내가 있는 카드는 1,000장 중 33장(3%)이었다.
+ * 뿌리: 제목 작업이 같은 구독 주간 한도를 먹어 안내 작업이 rate_limited 로 0건인데도 '성공'으로 끝났다(11/05 이후 3일).
+ * 고친 것: 한도에 닿으면 남은 배치를 시작하지 않고(헛 호출 · 자동완성 낭비 방지), 0건이면 빨간불, 일부만 되면 경고. 다른 엔진으로 넘어가지 않는다.
+ */
+const { isRateLimitError, guideRunSummary, summaryVerdict } = require('./benchmark-run-summary.cjs');
+
+test('한도 소진 판별 — CI 로그에 실제로 찍힌 두 문구(첫 실패 · 쉬는 중 건너뜀)는 한도, 시간 초과 · 로그인 문제는 한도가 아니다', () => {
+  assert.equal(isRateLimitError(new Error('구독 CLI 전부 실패: claude: Claude Code 생성 실패 (원인 코드: rate_limited). 현재 구독 사용 한도가 소진되었습니다. 상세: You\'ve hit your weekly limit')), true);
+  assert.equal(isRateLimitError(new Error('구독 CLI 전부 실패: claude: 건너뜀: 사용 한도 초과 — 30분 뒤 다시 시도 → codex: 건너뜀: 로그인 필요 — 3분 뒤 다시 시도')), true);
+  assert.equal(isRateLimitError('weekly limit reached'), true);
+  assert.equal(isRateLimitError(new Error('구독 CLI 전부 실패: claude: Claude Code 생성 실패 (원인 코드: timeout). 제한 시간 안에 응답을 받지 못했습니다.')), false);
+  assert.equal(isRateLimitError(new Error('구독 CLI 전부 실패: claude: 건너뜀: 로그인 필요 — 3분 뒤 다시 시도')), false);
+  assert.equal(isRateLimitError(null), false);
+  assert.equal(isRateLimitError(undefined), false);
+});
+
+test('안내 짓기 — 한도에 닿으면 남은 배치를 시작하지 않는다(자동완성 · 호출 낭비 없이) · 실패 수와 한도 여부를 돌려준다', async () => {
+  const cards = cardsForGuides({ candidates: Array.from({ length: 12 }, (_, i) => card(`c${i}`)) });
+  let calls = 0; let suggested = 0;
+  const out = await generateGuides(cards, {
+    batchSize: 3, concurrency: 1, budgetMs: 60_000, now: () => now, rules: 'R',
+    suggest: async () => { suggested += 1; return []; },
+    guidesFor: async () => { calls += 1; throw new Error('구독 CLI 전부 실패: claude: Claude Code 생성 실패 (원인 코드: rate_limited). 현재 구독 사용 한도가 소진되었습니다.'); },
+  });
+  assert.equal(calls, 1, '첫 배치가 한도에 닿으면 나머지 3개 배치는 시작하지 않는다');
+  assert.equal(suggested, 3, '자동완성도 첫 배치 카드 3장만');
+  assert.deepEqual([out.made.length, out.missed.length, out.failed, out.rateLimited, out.skipped], [0, 0, 1, true, 3]);
+});
+
+test('안내 짓기 — 한도가 아닌 실패(시간 초과 등)는 그 배치만 건너뛰고 계속, 한도 여부는 거짓', async () => {
+  const cards = cardsForGuides({ candidates: Array.from({ length: 6 }, (_, i) => card(`c${i}`)) });
+  const out = await generateGuides(cards, {
+    batchSize: 3, concurrency: 1, budgetMs: 60_000, now: () => now, rules: 'R', suggest: async () => [],
+    guidesFor: async (batch) => { if (batch[0].id === 'c0') throw new Error('시간 초과'); return { provider: 'fake', results: batch.map((c) => ({ id: c.id, guide })) }; },
+  });
+  assert.deepEqual([out.made.length, out.failed, out.rateLimited, out.skipped], [3, 1, false, 0]);
+});
+
+test('안내 순서 — 안내가 없는 카드를 화면 위쪽(추천 → 우선순위)부터 채운다 · 첫 배치가 가장 위쪽 카드, 이미 안내가 있는 카드는 다시 묻지 않는다', async () => {
+  const cards = cardsForGuides({ candidates: [
+    card('low1', { priority: 1 }), card('top-done', { recommended: true, priority: 99 }), card('mid', { priority: 50 }),
+    card('top2', { recommended: true, priority: 80 }), card('top1', { recommended: true, priority: 90 }), card('low2', { priority: 2 }),
+  ] });
+  const store = { guides: [{ id: 'top-done', urls: [], guide, rules: 'R' }], misses: [] };
+  const targets = pickGuideTargets(cards, store, 'R', 100);
+  assert.deepEqual(targets.map((c) => c.id), ['top1', 'top2', 'mid', 'low2', 'low1']);
+  const asked = [];
+  await generateGuides(targets, { batchSize: 2, concurrency: 1, budgetMs: 60_000, now: () => now, rules: 'R', suggest: async () => [],
+    guidesFor: async (batch) => { asked.push(batch.map((c) => c.id)); return { provider: 'fake', results: batch.map((c) => ({ id: c.id, guide })) }; } });
+  assert.deepEqual(asked, [['top1', 'top2'], ['mid', 'low2'], ['low1']], '한도가 중간에 끊겨도 위쪽 카드부터 채워져 있다');
+});
+
+test('회차 요약 — 요청했는데 0건이고 실패 배치가 있으면 stalled, 거르개가 다 버린 것(실패 없음)은 stalled 아님', () => {
+  assert.deepEqual(guideRunSummary({ asked: 953, made: 0, missed: 0, failed: 159, rateLimited: true, skipped: 0 }), { asked: 953, made: 0, missed: 0, failed: 159, rateLimited: true, skipped: 0, stalled: true });
+  assert.equal(guideRunSummary({ asked: 10, made: 4, failed: 2, rateLimited: true }).stalled, false);
+  assert.equal(guideRunSummary({ asked: 10, made: 0, missed: 10, failed: 0 }).stalled, false, '답은 왔고 거르개가 버린 것');
+  assert.equal(guideRunSummary({ asked: 0, made: 0 }).stalled, false);
+  assert.equal(guideRunSummary({}).asked, 0);
+});
+
+test('회차 판정 — 0건+한도는 빨간불(한도 안내), 0건+다른 실패도 빨간불, 일부만 되고 한도면 경고, 정상은 통과', () => {
+  const stalledLimit = summaryVerdict(guideRunSummary({ asked: 953, made: 0, failed: 159, rateLimited: true }));
+  assert.equal(stalledLimit.level, 'error');
+  assert.match(stalledLimit.message, /953/);
+  assert.match(stalledLimit.message, /한도/);
+  const stalledOther = summaryVerdict(guideRunSummary({ asked: 12, made: 0, failed: 4, rateLimited: false }));
+  assert.equal(stalledOther.level, 'error');
+  assert.doesNotMatch(stalledOther.message, /한도 소진/);
+  const partial = summaryVerdict(guideRunSummary({ asked: 100, made: 40, failed: 20, rateLimited: true }));
+  assert.equal(partial.level, 'warning');
+  assert.match(partial.message, /40\/100/);
+  assert.equal(summaryVerdict(guideRunSummary({ asked: 100, made: 100, failed: 0 })).level, 'ok');
+  assert.equal(summaryVerdict(guideRunSummary({ asked: 0, made: 0 })).level, 'ok');
+  assert.equal(summaryVerdict(null).level, 'ok', '요약 파일이 없으면(AI 단계를 건너뜀) 말하지 않는다');
+});
+
+test('회차 판정 CLI — 빨간불이면 종료 코드 1과 ::error::, 경고는 0과 ::warning::, 파일이 없으면 0', () => {
+  const { spawnSync } = require('node:child_process');
+  const fs = require('node:fs'); const os = require('node:os'); const path = require('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'guide-run-'));
+  const run = (summary) => {
+    const file = path.join(dir, 'run.json');
+    if (summary === null) { try { fs.unlinkSync(file); } catch { /* 없어도 된다 */ } } else fs.writeFileSync(file, JSON.stringify(summary));
+    return spawnSync(process.execPath, [path.join(__dirname, 'benchmark-run-summary.cjs'), file], { encoding: 'utf8' });
+  };
+  try {
+    const red = run(guideRunSummary({ asked: 953, made: 0, failed: 159, rateLimited: true }));
+    assert.equal(red.status, 1);
+    assert.match(red.stdout, /::error::/);
+    const yellow = run(guideRunSummary({ asked: 100, made: 40, failed: 20, rateLimited: true }));
+    assert.equal(yellow.status, 0);
+    assert.match(yellow.stdout, /::warning::/);
+    assert.equal(run(guideRunSummary({ asked: 100, made: 100 })).status, 0);
+    assert.equal(run(null).status, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
