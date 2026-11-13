@@ -318,7 +318,8 @@ async function main() {
     if (canBid && expandSeedCount > 0 && golden.length + others.length < keep && typeof getNaverSearchAdKeywordSuggestions === 'function') {
       const pool = [];
       const focused={영화:['영화','영화추천'],음악:['음악','노래','악기'],
-        드라마:['드라마','한국드라마','중국드라마','일본드라마','미국드라마','넷플릭스드라마','티빙드라마','디즈니플러스드라마','드라마추천','완결드라마'],
+        드라마:['드라마','한국드라마','중국드라마','일본드라마','미국드라마','넷플릭스드라마','티빙드라마','디즈니플러스드라마','드라마추천','완결드라마',
+          '영국드라마','태국드라마','대만드라마','터키드라마','미드추천','중드추천','일드추천','로맨스드라마','판타지드라마','사극드라마','스릴러드라마','숏드라마','드라마원작소설'],
         '스타·연예인':['연예인','아이돌'],방송:['방송','예능']};
       const coverage=typeof coverageForTopic==='function' ? coverageForTopic(t)?.seedTerms || [] : [];
       const seedQueries=[...new Map([...(focused[t]||[]),...coverage,...expansionSeeds(golden,[...others,...byTopic.get(t)],expandSeedCount)].map(seed=>[flat(seed),seed])).values()].slice(0,expandSeedCount);
