@@ -79,15 +79,15 @@ describe('추천 생성과 발행 경계', () => {
     expect(h.calls()).toBe(0);
     expect(JSON.parse(h.output())).toEqual(carry);
   });
-  it('기본 생성은 중복 없는 30개이며 7일 이력을 함께 발행한다', async () => {
-    const seeds = Array.from({length:40},(_,i)=>({keyword:`후보${i}`,searchVolume:1000,source:'hint'}));
+  it('기본 생성은 중복 없는 100개이며 7일 이력을 함께 발행한다', async () => {
+    const seeds = Array.from({length:120},(_,i)=>({keyword:`후보${i}`,searchVolume:1000,source:'hint'}));
     const h = harness(100,{},null,[],seeds,'');
     await h.run();
     const payload=JSON.parse(h.output());
-    expect(payload.keep).toBe(30);
-    expect(payload.topics[0].rows).toHaveLength(30);
-    expect(payload.novelty).toMatchObject({windowDays:7,newCount:30,repeatedCount:0});
-    expect(payload.history.entries).toHaveLength(30);
+    expect(payload.keep).toBe(100);
+    expect(payload.topics[0].rows).toHaveLength(100);
+    expect(payload.novelty).toMatchObject({windowDays:7,newCount:100,repeatedCount:0});
+    expect(payload.history.entries).toHaveLength(100);
   });
   it('새 회차가 지난 7일 이력을 이어받는다 — 이력에만 있고 직전 판 행이 아닌 말은 신규가 차면 재지 않는다', async () => {
     const oldDate=new Date(Date.now()-2*86400000).toISOString();
@@ -121,7 +121,7 @@ describe('추천 생성과 발행 경계', () => {
     const h=harness(100,{},carry,[],undefined,'');
     await h.run();
     const result=JSON.parse(h.output());
-    expect(result.topics[0]).toMatchObject({targetCount:30,shortfall:29});
+    expect(result.topics[0]).toMatchObject({targetCount:100,shortfall:99});
     expect(result.novelty).toMatchObject({windowDays:7,newCount:1,repeatedCount:0});
   });
 

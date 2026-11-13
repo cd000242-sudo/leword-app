@@ -6,7 +6,7 @@
  * 오픈 API로 실측하고(무료), 보드와 같은 황금비(검색량 ÷ 문서수)로 줄을 세운다.
  * 황금 비율(황금비 1 이상)은 7일 이력과 무관하게 앞에 둔다 — 직전 판의 황금과 선점 보드(--goldenBoard)의
  * 황금을 창고 후보보다 먼저 재서 날마다 황금이 쌓이게 한다(사장님 2026-09-29 "황금 비중"). 일반 후보만
- * 최근 7일 미추천을 우선한다. 그래도 30개가 안 차면 나머지는 버리지 않고 실측 황금비 순으로 채운다.
+ * 최근 7일 미추천을 우선한다. 그래도 목표 개수가 안 차면 나머지는 버리지 않고 실측 황금비 순으로 채운다.
  * 계절 씨앗(month:M) 중 이번 달·다음 달 피크인 것은 seasonPeakMonth 로 표시한다 — '트래픽 몰릴 예정'.
  * 후보를 줄 세우는 순서(2026-11-08)는 따로다 — 피크가 다음 달·두 달 뒤인 시즌 씨앗을 먼저, 그 안에서는 최근 12일
  * 검색량 오름세(--volumeHistory 의 이력)가 큰 순. 이력이 없으면 오름세 0 이라 검색량 큰 순으로 떨어진다(today-picks-rising.js).
@@ -18,7 +18,7 @@
  * 쓰기:
  *   node scripts/today-picks.js --out=today-picks.json                      # data/seed-db.json 을 읽는다
  *   node scripts/today-picks.js --perTopic=120 --minRatio=1
- *   node scripts/today-picks.js --resume=이전결과.json --perTopic=800   # 같은 회차의 검증된 신규 황금 30개가 찬 주제는 재사용한다
+ *   node scripts/today-picks.js --resume=이전결과.json --perTopic=800   # 같은 회차의 검증된 신규 황금 100개가 찬 주제는 재사용한다
  *   node scripts/today-picks.js --carry=직전판.json --goldenBoard=preemption-board.json   # 직전 판·선점 보드 황금을 먼저 잰다
  *   node scripts/today-picks.js --volumeHistory=data/seed-volume-history.json            # 시즌 씨앗의 12일 오름세 이력(없어도 된다)
  */
@@ -56,7 +56,7 @@ async function main() {
   const warehousePath = path.resolve(arg('warehouse') || path.join(__dirname, '..', 'data', 'seed-db.json'));
   const outPath = path.resolve(arg('out') || 'today-picks.json');
   const perTopic = Number(arg('perTopic')) || 120;
-  const keep = Number(arg('keep')) || 30;
+  const keep = Number(arg('keep')) || 100;
   if (!Number.isInteger(keep) || keep < 1 || keep > 100 || !Number.isInteger(perTopic) || perTopic < keep || perTopic > 1000) throw new Error('keep는 1~100, perTopic은 keep 이상 1000 이하 정수여야 합니다.');
   const gapMs = Number(arg('gapMs')) || 120;
   const minRatio = Number(arg('minRatio')) || 1;

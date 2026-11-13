@@ -62,6 +62,6 @@ describe('오늘의 추천키워드', () => {
     expect(step).toContain('NAVER_SEARCH_AD_ACCESS_LICENSE');
     expect(step).toContain('NAVER_SEARCH_AD_SECRET_KEY');
     expect(step).toContain('NAVER_SEARCH_AD_CUSTOMER_ID');
-    expect(step).toContain('--keep=30');
+    expect(step).toContain('--keep=100');
   });
 });

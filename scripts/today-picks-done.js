@@ -11,7 +11,7 @@ async function readCompletedRound(url, keep, fetchImpl = fetch, now = Date.now()
 
 async function main() {
   const arg = name => process.argv.find(value=>value.startsWith(`--${name}=`))?.slice(name.length+3);
-  const done = await readCompletedRound(arg('url') || 'https://leaderspro.kr/data/today-picks.json',Number(arg('keep')) || 30);
+  const done = await readCompletedRound(arg('url') || 'https://leaderspro.kr/data/today-picks.json',Number(arg('keep')) || 100);
   console.log(`done=${done}`);
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT,`done=${done}\n`);
 }
