@@ -9,6 +9,10 @@ on:
     - cron: '30 10,11,12 * * *'
   workflow_dispatch:
     inputs:
+      fillMissing:
+        description: 기존 실측 씨앗으로 부족한 주제만 보충 (전체 창고 재수집 생략)
+        type: boolean
+        default: false
       cacheOnly:
         description: 24시간 이내 실측 캐시만 사용해 복구 (새 API 조회 없음)
         type: boolean
@@ -25,7 +29,7 @@ on:
         default: 'false'
 
 concurrency:
-  group: ${{ github.event.inputs.cacheOnly == 'true' && format('today-picks-cache-recovery-{0}', github.run_id) || 'today-picks' }}
+  group: ${{ (github.event.inputs.cacheOnly == 'true' || github.event.inputs.fillMissing == 'true') && format('today-picks-recovery-{0}', github.run_id) || 'today-picks' }}
   cancel-in-progress: false
 
 jobs:
@@ -131,6 +135,7 @@ jobs:
       # 창고가 안 바뀌면 뽑는 답도 안 바뀐다 — 매일 새로 긁는다(무료 호출 200여 회, BD 안 씀).
       # 실패해도 회차는 살린다: 레포에 있는 직전 창고로 계속 간다.
       - name: 씨앗 창고 갱신 (매일)
+        if: github.event.inputs.fillMissing != 'true'
         continue-on-error: true
         env:
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
@@ -217,7 +222,7 @@ jobs:
       # 창고 훑기(2026-10-11 사장님 "황금이 많아야 돼") — 발행 뒤 남는 시간에 아직 안 잰 창고 후보(검색량 2천+)의 문서 수를 재서
       # 황금 재고에 남긴다. 창고 표본 실측으로 황금 ~1,900개가 숨어 있었다. 회차당 2,500콜(약 14분) — 판을 늦추지 않는다.
       - name: 창고 훑기 (황금 재고 채우기)
-        if: always() && github.event.inputs.cacheOnly != 'true'
+        if: always() && !cancelled() && github.event.inputs.cacheOnly != 'true' && github.event.inputs.fillMissing != 'true'
         continue-on-error: true
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
