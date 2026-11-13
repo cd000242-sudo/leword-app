@@ -150,7 +150,9 @@ function archivedGoldenRows(boards, topic, minRatio = 1) {
 
 function completeRound(board, roundId, keep) {
   return board?.round?.id===roundId && board.keep===keep && board.selectionVersion===2
-    && board.history?.windowDays===WINDOW_DAYS && Array.isArray(board.history.entries) && rowsOf(board).length>0;
+    && board.history?.windowDays===WINDOW_DAYS && Array.isArray(board.history.entries)
+    && Array.isArray(board.topics) && board.topics.length>0
+    && board.topics.every(topic=>Array.isArray(topic.rows) && topic.rows.length>=keep);
 }
 
 module.exports = {BLOCK_DAYS,WINDOW_DAYS,normalizeKeyword,recentHistory,updateHistory,candidatePools,selectRows,priorGoldenRows,completeRound,shownByDay,blockedKeywords,archivedGoldenRows};

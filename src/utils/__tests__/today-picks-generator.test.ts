@@ -57,6 +57,22 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
 }
 
 describe('추천 생성과 발행 경계', () => {
+  it('문서수 조회는 최대 4개씩 진행하고 유효한 목표가 차면 나머지는 조회하지 않는다',async()=>{
+    let active=0,peak=0,calls=0;
+    const api={getNaverBlogDocumentCount:async()=>{active++;peak=Math.max(peak,active);calls++;await new Promise(done=>setTimeout(done,1));active--;return 2000;}};
+    const seeds=Array.from({length:120},(_,i)=>({keyword:'새후보'+i,searchVolume:1000,source:'hint'}));
+    const h=harness(null,{},null,[],seeds,'--keep=100',null,{}, {'naver-blog-api':api});
+    await h.run();expect(peak).toBeGreaterThan(1);expect(peak).toBeLessThanOrEqual(4);expect(calls).toBe(100);
+    expect(JSON.parse(h.output()).topics[0].rows).toHaveLength(100);
+  });
+  it('같은 날 100개를 채운 주제는 비황금도 유효하면 그대로 유지하고 다시 조회하지 않는다',async()=>{
+    const measuredAt=new Date(Date.now()-3600000).toISOString();
+    const rows=Array.from({length:100},(_,i)=>({keyword:'기존'+i,searchVolume:1000,documentCount:2000,ratio:0.5,measuredAt}));
+    const carry={builtAt:new Date().toISOString(),keep:100,selectionVersion:2,history:{windowDays:7,entries:[]},topics:[{topic:'경제',rows}]};
+    const h=harness(300,{},carry,[],[{keyword:'새로운말',searchVolume:2000,source:'hint'}],'--keep=100');
+    await h.run();const result=JSON.parse(h.output());
+    expect(h.calls()).toBe(0);expect(result.topics[0].rows.map((r:any)=>r.keyword)).toEqual(rows.map(r=>r.keyword));
+  });
   it('캐시 복구는 24시간 이내 실측만 게시하고 API를 호출하지 않는다', async () => {
     const fresh=new Date(Date.now()-3600000).toISOString();
     const stale=new Date(Date.now()-25*3600000).toISOString();

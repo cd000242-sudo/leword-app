@@ -258,6 +258,17 @@ async function main() {
   const passesGuards = (kw) => kw.length >= 2 && kw.length <= 15 && !judgeAnswerCardKeyword(kw).answerCard && !judgeEphemeralKeyword(kw).ephemeral && !isListedName(kw, listedNames);
   for (const t of topics) {
     currentTopic = t;
+    const sameDayRows = !fresh && Number.isFinite(Date.parse(carried?.builtAt)) && new Date(Date.parse(carried?.builtAt) + 9 * 3600000).toISOString().slice(0, 10) === todayKst
+      ? (carried?.topics?.find(topic => topic.topic === t)?.rows || []).filter(row =>
+        passesGuards(String(row.keyword)) && isOpen(row.keyword) && row.searchVolume >= 500
+        && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt})) : [];
+    if (sameDayRows.length >= keep) {
+      const rows=selectRows(sameDayRows,history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder);
+      result.topics.push({topic:t,candidates:rows.length,measured:rows.length,golden:rows.filter(row=>row.ratio>=minRatio).length,targetCount:keep,shortfall:0,rows});
+      reused+=rows.length;
+      console.log(`  ${t} 유효한 ${rows.length}개 유지 — 부족한 주제만 추가 수집`);
+      continue;
+    }
     const prev = resumedTopics.get(t);
     if (resumed?.selectionVersion === 2 && resumed?.round?.id === round.id && prev && (prev.golden || 0) >= keep && prev.rows.length === keep && prev.rows.every(row => !history.has(flat(row.keyword)) && isOpen(row.keyword) && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt}))) {
       result.topics.push({...prev,rows:selectRows(prev.rows,history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder),targetCount:keep,shortfall:0});
@@ -271,31 +282,35 @@ async function main() {
     // 1) 이미 황금으로 잰 말(직전 판 · 선점 보드)을 먼저 — 오래된 실측은 다시 잰다. 황금이 아니게 됐으면 채움으로 내려간다.
     // 선측정 = 직전 판 · 보관함 · 재고 · 선점 보드의 황금(어제 실린 말 제외). 재고가 크면 주제당 keep × 3 까지만 다시 잰다.
     const remembered = [...archivedGoldenRows(archivedBoards, t, minRatio), ...inventoryGoldenRows(inventory, t, minRatio, Date.parse(startedAt))];
-    const prior = priorGoldenRows(carried, goldenBoard, t, minRatio, remembered).filter((c) => passesGuards(String(c.keyword)) && isOpen(c.keyword)).slice(0, keep * 3);
-    for (const c of prior) {
-      const { documentCount, measuredAt, cached } = await measureDocs(c);
-      if (Number.isFinite(documentCount) && documentCount > 0) keepRow(toRow(c, documentCount, measuredAt));
-      if (!cached) await sleep(gapMs);
+    const prior = [...new Map([...sameDayRows,...priorGoldenRows(carried, goldenBoard, t, minRatio, remembered)]
+      .filter((c) => passesGuards(String(c.keyword)) && isOpen(c.keyword)).map(c=>[flat(c.keyword),c])).values()].slice(0, keep * 3);
+    for (let at=0;at<prior.length;at+=4) {
+      const measured=await Promise.all(prior.slice(at,at+4).map(async item=>({item,...await measureDocs(item)})));
+      for(const row of measured)if(Number.isFinite(row.documentCount)&&row.documentCount>0)keepRow(toRow(row.item,row.documentCount,row.measuredAt));
+      if(measured.some(row=>!row.cached))await sleep(gapMs);
     }
     const priorGolden = golden.length;
     // 2) 창고 후보 — 신규를 먼저 측정한다. 부족할 때만 별도 예산 안에서 과거 추천을 오래된 순으로 잰다.
     const pools = candidatePools(byTopic.get(t).filter((c) => isOpen(c.keyword)), history, perTopic, ranker.poolOrder);
     const cand = pools.fresh.concat(pools.repeated).filter((c) => !measuredKeys.has(flat(c.keyword)));
-    for (const c of cand) {
+    for (let at=0;at<cand.length;) {
+      const c=cand[at];
       // 신규가 충분하면 반복 후보는 재지 않는다. 황금이 목표만큼 차면 조기 종료한다.
-      if ((!history.has(flat(c.keyword)) && golden.length >= keep) || (history.has(flat(c.keyword)) && golden.length + others.length >= keep)) break;
-      const { documentCount, measuredAt, cached } = await measureDocs(c);
-      if (Number.isFinite(documentCount) && documentCount > 0) keepRow(toRow(c, documentCount, measuredAt));
-      if (!cached) await sleep(gapMs);
+      if (golden.length + others.length >= keep) break;
+      const batch=cand.slice(at,at+Math.min(4,Math.max(1,keep-golden.length)));
+      at+=batch.length;
+      const measured=await Promise.all(batch.map(async item=>({item,...await measureDocs(item)})));
+      for(const row of measured)if(Number.isFinite(row.documentCount)&&row.documentCount>0)keepRow(toRow(row.item,row.documentCount,row.measuredAt));
+      if(measured.some(row=>!row.cached))await sleep(gapMs);
     }
     /*
      * 3) 연관어 확장(2026-10-11 사장님 "설계해서 진행해봐") — 어제 실린 말 금지 뒤 황금이 171 · 12주제 0개였다.
      * 황금이 목표에 못 미치면 그날 황금(없으면 큰 후보)을 씨앗으로 검색광고 연관어를 받아(검색량 동봉) 문서 수만 잰다.
      */
     let expanded = 0;
-    if (canBid && expandSeedCount > 0 && golden.length < keep && typeof getNaverSearchAdKeywordSuggestions === 'function') {
+    if (canBid && expandSeedCount > 0 && golden.length + others.length < keep && typeof getNaverSearchAdKeywordSuggestions === 'function') {
       const pool = [];
-      for (const seed of expansionSeeds(golden, others, expandSeedCount)) {
+      for (const seed of expansionSeeds(golden, [...others,...byTopic.get(t)], expandSeedCount)) {
         let list = [];
         try { list = await getNaverSearchAdKeywordSuggestions(searchAd, seed, 300); } catch (error) {
           console.log(`  !! ${t} 연관어(${seed}) — ${String((error && error.message) || error).slice(0, 70)}`);
@@ -306,7 +321,7 @@ async function main() {
       const seenRelated = new Set();
       const related = pool.sort((a, b) => b.searchVolume - a.searchVolume).filter((c) => { const k = flat(c.keyword); if (seenRelated.has(k)) return false; seenRelated.add(k); return true; });
       for (const c of related.slice(0, expandMeasure)) {
-        if (golden.length >= keep) break;
+        if (golden.length + others.length >= keep) break;
         const { documentCount, measuredAt, cached } = await measureDocs(c);
         if (Number.isFinite(documentCount) && documentCount > 0) {
           const before = golden.length;

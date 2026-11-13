@@ -6,6 +6,12 @@ const row = (keyword: string, ratio = 0.5) => ({ keyword, searchVolume: 1000, do
 const board = (keywords: string[], days = 1) => ({builtAt:date(days),topics:[{topic:'경제',rows:keywords.map(k=>row(k))}]});
 
 describe('추천키워드 7일 이력과 30개 선정', () => {
+ it('목표 메타데이터만 100이어도 한 주제가 부족하거나 비면 완료가 아니다',()=>{
+  const full={round:{id:'now'},keep:100,selectionVersion:2,history:{windowDays:7,entries:[]},topics:[{topic:'경제',rows:Array.from({length:100},(_,i)=>row('경제'+i))}]};
+  expect(completeRound(full,'now',100)).toBe(true);
+  expect(completeRound({...full,topics:[...full.topics,{topic:'여행',rows:[]}]},'now',100)).toBe(false);
+  expect(completeRound({...full,topics:[{topic:'경제',rows:full.topics[0].rows.slice(0,99)}]},'now',100)).toBe(false);
+ });
  it('일반 후보는 직전 회차뿐 아니라 두 회차 전 키워드도 기억해 A/B/A 반복을 막는다', () => {
   const previous = {...board(['어제']), history:updateHistory(board(['그제'],2), [], date(2))};
   const history = recentHistory(previous,now);
@@ -67,7 +73,7 @@ describe('추천키워드 7일 이력과 30개 선정', () => {
   const old = {...board(['기존']), round:{id:'now'},keep:10};
   expect(completeRound(old,'now',30)).toBe(false);
   expect(completeRound({...old,keep:30},'now',30)).toBe(false);
-  const done = {...old,keep:30,selectionVersion:2,history:{windowDays:7,entries:[]}};
+  const done = {...old,...board(Array.from({length:30},(_,i)=>'완료'+i)),keep:30,selectionVersion:2,history:{windowDays:7,entries:[]}};
   expect(completeRound(done,'now',30)).toBe(true);
   expect(completeRound(done,'next',30)).toBe(false);
  });
@@ -76,7 +82,7 @@ describe('추천키워드 7일 이력과 30개 선정', () => {
   const {roundAt}=require('../../../scripts/today-picks-rounds');
   const old={...board(['기존']),round:roundAt(now),keep:10};
   expect(await readCompletedRound('https://example.com/picks',30,async()=>({ok:true,json:async()=>old}),now)).toBe(false);
-  const current={...old,keep:30,selectionVersion:2,history:{windowDays:7,entries:[]}};
+  const current={...old,...board(Array.from({length:30},(_,i)=>'완료'+i)),keep:30,selectionVersion:2,history:{windowDays:7,entries:[]}};
   expect(await readCompletedRound('https://example.com/picks',30,async()=>({ok:true,json:async()=>current}),now)).toBe(true);
   expect(await readCompletedRound('https://example.com/picks',30,async()=>{throw new Error('offline')},now)).toBe(false);
  });
