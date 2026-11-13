@@ -256,6 +256,9 @@ async function main() {
     };
   };
   const passesGuards = (kw) => kw.length >= 2 && kw.length <= 15 && !judgeAnswerCardKeyword(kw).answerCard && !judgeEphemeralKeyword(kw).ephemeral && !isListedName(kw, listedNames);
+  // At most 384 expansion requests + 128 bid requests for 32 topics. Keep
+  // the existing 550-call job ceiling while giving thin topics more seeds.
+  let expansionRequests = 0;
   for (const t of topics) {
     currentTopic = t;
     const sameDayRows = !fresh && Number.isFinite(Date.parse(carried?.builtAt)) && new Date(Date.parse(carried?.builtAt) + 9 * 3600000).toISOString().slice(0, 10) === todayKst
@@ -311,6 +314,8 @@ async function main() {
     if (canBid && expandSeedCount > 0 && golden.length + others.length < keep && typeof getNaverSearchAdKeywordSuggestions === 'function') {
       const pool = [];
       for (const seed of expansionSeeds(golden, [...others,...byTopic.get(t)], expandSeedCount)) {
+        if (expansionRequests >= 384) break;
+        expansionRequests += 1;
         let list = [];
         try { list = await getNaverSearchAdKeywordSuggestions(searchAd, seed, 300); } catch (error) {
           console.log(`  !! ${t} 연관어(${seed}) — ${String((error && error.message) || error).slice(0, 70)}`);

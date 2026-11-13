@@ -57,6 +57,14 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
 }
 
 describe('추천 생성과 발행 경계', () => {
+  it('얇은 주제의 연관 씨앗을 넓혀도 회차 확장 요청은 384회를 넘지 않는다',async()=>{
+    let asked=0;
+    const env={EnvironmentManager:{getInstance:()=>({getConfig:()=>({naverClientId:'fake',naverClientSecret:'fake',naverSearchAdAccessLicense:'fake',naverSearchAdSecretKey:'fake'})})}};
+    const api={getNaverSearchAdBidPairs:async()=>new Map(),getNaverSearchAdKeywordSuggestions:async()=>{asked++;return [];}};
+    const seeds=Array.from({length:400},(_,i)=>({keyword:'씨앗'+i,searchVolume:1000,source:'hint'}));
+    const h=harness(null,{},null,['--expandSeeds=400','--perTopic=800'],seeds,'--keep=100',null,{}, {'naver-searchad-api':api,'environment-manager':env});
+    await expect(h.run()).rejects.toThrow('직전 발행본');expect(asked).toBe(384);
+  });
   it('문서수 조회는 최대 4개씩 진행하고 유효한 목표가 차면 나머지는 조회하지 않는다',async()=>{
     let active=0,peak=0,calls=0;
     const api={getNaverBlogDocumentCount:async()=>{active++;peak=Math.max(peak,active);calls++;await new Promise(done=>setTimeout(done,1));active--;return 2000;}};
