@@ -327,7 +327,8 @@ async function main() {
         try { list = await getNaverSearchAdKeywordSuggestions(searchAd, seed, 300); } catch (error) {
           console.log(`  !! ${t} 연관어(${seed}) — ${String((error && error.message) || error).slice(0, 70)}`);
         }
-        pool.push(...relatedCandidates(seed, list, { minVolume: 500, isOpen, measured: measuredKeys, guard: passesGuards }));
+        pool.push(...relatedCandidates(seed, list, { minVolume: 500, isOpen, measured: measuredKeys, guard: passesGuards,
+          requireSharedToken: !(focused[t]||[]).some(anchor=>flat(anchor)===flat(seed)) }));
         await sleep(gapMs);
       }
       const seenRelated = new Set();

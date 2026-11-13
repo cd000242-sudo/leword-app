@@ -15,6 +15,12 @@ describe('확장 씨앗', () => {
 });
 
 describe('연관어 후보', () => {
+  it('주제명 조회는 영화명처럼 주제 단어가 없는 공식 연관어도 받고 다른 검증은 유지한다',()=>{
+    const suggestions=[{keyword:'주토피아2',totalSearchVolume:10000},{keyword:'작은수요',totalSearchVolume:100},{keyword:'추정값',totalSearchVolume:2000,svEstimated:true},{keyword:'최근추천',totalSearchVolume:3000}];
+    const options={minVolume:500,isOpen:(k:string)=>k!=='최근추천',measured:new Set(),guard:()=>true};
+    expect(relatedCandidates('영화',suggestions,options)).toEqual([]);
+    expect(relatedCandidates('영화',suggestions,{...options,requireSharedToken:false}).map((r:any)=>r.keyword)).toEqual(['주토피아2']);
+  });
   const sugg = (keyword: string, total: number | null, more = {}) => ({ keyword, pcSearchVolume: null, mobileSearchVolume: null, totalSearchVolume: total, ...more });
   const opts = { minVolume: 500, isOpen: (k: string) => k !== '김도영 연봉', measured: new Set(['김도영나이']) /* 본 스크립트처럼 띄어쓰기 뺀 키 */, guard: (k: string) => k.length >= 2 && k.length <= 15 };
   it('씨앗 낱말을 담은 말만 · 검색량 하한 · 어제 실린 말 · 이미 잰 말 · 걸러내기 · 추정 검색량은 뺀다 — 검색량 큰 순', () => {

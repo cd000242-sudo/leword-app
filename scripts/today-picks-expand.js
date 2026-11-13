@@ -45,7 +45,9 @@ function relatedCandidates(seed, suggestions, opts) {
     const volume = s && s.totalSearchVolume;
     if (!key || key === seedKey || seen.has(key)) continue;
     if (!Number.isFinite(volume) || volume < opts.minVolume || s.svEstimated || s.pcSearchVolumeLt10 || s.mobileSearchVolumeLt10) continue;
-    if (!pieces.some((w) => key.includes(w))) continue;
+    // A category query such as "영화" returns film names that need not contain
+    // that literal word. Keep token matching for specific seed queries.
+    if (opts.requireSharedToken !== false && !pieces.some((w) => key.includes(w))) continue;
     if (!opts.guard(keyword) || !opts.isOpen(keyword) || opts.measured.has(key)) continue;
     seen.add(key);
     out.push({ keyword, searchVolume: volume, source: 'related', comp: s.competition || null });
