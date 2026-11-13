@@ -25,6 +25,8 @@ describe('오늘의 추천키워드 워크플로', () => {
         expect(workflow).toContain('actions/cache/save@v4');
         expect(workflow).toContain('--measurementCache=.today-picks-cache/documents.json');
         expect(workflow).toContain('--maxAgeDays=1');
+        expect(workflow).toMatch(/restore-keys: \|\r?\n\s+today-picks-v1-\$\{\{ steps.day.outputs.value \}\}-\r?\n\s+today-picks-v1-\r?\n/);
+        expect(workflow).toMatch(/name: 다음 회차를 위한 실측·씨앗 캐시 저장\r?\n\s+if: always\(\)/);
     });
 
     it('문서수 실측용 오픈 API 키와 사이트 배포키를 넘긴다', () => {
