@@ -35,6 +35,7 @@ const arg = (name) => {
 
 const { topicOfSeed } = require('../src/utils/seed-db');
 const { NAVER_BLOG_TOPICS } = require('../src/utils/naver-blog-topics');
+const { coverageForTopic } = require('../src/utils/blog-topic-coverage');
 const { judgeAnswerCardKeyword, judgeEphemeralKeyword, listedNamesFromSeeds, isListedName } = require('../src/utils/preemption-supply-guards');
 const { getNaverBlogDocumentCount } = require('../src/utils/naver-blog-api');
 const { getNaverSearchAdBidPairs, getNaverSearchAdKeywordSuggestions } = require('../src/utils/naver-searchad-api');
@@ -90,7 +91,7 @@ async function main() {
   try { goldenBoard = goldenBoardPath && fs.existsSync(goldenBoardPath) ? JSON.parse(fs.readFileSync(goldenBoardPath, 'utf8')) : null; } catch { goldenBoard = null; }
   const startedAt = new Date().toISOString();
   const round = roundAt(Date.parse(startedAt));
-  if (arg('respectDone') === 'true' && completeRound(carried, round.id, keep)) {
+  if (!arg('topics') && arg('respectDone') === 'true' && completeRound(carried, round.id, keep)) {
     console.log(`${round.label} 회차가 이미 발행되어 재측정하지 않습니다.`);
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, JSON.stringify(carried, null, 1), 'utf8');
@@ -180,7 +181,10 @@ async function main() {
   const ranker = createRanker({ seeds: db.seeds, history: volumeHistory, now: new Date(startedAt) });
   console.log(`정렬 — 시즌 앞(${ranker.months.join('·')}월 피크) 씨앗 ${ranker.groupSize.toLocaleString('ko-KR')}개 먼저 · 그 안은 12일 오름세 큰 순(오름세 잰 것 ${ranker.movingCount.toLocaleString('ko-KR')}개, 이력 ${volumeHistory ? volumeHistory.entries.size.toLocaleString('ko-KR') : 0}개)`);
 
-  const topics = NAVER_BLOG_TOPICS.map((t) => t.label);
+  const requestedTopics=arg('topics').split(',').map(t=>t.trim()).filter(Boolean);
+  const knownTopics=NAVER_BLOG_TOPICS.map((t)=>t.label);
+  if(requestedTopics.some(t=>!knownTopics.includes(t)))throw new Error('알 수 없는 추천 주제');
+  const topics=knownTopics.filter(t=>!requestedTopics.length||requestedTopics.includes(t));
   const byTopic = new Map(topics.map((t) => [t, []]));
   // 종목 이름만 친 말('삼성전자' · 'SK하이닉스')은 주가 카드가 답한다 — 창고의 '○○주가' 씨앗이 이름을 알려 준다.
   const listedNames = listedNamesFromSeeds(db.seeds);
@@ -313,7 +317,10 @@ async function main() {
     let expanded = 0;
     if (canBid && expandSeedCount > 0 && golden.length + others.length < keep && typeof getNaverSearchAdKeywordSuggestions === 'function') {
       const pool = [];
-      for (const seed of expansionSeeds(golden, [...others,...byTopic.get(t)], expandSeedCount)) {
+      const focused={영화:['영화','영화추천'],음악:['음악','노래','악기'],드라마:['드라마','한국드라마'],'스타·연예인':['연예인','아이돌'],방송:['방송','예능']};
+      const coverage=typeof coverageForTopic==='function' ? coverageForTopic(t)?.seedTerms || [] : [];
+      const seedQueries=[...new Map([...(focused[t]||[]),...coverage,...expansionSeeds(golden,[...others,...byTopic.get(t)],expandSeedCount)].map(seed=>[flat(seed),seed])).values()].slice(0,expandSeedCount);
+      for (const seed of seedQueries) {
         if (expansionRequests >= 384) break;
         expansionRequests += 1;
         let list = [];
@@ -363,7 +370,8 @@ async function main() {
       fs.writeFileSync(cachePath, JSON.stringify(measurements), 'utf8');
     }
   }
-  if (!canPublish(result, carried, calls, successes)) throw new Error('실측 실패 또는 주제 누락 — 직전 발행본을 유지합니다.');
+  const previousScope=requestedTopics.length && carried ? {...carried,topics:(carried.topics||[]).filter(t=>requestedTopics.includes(t.topic))}:carried;
+  if (!canPublish(result, previousScope, calls, successes)) throw new Error('실측 실패 또는 주제 누락 — 직전 발행본을 유지합니다.');
   result.changes = describeChanges(result, carried);
   result.measurements = { requested: calls, reused, succeeded: successes };
   const selected = result.topics.flatMap(topic=>topic.rows);

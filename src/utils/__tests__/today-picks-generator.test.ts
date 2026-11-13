@@ -57,6 +57,14 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
 }
 
 describe('추천 생성과 발행 경계', () => {
+  it('선택한 주제만 보충할 때 다른 주제의 개수를 누락으로 계산하지 않는다',async()=>{
+    const carry={builtAt:new Date(Date.now()-9*86400000).toISOString(),topics:[{topic:'경제',rows:[{keyword:'기존'}]},{topic:'영화',rows:Array.from({length:100},(_,i)=>({keyword:'영화'+i}))}]};
+    const overrides={'naver-blog-topics':{NAVER_BLOG_TOPICS:[{label:'경제'},{label:'영화'}]}};
+    const h=harness(100,{},carry,['--topics=경제'],undefined,'--keep=1',null,{},overrides);
+    await h.run();expect(JSON.parse(h.output()).topics.map((t:any)=>t.topic)).toEqual(['경제']);
+    const invalid=harness(100,{},null,['--topics=알수없음']);
+    await expect(invalid.run()).rejects.toThrow('알 수 없는 추천 주제');expect(invalid.calls()).toBe(0);
+  });
   it('얇은 주제의 연관 씨앗을 넓혀도 회차 확장 요청은 384회를 넘지 않는다',async()=>{
     let asked=0;
     const env={EnvironmentManager:{getInstance:()=>({getConfig:()=>({naverClientId:'fake',naverClientSecret:'fake',naverSearchAdAccessLicense:'fake',naverSearchAdSecretKey:'fake'})})}};
