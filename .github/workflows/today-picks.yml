@@ -9,6 +9,10 @@ on:
     - cron: '30 10,11,12 * * *'
   workflow_dispatch:
     inputs:
+      cacheOnly:
+        description: 24시간 이내 실측 캐시만 사용해 복구 (새 API 조회 없음)
+        type: boolean
+        default: false
       # 앱의 회차 감시견이 '빠진 회차'를 대신 깨울 때 true 로 넣는다.
       # 그러면 예약과 똑같이 문지기를 거쳐, 그 사이 회차가 실렸으면 헛돌지 않는다.
       respectDone:
@@ -21,7 +25,7 @@ on:
         default: 'false'
 
 concurrency:
-  group: today-picks
+  group: ${{ github.event.inputs.cacheOnly == 'true' && 'today-picks-cache-recovery' || 'today-picks' }}
   cancel-in-progress: false
 
 jobs:
@@ -177,7 +181,7 @@ jobs:
             node scripts/today-picks.js --out=today-picks.json --perTopic=240 --archive=site/spa/public/data/today-picks-archive --expandSeeds=4 --expandMeasure=60 --inventory=.today-picks-inventory/inventory.json --keep=100 --minRatio=1 --carry=site/spa/public/data/today-picks.json --goldenBoard=site/spa/public/data/preemption-board.json --measurementCache=.today-picks-cache/documents.json --volumeHistory=data/seed-volume-history.json --respectDone=${{ (github.event_name == 'schedule' || github.event.inputs.respectDone == 'true') && 'true' || 'false' }} --fresh=${{ github.event.inputs.fresh == 'true' && 'true' || 'false' }} "$@"
           }
           # If live measurement fails, publish only unexpired measured rows.
-          generate || generate --cacheOnly=true
+          generate --cacheOnly=${{ github.event.inputs.cacheOnly == 'true' && 'true' || 'false' }} || generate --cacheOnly=true
 
       - name: 다음 회차를 위한 실측·씨앗 캐시 저장
         uses: actions/cache/save@v4
