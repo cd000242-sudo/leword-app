@@ -198,6 +198,15 @@ describe('추천 생성과 발행 경계', () => {
     void old;
   });
   // 2026-10-11 연관어 확장 — 황금이 모자라면 그날 황금(없으면 큰 후보)을 씨앗으로 검색광고 연관어를 받아 문서 수만 잰다
+  it('기존 씨앗이 최근 추천 금지여도 새 연관어 탐색에는 사용하되 기존 말은 다시 게시하지 않는다',async()=>{
+    const asked:string[]=[];
+    const env={EnvironmentManager:{getInstance:()=>({getConfig:()=>({naverClientId:'fake',naverClientSecret:'fake',naverSearchAdAccessLicense:'fake',naverSearchAdSecretKey:'fake'})})}};
+    const searchad={getNaverSearchAdBidPairs:async()=>new Map(),getNaverSearchAdKeywordSuggestions:async(_cfg:unknown,seed:string)=>{asked.push(seed);return [{keyword:seed+' 일정',totalSearchVolume:3000}];}};
+    const carry={builtAt:new Date(Date.now()-86400000).toISOString(),topics:[{topic:'경제',rows:[{keyword:'기존씨앗'}]}]};
+    const h=harness(100,{},carry,['--expandSeeds=12','--expandMeasure=300'],[{keyword:'기존씨앗',searchVolume:2000,source:'hint'}],'--keep=100',null,{}, {'naver-searchad-api':searchad,'environment-manager':env});
+    await h.run();expect(asked).toEqual(['기존씨앗']);
+    expect(JSON.parse(h.output()).topics[0].rows.map((r:any)=>r.keyword)).toEqual(['기존씨앗 일정']);
+  });
   it('연관어 확장(--expandSeeds) — 씨앗 낱말을 담은 연관어를 재서 황금이면 "related" 출처로 싣는다', async () => {
     const asked: string[] = [];
     const searchad = {
