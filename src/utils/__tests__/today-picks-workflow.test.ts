@@ -33,7 +33,7 @@ describe('오늘의 추천키워드 워크플로', () => {
     });
 
     it('시크릿 확인이 문서수 실측보다 먼저 온다', () => {
-        expect(workflow.indexOf('필수 시크릿 확인')).toBeLessThan(workflow.indexOf('scripts/today-picks.js'));
+        expect(workflow.indexOf('필수 시크릿 확인')).toBeLessThan(workflow.indexOf('node scripts/today-picks.js'));
     });
 
     it('스크립트가 실재하고, 사이트의 실검 틈새 보드와 같은 폴더에 싣는다', () => {
