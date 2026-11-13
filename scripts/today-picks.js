@@ -57,6 +57,7 @@ async function main() {
   const outPath = path.resolve(arg('out') || 'today-picks.json');
   const perTopic = Number(arg('perTopic')) || 120;
   const keep = Number(arg('keep')) || 100;
+  const cacheOnly = arg('cacheOnly') === 'true';
   if (!Number.isInteger(keep) || keep < 1 || keep > 100 || !Number.isInteger(perTopic) || perTopic < keep || perTopic > 1000) throw new Error('keep는 1~100, perTopic은 keep 이상 1000 이하 정수여야 합니다.');
   const gapMs = Number(arg('gapMs')) || 120;
   const minRatio = Number(arg('minRatio')) || 1;
@@ -161,7 +162,7 @@ async function main() {
     secretKey: cfg.naverSearchAdSecretKey || process.env.NAVER_SEARCH_AD_SECRET_KEY || '',
     customerId: cfg.naverSearchAdCustomerId || process.env.NAVER_SEARCH_AD_CUSTOMER_ID || '',
   };
-  const canBid = Boolean(searchAd.accessLicense && searchAd.secretKey);
+  const canBid = !cacheOnly && Boolean(searchAd.accessLicense && searchAd.secretKey);
   if (!canBid) console.log('검색광고 키 없음 — 입찰가 없이 황금비 순으로 간다.');
   const db = JSON.parse(fs.readFileSync(warehousePath, 'utf8'));
   if (!db || !Array.isArray(db.seeds)) {
@@ -203,6 +204,7 @@ async function main() {
     warehouseBuiltAt: db.builtAt || null,
     perTopic,
     keep,
+    ...(cacheOnly ? { recovery: 'fresh-measurement-cache' } : {}),
     selectionVersion: 2,
     minRatio,
     upcomingMonths: months,
@@ -227,6 +229,8 @@ async function main() {
     const key = flat(c.keyword);
     const cached = cachedMeasurement(measurements[key]) || cachedMeasurement({ count: c.documentCount, measuredAt: c.measuredAt });
     if (cached) { reused += 1; return { documentCount: cached.count, measuredAt: cached.measuredAt, cached: true }; }
+    // Recovery must never turn a quota failure into fabricated or expired measurements.
+    if (cacheOnly) return { documentCount: null, measuredAt: undefined, cached: true };
     let documentCount = null;
     try { documentCount = await getNaverBlogDocumentCount(c.keyword, { config: openApi }); } catch { documentCount = null; }
     calls += 1;

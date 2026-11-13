@@ -57,6 +57,22 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
 }
 
 describe('추천 생성과 발행 경계', () => {
+  it('캐시 복구는 24시간 이내 실측만 게시하고 API를 호출하지 않는다', async () => {
+    const fresh=new Date(Date.now()-3600000).toISOString();
+    const stale=new Date(Date.now()-25*3600000).toISOString();
+    const h=harness(999,{신선:{count:100,measuredAt:fresh},만료:{count:1,measuredAt:stale}},null,['--cacheOnly=true'],[{keyword:'신선',searchVolume:1000,source:'hint'},{keyword:'만료',searchVolume:1000,source:'hint'},{keyword:'미확인',searchVolume:1000,source:'hint'}],'--keep=100');
+    await h.run();const result=JSON.parse(h.output());
+    expect(h.calls()).toBe(0);
+    expect(result.topics[0].rows.map((r:any)=>r.keyword)).toEqual(['신선']);
+    expect(result.topics[0].rows[0].measuredAt).toBe(fresh);
+    expect(result.topics[0].shortfall).toBe(99);
+    expect(result.recovery).toBe('fresh-measurement-cache');
+  });
+  it('유효한 캐시가 없으면 복구 모드도 직전 발행본을 보존한다', async () => {
+    const h=harness(999,{},null,['--cacheOnly=true']);
+    await expect(h.run()).rejects.toThrow('직전 발행본');
+    expect(h.calls()).toBe(0);expect(h.output()).toBe('LAST_GOOD_OUTPUT');
+  });
   it('API 실패 시 직전 파일을 보존한다', async () => {
     const h = harness(null);
     await expect(h.run()).rejects.toThrow('직전 발행본');
