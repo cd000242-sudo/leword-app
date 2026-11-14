@@ -2,14 +2,8 @@
 const WINDOW_DAYS = 7;
 const normalizeKeyword = (value) => String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
 const rowsOf = (board) => (Array.isArray(board?.topics) ? board.topics : []).flatMap(t => Array.isArray(t.rows) ? t.rows : []);
-/*
- * 전날(KST) 중복 금지(2026-10-10 사장님 "전에 추천한 게 또 있으니 오늘도 똑같다고 안 본다 — 매일 전날과 중복 없이, 매일 새롭게").
- * 실측: 10/10 저녁 판 956개 중 604개가 전날 판과 겹쳤다(황금 612개 중 602개 — 직전 판 황금을 먼저 다시 싣는 구조).
- * 날짜별로 실린 말(history.days, 최근 3일)을 공개 판에 싣고, 어제 실린 말은 황금이어도 다시 싣지 않는다.
- * 같은 날 회차끼리는 이어 실어도 된다. 앱의 [새 키워드로 다시 올리기](--fresh)는 오늘 실린 말까지 막는다.
- */
-// 2026-10-13 사장님 "재추천이 30개를 채우니 새 키워드를 못 본다 — 매일 다른 걸, 재추천하면 날짜별로 나눈 의미가 없다"
-// → 어제만이 아니라 최근 7일 안에 실린 말은 황금이어도 다시 싣지 않는다. 막을 7일 + 오늘 = 8일치를 남긴다.
+// 최근 7일은 신규 탐색에서 제외하되, 신규 황금 부족 시 재측정 후 보충한다.
+// --fresh는 최근 7일과 오늘을 모두 제외하며, 재추천 보충도 하지 않는다.
 const BLOCK_DAYS = 7;
 const DAYS_KEPT = BLOCK_DAYS + 1;
 const kstDayOf = (ms) => new Date(ms + 9 * 3600000).toISOString().slice(0, 10);
@@ -60,6 +54,24 @@ function recentHistory(board, now = Date.now()) {
   return history;
 }
 
+/** 재추천 표시는 KST 최근 7일 전체를 본다. 날짜만 남은 구형 이력과 보관본도 빠뜨리지 않는다. */
+function selectionHistory(boards, now = Date.now()) {
+  const history = new Map();
+  const today = kstDayOf(now);
+  const oldest = kstDayOf(now - BLOCK_DAYS * 86400000);
+  const add = (keyword, time) => {
+    const key=normalizeKeyword(keyword), ms=Date.parse(time);
+    if(!key || !Number.isFinite(ms) || kstDayOf(ms)<oldest || kstDayOf(ms)>=today) return;
+    if(!history.has(key) || ms>Date.parse(history.get(key))) history.set(key,new Date(ms).toISOString());
+  };
+  for(const board of boards.filter(Boolean)) {
+    for(const [day,keys] of shownByDay(board)) for(const key of keys) add(key,`${day}T00:00:00+09:00`);
+    for(const entry of board.history?.entries || []) add(entry.keyword,entry.lastShownAt);
+    for(const row of rowsOf(board)) add(row.keyword,board.builtAt);
+  }
+  return history;
+}
+
 function updateHistory(previous, selected, builtAt) {
   const history = recentHistory(previous,Date.parse(builtAt));
   for (const row of selected) history.set(normalizeKeyword(row.keyword),builtAt);
@@ -92,12 +104,13 @@ function candidatePools(seeds, history, limit, order = byVolume) {
   };
 }
 
-// 황금(비율 minRatio+)은 7일 이력과 무관하게 맨 앞이다 — 어제 찾은 황금을 다양성 규칙이 버리던 것을 고쳤다
-// (사장님 2026-09-29 "황금키워드 비중이 좀 많으면"). 재추천 표시(freshness)는 그대로 남긴다.
-// 일반 후보만 신규 우선이고, 신규가 모자랄 때만 오래전에 추천한 순으로 채운다.
+// 신규 황금 → 재측정한 최근 황금 → 신규 일반 → 최근 일반 순.
+// 황금 조건과 신규 여부를 함께 보며, 재추천은 마지막 추천 날짜를 표시한다.
 function selectRows(rows, history, keep, minRatio = 1, orderGolden = rows => [...rows].sort((a,b)=>b.ratio-a.ratio), orderOthers = bySeasonFlagThenRatio) {
   const candidates = unique(rows);
-  const golden = orderGolden(candidates.filter(row=>row.ratio>=minRatio));
+  const gold = candidates.filter(row=>row.ratio>=minRatio);
+  const golden = [...orderGolden(gold.filter(row=>!history.has(normalizeKeyword(row.keyword)))),
+    ...orderGolden(gold.filter(row=>history.has(normalizeKeyword(row.keyword))))];
   const rest = candidates.filter(row=>row.ratio<minRatio);
   const others = rest.filter(row=>!history.has(normalizeKeyword(row.keyword))).sort(orderOthers);
   const repeated = rest.filter(row=>history.has(normalizeKeyword(row.keyword))).sort((a,b)=>history.get(normalizeKeyword(a.keyword)).localeCompare(history.get(normalizeKeyword(b.keyword)))||b.ratio-a.ratio);
@@ -155,4 +168,4 @@ function completeRound(board, roundId, keep) {
     && board.topics.every(topic=>Array.isArray(topic.rows) && topic.rows.length>=keep);
 }
 
-module.exports = {BLOCK_DAYS,WINDOW_DAYS,normalizeKeyword,recentHistory,updateHistory,candidatePools,selectRows,priorGoldenRows,completeRound,shownByDay,blockedKeywords,archivedGoldenRows};
+module.exports = {BLOCK_DAYS,WINDOW_DAYS,normalizeKeyword,recentHistory,selectionHistory,updateHistory,candidatePools,selectRows,priorGoldenRows,completeRound,shownByDay,blockedKeywords,archivedGoldenRows};

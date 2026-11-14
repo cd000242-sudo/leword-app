@@ -57,6 +57,46 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
 }
 
 describe('추천 생성과 발행 경계', () => {
+  it('강제 신규 모드는 오늘 본 후보를 예산 적용 전에 빼고 아래의 새 후보를 찾는다',async()=>{
+    const now=new Date().toISOString();
+    const carry={builtAt:now,topics:[{topic:'경제',rows:[{keyword:'오늘말',searchVolume:10000,documentCount:10,ratio:1000,measuredAt:now}]}]};
+    const h=harness(100,{},carry,['--fresh=true','--perTopic=1'],[{keyword:'오늘말',searchVolume:10000,source:'hint'},{keyword:'신규말',searchVolume:1000,source:'hint'}],'--keep=1');
+    await h.run();expect(JSON.parse(h.output()).topics[0].rows.map((r:any)=>r.keyword)).toEqual(['신규말']);
+  });
+  it('일반 후보로 목표 개수가 차도 신규 황금을 계속 탐색한다',async()=>{
+    let calls=0;
+    const api={getNaverBlogDocumentCount:async()=>++calls<=4?10000:100};
+    const seeds=Array.from({length:8},(_,i)=>({keyword:'신규'+i,searchVolume:1000,source:'hint'}));
+    const h=harness(null,{},null,[],seeds,'--keep=2',null,{}, {'naver-blog-api':api});
+    await h.run();const rows=JSON.parse(h.output()).topics[0].rows;
+    expect(rows.every((r:any)=>r.ratio>=1)).toBe(true);expect(calls).toBeGreaterThan(4);
+  });
+  it('신규 황금 부족 시 최근 황금을 캐시 대신 다시 실측하고 이전 추천 날짜를 표시한다',async()=>{
+    const prior=new Date(Date.now()-86400000).toISOString();
+    const measuredAt=new Date(Date.now()-3600000).toISOString();
+    const carry={builtAt:prior,topics:[{topic:'경제',rows:[{keyword:'최근황금',searchVolume:2000,documentCount:100,ratio:20,measuredAt}]}]};
+    const h=harness(200,{최근황금:{count:100,measuredAt}},carry,[],[{keyword:'새말',searchVolume:1000,source:'hint'}],'--keep=2');
+    await h.run();const rows=JSON.parse(h.output()).topics[0].rows;
+    expect(h.calls()).toBe(2);
+    expect(rows.map((r:any)=>r.keyword)).toEqual(['새말','최근황금']);
+    expect(rows[1]).toMatchObject({documentCount:200,freshness:{status:'repeated',lastShownAt:prior}});
+  });
+  it('재측정 결과 황금 조건을 잃은 재추천은 신규 일반 후보보다 앞서지 않는다',async()=>{
+    const prior=new Date(Date.now()-86400000).toISOString();
+    const carry={builtAt:prior,topics:[{topic:'경제',rows:[{keyword:'지난황금',searchVolume:2000,documentCount:100,ratio:20,measuredAt:prior}]}]};
+    const h=harness(10000,{},carry,[],[{keyword:'새말',searchVolume:1000,source:'hint'}],'--keep=1');
+    await h.run();expect(JSON.parse(h.output()).topics[0].rows[0].keyword).toBe('새말');
+  });
+  it('재추천 실측은 API 내부 캐시도 강제로 우회하고 캐시 복구에서는 새로 추천하지 않는다',async()=>{
+    const yesterday=new Date(Date.now()-86400000).toISOString();
+    const carry={builtAt:yesterday,topics:[{topic:'경제',rows:[{keyword:'재측정',searchVolume:1000,documentCount:100,ratio:10,measuredAt:yesterday}]}]};
+    const options:any[]=[];
+    const api={getNaverBlogDocumentCount:async(_keyword:string,opts:any)=>{options.push(opts);return 200;}};
+    const h=harness(null,{},carry,[],[],'--keep=1',null,{}, {'naver-blog-api':api});
+    await h.run();expect(options).toHaveLength(1);expect(options[0].forceFresh).toBe(true);
+    const recovery=harness(null,{},carry,['--cacheOnly=true'],[],'--keep=1',null,{}, {'naver-blog-api':api});
+    await expect(recovery.run()).rejects.toThrow('직전 발행본');expect(options).toHaveLength(1);
+  });
   it('선택한 주제만 보충할 때 다른 주제의 개수를 누락으로 계산하지 않는다',async()=>{
     const carry={builtAt:new Date(Date.now()-9*86400000).toISOString(),topics:[{topic:'경제',rows:[{keyword:'기존'}]},{topic:'영화',rows:Array.from({length:100},(_,i)=>({keyword:'영화'+i}))}]};
     const overrides={'naver-blog-topics':{NAVER_BLOG_TOPICS:[{label:'경제'},{label:'영화'}]}};
@@ -73,21 +113,21 @@ describe('추천 생성과 발행 경계', () => {
     const h=harness(null,{},null,['--expandSeeds=400','--perTopic=800'],seeds,'--keep=100',null,{}, {'naver-searchad-api':api,'environment-manager':env});
     await expect(h.run()).rejects.toThrow('직전 발행본');expect(asked).toBe(384);
   });
-  it('문서수 조회는 최대 4개씩 진행하고 유효한 목표가 차면 나머지는 조회하지 않는다',async()=>{
+  it('문서수 조회는 최대 4개씩 진행하며 일반 100개가 차도 후보 예산 안에서 황금을 찾는다',async()=>{
     let active=0,peak=0,calls=0;
     const api={getNaverBlogDocumentCount:async()=>{active++;peak=Math.max(peak,active);calls++;await new Promise(done=>setTimeout(done,1));active--;return 2000;}};
     const seeds=Array.from({length:120},(_,i)=>({keyword:'새후보'+i,searchVolume:1000,source:'hint'}));
     const h=harness(null,{},null,[],seeds,'--keep=100',null,{}, {'naver-blog-api':api});
-    await h.run();expect(peak).toBeGreaterThan(1);expect(peak).toBeLessThanOrEqual(4);expect(calls).toBe(100);
+    await h.run();expect(peak).toBeGreaterThan(1);expect(peak).toBeLessThanOrEqual(4);expect(calls).toBe(120);
     expect(JSON.parse(h.output()).topics[0].rows).toHaveLength(100);
   });
-  it('같은 날 100개를 채운 주제는 비황금도 유효하면 그대로 유지하고 다시 조회하지 않는다',async()=>{
+  it('같은 날 일반 100개가 찼어도 새 황금을 찾고 기존 실측은 재사용한다',async()=>{
     const measuredAt=new Date(Date.now()-3600000).toISOString();
     const rows=Array.from({length:100},(_,i)=>({keyword:'기존'+i,searchVolume:1000,documentCount:2000,ratio:0.5,measuredAt}));
     const carry={builtAt:new Date().toISOString(),keep:100,selectionVersion:2,history:{windowDays:7,entries:[]},topics:[{topic:'경제',rows}]};
     const h=harness(300,{},carry,[],[{keyword:'새로운말',searchVolume:2000,source:'hint'}],'--keep=100');
     await h.run();const result=JSON.parse(h.output());
-    expect(h.calls()).toBe(0);expect(result.topics[0].rows.map((r:any)=>r.keyword)).toEqual(rows.map(r=>r.keyword));
+    expect(h.calls()).toBe(1);expect(result.topics[0].rows).toHaveLength(100);expect(result.topics[0].rows[0].keyword).toBe('새로운말');
   });
   it('캐시 복구는 24시간 이내 실측만 게시하고 API를 호출하지 않는다', async () => {
     const fresh=new Date(Date.now()-3600000).toISOString();
@@ -137,14 +177,14 @@ describe('추천 생성과 발행 경계', () => {
     expect(payload.novelty).toMatchObject({windowDays:7,newCount:100,repeatedCount:0});
     expect(payload.history.entries).toHaveLength(100);
   });
-  it('새 회차가 지난 7일 이력을 이어받는다 — 이력에만 있고 직전 판 행이 아닌 말은 신규가 차면 재지 않는다', async () => {
+  it('새 회차가 지난 7일 이력을 이어받는다 — 이력에만 있는 말도 황금이면 재측정 보충하고 표시한다', async () => {
     const oldDate=new Date(Date.now()-2*86400000).toISOString();
     const carry={builtAt:new Date(Date.now()-86400000).toISOString(),topics:[{topic:'경제',rows:[{keyword:'직전말'}]}],history:{windowDays:7,entries:[{keyword:'그제말',lastShownAt:oldDate}]}};
     const h=harness(2000,{},carry,[],[{keyword:'그제말',searchVolume:10000,source:'hint'},{keyword:'새말',searchVolume:1000,source:'hint'}]);
     await h.run();
     const result=JSON.parse(h.output());
-    expect(result.topics[0].rows[0].keyword).toBe('새말');
-    expect(result.history.entries.find((e:any)=>e.keyword==='그제말').lastShownAt).toBe(oldDate);
+    expect(result.topics[0].rows[0].keyword).toBe('그제말');
+    expect(result.topics[0].rows[0].freshness).toEqual({status:'repeated',lastShownAt:oldDate});
   });
   it('직전 판 황금과 선점 보드 황금을 먼저 잰다 — 24시간 안 실측은 재사용, 오래된 것은 다시 재고, 황금이 차면 창고 후보는 안 잰다(2026-09-29)', async () => {
     const fresh=new Date(Date.now()-3600000).toISOString();
@@ -174,15 +214,16 @@ describe('추천 생성과 발행 경계', () => {
   });
 
   // 2026-10-10 사장님 "매일 전날과 중복 없이, 매일 새롭게" · "앱에서 버튼 누르면 알아서 새롭게"
-  it('어제(KST) 실린 말은 황금이어도 다시 싣지 않고, 일자별 기록을 판에 남긴다', async () => {
+  it('어제 실린 황금은 신규 탐색 후 다시 실측해 보충하고 일자별 기록도 남긴다', async () => {
     const yesterday=new Date(Date.now()-86400000).toISOString();
     const carry={builtAt:yesterday,topics:[{topic:'경제',rows:[{keyword:'어제황금',searchVolume:3000,documentCount:1000,ratio:3,measuredAt:yesterday,depth:1,comp:null,source:'biztp'}]}],history:{windowDays:7,entries:[]}};
     const h=harness(400,{},carry,[],[{keyword:'어제황금',searchVolume:9000,source:'hint'},{keyword:'새말',searchVolume:1000,source:'hint'}],'--keep=2');
     await h.run();
     const result=JSON.parse(h.output());
-    expect(result.topics[0].rows.map((r:any)=>r.keyword)).toEqual(['새말']);
+    expect(result.topics[0].rows.map((r:any)=>r.keyword)).toEqual(['새말','어제황금']);
+    expect(result.topics[0].rows[1].freshness).toEqual({status:'repeated',lastShownAt:yesterday});
     const today=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
-    expect(result.history.days[today]).toEqual(['새말']);
+    expect(result.history.days[today]).toEqual(['새말','어제황금']);
     expect(result.novelty.blockedYesterday).toBe(1);
   });
   it('새 키워드로 다시 올리기(--fresh=true)는 오늘 이미 실린 말까지 빼고 다시 고른다', async () => {
@@ -197,7 +238,7 @@ describe('추천 생성과 발행 경계', () => {
     expect(JSON.parse(fresh.output()).topics[0].rows.map((r:any)=>r.keyword)).toEqual(['다른말']);
   });
   // 2026-10-11 사장님 "황금키워드는 하나도 안 보이네" → "어제만 피하고 그제 황금은 다시"
-  it('보관함(--archive)의 그제 황금은 다시 재서 싣고, 어제 판의 말은 보관함에 있어도 막는다', async () => {
+  it('보관함의 그제·어제 황금은 신규 부족 시 재측정하고 모두 재추천으로 표시한다', async () => {
     const kstDayAgo = (n: number) => new Date(Date.now() + 9 * 3600000 - n * 86400000).toISOString().slice(0, 10);
     const old = new Date(Date.now() - 3 * 86400000).toISOString();
     const yesterday = new Date(Date.now() - 86400000).toISOString();
@@ -209,19 +250,20 @@ describe('추천 생성과 발행 경계', () => {
     const result = JSON.parse(h.output());
     const keywords = result.topics[0].rows.map((r: any) => r.keyword);
     expect(keywords).toContain('그제황금');
-    expect(keywords).not.toContain('어제말');
+    expect(keywords).toContain('어제말');
+    expect(result.topics[0].rows.find((r:any)=>r.keyword==='그제황금').freshness.status).toBe('repeated');
     expect(result.topics[0].rows.find((r: any) => r.keyword === '그제황금')).toMatchObject({ documentCount: 400, ratio: 5 });
     void old;
   });
   // 2026-10-11 연관어 확장 — 황금이 모자라면 그날 황금(없으면 큰 후보)을 씨앗으로 검색광고 연관어를 받아 문서 수만 잰다
-  it('기존 씨앗이 최근 추천 금지여도 새 연관어 탐색에는 사용하되 기존 말은 다시 게시하지 않는다',async()=>{
+  it('기존 씨앗으로 새 연관어를 먼저 찾고 부족하면 기존 말도 재측정 보충한다',async()=>{
     const asked:string[]=[];
     const env={EnvironmentManager:{getInstance:()=>({getConfig:()=>({naverClientId:'fake',naverClientSecret:'fake',naverSearchAdAccessLicense:'fake',naverSearchAdSecretKey:'fake'})})}};
     const searchad={getNaverSearchAdBidPairs:async()=>new Map(),getNaverSearchAdKeywordSuggestions:async(_cfg:unknown,seed:string)=>{asked.push(seed);return [{keyword:seed+' 일정',totalSearchVolume:3000}];}};
     const carry={builtAt:new Date(Date.now()-86400000).toISOString(),topics:[{topic:'경제',rows:[{keyword:'기존씨앗'}]}]};
     const h=harness(100,{},carry,['--expandSeeds=12','--expandMeasure=300'],[{keyword:'기존씨앗',searchVolume:2000,source:'hint'}],'--keep=100',null,{}, {'naver-searchad-api':searchad,'environment-manager':env});
     await h.run();expect(asked).toEqual(['기존씨앗']);
-    expect(JSON.parse(h.output()).topics[0].rows.map((r:any)=>r.keyword)).toEqual(['기존씨앗 일정']);
+    expect(JSON.parse(h.output()).topics[0].rows.map((r:any)=>r.keyword)).toEqual(['기존씨앗 일정','기존씨앗']);
   });
   it('연관어 확장(--expandSeeds) — 씨앗 낱말을 담은 연관어를 재서 황금이면 "related" 출처로 싣는다', async () => {
     const asked: string[] = [];

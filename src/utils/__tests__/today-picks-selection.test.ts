@@ -6,6 +6,20 @@ const row = (keyword: string, ratio = 0.5) => ({ keyword, searchVolume: 1000, do
 const board = (keywords: string[], days = 1) => ({builtAt:date(days),topics:[{topic:'경제',rows:keywords.map(k=>row(k))}]});
 
 describe('추천키워드 7일 이력과 30개 선정', () => {
+ it('재추천 날짜는 KST 7일 경계와 구형 날짜 이력·보관함까지 보존한다',()=>{
+  const {selectionHistory}=require('../../../scripts/today-picks-selection');
+  const at=Date.parse('2026-11-14T00:30:00Z');
+  const history=selectionHistory([{builtAt:'2026-11-14T00:00:00Z',topics:[{rows:[row('오늘')]}],history:{days:{'2026-11-07':['경계말'],'2026-11-06':['만료말']}}},{builtAt:'2026-11-13T07:20:00Z',topics:[{rows:[row('보관말')]}]}],at);
+  expect(history.get('경계말')).toBe('2026-11-06T15:00:00.000Z');
+  expect(history.get('보관말')).toBe('2026-11-13T07:20:00.000Z');
+  expect(history.has('오늘')).toBe(false);expect(history.has('만료말')).toBe(false);
+ });
+ it('신규 황금 → 재측정한 재추천 황금 → 신규 일반 → 재추천 일반 순으로 선별한다',()=>{
+  const history=new Map([['재추천황금',date(1)],['재추천일반',date(2)]]);
+  const rows=selectRows([row('재추천황금',100),row('신규황금',2),row('신규일반',0.5),row('재추천일반',0.9)],history,4);
+  expect(rows.map((r:any)=>r.keyword)).toEqual(['신규황금','재추천황금','신규일반','재추천일반']);
+  expect(rows[1].freshness).toEqual({status:'repeated',lastShownAt:date(1)});
+ });
  it('목표 메타데이터만 100이어도 한 주제가 부족하거나 비면 완료가 아니다',()=>{
   const full={round:{id:'now'},keep:100,selectionVersion:2,history:{windowDays:7,entries:[]},topics:[{topic:'경제',rows:Array.from({length:100},(_,i)=>row('경제'+i))}]};
   expect(completeRound(full,'now',100)).toBe(true);
