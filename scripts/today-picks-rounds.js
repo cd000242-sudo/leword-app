@@ -21,10 +21,14 @@ function cachedMeasurement(entry, now = Date.now()) {
 /**
  * A failed refresh must not replace the last useful board or mark its round completed.
  * 2026-10-13: 7일 재추천 금지로 후보가 적은 주제(사진 · 원예 · 좋은글 등)가 비거나 줄어든다 — 그건 실패가 아니다.
- * 막는 것은 실측 실패(성공률 80% 미만)와 판 전체 붕괴(직전 판 행의 절반 미만)뿐이다.
+ * 실측 실패와 판 전체 붕괴를 막으며, 100개 발행본의 이미 완성된 주제도 보존한다.
  */
 function canPublish(next, previous, attempts, successes) {
   if (!rowsOf(next).length || (attempts > 0 && successes / attempts < 0.8)) return false;
+  if (next?.keep === 100 && previous?.keep === 100) {
+    const nextCounts = new Map((next.topics || []).map((topic) => [topic.topic, (topic.rows || []).length]));
+    if ((previous.topics || []).some((topic) => (topic.rows || []).length >= 100 && (nextCounts.get(topic.topic) || 0) < 100)) return false;
+  }
   return rowsOf(next).length >= rowsOf(previous).length * 0.5;
 }
 

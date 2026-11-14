@@ -34,6 +34,14 @@ describe('추천키워드 하루 세 회차', () => {
     expect(canPublish(next, prior, 100, 100)).toBe(true);
     expect(canPublish({ topics: [{ topic: '경제', rows: [] }, { topic: '여행', rows: [{}] }] }, { topics: [{ topic: '경제', rows: [{}] }] }, 10, 10)).toBe(true);
   });
+  it('100개를 채운 주제는 후속 부분 수집으로 줄거나 사라지지 않는다', () => {
+    const topic = (name: string, count: number) => ({ topic: name, rows: Array(count).fill({}) });
+    const prior = { keep: 100, topics: [topic('경제', 100), topic('영화', 30)] };
+    expect(canPublish({ keep: 100, topics: [topic('경제', 99), topic('영화', 100)] }, prior, 100, 100)).toBe(false);
+    expect(canPublish({ keep: 100, topics: [topic('영화', 100)] }, prior, 100, 100)).toBe(false);
+    expect(canPublish({ keep: 100, topics: [topic('경제', 100), topic('영화', 80)] }, prior, 100, 100)).toBe(true);
+    expect(canPublish({ keep: 100, topics: [topic('경제', 100), topic('영화', 100)] }, prior, 100, 100)).toBe(true);
+  });
   it('처음 게시·신규·수치 변경·유지 건수를 구분한다', () => {
     const old = { topics: [{ rows: [{ keyword: '가 나', documentCount: 10, searchVolume: 100 }, { keyword: '유지', documentCount: 10, searchVolume: 200 }] }] };
     const next = { topics: [{ rows: [{ keyword: '가나', documentCount: 11, searchVolume: 100 }, { keyword: '유지', documentCount: 10, searchVolume: 200 }, { keyword: '신규', documentCount: 20, searchVolume: 300 }] }] };
