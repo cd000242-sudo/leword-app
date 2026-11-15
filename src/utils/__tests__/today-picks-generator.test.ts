@@ -36,6 +36,7 @@ function harness(documentCount: number | null, cache: Record<string, unknown> = 
     if (id.includes('today-picks-inventory')) return require('../../../scripts/today-picks-inventory');
     if (id.includes('today-picks-related')) return require('../../../scripts/today-picks-related');
     if (id.includes('today-picks-rising')) return require('../../../scripts/today-picks-rising');
+    if (id.includes('today-picks-niche')) return require('../../../scripts/today-picks-niche');
     if (id.includes('today-picks-volume-history')) return require('../../../scripts/today-picks-volume-history');
     if (id === '../src/utils/grade') return { isGoldenSss };
     if (id.includes('seed-db')) return { topicOfSeed: () => '경제' };
@@ -292,6 +293,61 @@ describe('추천 생성과 발행 경계', () => {
     const saved = JSON.parse(h.file('inv/inventory.json'));
     expect(saved.entries['재고황금'].documentCount).toBe(500);
     expect(saved.entries['창고말']).toMatchObject({ documentCount: 500, topic: '경제' });
+  });
+  // 2026-11-15 사장님 "대형키워드가 많네. 그럼 있으나 마나야. 니치키워드를 기본으로 잡아줘."
+  describe('니치 우선(기본 목록)', () => {
+    const docsOf = (table: Record<string, number>, asked: string[] = []) => ({ getNaverBlogDocumentCount: async (keyword: string) => { asked.push(keyword); return table[keyword] ?? 500; } });
+    const seed = (keyword: string, searchVolume: number) => ({ keyword, searchVolume, source: 'hint' });
+    const topicOf = (h: { output: () => string }) => JSON.parse(h.output()).topics[0];
+
+    it('니치 → 고볼륨 저경쟁 → 일반 → 대형 순으로 싣고, 등급과 모자란 수를 주제에 적는다', async () => {
+      const api = docsOf({ 대형황금: 200000, 니치황금: 1000, 일반말: 90000, 고볼륨: 2000 });
+      const h = harness(null, {}, null, [], [seed('대형황금', 500000), seed('니치황금', 3000), seed('일반말', 2000), seed('고볼륨', 40000)], '--keep=4', null, {}, { 'naver-blog-api': api });
+      await h.run();
+      const topic = topicOf(h);
+      expect(topic.rows.map((r: any) => [r.keyword, r.tier])).toEqual([['니치황금', 'niche'], ['고볼륨', 'mid'], ['일반말', 'plain'], ['대형황금', 'large']]);
+      expect(topic).toMatchObject({ golden: 3, nicheCount: 1, midCount: 1, plainCount: 1, largeCount: 1, nicheShortfall: 2 });
+      expect(JSON.parse(h.output()).nichePolicy).toMatchObject({ order: ['niche', 'mid', 'plain', 'large'], nicheMaxVolume: 10000, frontMaxDocs: 10000 });
+    });
+
+    it('후보는 검색량 1만 미만부터 잰다 — 큰 말부터 재다가 목표가 차 버리지 않는다', async () => {
+      const asked: string[] = [];
+      const seeds = [seed('큰A', 100000), seed('큰B', 90000), seed('큰C', 80000), seed('작은3000', 3000), seed('작은2000', 2000), seed('작은1000', 1000)];
+      const h = harness(null, {}, null, ['--perTopic=2'], seeds, '--keep=2', null, {}, { 'naver-blog-api': docsOf({}, asked) });
+      await h.run();
+      expect(asked.sort()).toEqual(['작은2000', '작은3000']);
+      expect(topicOf(h).rows.map((r: any) => r.tier)).toEqual(['niche', 'niche']);
+    });
+
+    it('이미 잰 황금이 대형뿐이라 목표 개수가 차 있어도 니치를 더 찾는다(재고 황금 대형 2개 → 창고의 니치를 잰다)', async () => {
+      const twoDays = new Date(Date.now() - 2 * 86400000).toISOString();
+      const entry = (keyword: string) => ({ keyword, documentCount: 100000, measuredAt: twoDays, searchVolume: 300000, topic: '경제', source: 'hint' });
+      const inventory = JSON.stringify({ entries: { 큰황금1: entry('큰황금1'), 큰황금2: entry('큰황금2') } });
+      const api = docsOf({ 큰황금1: 100000, 큰황금2: 100000, 작은황금: 400 });
+      const h = harness(null, {}, null, ['--inventory=inv/inventory.json'], [seed('작은황금', 3000)], '--keep=2', null, { 'inv/inventory.json': inventory }, { 'naver-blog-api': api });
+      await h.run();
+      expect(topicOf(h).rows.map((r: any) => [r.keyword, r.tier])).toEqual([['작은황금', 'niche'], ['큰황금1', 'large']]);
+    });
+
+    it('같은 날 이어 싣기에서도 대형 황금만 목표만큼 찬 주제는 그대로 두지 않고 니치를 찾는다', async () => {
+      const measuredAt = new Date(Date.now() - 3600000).toISOString();
+      const rows = Array.from({ length: 3 }, (_, i) => ({ keyword: '큰황금' + i, searchVolume: 300000, documentCount: 100000, ratio: 3, measuredAt }));
+      const carry = { builtAt: new Date().toISOString(), keep: 3, selectionVersion: 2, history: { windowDays: 7, entries: [] }, topics: [{ topic: '경제', rows }] };
+      const h = harness(400, {}, carry, [], [seed('니치씨앗', 3000)], '--keep=3');
+      await h.run();
+      expect(topicOf(h).rows.map((r: any) => r.keyword)).toEqual(['니치씨앗', '큰황금0', '큰황금1']);
+      expect(h.calls()).toBe(1);
+    });
+
+    it('연관어는 검색량 1만 미만을 먼저 잰다 — 대형 연관어에 호출을 쓰지 않는다', async () => {
+      const asked: string[] = [];
+      const searchad = { getNaverSearchAdBidPairs: async () => new Map(), getNaverSearchAdKeywordSuggestions: async (_c: unknown, base: string) => [{ keyword: `${base} 대형`, totalSearchVolume: 90000 }, { keyword: `${base} 소형`, totalSearchVolume: 3000 }] };
+      const env = { EnvironmentManager: { getInstance: () => ({ getConfig: () => ({ naverClientId: 'fake', naverClientSecret: 'fake', naverSearchAdAccessLicense: 'fake', naverSearchAdSecretKey: 'fake' }) }) } };
+      const h = harness(null, {}, null, ['--expandSeeds=1', '--expandMeasure=1'], [seed('창고씨앗', 900)], '--keep=2', undefined, {}, { 'naver-blog-api': docsOf({}, asked), 'naver-searchad-api': searchad, 'environment-manager': env });
+      await h.run();
+      expect(asked).toContain('창고씨앗 소형');
+      expect(asked).not.toContain('창고씨앗 대형');
+    });
   });
   // 2026-11-08 정렬 교체(사장님 승인) — 피크가 다음 달·두 달 뒤인 시즌 씨앗을 먼저, 그 안에서는 최근 12일 오름세 큰 순
   describe('정렬: 시즌 앞 씨앗 + 12일 오름세', () => {

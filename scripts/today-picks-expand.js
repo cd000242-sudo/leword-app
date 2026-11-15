@@ -13,12 +13,14 @@
 
 const flat = (value) => String(value || '').normalize('NFKC').replace(/\s+/g, '').toLowerCase();
 
-/** 그 주제 황금을 검색량 큰 순으로 k개, 모자라면 큰 후보로 채운다. */
-function expansionSeeds(golden, others, k) {
+const byVolume = (a, b) => (b.searchVolume || 0) - (a.searchVolume || 0);
+
+/** 그 주제 황금을 order(기본: 검색량 큰 순)대로 k개, 모자라면 큰 후보로 채운다. 니치 우선 때는 검색량 1만 미만 씨앗이 앞 순서로 온다. */
+function expansionSeeds(golden, others, k, order = byVolume) {
   const out = [];
   const seen = new Set();
   const take = (rows) => {
-    for (const row of [...(Array.isArray(rows) ? rows : [])].sort((a, b) => (b.searchVolume || 0) - (a.searchVolume || 0))) {
+    for (const row of [...(Array.isArray(rows) ? rows : [])].sort(order)) {
       if (out.length >= k) return;
       const key = flat(row && row.keyword);
       if (!key || seen.has(key)) continue;

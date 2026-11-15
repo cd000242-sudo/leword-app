@@ -12,6 +12,13 @@ describe('확장 씨앗', () => {
     expect(expansionSeeds([r('황금작은', 900, 2), r('황금큰', 50000, 3)], [r('후보큰', 80000), r('황금큰', 50000)], 3)).toEqual(['황금큰', '황금작은', '후보큰']);
     expect(expansionSeeds([], [r('a', 1000), r('b', 3000)], 1)).toEqual(['b']);
   });
+  // 2026-11-15 니치 우선 — 큰 황금을 씨앗으로 받으면 연관어도 큰 말뿐이다. 순서를 넘기면 그대로 따른다.
+  it('순서를 넘기면 그 순서로 씨앗을 고른다 — 검색량 1만 미만 씨앗이 앞', () => {
+    const { nicheBandFirst } = require('../../../scripts/today-picks-niche');
+    const golden = [r('황금큰', 50000, 3), r('황금작은', 900, 2), r('황금중간', 7000, 2)];
+    expect(expansionSeeds(golden, [], 3, nicheBandFirst())).toEqual(['황금중간', '황금작은', '황금큰']);
+    expect(expansionSeeds(golden, [], 2, nicheBandFirst())).toEqual(['황금중간', '황금작은']);
+  });
 });
 
 describe('연관어 후보', () => {

@@ -46,7 +46,9 @@ const { isGoldenSss } = require('../src/utils/grade');
 const { bidKey, moneyBidOf, orderGoldenByMoney } = require('../src/utils/money-keywords');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { roundAt, cachedMeasurement, canPublish, describeChanges } = require('./today-picks-rounds');
-const { WINDOW_DAYS, normalizeKeyword, selectionHistory, updateHistory, candidatePools, selectRows, priorGoldenRows, completeRound, blockedKeywords, archivedGoldenRows } = require('./today-picks-selection');
+const { WINDOW_DAYS, normalizeKeyword, selectionHistory, updateHistory, candidatePools, priorGoldenRows, completeRound, blockedKeywords, archivedGoldenRows } = require('./today-picks-selection');
+// 니치 우선(2026-11-15 사장님 "대형키워드가 많네. 니치키워드를 기본으로") — 기준 숫자·등급 정의는 today-picks-niche.js.
+const { nicheBandFirst, selectNicheFirst, countFront, tierSummary, nichePolicy } = require('./today-picks-niche');
 const { upcomingMonths, seasonPeak, createRanker } = require('./today-picks-rising');
 const { parseHistory } = require('./today-picks-volume-history');
 
@@ -177,6 +179,8 @@ async function main() {
   let volumeHistory = null;
   try { volumeHistory = volumeHistoryPath && fs.existsSync(volumeHistoryPath) ? parseHistory(JSON.parse(fs.readFileSync(volumeHistoryPath, 'utf8'))) : null; } catch { volumeHistory = null; }
   const ranker = createRanker({ seeds: db.seeds, history: volumeHistory, now: new Date(startedAt) });
+  // 후보는 검색량 1만 미만부터 잰다(문서수는 재기 전엔 모르니 검색량이 아는 전부). 시즌 앞 · 오름세 순서는 각 묶음 안에서 산다.
+  const poolOrder = nicheBandFirst(ranker.poolOrder);
   console.log(`정렬 — 시즌 앞(${ranker.months.join('·')}월 피크) 씨앗 ${ranker.groupSize.toLocaleString('ko-KR')}개 먼저 · 그 안은 12일 오름세 큰 순(오름세 잰 것 ${ranker.movingCount.toLocaleString('ko-KR')}개, 이력 ${volumeHistory ? volumeHistory.entries.size.toLocaleString('ko-KR') : 0}개)`);
 
   const requestedTopics=arg('topics').split(',').map(t=>t.trim()).filter(Boolean);
@@ -209,13 +213,15 @@ async function main() {
     ...(cacheOnly ? { recovery: 'fresh-measurement-cache' } : {}),
     selectionVersion: 2,
     minRatio,
+    nichePolicy: nichePolicy(minRatio),
     upcomingMonths: months,
     /** 화면이 그대로 옮겨 적을 수 있는 방법 설명 — 숫자의 출처와 한계. */
     method: {
       searchVolume: '검색광고 키워드도구 월간 검색량 실측(PC+모바일)',
       documentCount: '네이버 블로그 오픈 API 문서수 실측 · 24시간 이내 실측은 재사용(행별 measuredAt)',
       daily: '신규 황금 우선 · 부족하면 최근 7일 추천을 다시 실측해 보충하고 재추천·이전 추천 날짜 표시(같은 날 회차는 이어 실을 수 있음)',
-      ratio: `검색량 ÷ 문서수 ${minRatio} 이상인 신규 황금 → 재측정한 재추천 황금 → 신규 일반 → 재추천 일반 순 · 각 황금 그룹 안에서는 실측 입찰가 높은 순`,
+      ratio: `검색량 ÷ 문서수 ${minRatio} 이상인 신규 황금 → 재측정한 재추천 황금 → 신규 일반 → 재추천 일반 순 · 각 황금 그룹 안에서는 실측 입찰가 높은 순 — 이 순서는 아래 등급(niche) 안에서 적용`,
+      niche: '니치(황금비 기준 이상 · 월 검색량 1만 미만) → 고볼륨 저경쟁(월 검색량 1만+ · 문서 1만↓) → 일반(작은 말인데 황금비 미달) → 대형(월 검색량 1만+ · 문서 1만 초과) 순 · 니치와 고볼륨 저경쟁이 목표에 모자라면 주제의 nicheShortfall 에 모자란 수를 적고 나머지 칸은 행의 tier 로 구분한다(없는 말을 만들어 채우지 않는다)',
       bid: '네이버 검색광고 파워링크 3위 평균 입찰가 실측(PC · 모바일 중 큰 값) — 70원이면 3위 자리까지 광고 경쟁이 없다',
       season: '이번 달·다음 달 피크인 계절 씨앗은 seasonPeakMonth 로 표시 — 트래픽 몰릴 예정',
       depth: '월 평균 노출 검색광고 수 실측 · 0 이면 광고주가 없는 말',
@@ -267,16 +273,18 @@ async function main() {
       ? (carried?.topics?.find(topic => topic.topic === t)?.rows || []).filter(row =>
         passesGuards(String(row.keyword)) && isOpen(row.keyword) && row.searchVolume >= 500
         && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt})) : [];
-    if (sameDayRows.length >= keep && (cacheOnly || sameDayRows.filter(row=>row.ratio>=minRatio).length>=keep)) {
-      const rows=selectRows(sameDayRows,history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder);
-      result.topics.push({topic:t,candidates:rows.length,measured:rows.length,golden:rows.filter(row=>row.ratio>=minRatio).length,targetCount:keep,shortfall:0,rows});
+    // 대형 황금만으로 목표가 찬 주제는 그대로 두지 않는다 — 니치 · 고볼륨 저경쟁이 목표만큼 있을 때만 이어 싣기로 건너뛴다.
+    if (sameDayRows.length >= keep && (cacheOnly || countFront(sameDayRows,minRatio)>=keep)) {
+      const rows=selectNicheFirst(sameDayRows,history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder);
+      result.topics.push({topic:t,candidates:rows.length,measured:rows.length,golden:rows.filter(row=>row.ratio>=minRatio).length,targetCount:keep,shortfall:0,...tierSummary(rows,keep,minRatio),rows});
       reused+=rows.length;
       console.log(`  ${t} 유효한 ${rows.length}개 유지 — 부족한 주제만 추가 수집`);
       continue;
     }
     const prev = resumedTopics.get(t);
-    if (resumed?.selectionVersion === 2 && resumed?.round?.id === round.id && prev && (prev.golden || 0) >= keep && prev.rows.length === keep && prev.rows.every(row => !history.has(flat(row.keyword)) && isOpen(row.keyword) && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt}))) {
-      result.topics.push({...prev,rows:selectRows(prev.rows,history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder),targetCount:keep,shortfall:0});
+    if (resumed?.selectionVersion === 2 && resumed?.round?.id === round.id && prev && countFront(prev.rows,minRatio) >= keep && prev.rows.length === keep && prev.rows.every(row => !history.has(flat(row.keyword)) && isOpen(row.keyword) && cachedMeasurement({count:row.documentCount,measuredAt:row.measuredAt}))) {
+      const rows=selectNicheFirst(prev.rows,history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder);
+      result.topics.push({...prev,rows,targetCount:keep,shortfall:0,...tierSummary(rows,keep,minRatio)});
       console.log(`  ${t.padEnd(8)} 이전 결과 재사용 — 황금 ${prev.golden} 이미 찼다`);
       continue;
     }
@@ -296,14 +304,16 @@ async function main() {
       if(measured.some(row=>!row.cached))await sleep(gapMs);
     }
     const priorGolden = golden.length;
+    // 기본 목록(니치 + 고볼륨 저경쟁)에 드는 황금 수 — 대형 황금은 목표를 채워 주지 않는다(2026-11-15).
+    const front = () => countFront(golden, minRatio);
     // 2) 창고 후보 — 신규를 먼저 측정한다. 부족할 때만 별도 예산 안에서 과거 추천을 오래된 순으로 잰다.
-    const pools = candidatePools(byTopic.get(t).filter(c=>!fresh || isOpen(c.keyword)), history, perTopic, ranker.poolOrder);
+    const pools = candidatePools(byTopic.get(t).filter(c=>!fresh || isOpen(c.keyword)), history, perTopic, poolOrder);
     const cand = pools.fresh.filter((c) => isOpen(c.keyword) && !measuredKeys.has(flat(c.keyword)));
     for (let at=0;at<cand.length;) {
       const c=cand[at];
-      // 신규가 충분하면 반복 후보는 재지 않는다. 황금이 목표만큼 차면 조기 종료한다.
-      if (golden.length >= keep) break;
-      const batch=cand.slice(at,at+Math.min(4,Math.max(1,keep-golden.length)));
+      // 신규가 충분하면 반복 후보는 재지 않는다. 니치·고볼륨 저경쟁 황금이 목표만큼 차면 조기 종료한다(후보 상한 perTopic 은 그대로).
+      if (front() >= keep) break;
+      const batch=cand.slice(at,at+Math.min(4,Math.max(1,keep-front())));
       at+=batch.length;
       const measured=await Promise.all(batch.map(async item=>({item,...await measureDocs(item)})));
       for(const row of measured)if(Number.isFinite(row.documentCount)&&row.documentCount>0)keepRow(toRow(row.item,row.documentCount,row.measuredAt));
@@ -314,14 +324,14 @@ async function main() {
      * 황금이 목표에 못 미치면 그날 황금(없으면 큰 후보)을 씨앗으로 검색광고 연관어를 받아(검색량 동봉) 문서 수만 잰다.
      */
     let expanded = 0;
-    if (canBid && expandSeedCount > 0 && golden.length < keep && typeof getNaverSearchAdKeywordSuggestions === 'function') {
+    if (canBid && expandSeedCount > 0 && front() < keep && typeof getNaverSearchAdKeywordSuggestions === 'function') {
       const pool = [];
       const focused={영화:['영화','영화추천'],음악:['음악','노래','악기'],
         드라마:['드라마','한국드라마','중국드라마','일본드라마','미국드라마','넷플릭스드라마','티빙드라마','디즈니플러스드라마','드라마추천','완결드라마',
           '영국드라마','태국드라마','대만드라마','터키드라마','미드추천','중드추천','일드추천','로맨스드라마','판타지드라마','사극드라마','스릴러드라마','숏드라마','드라마원작소설'],
         '스타·연예인':['연예인','아이돌'],방송:['방송','예능']};
       const coverage=typeof coverageForTopic==='function' ? coverageForTopic(t)?.seedTerms || [] : [];
-      const seedQueries=[...new Map([...(focused[t]||[]),...coverage,...expansionSeeds(golden,[...others,...byTopic.get(t)],expandSeedCount)].map(seed=>[flat(seed),seed])).values()].slice(0,expandSeedCount);
+      const seedQueries=[...new Map([...(focused[t]||[]),...coverage,...expansionSeeds(golden,[...others,...byTopic.get(t)],expandSeedCount,nicheBandFirst())].map(seed=>[flat(seed),seed])).values()].slice(0,expandSeedCount);
       for (const seed of seedQueries) {
         if (expansionRequests >= 384) break;
         expansionRequests += 1;
@@ -334,9 +344,10 @@ async function main() {
         await sleep(gapMs);
       }
       const seenRelated = new Set();
-      const related = pool.sort((a, b) => b.searchVolume - a.searchVolume).filter((c) => { const k = flat(c.keyword); if (seenRelated.has(k)) return false; seenRelated.add(k); return true; });
+      // 검색량 1만 미만 연관어부터 잰다 — 대형 연관어에 문서수 호출을 먼저 쓰지 않는다.
+      const related = pool.sort(nicheBandFirst()).filter((c) => { const k = flat(c.keyword); if (seenRelated.has(k)) return false; seenRelated.add(k); return true; });
       for (const c of related.slice(0, expandMeasure)) {
-        if (golden.length >= keep) break;
+        if (front() >= keep) break;
         const { documentCount, measuredAt, cached } = await measureDocs(c);
         if (Number.isFinite(documentCount) && documentCount > 0) {
           const before = golden.length;
@@ -347,11 +358,12 @@ async function main() {
       }
     }
     // 신규 탐색·확장을 마친 뒤에만 최근 추천을 다시 실측한다. 캐시 복구·강제 신규 모드는 보충하지 않는다.
-    if (!fresh && !cacheOnly && golden.length < keep) {
+    if (!fresh && !cacheOnly && front() < keep) {
+      // 검색량 1만 미만 재추천 후보를 먼저 다시 잰다(같은 묶음 안은 원래 순서 — 정렬은 안정적이다). keep*3 상한은 그대로.
       const repeatedCandidates=[...new Map([...priorCandidates,...pools.repeated]
         .filter(c=>blocked.has(flat(c.keyword)) && c.searchVolume>=500 && passesGuards(String(c.keyword)) && !measuredKeys.has(flat(c.keyword)))
-        .map(c=>[flat(c.keyword),c])).values()].slice(0,keep*3);
-      for(let at=0;at<repeatedCandidates.length && golden.length<keep;at+=4) {
+        .map(c=>[flat(c.keyword),c])).values()].sort(nicheBandFirst(()=>0)).slice(0,keep*3);
+      for(let at=0;at<repeatedCandidates.length && front()<keep;at+=4) {
         const measured=await Promise.all(repeatedCandidates.slice(at,at+4).map(async item=>({item,...await measureDocs(item,true)})));
         for(const row of measured)if(Number.isFinite(row.documentCount)&&row.documentCount>0)keepRow(toRow(row.item,row.documentCount,row.measuredAt));
         if(measured.some(row=>!row.cached))await sleep(gapMs);
@@ -359,7 +371,7 @@ async function main() {
     }
     // 시즌 앞(피크가 다음 달·두 달 뒤) 비황금을 오름세 큰 순으로 먼저, 그다음 황금비 순
     others.sort(ranker.rowOrder);
-    const shown = selectRows([...golden,...others],history,keep,minRatio,undefined,ranker.rowOrder);
+    const shown = selectNicheFirst([...golden,...others],history,keep,minRatio,undefined,ranker.rowOrder);
     let bids = new Map();
     if (canBid && shown.length > 0) {
       try { bids = await getNaverSearchAdBidPairs(searchAd, shown.map((row) => row.keyword)); } catch (error) {
@@ -367,15 +379,16 @@ async function main() {
       }
     }
     const priced = (row) => ({ ...row, money: moneyBidOf(bids.get(bidKey(row.keyword))) });
-    // 황금 안에서는 돈 되는 순(입찰가 구간 → 입찰가 → 황금비). 못 잰 것끼리는 예전처럼 황금비 순이다.
-    const selected = selectRows(shown.map(priced),history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder);
+    // 등급(니치 → 고볼륨 저경쟁 → 일반 → 대형) 안에서 황금은 돈 되는 순(입찰가 구간 → 입찰가 → 황금비). 못 잰 것끼리는 예전처럼 황금비 순이다.
+    const selected = selectNicheFirst(shown.map(priced),history,keep,minRatio,orderGoldenByMoney,ranker.rowOrder);
     // 연관 황금 재료 = 이번 회차에 잰 황금 + 14일 재고 황금(그 주제) — 추가 호출 없음. 판에 실린 말은 연관에서 뺀다.
     const relatedPool = [...golden, ...inventoryGoldenRows(inventory, t, minRatio, Date.parse(startedAt)).map((r) => ({ ...r, ratio: Math.round((r.searchVolume / r.documentCount) * 100) / 100 }))];
     const rows = attachRelated(markUltra(selected, isGoldenSss), relatedPool, { minRatio, limit: 5, isUltra: isGoldenSss });
     const goldenCount=rows.filter(row=>row.ratio>=minRatio).length;
-    result.topics.push({ topic: t, candidates: cand.length, measured: golden.length + others.length, golden: goldenCount, priorGolden, expandedGolden: expanded, targetCount:keep, shortfall:keep-rows.length, rows });
+    result.topics.push({ topic: t, candidates: cand.length, measured: golden.length + others.length, golden: goldenCount, priorGolden, expandedGolden: expanded, targetCount:keep, shortfall:keep-rows.length, ...tierSummary(rows,keep,minRatio), rows });
     const repeated = rows.filter((r) => r.freshness.status === 'repeated').length;
-    console.log(`  ${t.padEnd(8)} 선측정 황금 ${String(priorGolden).padStart(2)} · 후보 ${String(cand.length).padStart(3)} · 연관 확장 황금 ${String(expanded).padStart(2)} → 황금 ${String(goldenCount).padStart(2)} + 채움 ${String(rows.length - goldenCount).padStart(2)}  (7일 신규 ${rows.length - repeated}/${rows.length} · 누적 호출 ${calls})`);
+    const tiers = tierSummary(rows, keep, minRatio);
+    console.log(`  ${t.padEnd(8)} 선측정 황금 ${String(priorGolden).padStart(2)} · 후보 ${String(cand.length).padStart(3)} · 연관 확장 황금 ${String(expanded).padStart(2)} → 황금 ${String(goldenCount).padStart(2)} + 채움 ${String(rows.length - goldenCount).padStart(2)}  (니치 ${tiers.nicheCount} · 고볼륨 저경쟁 ${tiers.midCount} · 모자람 ${tiers.nicheShortfall} · 7일 신규 ${rows.length - repeated}/${rows.length} · 누적 호출 ${calls})`);
     // Keep partial work separate: a failed run never replaces a previously good public payload.
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(`${outPath}.partial`, JSON.stringify(result, null, 1), 'utf8');

@@ -53,7 +53,8 @@ describe('오늘의 추천키워드', () => {
     expect(script).toContain('listedNamesFromSeeds(');
     expect(script).toContain('getNaverSearchAdBidPairs');
     // 2026-11-08: 여섯 번째 인자(ranker.rowOrder)는 채움 행 정렬 — 황금을 돈 되는 순으로 세우는 배선은 그대로
-    expect(script).toMatch(/selectRows\(shown\.map\(priced\),history,keep,minRatio,orderGoldenByMoney[,)]/);
+    // 2026-11-15: 같은 배선을 등급(니치 → 고볼륨 저경쟁 → 일반 → 대형) 안에서 쓴다 — selectNicheFirst 가 등급마다 selectRows 를 부른다
+    expect(script).toMatch(/selectNicheFirst\(shown\.map\(priced\),history,keep,minRatio,orderGoldenByMoney[,)]/);
   });
 
   it('워크플로가 뽑기 단계에 검색광고 키를 넘기고, 주제당 30개를 남긴다', () => {
