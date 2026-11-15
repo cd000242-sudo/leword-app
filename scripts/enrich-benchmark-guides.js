@@ -32,7 +32,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { serialize } = require('./homefeed-benchmarks-core.cjs');
+const { serialize, hasUnrelatedSources } = require('./homefeed-benchmarks-core.cjs');
+const { urlOwners, spansCards } = require('./homefeed-benchmarks-story.cjs');
 const { isRateLimitError, guideRunSummary } = require('./benchmark-run-summary.cjs');
 
 const GRACE_MS = 24 * 60 * 60 * 1000;
@@ -56,7 +57,10 @@ const iso = (ms) => new Date(ms).toISOString();
 const timeOf = (v) => { const t = Date.parse(String(v || '')); return Number.isFinite(t) ? t : NaN; };
 const byPriority = (a, b) => Number(Boolean(b.recommended)) - Number(Boolean(a.recommended)) || (b.priority || 0) - (a.priority || 0);
 
-/** 판에서 안내를 지을 카드 — 낡은(stale) · 협찬 소재는 뺀다. 원문 주소(urls)는 창고가 카드 id 가 바뀌어도 안내를 찾는 열쇠다. */
+/**
+ * 판에서 안내를 지을 카드 — 낡은(stale) · 협찬 소재는 뺀다. 원문 주소(urls)는 창고가 카드 id 가 바뀌어도 안내를 찾는 열쇠다.
+ * 대표 글과 낱말을 하나도 안 나누는 출처가 묶인 카드도 뺀다(2026-11-15 — 간수치 지방간 카드에 테슬라 리뷰가 묶여 안내가 테슬라 내용으로 지어졌다).
+ */
 function cardsForGuides(board) {
   const candidates = board && Array.isArray(board.candidates) ? board.candidates : [];
   const out = [];
@@ -64,7 +68,7 @@ function cardsForGuides(board) {
     const id = clean(row && row.id, 120);
     const keyword = clean(row && row.keyword, 80);
     const flags = Array.isArray(row && row.flags) ? row.flags.map(String) : [];
-    if (!id || !keyword || row.status === 'stale' || flags.includes('sponsored')) continue;
+    if (!id || !keyword || row.status === 'stale' || flags.includes('sponsored') || hasUnrelatedSources(row)) continue;
     const sources = Array.isArray(row.sources) ? row.sources : [];
     out.push({
       id, keyword,
@@ -85,12 +89,13 @@ function cardsForGuides(board) {
 
 const validGuide = (g) => g && typeof g.id === 'string' && g.guide && typeof g.guide.direction === 'string' && g.guide.direction && Number.isFinite(timeOf(g.at));
 
-/** 지금 판 카드와 맞거나(id · 원문 주소) 24시간 안에 지은 안내만, 통과 못 한 기록은 12시간 안의 것만 남긴다. */
+/** 지금 판 카드와 맞거나(id · 원문 주소) 24시간 안에 지은 안내만, 통과 못 한 기록은 12시간 안의 것만 남긴다. 옛 묶음이 갈라진 안내(원문 주소가 카드 둘 이상에 흩어진 것)는 버린다. */
 function pruneStore(store, board, nowMs) {
   const candidates = board && Array.isArray(board.candidates) ? board.candidates : [];
   const ids = new Set(candidates.map((c) => c && c.id).filter(Boolean));
   const urls = new Set(candidates.flatMap((c) => (Array.isArray(c && c.sources) ? c.sources : []).map((s) => s && s.url).filter(Boolean)));
-  const guides = (Array.isArray(store && store.guides) ? store.guides : []).filter(validGuide)
+  const owners = urlOwners(candidates);
+  const guides = (Array.isArray(store && store.guides) ? store.guides : []).filter(validGuide).filter((g) => !spansCards(g.urls, owners))
     .filter((g) => ids.has(g.id) || (Array.isArray(g.urls) && g.urls.some((u) => urls.has(u))) || timeOf(g.at) > nowMs - GRACE_MS);
   const misses = (Array.isArray(store && store.misses) ? store.misses : [])
     .filter((m) => m && typeof m.id === 'string' && timeOf(m.at) > nowMs - MISS_RETRY_MS);

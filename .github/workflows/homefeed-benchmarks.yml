@@ -34,7 +34,7 @@ jobs:
           done
           exit 1
       - name: Test benchmark evidence rules
-        run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmarks-trends.test.cjs scripts/homefeed-benchmark-ledger.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs scripts/enrich-benchmark-titles.test.cjs scripts/homefeed-instagram.test.cjs
+        run: node --test scripts/homefeed-benchmarks.test.cjs scripts/homefeed-benchmarks-trends.test.cjs scripts/homefeed-benchmark-ledger.test.cjs scripts/homefeed-benchmarks-editorial.test.cjs scripts/homefeed-benchmarks-story.test.cjs scripts/homefeed-benchmarks-category.test.cjs scripts/enrich-benchmark-titles.test.cjs scripts/homefeed-instagram.test.cjs
       - name: Checkout website
         uses: actions/checkout@v4
         with:

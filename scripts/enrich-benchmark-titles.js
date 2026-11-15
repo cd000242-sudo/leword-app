@@ -58,7 +58,8 @@ function flag(name) { return process.argv.includes(`--${name}`); }
 
 function readJson(file) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } }
 // 판과 같은 파일 규격(인라인 안전 이스케이프)을 쓰려고 수집기 코어의 serialize 를 그대로 쓴다.
-const { serialize } = require('./homefeed-benchmarks-core.cjs');
+const { serialize, hasUnrelatedSources } = require('./homefeed-benchmarks-core.cjs');
+const { urlOwners, spansCards } = require('./homefeed-benchmarks-story.cjs');
 function atomicWrite(file, value) {
   const resolved = path.resolve(file); fs.mkdirSync(path.dirname(resolved), { recursive: true });
   const temp = `${resolved}.${process.pid}.tmp`;
@@ -103,6 +104,18 @@ function rankTop(cards, top) {
  */
 function planTitleRound(cards, kept, misses, { top = 0, max, nowMs = Date.now() }) {
   return pickTitleTargets(openTitleCards(rankTop(cards, top), kept, misses, nowMs), kept, max);
+}
+
+/** 대표 글과 낱말을 하나도 안 나누는 출처가 묶인 카드는 제목을 짓지 않는다(2026-11-15). 원본 판은 건드리지 않고 거른 사본을 돌려준다. */
+function dropMixedCards(board) {
+  const list = board && Array.isArray(board.candidates) ? board.candidates : [];
+  return { ...board, candidates: list.filter((card) => !hasUnrelatedSources(card)) };
+}
+
+/** 덮는 원문 주소가 지금 판의 카드 둘 이상에 흩어진 항목(옛 묶음에 엉뚱한 출처가 섞였을 때 지은 제목)은 버린다 — 해당 카드는 다시 짓는다. */
+function dropMisfitEntries(entries, board) {
+  const owners = urlOwners(board && board.candidates);
+  return entries.filter((e) => !spansCards(e.urls, owners));
 }
 
 /** 새로 지은 항목이 같은 id 의 옛 항목을 대체한다. */
@@ -196,7 +209,7 @@ async function generate(board, kept, misses, max, concurrency, budgetMs, top = 0
   const { cardsFromBenchmarks, titlesForCards, BENCHMARK_TITLE_BATCH } = require('../src/utils/benchmark-title-engine');
   // 원문 주소 · 추천 · 우선순위는 판 카드에서 — 창고가 카드 id 가 바뀌어도 제목을 찾는 열쇠 · 고르는 순서
   const rows = new Map((board.candidates || []).map((c) => [c.id, c]));
-  const withMeta = cardsFromBenchmarks(board).map((c) => {
+  const withMeta = cardsFromBenchmarks(dropMixedCards(board)).map((c) => {
     const row = rows.get(c.id) || {};
     return { ...c, urls: [...new Set((row.sources || []).map((src) => String((src && src.url) || '')).filter(Boolean))], recommended: row.recommended === true, priority: Number(row.priority) || 0 };
   });
@@ -227,7 +240,7 @@ async function main() {
   const attachOnly = flag('attach-only');
   const storeOnly = flag('store-only');
   const nowMs = Date.now();
-  const kept = attachOnly ? freshEntries(store) : pruneEntries(freshEntries(store), board, nowMs);
+  const kept = dropMisfitEntries(attachOnly ? freshEntries(store) : pruneEntries(freshEntries(store), board, nowMs), board);
   const keptMisses = (Array.isArray(store.misses) ? store.misses : []).filter((m) => m && typeof m.id === 'string' && Date.parse(m.at) > nowMs - MISS_RETRY_MS);
 
   let made = [];
@@ -256,7 +269,7 @@ async function main() {
   if (summaryPath) { fs.mkdirSync(path.dirname(path.resolve(summaryPath)), { recursive: true }); fs.writeFileSync(summaryPath, JSON.stringify(runSummary({ asked, made: made.length })) + '\n', 'utf8'); }
 }
 
-module.exports = { attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, pruneEntries, openTitleCards, rankTop, planTitleRound, runSummary, TITLE_RULES, TITLE_TTL_MS, GRACE_MS, MISS_RETRY_MS };
+module.exports = { dropMixedCards, dropMisfitEntries, attachTitles, freshEntries, generateTitles, mergeEntries, pickTitleTargets, pruneEntries, openTitleCards, rankTop, planTitleRound, runSummary, TITLE_RULES, TITLE_TTL_MS, GRACE_MS, MISS_RETRY_MS };
 
 if (require.main === module) {
   main().catch((error) => { console.error('벤치마크 제목 창고 실패:', error); process.exit(1); });

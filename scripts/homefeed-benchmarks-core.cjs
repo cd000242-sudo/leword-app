@@ -141,58 +141,9 @@ function groupTokens(title) {
     .map((t) => (t.length >= 3 && PARTICLE.test(t) ? t.replace(PARTICLE, '') : t))
     .filter((t) => t.length >= 2 && !/^\d+$/.test(t) && !/^[a-z0-9_.]{6,}$/.test(t) && !GROUP_STOP.test(t)))];
 }
-/*
- * 일반어 — 겹쳐도 같은 소재라는 근거가 못 되는 말(2026-10-01, 출처 188곳 첫 실수집의 오묶음에서 뽑았다:
- * '그랜저'+'정신', '얼굴' 하나로 다른 글이 한 카드가 됐다). 나이 · 순위 · 금액 같은 숫자 단위 말도 일반어다.
- */
-const GENERIC = new Set(['패션', '스타일', '코디', '얼굴', '몸매', '미모', '비주얼', '연예인', '배우', '여배우', '남배우', '아이돌', '가수', '스타', '셀럽', '화보', '공항', '공항패션', '반전', '레전드', '충격', '대박', '난리', '정체', '방법', '후기', '정보', '추천', '비교', '가격', '신차', '출시', '발표', '사람들', '남자들', '여자들', '여자', '남자', '정신', '모습', '포인트', '느낌', '분위기', '매력', '인기', '순위', '역대', '최고', '최초', '완전', '하는', '되는', '있는', '없는', '보니', '같은', '이유가', '누구', '앞두고', '달라진', '몰라보게', '되더니', '했더니', '결혼', '명품', '가방', '명품백', '신상', '할인', '일정', '이벤트']);
-const isGeneric = (token) => GENERIC.has(token) || /^\d{1,2}(대|세|살)$/.test(token) || /^\d+(위|명|개|원|만원|천만원|억|억원|km|%)$/.test(token);
-/**
- * 겹친 말(단위) — 같은 말이면 그 말, 포함 관계('디올원영' ⊃ '원영')면 짧은 쪽이 단위다. 단위는 한 번만 센다:
- * '얼굴' 하나가 '얼굴경락' · '작은얼굴관리' 둘에 들어가도 1 이다(예전엔 2로 셌다). 포함 관계는 숫자 없는 말끼리만.
- */
-function sharedUnits(a, b) {
-  const contains = (t, u) => !/\d/.test(t) && !/\d/.test(u) && t.length >= 2 && u.length >= 2 && (t.includes(u) || u.includes(t));
-  const units = new Set();
-  for (const t of a) for (const u of b) {
-    if (t === u) units.add(t);
-    else if (contains(t, u)) units.add(t.length <= u.length ? t : u);
-  }
-  return [...units];
-}
-function sameStory(a, b) {
-  const units = sharedUnits(a, b);
-  const specific = units.filter((u) => !isGeneric(u)).length;
-  const ratio = units.length / Math.min(a.length, b.length);
-  // 구체어(사람 · 제품 · 작품 이름 등)가 둘 이상 겹치고, 겹친 말이 짧은 쪽의 절반 이상일 때만(0.25 로 풀었더니 188곳에서 거의 전부 묶였다).
-  return specific >= 2 && ratio >= 0.5;
-}
-/**
- * 분야(2026-10-01 사장님 "자동차 IT 는 안 보여") — 제목 단서가 먼저, 없으면 출처 블로그 주제(운영자가 목록에 적은 구역)의 다수결,
- * 그것도 없으면 사회·이슈. 예전엔 제목 단서만 봐서 자동차 · IT 분야가 아예 없었고 판 300장 중 225장이 사회·이슈였다.
- * 규칙은 사이트 homefeedLive.mjs 와 같아야 한다(같은 사례를 양쪽 테스트가 잠갔다).
- */
-const TOPIC_CATEGORY = { 'IT/차테크': '자동차·IT', 'IT·컴퓨터': '자동차·IT', '자동차': '자동차·IT', '재테크 라이프': '생활경제·주거', '비즈니스·경제': '생활경제·주거', '연예인 패션': '패션·뷰티', '패션·미용': '패션·뷰티', '미용·패션': '패션·뷰티', '방송 이슈': '문화·연예', '방송': '문화·연예', '드라마': '문화·연예', '스타·연예인': '문화·연예', '스포츠': '스포츠·게임', '건강 상식': '건강', '건강·의학': '건강', '리빙 라이프': '여행·생활', '인테리어·DIY': '여행·생활', '요리·레시피': '여행·생활', '맛집': '여행·생활', '육아·결혼': '여행·생활' };
-const CATEGORY_PATTERNS = [
-  ['생활경제·주거', /전세|주택|아파트|대출|지원금|연금|세금|청약|금리|부동산|소상공인|보조금|저축/],
-  ['자동차·IT', /자동차|신차|전기차|하이브리드|SUV|세단|차량|운전|주차|과태료|벌점|깜빡이|타이어|연비|현대차|기아(?!\s*타이거즈)|제네시스|테슬라|벤츠|BMW|아우디|그랜저|쏘렌토|카니발|아이오닉|스마트폰|아이폰|갤럭시|노트북|태블릿|인공지능|챗GPT|요금제|통신사/],
-  ['건강', /건강|다이어트|위고비|비만|혈압|혈당|당뇨|콜레스테롤|영양제|비타민|검진|위암|유방암|폐암|갑상선|두통|불면/],
-  ['패션·뷰티', /패션|코디|착장|가방|샤넬|데님|세럼|화장품|여행룩/],
-  ['여행·생활', /여행|숙소|호텔|런던|공항|맛집|날씨|교통/],
-  ['스포츠·게임', /야구|축구|선수|아시안게임|올림픽|게임|메달|홈런|손흥민|이강인|김민재|A매치|월드컵|국가대표|K리그|EPL|프리킥|득점|결승골|선제골|\d+호골|골프|농구|배구/],
-  ['문화·연예', /배우|가수|아이돌|방송|드라마|영화|콘서트|아이브|카즈하|고윤정|카리나|트로트/],
-];
-function category(title, topics = [], summary = '') {
-  for (const [name, pattern] of CATEGORY_PATTERNS) if (pattern.test(title)) return name;
-  // 제목에 없으면 요약에서(2026-10-08) — 요약이 있는데 단서가 없으면 블로그 주제를 믿지 않는다(여러 주제를 쓰는 블로그: 차범근 · 부캉이 · 마케팅 글이 IT/차테크로 갔다)
-  for (const [name, pattern] of CATEGORY_PATTERNS) if (pattern.test(String(summary || ''))) return name;
-  if (String(summary || '').trim()) return '사회·이슈';
-  const counts = new Map();
-  for (const topic of topics) { const name = TOPIC_CATEGORY[topic]; if (name) counts.set(name, (counts.get(name) || 0) + 1); }
-  let best = null;
-  for (const [name, n] of counts) if (!best || n > best[1]) best = [name, n];
-  return best ? best[0] : '사회·이슈';
-}
+// 낱말 비교 규칙(일반어 · 말투 낱말 · 같은 소재 판정 · 대표 글과 안 겹치는 출처 떼기)과 분야는 따로 둔다(2026-11-15).
+const { isGeneric, sharedUnits, sameStory, splitUnrelated, hasUnrelated, TEMPLATE_WORDS } = require('./homefeed-benchmarks-story.cjs');
+const { category } = require('./homefeed-benchmarks-category.cjs');
 function flagsFor(post, now) {
   const text = `${post.title} ${post.summary}`; const flags = [];
   if (/무상.{0,12}제공|제공.{0,8}받|협찬|소정의.{0,6}수수료|유료광고|원고료/.test(text)) flags.push('sponsored');
@@ -242,6 +193,28 @@ function groupPosts(posts) {
   }
   return groups;
 }
+// 카드 대표 글 순서 — 요약 있는 글이 먼저, 그다음 최근 글. 묶음을 가를 때도 같은 순서로 대표를 고른다.
+const byLead = (a, b) => Number(Boolean(b.summary))-Number(Boolean(a.summary)) || (Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0);
+const storyOpts = { termsOf: (p) => groupTokens(p.title), keyOf: (p) => normalized(p.title), byLead };
+/*
+ * 묶음 가르기(2026-11-15) — 묶기는 묶음의 첫 글과만 견줘서, 대표 글(요약 있는 최신 글)과는 낱말을 하나도 안 나누는 글이 같은 카드에 실렸다
+ * (간수치 지방간 카드의 테슬라 선쉐이드 리뷰). 대표 글과 고유어를 하나도 안 나누는 글은 떼어 내 자기 카드로 두고, 떨어진 글끼리는 다시 가른다.
+ */
+function splitGroups(groups) {
+  return groups.flatMap((group) => {
+    if (group.posts.length < 2) return [group];
+    const parts = splitUnrelated(group.posts, storyOpts);
+    if (parts.length === 1) return [group];
+    return parts.map((list) => ({ posts: list, terms: groupTokens(list[0].title), urls: new Set(list.map((p) => p.url)), norms: new Map(list.map((p) => [p, normalized(p.title)])) }));
+  });
+}
+/** 카드에 대표 글과 의미 있는 낱말을 하나도 안 나누는 출처가 있는가 — 안내 · 제목을 짓기 전에 엉뚱한 묶음을 거른다. */
+function hasUnrelatedSources(card) {
+  const sources = Array.isArray(card && card.sources) ? card.sources.filter((s) => s && typeof s.title === 'string') : [];
+  if (sources.length < 2) return false;
+  const lead = sources.find((s) => s.title === card.title) || sources[0];
+  return hasUnrelated(sources, lead, storyOpts);
+}
 /*
  * 홈판 상위 이력(2026-10-27 실측) — 어드바이저 홈판 상위 381편 × 판 원문 28,574편 대조에서 가장 강한 신호.
  * 블로그별 상위 횟수(data/homefeed-top-blogs.json)를 받아, 추천은 "출처 블로그 상위 이력 1회+ 또는 공감 10+" 를 더 요구한다.
@@ -266,7 +239,7 @@ function privatePersonRisk(post) {
  * 묶기보다 느슨한 비교라 '입고 · 줄거리 · 드레스' 같은 말은 따로 뺐다 — 10/27 판 추천 329장 모의에서 이 말들로 다른 소재가 엮였다.
  */
 const SAME_STORY_CAP = 3;
-const CAP_STOP = new Set(['입고', '입은', '맞아', '이미', '나온', '찍은', '똑같', '똑같은', '남긴', '꺼낸', '드레스', '원피스', '가을', '겨울', '총정리', '줄거리', '결말', '해석', '결말해석', '출연진', '등장인물', '드라마', '영화', '리뷰', '등장', '다들', '너무', '이게', '대신', '마음', '사람', '엄마', '팬들', '평점', '원작', '재방송', '예고', '시청률', '근황', '사복', '사복패션', '주가', '전망']);
+const CAP_STOP = TEMPLATE_WORDS;
 const storyKeys = (title) => groupTokens(title).map((t) => (/^(나솔|나는솔|나는솔로|나는solo)$/.test(t) ? '나는솔로' : t)).filter((t) => !CAP_STOP.has(t));
 function capSameStory(cards) {
   const kept = [];
@@ -282,12 +255,12 @@ const byBoardOrder = (a, b) => Number(b.recommended)-Number(a.recommended) || b.
 function buildCandidates(posts, now, previousPosts = [], topBlogs = new Map()) {
   const measured = topBlogs instanceof Map && topBlogs.size > 0;
   const topsOf = (p) => (measured ? topBlogs.get(blogIdOf(p.url)) || 0 : 0);
-  const groups = groupPosts(posts);
+  const groups = splitGroups(groupPosts(posts));
   // 이전 관측은 주소로 찾는다(같은 주소가 여럿이면 먼저 것 — 예전 find 와 같다).
   const prevByUrl = new Map(); for (const prev of previousPosts) if (prev && prev.url && !prevByUrl.has(prev.url)) prevByUrl.set(prev.url, prev);
   // A community headline alone is a discovery signal, not an adequately sourced writing brief.
   const ordered = groups.filter(group=>group.posts.some(p=>p.platform!=='community-ranking' && p.summary)).map(group => {
-    const sorted = [...group.posts].sort((a,b) => Number(Boolean(b.summary))-Number(Boolean(a.summary)) || (Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0)); const lead = sorted[0];
+    const sorted = [...group.posts].sort(byLead); const lead = sorted[0];
     const flags = [...new Set(sorted.flatMap(p=>flagsFor(p,now)))];
     if (sorted.length>1 && sorted.some((p,i)=> sorted.slice(i+1).some(q=>group.norms.get(p)===group.norms.get(q)))) flags.push('possible-syndication');
     if (privatePersonRisk(lead)) flags.push('private-person');
@@ -358,4 +331,4 @@ function buildPayload(results, now, previous, previousPosts=[], topBlogs=new Map
   const { buildTrends } = require('./homefeed-benchmarks-trends.cjs');
   return { ...base, generatedAt:posts.length?now:null, status:posts.length?(sources.every(s=>s.status==='ok')?'fresh':'partial'):'stale', collectedPostCount:posts.length, candidates, trends:buildTrends(posts,candidates,now,category), ...(topBlogs instanceof Map && topBlogs.size ? { homefeedTopBlogs:Object.fromEntries(topBlogs) } : {}) };
 }
-module.exports = { category, assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, likeContentsId, parseLikes, buildCandidates, buildPayload };
+module.exports = { category, assertFetchUrl, safeLink, fetchText, plainText, serialize, validDate, parseRss, parseYoutube, parseCommunity, parseNate, parseInstagram, reactionGrowth, likeContentsId, parseLikes, buildCandidates, buildPayload, hasUnrelatedSources };
