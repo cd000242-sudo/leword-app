@@ -20,7 +20,8 @@ const {
   roundSlotOf, scheduledRound, roundCounts, todaysRounds, recentRounds, isSameRound, pruneBriefShelf, rotateFieldsByRound,
   excludeListOf, dropRepeats, carrySeats, pickRelatedKeywords, chooseAlternative,
 } = require('../src/utils/topic-briefs');
-const { naverApiFetch } = require('../src/utils/naver-api-hub');
+const { naverApiFetch, isApiHubConfigured } = require('../src/utils/naver-api-hub');
+const { createNewsFetcher } = require('./topic-briefs-news.cjs');
 const { EnvironmentManager } = require('../src/utils/environment-manager');
 const { createDefaultAgentChain } = require('../src/utils/agent-cli/defaultChain');
 const { runWithAnyAgent, AllAgentsFailedError } = require('../src/utils/agent-cli/runAny');
@@ -137,16 +138,15 @@ async function main() {
   const olderRounds = shelfRounds.filter((r) => !isSameRound(r, { day, slot }));
   console.log(`오늘의 글감 — ${day} ${slot} 회차 · 분야 ${BRIEF_FIELDS.length} · 분야당 ${perField}개+ · 자리 실측 ${serpMode} · 오늘 앞 회차 ${priorRounds.length}(${priorRounds.map((r) => r.slot).join('·') || '없음'}) · ${SHELF_DAYS}일 창고 ${olderRounds.length}회차 ${olderRounds.reduce((s, r) => s + r.briefs.length, 0)}건`);
 
-  // 1) 사실 카드
-  const newsItems = async (query) => {
-    const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(query)}&display=50&sort=date`;
-    try {
-      const res = await naverApiFetch(url, { headers: { 'X-Naver-Client-Id': openApi.clientId, 'X-Naver-Client-Secret': openApi.clientSecret } });
-      if (!res.ok) return [];
-      const data = await res.json().catch(() => null);
-      return (data && data.items) || [];
-    } catch { return []; }
-  };
+  // 1) 사실 카드 — 수집기가 호출 실패의 상태·본문을 기록에 남긴다(2026-11-15: 예전엔 조용히 [] 로 삼켜 사유를 알 수 없었다).
+  const hubOn = typeof isApiHubConfigured === 'function' && isApiHubConfigured();
+  console.log(`  뉴스 경로: ${hubOn ? 'API HUB 키 있음 → HUB 우선(401·403·404 이면 옛 키로 복귀)' : '옛 오픈 API 키'}`);
+  const news = createNewsFetcher({
+    fetchFn: naverApiFetch,
+    headers: { 'X-Naver-Client-Id': openApi.clientId, 'X-Naver-Client-Secret': openApi.clientSecret },
+    sleep,
+    log: (line) => console.log(line),
+  });
   const fieldFacts = new Map();
   let newsCalls = 0;
   // 분야 순서를 회차마다 돌린다 — 발굴 시간 한도에 걸리면 뒤 분야가 잘리는데, 늘 같은 분야가 잘리면 창고에서도 영영 안 찬다.
@@ -155,15 +155,25 @@ async function main() {
   for (const { field, queries } of selectedFields) {
     const seen = new Set();
     const cards = [];
+    const failedBefore = news.failedCalls();
+    let made = 0;
     for (const q of queries) {
-      const items = await newsItems(q);
-      newsCalls += 1;
+      if (news.blocked()) break; // 한도·인증 오류면 남은 질의를 내보내지 않는다
+      const items = await news.newsItems(q);
+      newsCalls += 1; made += 1;
       cards.push(...toFactCards(items, field, seen));
       await sleep(120);
     }
     const picked = pickFactsForPrompt(cards, today, 48);
     fieldFacts.set(field, picked);
-    console.log(`  ${field.padEnd(14)} 기사 ${String(cards.length).padStart(3)} → 근거 카드 ${String(picked.length).padStart(2)}`);
+    const failedHere = news.failedCalls() - failedBefore;
+    const notes = `${failedHere > 0 ? ` · 실패 ${failedHere}콜` : ''}${made < queries.length ? ` · 건너뜀 ${queries.length - made}콜` : ''}`;
+    console.log(`  ${field.padEnd(14)} 기사 ${String(cards.length).padStart(3)} → 근거 카드 ${String(picked.length).padStart(2)}${notes}`);
+  }
+  console.log(news.summaryLine());
+  // 근거 카드가 한 장도 없으면 에이전트 단계로 가 봐야 "확보된 근거가 없습니다" 만 되풀이한다 — 여기서 사유와 함께 끝낸다.
+  if ([...fieldFacts.values()].every((picked) => picked.length === 0)) {
+    throw new Error(`게시할 글감이 0건입니다. 기존 게시본을 유지하고 회차를 실패 처리합니다. 근거 카드가 한 장도 없습니다 — ${news.diagnosis() || '뉴스 호출은 정상이었으나 근거 카드로 쓸 기사가 없습니다.'}`);
   }
 
   // 2) 에이전트 — 카드 안에서만 글감
@@ -196,7 +206,7 @@ async function main() {
   all.push(...generated.briefs); droppedAll.push(...generated.dropped);
 
   if (all.length === 0) {
-    throw new Error(`게시할 글감이 0건입니다. 기존 게시본을 유지하고 회차를 실패 처리합니다. ${agentFailures.join(' → ') || '근거 부족 또는 검증·중복 제거 후 후보 없음'}`);
+    throw new Error(`게시할 글감이 0건입니다. 기존 게시본을 유지하고 회차를 실패 처리합니다. ${agentFailures.join(' → ') || news.diagnosis() || '근거 부족 또는 검증·중복 제거 후 후보 없음'}`);
   }
 
   // 3) 글감이 정한 핵심 검색어의 검색량을 측정한다. 큰 검색량으로 질문을 바꾸지 않는다.

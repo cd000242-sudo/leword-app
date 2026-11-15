@@ -10,6 +10,9 @@ import { requireJsonArray } from '../agent-cli/replyValidators';
 import * as inventory from '../../main/topic-brief-inventory';
 import { buildTopicBriefPolicy } from '../topic-brief-policy';
 
+// 뉴스 수집기(2026-11-15) — 스크립트가 vm 안에서 허용된 require 만 쓰므로 실제 모듈을 그대로 넘긴다.
+const newsFetcherModule = require('../../../scripts/topic-briefs-news.cjs');
+
 const DAY = new Date('2026-09-13T06:00:00.000Z');
 const draft = { title: '가을 건강 관리 준비할 사항', timing: 'NOW', coreKeyword: '가을 건강', keywords: ['가을 건강'], factIds: ['f1'], value: '가을 건강 관리 안내', primaryIntent: '건강 관리', types: ['가이드형'] };
 const facts = ['f1', 'f2'].map((id) => ({ id, field: '건강', title: '가을 건강 관리 안내', snippet: '', press: 'example.test', link: `https://example.test/${id}`, publishedAt: '2026-09-12T00:00:00.000Z', dates: [] }));
@@ -38,6 +41,7 @@ async function runScript(options: { previousCount?: number; fail?: boolean; noFa
     path,
     '../src/utils/topic-briefs': { ...briefs, kstToday: (date?: Date) => date ? briefs.kstToday(date) : DAY, BRIEF_FIELDS: [{ field: '건강', queries: ['건강'] }], toFactCards: () => options.noFacts ? [] : facts },
     '../src/utils/naver-api-hub': { naverApiFetch: news },
+    './topic-briefs-news.cjs': newsFetcherModule,
     '../src/utils/environment-manager': { EnvironmentManager: { getInstance: () => ({ getConfig: () => ({ naverClientId: 'fixture-id', naverClientSecret: 'fixture-secret' }) }) } },
     '../src/utils/agent-cli/defaultChain': { createDefaultAgentChain: createChain },
     '../src/utils/agent-cli/runAny': { runWithAnyAgent, AllAgentsFailedError },
