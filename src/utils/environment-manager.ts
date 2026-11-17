@@ -3,6 +3,7 @@
  */
 
 import * as path from 'path';
+import { parseApiHubKeyPool, sanitizeApiHubKeyPool } from './naver-api-hub-pool';
 import * as fs from 'fs';
 
 export interface EnvConfig {
@@ -33,6 +34,7 @@ export interface EnvConfig {
   naverApiHubKeyId?: string;   // X-NCP-APIGW-API-KEY-ID
   naverApiHubKey?: string;     // X-NCP-APIGW-API-KEY
   naverApiHubBase?: string;    // probeApiHub 실측으로 잠근 게이트웨이 URL
+  naverApiHubKeyPool?: Array<{ keyId: string; key: string; label?: string }>; // 다른 계정 키 (2번째부터)
   // 앱 ↔ 사이트 키 한 몸(2026-10-07) — API 키 칸(api-key-sync.API_KEY_FIELD_MAP)이 마지막으로 바뀐 시각. 충돌은 마지막 저장이 이긴다.
   apiKeysSavedAt?: string;
   // Bright Data(2026-10-06 설계실 3차) — 글 한 편 유입 설계실 '커뮤니티까지'에만 쓴다(유료).
@@ -276,6 +278,7 @@ export class EnvironmentManager {
         naverApiHubKeyId: envFileConfig['NAVER_APIHUB_KEY_ID'] || process.env['NAVER_APIHUB_KEY_ID'] || '',
         naverApiHubKey: envFileConfig['NAVER_APIHUB_KEY'] || process.env['NAVER_APIHUB_KEY'] || '',
         naverApiHubBase: envFileConfig['NAVER_APIHUB_BASE'] || process.env['NAVER_APIHUB_BASE'] || '',
+        naverApiHubKeyPool: sanitizeApiHubKeyPool(parseApiHubKeyPool(envFileConfig['NAVER_APIHUB_KEY_POOL'] || process.env['NAVER_APIHUB_KEY_POOL'] || '')),
         naverSearchAdAccessLicense: envFileConfig['NAVER_SEARCH_AD_ACCESS_LICENSE'] || envFileConfig['naverSearchAdAccessLicense'] || envFileConfig['naver_search_ad_access_license'] ||
           process.env['NAVER_SEARCH_AD_ACCESS_LICENSE'] || process.env['naverSearchAdAccessLicense'] || process.env['naver_search_ad_access_license'] || '',
         naverSearchAdSecretKey: envFileConfig['NAVER_SEARCH_AD_SECRET_KEY'] || envFileConfig['naverSearchAdSecretKey'] || envFileConfig['naver_search_ad_secret_key'] ||

@@ -9,7 +9,9 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { isApiHubConfigured, naverApiFetch } from './naver-api-hub';
+import { isApiHubConfigured, isApiHubResponse, naverApiFetch } from './naver-api-hub';
+import { ApiHubQuotaExhaustedError } from './naver-api-hub-pool';
+import { normalizeCredentialPart, parseJsonOrPairPool, splitCredentialPool } from './credential-pool-parse';
 
 const NAVER_BLOG_OPENAPI_RATE_LIMIT_BACKOFF_MS = 2_500;
 const NAVER_BLOG_OPENAPI_MIN_REQUEST_INTERVAL_MS = 250;
@@ -180,51 +182,6 @@ export function getNaverBlogOpenApiCredentials(
     });
   }
   return out;
-}
-
-function normalizeCredentialPart(value: unknown): string {
-  return String(value || '').trim();
-}
-
-function splitCredentialPool(value: string): string[] {
-  return String(value || '')
-    .split(/[\n;,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function parseJsonOrPairPool(value: string): NaverBlogOpenApiCredential[] {
-  const raw = String(value || '').trim();
-  if (!raw) return [];
-  if (raw.startsWith('[') || raw.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(raw);
-      const rows = Array.isArray(parsed)
-        ? parsed
-        : Array.isArray(parsed.keys)
-          ? parsed.keys
-          : Array.isArray(parsed.credentials)
-            ? parsed.credentials
-            : [];
-      return rows.map((item: any, index: number) => ({
-        clientId: normalizeCredentialPart(item?.clientId || item?.id || item?.NAVER_CLIENT_ID),
-        clientSecret: normalizeCredentialPart(item?.clientSecret || item?.secret || item?.NAVER_CLIENT_SECRET),
-        label: normalizeCredentialPart(item?.label || item?.name) || `pool-${index + 1}`,
-      }));
-    } catch {
-      // Fall through to compact pair parsing.
-    }
-  }
-
-  return splitCredentialPool(raw).map((item, index) => {
-    const separator = item.includes('|') ? '|' : ':';
-    const [clientId, ...secretParts] = item.split(separator);
-    return {
-      clientId: normalizeCredentialPart(clientId),
-      clientSecret: normalizeCredentialPart(secretParts.join(separator)),
-      label: `pool-${index + 1}`,
-    };
-  });
 }
 
 function zipCredentialPool(
@@ -889,7 +846,11 @@ async function fetchNaverBlogDocumentCount(
         const errorText = await response.text();
         console.error(`[NAVER-BLOG-API] ❌ API 호출 실패 (${response.status})`);
         console.error(`[NAVER-BLOG-API] 오류 내용: ${errorText}`);
-        if (response.status === 429 && isNaverBlogOpenApiRateLimitedText(errorText)) {
+        if (isApiHubResponse(response)) {
+          // A HUB reply says nothing about the legacy OpenAPI key. A daily-limit 429 is already
+          // recorded per HUB key by naverApiFetch; any other HUB 429 is a short rate-limit backoff.
+          if (response.status === 429) markNaverBlogOpenApiRateLimited();
+        } else if (response.status === 429 && isNaverBlogOpenApiRateLimitedText(errorText)) {
           markNaverBlogOpenApiRateLimited();
         } else if (response.status === 429 || isNaverBlogOpenApiQuotaExceededText(errorText)) {
           markNaverBlogOpenApiQuotaBlocked(activeCredential);
@@ -911,6 +872,10 @@ async function fetchNaverBlogDocumentCount(
     });
     
   } catch (error) {
+    if (error instanceof ApiHubQuotaExhaustedError) {
+      // Already reported once with the one-sentence message; no stack trace per keyword.
+      return null;
+    }
     console.error('[NAVER-BLOG-API] ❌ 문서 수 조회 오류:', error);
     return null;
   } finally {

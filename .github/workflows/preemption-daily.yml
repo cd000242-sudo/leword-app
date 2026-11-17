@@ -44,6 +44,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: node scripts/preemption-daily-candidates.js --out=daily-candidates.json
       - name: 검색결과 재검증 (최대 100콜, 기존 월예산 안에서)
         env:
@@ -58,6 +59,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: node scripts/preemption-board-batch.js --in=daily-candidates.json --out=daily-board.json --targetPerTopic=50 --maxPerRun=100 --signals=daily-signals.json --withStructure
       - name: 검증 통과분만 발행 (0건이면 이전 보드 유지)
         env:
@@ -65,6 +67,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: node scripts/publish-preemption-board.js --in=daily-board.json --dest=site/spa/public/data/preemption-board.json --requireFreshRows --publicationMode=daily
       - name: 확정 탈락을 이전 추천에서도 내리기
         if: always()

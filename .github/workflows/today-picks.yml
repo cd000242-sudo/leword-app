@@ -145,6 +145,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: node scripts/build-seed-db.js --maxAgeDays=1
 
       # 시즌 씨앗의 검색량 이력(2026-11-08) — '최근 12일 오름세' 정렬의 재료. 창고는 현재 값만 갖고 있어서 날마다 한 점씩 쌓는다.
@@ -177,6 +178,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
           NAVER_SEARCH_AD_ACCESS_LICENSE: ${{ secrets.NAVER_SEARCH_AD_ACCESS_LICENSE }}
           NAVER_SEARCH_AD_SECRET_KEY: ${{ secrets.NAVER_SEARCH_AD_SECRET_KEY }}
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
@@ -229,6 +231,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: node scripts/today-picks-sweep.js --warehouse=data/seed-db.json --inventory=.today-picks-inventory/inventory.json --calls=2500
 
       - name: 황금 재고 저장

@@ -13,6 +13,18 @@
  */
 
 import { EnvironmentManager } from './environment-manager';
+import {
+  ApiHubKey,
+  ApiHubKeyConfigSource,
+  collectApiHubKeys,
+  isApiHubKeyQuotaBlocked,
+  isApiHubKeyUsable,
+  isApiHubDailyQuotaResponse,
+  markApiHubKeyInvalid,
+  markApiHubKeyQuotaBlocked,
+  raiseApiHubQuotaExhausted,
+  resetApiHubPoolSessionState,
+} from './naver-api-hub-pool';
 
 /** 실측으로 확인될 때까지의 게이트웨이 후보 — probe 가 순서대로 시험한다 */
 export const API_HUB_BASE_CANDIDATES = [
@@ -26,13 +38,22 @@ export interface ApiHubCredentials {
   base: string; // probe 로 잠근 게이트웨이 (미확정이면 후보 1순위)
 }
 
-export function getApiHubCredentials(): ApiHubCredentials | null {
+/** All usable-by-configuration HUB keys in order: existing fields first, then the extra-account pool. */
+export function getApiHubKeys(): ApiHubKey[] {
   const config = EnvironmentManager.getInstance().getConfig();
-  const keyId = config.naverApiHubKeyId || process.env['NAVER_APIHUB_KEY_ID'] || '';
-  const key = config.naverApiHubKey || process.env['NAVER_APIHUB_KEY'] || '';
-  if (!keyId.trim() || !key.trim()) return null;
-  const base = config.naverApiHubBase || process.env['NAVER_APIHUB_BASE'] || API_HUB_BASE_CANDIDATES[0];
-  return { keyId: keyId.trim(), key: key.trim(), base };
+  return collectApiHubKeys(config as ApiHubKeyConfigSource);
+}
+
+function getApiHubBase(): string {
+  const config = EnvironmentManager.getInstance().getConfig();
+  return config.naverApiHubBase || process.env['NAVER_APIHUB_BASE'] || API_HUB_BASE_CANDIDATES[0];
+}
+
+/** First configured key (kept for callers that only need "is HUB set up"). */
+export function getApiHubCredentials(): ApiHubCredentials | null {
+  const first = getApiHubKeys()[0];
+  if (!first) return null;
+  return { keyId: first.keyId, key: first.key, base: getApiHubBase() };
 }
 
 export function isApiHubConfigured(): boolean {
@@ -76,57 +97,109 @@ export function swapAuthHeaders(
 // 요청마다 죽은 조합을 반복 시도하며 지연을 쌓지 않기 위한 세션 플래그.
 let hubBrokenThisSession = false;
 
+// Responses that really came from the HUB (not from the legacy fallback). Callers use this to
+// avoid writing a HUB reply into the legacy OpenAPI key state.
+const hubResponses = new WeakSet<object>();
+
+export function isApiHubResponse(response: Response): boolean {
+  return hubResponses.has(response);
+}
+
 /** 테스트·재프로브용 초기화 */
 export function resetApiHubSessionState(): void {
   hubBrokenThisSession = false;
+  resetApiHubPoolSessionState();
+}
+
+async function isDailyQuotaReply(response: Response): Promise<boolean> {
+  if (response.status !== 429) return false;
+  const text = await response.clone().text().catch(() => '');
+  return isApiHubDailyQuotaResponse(response.status, text);
+}
+
+/** Log which key replaces the spent one. Numbers only — never a key value or Key ID. "남은 키" counts usable keys from the next one on. */
+function logKeySwitch(keys: ApiHubKey[], spentIndex: number): void {
+  const later = keys.map((item, index) => ({ item, index })).filter(({ item, index }) => index > spentIndex && isApiHubKeyUsable(item));
+  if (later.length === 0) {
+    console.warn(`[API-HUB] ${spentIndex + 1}번 키 오늘 한도 끝 (남은 키 0개)`);
+    return;
+  }
+  console.warn(`[API-HUB] ${spentIndex + 1}번 키 오늘 한도 끝 → ${later[0].index + 1}번 키로 전환 (남은 키 ${later.length}개)`);
 }
 
 /**
- * fetch 드롭인 대체. HUB 키가 설정돼 있으면 URL·헤더를 변환해 호출하고,
- * HUB 쪽이 401/403/404(키·경로 문제)면 legacy 로 즉시 재시도한 뒤 이번 세션은
- * legacy 에 눌러앉는다. HUB 키가 없으면 원본 그대로 나간다.
+ * fetch 드롭인 대체. HUB 키가 설정돼 있으면 URL·헤더를 변환해 호출한다.
+ *  - 일별 한도 429(본문에 일별 사용량 한도): 그 키를 다음 한국 자정까지 막고 다음 키로 같은 요청을 다시 보낸다.
+ *  - 문구 없는 429(초당 제한 등): 전환하지 않고 그대로 돌려준다.
+ *  - 401/403: 그 키만 이번 세션 건너뛴다. 404 또는 키가 전부 무효면 이번 세션은 legacy 로 눌러앉는다(기존 동작).
+ *  - 모든 키가 한도 끝: legacy 로 넘어가지 않고 한 문장 오류를 던진다 (조용한 대체 금지).
+ * HUB 키가 없으면 원본 그대로 나간다.
  */
 export async function naverApiFetch(
   url: string,
   init: Omit<RequestInit, 'headers'> & { headers?: Record<string, string> } = {}
 ): Promise<Response> {
-  const creds = getApiHubCredentials();
-  if (!creds || hubBrokenThisSession) {
-    return fetch(url, init as RequestInit);
-  }
-  const hubUrl = mapLegacyUrlToHub(url, creds.base);
+  const keys = hubBrokenThisSession ? [] : getApiHubKeys();
+  const hubUrl = keys.length > 0 ? mapLegacyUrlToHub(url, getApiHubBase()) : null;
   if (!hubUrl) {
     return fetch(url, init as RequestInit);
   }
-  const hubInit = { ...init, headers: swapAuthHeaders(init.headers || {}, creds) };
   try {
-    const response = await fetch(hubUrl, hubInit as RequestInit);
-    if (response.status === 401 || response.status === 403 || response.status === 404) {
-      hubBrokenThisSession = true;
-      console.warn(`[API-HUB] HUB 응답 ${response.status} — 이번 세션은 legacy 로 복귀 (${hubUrl.slice(0, 60)})`);
-      return fetch(url, init as RequestInit);
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index];
+      if (!isApiHubKeyUsable(key)) continue;
+      const hubInit = { ...init, headers: swapAuthHeaders(init.headers || {}, key) };
+      const response = await fetch(hubUrl, hubInit as RequestInit);
+      if (response.status === 404) {
+        hubBrokenThisSession = true;
+        console.warn(`[API-HUB] HUB 응답 ${response.status} — 이번 세션은 legacy 로 복귀 (${hubUrl.slice(0, 60)})`);
+        return fetch(url, init as RequestInit);
+      }
+      if (response.status === 401 || response.status === 403) {
+        markApiHubKeyInvalid(key);
+        console.warn(`[API-HUB] ${index + 1}번 키 응답 ${response.status} — 이 키만 건너뜁니다`);
+        continue;
+      }
+      if (await isDailyQuotaReply(response)) {
+        markApiHubKeyQuotaBlocked(key);
+        logKeySwitch(keys, index);
+        continue;
+      }
+      hubResponses.add(response);
+      return response;
     }
-    return response;
   } catch (error: any) {
     hubBrokenThisSession = true;
     console.warn('[API-HUB] HUB 호출 실패 — legacy 로 복귀:', error?.message || error);
     return fetch(url, init as RequestInit);
   }
+  const spent = keys.filter((item) => isApiHubKeyQuotaBlocked(item)).length;
+  if (spent > 0) raiseApiHubQuotaExhausted(spent);
+  // Only auth-rejected keys remain: same as the old 401/403 rule — settle on legacy for this session.
+  hubBrokenThisSession = true;
+  console.warn('[API-HUB] 모든 HUB 키가 인증 거부(401/403) — 이번 세션은 legacy 로 복귀');
+  return fetch(url, init as RequestInit);
 }
 
 /**
  * axios 등 fetch 가 아닌 클라이언트용 순수 변환 — HUB 키가 있으면 변환된
  * {url, headers} 를, 없거나 매핑 불가면 원본 그대로 돌려준다.
+ * 이 경로는 응답을 볼 수 없어 키 전환은 못 한다. 이미 한도가 끝난 키는 건너뛰고,
+ * 전부 끝났으면 naverApiFetch 와 같은 한 문장 오류를 던진다.
  */
 export function transformNaverRequest(
   url: string,
   headers: Record<string, string>
 ): { url: string; headers: Record<string, string> } {
-  const creds = getApiHubCredentials();
-  if (!creds || hubBrokenThisSession) return { url, headers };
-  const hubUrl = mapLegacyUrlToHub(url, creds.base);
+  const keys = hubBrokenThisSession ? [] : getApiHubKeys();
+  if (keys.length === 0) return { url, headers };
+  const hubUrl = mapLegacyUrlToHub(url, getApiHubBase());
   if (!hubUrl) return { url, headers };
-  return { url: hubUrl, headers: swapAuthHeaders(headers, creds) };
+  const usable = keys.find((item) => isApiHubKeyUsable(item));
+  if (usable) return { url: hubUrl, headers: swapAuthHeaders(headers, usable) };
+  const spent = keys.filter((item) => isApiHubKeyQuotaBlocked(item)).length;
+  if (spent > 0) raiseApiHubQuotaExhausted(spent);
+  return { url, headers };
 }
 
 export interface ApiHubProbeResult {

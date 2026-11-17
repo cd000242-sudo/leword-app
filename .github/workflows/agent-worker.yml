@@ -78,6 +78,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: |
           for i in 1 2 3; do
             timeout 600 npm ci && break

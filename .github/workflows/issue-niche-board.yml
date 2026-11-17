@@ -169,6 +169,7 @@ jobs:
           # API HUB 시크릿 등록 전엔 빈 값 → 어댑터가 legacy 로 동작(무해)
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           node scripts/issue-niche-board.js \
@@ -265,6 +266,7 @@ jobs:
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           if [ ! -s issue-board-picks.json ]; then
@@ -326,6 +328,7 @@ jobs:
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: |
           DEST=site/spa/public/data/issue-niche-board.json
           if [ ! -s "$DEST" ]; then
@@ -354,6 +357,7 @@ jobs:
           NAVER_SEARCH_AD_CUSTOMER_ID: ${{ secrets.NAVER_SEARCH_AD_CUSTOMER_ID }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           DEST=site/spa/public/data/issue-niche-board.json

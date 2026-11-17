@@ -74,7 +74,7 @@ export type BloggerApi = {
    * 일렉트론 tsc 가 릴리즈 빌드에서 깨졌다(v2.49.97 릴리즈 실측). 반환 모양은
    * config-utility 의 probe-naver-api-hub 핸들러와 짝.
    */
-  probeNaverApiHub(payload: { keyId: string; key: string }): Promise<{ ok: boolean; detail?: string; base?: string; datalabOk?: boolean }>;
+  probeNaverApiHub(payload: { keyId: string; key: string; poolEntry?: boolean; pool?: Array<{ keyId: string; key: string }> }): Promise<{ ok: boolean; detail?: string; base?: string; datalabOk?: boolean }>;
   setSettingsProtection(protectedMode: boolean): Promise<RunResult>;
   isSettingsProtected(): Promise<{ ok: boolean; protected?: boolean }>;
   validateEnv(): Promise<RunResult>;
@@ -341,7 +341,7 @@ const api: BloggerApi = {
   },
 
   getEnv: () => ipcRenderer.invoke('get-env'),
-  probeNaverApiHub: (payload: { keyId: string; key: string }) => ipcRenderer.invoke('probe-naver-api-hub', payload),
+  probeNaverApiHub: (payload: { keyId: string; key: string; poolEntry?: boolean; pool?: Array<{ keyId: string; key: string }> }) => ipcRenderer.invoke('probe-naver-api-hub', payload),
   setSettingsProtection: (protectedMode: boolean) => ipcRenderer.invoke('set-settings-protection', protectedMode),
   isSettingsProtected: () => ipcRenderer.invoke('is-settings-protected'),
   validateEnv: () => ipcRenderer.invoke('validate-env'),

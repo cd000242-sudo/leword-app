@@ -59,6 +59,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
           LEWORD_WORKER_SERVER_KEY: ${{ secrets.LEWORD_WORKER_SERVER_KEY }}
         run: >-
           node scripts/keyword-enrich.cjs

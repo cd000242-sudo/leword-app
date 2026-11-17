@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import axios from 'axios';
 import { EnvironmentManager } from '../../utils/environment-manager';
+import { sanitizeApiHubKeyPool } from '../../utils/naver-api-hub-pool';
 import { crawlNewsSnippets } from '../../utils/keyword-competition/naver-search-crawler';
 import { getFreshKeywordsAPI } from '../../utils/mass-collection/fresh-keywords-api';
 import { withSmartRetry, withCacheAndRetry, naverApiCall, parallelProcess, apiHealthCheck, clearCache } from '../../utils/api-reliability';
@@ -378,12 +379,22 @@ export function setupConfigUtilityHandlers(): void {
   // NAVER API HUB 키 실측 확인 — 게이트웨이 후보를 시험해 작동 조합을 잠근다.
   // 성공 시 키+게이트웨이를 저장하므로 이후 모든 검색/데이터랩 호출이 HUB 로 나간다.
   if (!ipcMain.listenerCount('probe-naver-api-hub')) {
-    ipcMain.handle('probe-naver-api-hub', async (_event, payload: { keyId?: string; key?: string }) => {
+    ipcMain.handle('probe-naver-api-hub', async (_event, payload: { keyId?: string; key?: string; poolEntry?: boolean; pool?: unknown[] }) => {
       try {
         const { probeApiHub, resetApiHubSessionState } = await import('../../utils/naver-api-hub');
         const keyId = String(payload?.keyId || '').trim();
         const key = String(payload?.key || '').trim();
         const result = await probeApiHub(keyId, key);
+        if (payload?.poolEntry) {
+          // 다른 계정 키: 확인만 한다. 성공하면 화면의 목록 전체를 저장한다 (기존 1번 키 칸은 건드리지 않음).
+          if (result.ok && Array.isArray(payload.pool)) {
+            const poolManager = EnvironmentManager.getInstance();
+            await poolManager.saveConfig({ naverApiHubKeyPool: sanitizeApiHubKeyPool(payload.pool) });
+            poolManager.reloadConfig();
+            resetApiHubSessionState();
+          }
+          return { ok: result.ok, detail: result.detail };
+        }
         if (result.ok && result.base) {
           const envManager = EnvironmentManager.getInstance();
           await envManager.saveConfig({
@@ -401,6 +412,18 @@ export function setupConfigUtilityHandlers(): void {
       }
     });
     console.log('[KEYWORD-MASTER] ✅ probe-naver-api-hub 핸들러 등록 완료');
+  }
+
+  // 다른 계정 키 행의 상태 (사용 가능 / 오늘 한도 끝 / 확인 필요) — 저장된 목록 순서 그대로
+  if (!ipcMain.listenerCount('get-naver-api-hub-pool-status')) {
+    ipcMain.handle('get-naver-api-hub-pool-status', async () => {
+      try {
+        const { getApiHubPoolEntryStates } = await import('../../utils/naver-api-hub-pool');
+        return { ok: true, states: getApiHubPoolEntryStates(EnvironmentManager.getInstance().getConfig()) };
+      } catch (error: any) {
+        return { ok: false, states: [], detail: error?.message || String(error) };
+      }
+    });
   }
 
   // v2.44.0: 저사양 모드 get/set
@@ -509,6 +532,8 @@ export function setupConfigUtilityHandlers(): void {
         if (settings.brightDataZone !== undefined) envConfig.brightDataZone = settings.brightDataZone;
         if (settings.naverApiHubKeyId !== undefined) envConfig.naverApiHubKeyId = settings.naverApiHubKeyId;
         if (settings.naverApiHubKey !== undefined) envConfig.naverApiHubKey = settings.naverApiHubKey;
+        // 다른 계정 키 목록 — 화면에 목록이 있을 때만 온다. 가려진 표시값·빈 행·중복은 여기서 뺀다.
+        if (settings.naverApiHubKeyPool !== undefined) envConfig.naverApiHubKeyPool = sanitizeApiHubKeyPool(settings.naverApiHubKeyPool);
 
         // 설정 저장
         await envManager.saveConfig(envConfig);

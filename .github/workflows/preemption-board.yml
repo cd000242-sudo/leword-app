@@ -163,6 +163,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
           # seedsOnly 감사 실행은 강제로 다시 긁는다 — 레포 창고가 3일 안쪽이면
           # 스크립트가 "그대로 씁니다" 하고 끝나 버려서 볼 것이 없다.
           FORCE_REBUILD: ${{ github.event.inputs.seedsOnly == 'true' }}
@@ -291,6 +292,7 @@ jobs:
           # API HUB 시크릿 등록 전엔 빈 값 → 어댑터가 legacy 로 동작(무해)
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         # 【32주제 전면 개방 2026-09-07】사장님 지시: "모든 주제를 다 열어놔.
         # 어떤 키워드를 원하는지 모르잖아 사용자들은."
         #
@@ -521,6 +523,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         # maxPerRun 1,200 — 회차당 BD 자리 실측 상한(키워드 600 × 구조 포함 2콜).
         # 월 상한은 위 FREE 5,000 + PAID 12,500(세 레인 합산)과 FEATURE_CAPS golden 11,000 이 건다.
         run: |
@@ -558,6 +561,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: |
           # 상한은 사고 방지용이지 절약 수단이 아니다(구독 호출이라 건당 비용 없음).
           # maxAi 150→260: 행 3개 동시 처리(행당 33초)면 260행이 약 48분이라
@@ -583,6 +587,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           NAVER_APIHUB_KEY_ID: ${{ secrets.NAVER_APIHUB_KEY_ID }}
           NAVER_APIHUB_KEY: ${{ secrets.NAVER_APIHUB_KEY }}
+          NAVER_APIHUB_KEY_POOL: ${{ secrets.NAVER_APIHUB_KEY_POOL }}
         run: |
           node scripts/enrich-board-briefs.js --in=board.json --out=board.json --maxAi=80
 

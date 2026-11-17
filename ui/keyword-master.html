@@ -1999,6 +1999,9 @@
                         onfocus="this.style.borderColor='#10b981'; this.style.background='rgba(255, 255, 255, 0.15)'"
                         onblur="this.style.borderColor='rgba(255, 255, 255, 0.2)'; this.style.background='rgba(255, 255, 255, 0.1)'">
                       <div id="naverApiHubProbeStatus" style="font-size: 12px; color: rgba(255, 255, 255, 0.6); min-height: 16px;"></div>
+                      <div id="naverApiHubPoolRows" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                      <button type="button" onclick="window.addNaverApiHubPoolRow && window.addNaverApiHubPoolRow({}, '확인 필요')"
+                        style="align-self: flex-start; padding: 6px 12px; background: rgba(255, 255, 255, 0.08); border: 1px dashed rgba(255, 255, 255, 0.35); border-radius: 6px; color: rgba(255, 255, 255, 0.85); font-size: 12px; font-weight: 600; cursor: pointer;">+ 다른 계정 키 추가</button>
                     </div>
                   </div>
                   <!-- Bright Data(2026-10-06 설계실 3차) — 설계실 ⑤ '커뮤니티까지'를 체크했을 때만 구글 커뮤니티 검색에 쓴다(유료). -->
@@ -9452,6 +9455,7 @@
             const hubKeyInput = document.getElementById('keywordNaverApiHubKey');
             if (hubKeyIdInput) hubKeyIdInput.value = apiKeys.naverApiHubKeyId || '';
             if (hubKeyInput) hubKeyInput.value = apiKeys.naverApiHubKey || '';
+            if (window.renderNaverApiHubPoolRows) window.renderNaverApiHubPoolRows(apiKeys.naverApiHubKeyPool);
             // 사이트 폴더 — 칸만 만들고 복원을 빠뜨리면 열 때마다 빈칸으로 보인다(이 저장소 단골 사고).
             const siteRepoDirInput = document.getElementById('keywordSiteRepoDir');
             if (siteRepoDirInput) siteRepoDirInput.value = apiKeys.siteRepoDir || '';
@@ -9572,6 +9576,94 @@
           }
         };
 
+        // NAVER API HUB 다른 계정 키 — 행마다 Key ID · Key · [연결 확인] · [지우기] · 상태 글자
+        window.setNaverApiHubPoolStatus = function setNaverApiHubPoolStatus(el, text) {
+          el.textContent = text;
+          el.style.color = text === '사용 가능' ? '#6ee7b7' : text === '오늘 한도 끝' ? '#fcd34d' : text === '확인 중…' ? 'rgba(255, 255, 255, 0.6)' : '#fca5a5';
+        };
+        window.collectNaverApiHubPoolRows = function collectNaverApiHubPoolRows() {
+          return Array.from(document.querySelectorAll('#naverApiHubPoolRows .naverApiHubPoolRow'))
+            .map((row) => ({
+              keyId: row.querySelector('.naverApiHubPoolKeyId').value.trim(),
+              key: row.querySelector('.naverApiHubPoolKey').value.trim(),
+            }))
+            .filter((entry) => entry.keyId && entry.key);
+        };
+        window.addNaverApiHubPoolRow = function addNaverApiHubPoolRow(entry, stateText) {
+          const box = document.getElementById('naverApiHubPoolRows');
+          if (!box) return;
+          const row = document.createElement('div');
+          row.className = 'naverApiHubPoolRow';
+          row.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; align-items: center;';
+          const inputStyle = 'flex: 1 1 140px; min-width: 120px; padding: 8px 10px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 8px; color: white; font-size: 13px;';
+          const hubKeyIdInput = document.createElement('input');
+          hubKeyIdInput.type = 'text';
+          hubKeyIdInput.placeholder = 'Key ID';
+          hubKeyIdInput.autocomplete = 'off';
+          hubKeyIdInput.className = 'naverApiHubPoolKeyId';
+          hubKeyIdInput.style.cssText = inputStyle;
+          hubKeyIdInput.value = (entry && entry.keyId) || '';
+          const hubKeyInput = document.createElement('input');
+          hubKeyInput.type = 'password';
+          hubKeyInput.placeholder = 'Key';
+          hubKeyInput.autocomplete = 'new-password';
+          hubKeyInput.className = 'naverApiHubPoolKey';
+          hubKeyInput.style.cssText = inputStyle;
+          hubKeyInput.value = (entry && entry.key) || '';
+          const btnStyle = 'padding: 6px 10px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 6px; color: rgba(255, 255, 255, 0.9); font-size: 12px; cursor: pointer;';
+          const probeBtn = document.createElement('button');
+          probeBtn.type = 'button';
+          probeBtn.textContent = '연결 확인';
+          probeBtn.style.cssText = btnStyle;
+          probeBtn.onclick = () => window.probeNaverApiHubPoolRow(row);
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.textContent = '지우기';
+          removeBtn.style.cssText = btnStyle;
+          removeBtn.onclick = () => row.remove();
+          const statusEl = document.createElement('span');
+          statusEl.className = 'naverApiHubPoolStatus';
+          statusEl.style.cssText = 'font-size: 12px; min-width: 70px;';
+          window.setNaverApiHubPoolStatus(statusEl, stateText || '확인 필요');
+          row.append(hubKeyIdInput, hubKeyInput, probeBtn, removeBtn, statusEl);
+          box.appendChild(row);
+        };
+        window.renderNaverApiHubPoolRows = function renderNaverApiHubPoolRows(pool) {
+          const box = document.getElementById('naverApiHubPoolRows');
+          if (!box) return;
+          box.textContent = '';
+          // Saving sends the list only after a load drew it, so a failed load can never wipe saved keys.
+          window.naverApiHubPoolLoaded = true;
+          const entries = Array.isArray(pool) ? pool : [];
+          entries.forEach((entry) => window.addNaverApiHubPoolRow(entry, '사용 가능'));
+          const api = window.electronAPI;
+          if (!entries.length || !api || !api.invoke) return;
+          api.invoke('get-naver-api-hub-pool-status').then((res) => {
+            const rows = box.querySelectorAll('.naverApiHubPoolRow');
+            ((res && res.states) || []).forEach((state, i) => {
+              const el = rows[i] && rows[i].querySelector('.naverApiHubPoolStatus');
+              if (el) window.setNaverApiHubPoolStatus(el, state === 'quota' ? '오늘 한도 끝' : state === 'invalid' ? '확인 필요' : '사용 가능');
+            });
+          }).catch(() => {});
+        };
+        window.probeNaverApiHubPoolRow = async function probeNaverApiHubPoolRow(row) {
+          const statusEl = row.querySelector('.naverApiHubPoolStatus');
+          const keyId = row.querySelector('.naverApiHubPoolKeyId').value.trim();
+          const key = row.querySelector('.naverApiHubPoolKey').value.trim();
+          if (!keyId || !key) { window.setNaverApiHubPoolStatus(statusEl, '확인 필요'); return; }
+          window.setNaverApiHubPoolStatus(statusEl, '확인 중…');
+          try {
+            const api = window.electronAPI || window.blogger;
+            const payload = { keyId, key, poolEntry: true, pool: window.collectNaverApiHubPoolRows() };
+            const result = api && api.probeNaverApiHub
+              ? await api.probeNaverApiHub(payload)
+              : (api && api.invoke ? await api.invoke('probe-naver-api-hub', payload) : null);
+            window.setNaverApiHubPoolStatus(statusEl, result && result.ok ? '사용 가능' : '확인 필요');
+          } catch (error) {
+            window.setNaverApiHubPoolStatus(statusEl, '확인 필요');
+          }
+        };
+
         // NAVER API HUB 키 연결 확인 — 게이트웨이 후보를 실측해 작동 조합을 잠근다
         window.probeNaverApiHubKeys = async function probeNaverApiHubKeys() {
           const statusEl = document.getElementById('naverApiHubProbeStatus');
@@ -9643,6 +9735,8 @@
               ...(document.getElementById('keywordBrightDataZone') ? { brightDataZone: document.getElementById('keywordBrightDataZone').value.trim() } : {}),
               naverApiHubKeyId: document.getElementById('keywordNaverApiHubKeyId')?.value?.trim() || '',
               naverApiHubKey: document.getElementById('keywordNaverApiHubKey')?.value?.trim() || '',
+              // 다른 계정 키 — 목록이 화면에 있을 때만 보낸다 (없는 칸으로 저장된 키를 지우지 않게).
+              ...(document.getElementById('naverApiHubPoolRows') ? { naverApiHubKeyPool: window.naverApiHubPoolLoaded ? window.collectNaverApiHubPoolRows() : undefined } : {}),
               // 사이트 폴더(2026-09-17) — 비운 채 저장하면 자동 찾기로 돌아간다. 그래서 빈 값도 보낸다.
               ...(document.getElementById('keywordSiteRepoDir') ? { siteRepoDir: document.getElementById('keywordSiteRepoDir').value.trim() } : {}),
             };
