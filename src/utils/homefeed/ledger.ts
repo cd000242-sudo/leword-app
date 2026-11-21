@@ -15,7 +15,7 @@ import {
   type HomefeedSnapshot,
 } from './types';
 import { compactKey, sameIssueKeyword } from './text';
-import { mergeNewsProbe } from './speed';
+import { isNewsNearFirstSeen, mergeNewsProbe } from './speed';
 
 const REUSE_WINDOW_MS = 6 * 3_600_000;
 
@@ -73,7 +73,10 @@ export function recordSnapshotInLedger(
         appearances: 1,
       };
     const observation = newsObservations[issue.issueKey];
-    entries[issue.issueKey] = observation ? { ...seen, newsProbe: mergeNewsProbe(seen.newsProbe, observation) } : seen;
+    const oldProbe = seen.newsProbe;
+    const repairOldProbe = observation?.earliestAt && !observation.capped && oldProbe?.earliestAt
+      && !isNewsNearFirstSeen(seen.firstSeenAt, oldProbe.earliestAt);
+    entries[issue.issueKey] = observation ? { ...seen, newsProbe: mergeNewsProbe(repairOldProbe ? { ...oldProbe, earliestAt: null } : oldProbe, observation) } : seen;
   }
   return { schemaVersion: HOMEFEED_SCHEMA.signalState, updatedAt: snapshot.capturedAt, entries };
 }

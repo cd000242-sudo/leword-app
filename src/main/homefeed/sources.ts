@@ -13,6 +13,7 @@ import { parseNewsHeadlines, stripNewsMarkup } from '../../utils/issue-context';
 import type { HomefeedCollectorDeps, HomefeedBoardIssue, RankedKeyword } from './collector';
 import type { HomefeedStore } from './store';
 import { createOgImageResolver } from './og-image';
+import { ApiHubQuotaExhaustedError } from '../../utils/naver-api-hub-pool';
 
 const WORKER = 'https://leword-keyword-api.leword.workers.dev/';
 const LANE_MAP = { popular: 'nate', google: 'google', daum: 'daum' } as const;
@@ -35,9 +36,28 @@ function naverCredentials(): { clientId: string; clientSecret: string; hub: bool
   };
 }
 
+export async function fetchHomefeedNewsResponse(
+  url: string,
+  credentials: { clientId: string; clientSecret: string },
+  options: { hubFetch: typeof fetch; openFetch: typeof fetch; onFallback?(): void },
+): Promise<Response> {
+  const request = () => ({
+    headers: { 'X-Naver-Client-Id': credentials.clientId, 'X-Naver-Client-Secret': credentials.clientSecret },
+    signal: AbortSignal.timeout(10_000),
+  });
+  try {
+    return await options.hubFetch(url, request());
+  } catch (error) {
+    if (!(error instanceof ApiHubQuotaExhaustedError) || !credentials.clientId || !credentials.clientSecret) throw error;
+    options.onFallback?.();
+    return options.openFetch(url, request());
+  }
+}
+
 export function createHomefeedSourceDeps(store: HomefeedStore, options: { fetchImpl?: typeof fetch; log?: (message: string) => void } = {}): HomefeedCollectorDeps {
   const fetchImpl = options.fetchImpl ?? fetch;
   const og = createOgImageResolver(store, { fetchImpl });
+  let loggedNewsFallback = false;
 
   return {
     fetchSignalBz: async (limit) => (await getSignalBzKeywords(limit)).map((row) => ({ rank: row.rank, keyword: row.keyword })),
@@ -73,9 +93,14 @@ export function createHomefeedSourceDeps(store: HomefeedStore, options: { fetchI
       const { naverApiFetch } = require('../../utils/naver-api-hub');
       const cred = naverCredentials();
       const url = `https://openapi.naver.com/v1/search/news.json?query=${encodeURIComponent(keyword)}&display=${display}&sort=date`;
-      const response: Response = await naverApiFetch(url, {
-        headers: { 'X-Naver-Client-Id': cred.clientId, 'X-Naver-Client-Secret': cred.clientSecret },
-        signal: AbortSignal.timeout(10_000),
+      const response = await fetchHomefeedNewsResponse(url, cred, {
+        hubFetch: naverApiFetch as typeof fetch,
+        openFetch: fetchImpl,
+        onFallback: () => {
+          if (loggedNewsFallback) return;
+          loggedNewsFallback = true;
+          options.log?.('[HOMEFEED] API Hub 일일 한도 도달 — 연결된 네이버 뉴스 Open API로 수집합니다.');
+        },
       });
       if (!response.ok) throw new Error(`뉴스 검색 ${response.status}`);
       const json = await response.json() as { total?: unknown; items?: Array<Record<string, unknown>> };

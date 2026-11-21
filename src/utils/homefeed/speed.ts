@@ -29,12 +29,16 @@ const DEFAULT_RESOLUTION_MINUTES = 10;
 /** 한국 표준시(일광절약 없음) — '측정된 날'의 경계. */
 const KST_OFFSET_MS = 9 * 3_600_000;
 
-const LEAD_REASONS: readonly HomefeedLeadReason[] = ['censored', 'no_first_seen', 'sample_capped', 'no_news_sample', 'within_one_minute'];
+const LEAD_REASONS: readonly HomefeedLeadReason[] = ['censored', 'no_first_seen', 'sample_capped', 'no_news_sample', 'outside_window', 'within_one_minute'];
 
 type TimeLike = string | null | undefined;
 
 function parseTime(value: TimeLike): number {
   return typeof value === 'string' && value ? Date.parse(value) : Number.NaN;
+}
+
+export function isNewsNearFirstSeen(firstSeenAt: TimeLike, publishedAt: TimeLike): boolean {
+  return Math.abs(parseTime(firstSeenAt) - parseTime(publishedAt)) <= NEWS_BUCKET_WINDOW_HOURS * 60 * MINUTE_MS;
 }
 
 function positiveInt(value: number | undefined, fallback: number): number {
@@ -134,8 +138,8 @@ export function computeLead(input: {
   if (firstSeenAt === null) return unmeasured('no_first_seen');
   if (input.firstSeenCensored) return unmeasured('censored');
   if (input.sampleCapped) return unmeasured('sample_capped');
-  const firstNewsAt = earliestNewsAt(input.newsPublishedAts);
-  if (firstNewsAt === null) return unmeasured('no_news_sample');
+  const firstNewsAt = earliestNewsAt(input.newsPublishedAts.filter((at) => isNewsNearFirstSeen(firstSeenAt, at)));
+  if (firstNewsAt === null) return unmeasured(earliestNewsAt(input.newsPublishedAts) ? 'outside_window' : 'no_news_sample');
   const diffMs = Date.parse(firstNewsAt) - firstSeenMs;
   if (Math.abs(diffMs) < MINUTE_MS) return unmeasured('within_one_minute', firstNewsAt);
   return {

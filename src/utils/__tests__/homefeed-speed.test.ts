@@ -145,6 +145,14 @@ describe('앞섬/늦음 판정', () => {
     expect(computeLead({ ...base, firstSeenAt: at(0), newsPublishedAts: [null, '시각아님'] })).toMatchObject({ status: 'unmeasured', reason: 'no_news_sample' });
   });
 
+
+  it('12시간 밖 기사만 있으면 미측정이며, 가까운 기사와 함께 있으면 가까운 기사만 비교한다', () => {
+    expect(computeLead({ ...base, firstSeenAt: at(0), newsPublishedAts: [at(-721), at(721)] }))
+      .toMatchObject({ status: 'unmeasured', reason: 'outside_window', minutes: null });
+    expect(computeLead({ ...base, firstSeenAt: at(0), newsPublishedAts: [at(-32000), at(-42)] }))
+      .toMatchObject({ status: 'behind', minutes: 42, firstNewsAt: at(-42) });
+  });
+
   it('1분도 안 벌어진 차이는 앞섬도 늦음도 아니다 — 같은 분은 가릴 수 없다', () => {
     const lead = computeLead({ ...base, firstSeenAt: at(0), newsPublishedAts: [new Date(T0 + 30_000).toISOString()] });
     expect(lead).toMatchObject({ status: 'unmeasured', minutes: null, reason: 'within_one_minute' });

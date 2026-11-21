@@ -26,7 +26,7 @@ import { classifyHomefeedCategory } from '../../utils/homefeed/category';
 import { EVENT_FACT_RE, TENSION_RULES } from '../../utils/homefeed/lexicon';
 import { recordSnapshotInLedger, resolveIssueKey } from '../../utils/homefeed/ledger';
 import {
-  HOMEFEED_NEWS_MEASURE_LIMIT, bucketNewsTimes, earliestNewsAt, isNewsSampleCapped, leadFromEntry,
+  HOMEFEED_NEWS_MEASURE_LIMIT, bucketNewsTimes, earliestNewsAt, isNewsNearFirstSeen, isNewsSampleCapped, leadFromEntry,
 } from '../../utils/homefeed/speed';
 import { compactKey, isRelevantSample, sameIssueKeyword } from '../../utils/homefeed/text';
 import type { HomefeedStore } from './store';
@@ -125,11 +125,12 @@ function pickIssueCandidates(lists: Partial<Record<HomefeedRankSource, RankedKey
  * 속도 실측(2026-11-02) — 뉴스 검색 결과(최대 100건)에서 기사 시각 막대와 이번 회차 관측을 뽑는다.
  * 검색어와 어절이 겹치는 기사만 센다(다른 이슈 기사가 막대 · 첫 기사 시각에 새지 않게). 시각은 읽을 수 있는 것만 쓴다.
  */
-function measureNews(keyword: string, result: HomefeedNewsResult, endAtMs: number, limit: number): { buckets: HomefeedNewsBuckets; observation: HomefeedNewsObservation } {
+function measureNews(keyword: string, result: HomefeedNewsResult, endAtMs: number, limit: number, firstSeenAt: string): { buckets: HomefeedNewsBuckets; observation: HomefeedNewsObservation } {
   const times = result.items.filter((row) => isRelevantSample(keyword, row.title)).map((row) => row.publishedAt);
+  const comparable = times.filter((at) => Date.parse(at ?? '') <= endAtMs && isNewsNearFirstSeen(firstSeenAt, at));
   return {
     buckets: bucketNewsTimes(times, endAtMs),
-    observation: { earliestAt: earliestNewsAt(times), capped: isNewsSampleCapped({ total: result.total, returned: result.items.length, limit }) },
+    observation: { earliestAt: earliestNewsAt(comparable), capped: isNewsSampleCapped({ total: result.total, returned: result.items.length, limit }) },
   };
 }
 
@@ -267,7 +268,7 @@ export async function collectHomefeedSnapshot(
         const kept = sampled.filter((row) => isRelevantSample(item.keyword, row.title));
         droppedSamples += sampled.length - kept.length;
         newsSamples = kept.map((row) => ({ ...row, image: null, origin: 'naver-news' as const }));
-        const measured = measureNews(item.keyword, result, nowMs, newsDisplay);
+        const measured = measureNews(item.keyword, result, nowMs, newsDisplay, state.entries[issueKey]?.firstSeenAt ?? capturedAt);
         newsBuckets = measured.buckets;
         newsObservations[issueKey] = measured.observation;
         news.ok += 1;

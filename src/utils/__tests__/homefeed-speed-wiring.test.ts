@@ -1,9 +1,11 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHomefeedStore, type HomefeedStore } from '../../main/homefeed/store';
 import { collectHomefeedSnapshot, type HomefeedCollectorDeps } from '../../main/homefeed/collector';
+import { fetchHomefeedNewsResponse } from '../../main/homefeed/sources';
+import { ApiHubQuotaExhaustedError } from '../naver-api-hub-pool';
 import { recomputeHomefeedStories } from '../../main/homefeed/engine';
 import { createHomefeedService, speedScoreboardOf } from '../../main/homefeed/service';
 import { recordSnapshotInLedger } from '../homefeed/ledger';
@@ -235,5 +237,56 @@ describe('계산본 · 공개본 — 추가만, 옛 데이터 호환', () => {
   it('speedScoreboardOf 는 저장된 장부와 설정의 수집 주기로 성적표를 만든다', async () => {
     await collectHomefeedSnapshot(store, cfg(), fakeDeps(0));
     expect(speedScoreboardOf(store, Date.parse(at(5)))).toMatchObject({ total: 1, resolutionMinutes: 10, computedAt: at(5) });
+  });
+});
+
+describe('홈판 뉴스 API 연결', () => {
+  const url = 'https://openapi.naver.com/v1/search/news.json?query=test';
+  const credentials = { clientId: 'open-id', clientSecret: 'open-secret' };
+
+  it('등록된 허브 키가 모두 일일 한도에 닿으면 연결된 Open API로 뉴스만 계속 모은다', async () => {
+    const fallback = vi.fn(async () => new Response('{}', { status: 200 }));
+    const onFallback = vi.fn();
+    const response = await fetchHomefeedNewsResponse(url, credentials, {
+      hubFetch: async () => { throw new ApiHubQuotaExhaustedError(2); },
+      openFetch: fallback,
+      onFallback,
+    });
+    expect(response.status).toBe(200);
+    expect(fallback).toHaveBeenCalledWith(url, expect.objectContaining({
+      headers: { 'X-Naver-Client-Id': 'open-id', 'X-Naver-Client-Secret': 'open-secret' },
+    }));
+    expect(onFallback).toHaveBeenCalledOnce();
+  });
+
+  it('일시적인 429에서는 키를 바꾸지 않고, Open API 연결이 없으면 원인을 돌려준다', async () => {
+    const fallback = vi.fn();
+    const response = await fetchHomefeedNewsResponse(url, credentials, {
+      hubFetch: async () => new Response('{}', { status: 429 }), openFetch: fallback,
+    });
+    expect(response.status).toBe(429);
+    await expect(fetchHomefeedNewsResponse(url, { clientId: '', clientSecret: '' }, {
+      hubFetch: async () => { throw new ApiHubQuotaExhaustedError(1); }, openFetch: fallback,
+    })).rejects.toBeInstanceOf(ApiHubQuotaExhaustedError);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('과거 동명 기사 때문에 비교에 실패한 장부가 최근 실측값으로 회복된다', async () => {
+    await collectHomefeedSnapshot(store, cfg(), fakeDeps(0));
+    const state = store.readSignalState();
+    const saved = Object.values(state.entries)[0];
+    store.writeSignalState({
+      ...state,
+      entries: { ...state.entries, [saved.issueKey]: {
+        ...saved, firstSeenCensored: false,
+        newsProbe: { earliestAt: at(-120_000), completeSeen: true, cappedSeen: false },
+      } },
+    });
+    const { snapshot: renewed } = await collectHomefeedSnapshot(store, cfg(), fakeDeps(10, {
+      fetchNews: async () => ({ total: 2, items: news(KEYWORD, [-120_000, -5]) }),
+    }));
+    const current = only(renewed, KEYWORD);
+    expect(current.newsBuckets).toMatchObject({ counted: 1, outOfRange: 1 });
+    expect(current.lead).toMatchObject({ status: 'behind', minutes: 5, firstNewsAt: at(-5) });
   });
 });

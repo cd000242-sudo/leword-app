@@ -66,7 +66,7 @@ export interface HomefeedNewsBuckets {
 
 export type HomefeedLeadStatus = 'ahead' | 'behind' | 'unmeasured';
 /** 미측정 사유 — 앱이 꺼져 있던 구간 · 처음 본 시각 없음 · 표본이 상한에 닿음 · 뉴스 표본 없음 · 같은 분(分). */
-export type HomefeedLeadReason = 'censored' | 'no_first_seen' | 'sample_capped' | 'no_news_sample' | 'within_one_minute';
+export type HomefeedLeadReason = 'censored' | 'no_first_seen' | 'sample_capped' | 'no_news_sample' | 'outside_window' | 'within_one_minute';
 
 /** 우리가 처음 본 시각과 뉴스 표본의 가장 이른 기사 시각의 비교. 화면은 이 값만 읽는다(점수 · 확률 없음). */
 export interface HomefeedLead {
